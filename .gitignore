@@ -2,3 +2,5 @@
 /main copy.py
 /t.py
 /TouHou-Discord-Bot.code-workspace
+/Logger/Logs/
+__pycache__/
