@@ -1,0 +1,369 @@
+{
+    "main_character": {
+        "category_name": "⭐ 主要主角",
+        "description": "東方 Project 歷代的核心主角與主要角色",
+        "characters": [
+            {
+                "id": "reimu",
+                "name": "博麗靈夢",
+                "en_name": "Hakurei Reimu",
+                "title": "博麗神社的巫女",
+                "debut": "東方靈異傳 ～ Highly Responsive to Prayers (TH01)",
+                "species": "人類",
+                "ability": "主要是在空中飛翔程度的能力",
+                "location": "博麗神社",
+                "theme_song": "少女綺想曲 ～ Dream Battle",
+                "color": "#FF0000",
+                "description": "博麗神社的現任巫女。性格隨性直率，對任何人事物都一視同仁。",
+                "spell_cards": [
+                    "靈符「夢想妙珠」",
+                    "神技「八方鬼縛陣」",
+                    "夢想天生"
+                ]
+            },
+            {
+                "id": "marisa",
+                "name": "霧雨魔理沙",
+                "en_name": "Kirisame Marisa",
+                "title": "普通魔法使",
+                "debut": "東方封魔錄 ～ Story of Eastern Wonderland (TH02)",
+                "species": "人類",
+                "ability": "使用魔法程度的能力",
+                "location": "魔法之森",
+                "theme_song": "戀色 Master Spark",
+                "color": "#FFD700",
+                "description": "住在魔法之森的普通魔法使。極度努力，好勝且性格直爽。",
+                "spell_cards": [
+                    "戀符「Master Spark」",
+                    "魔砲「Final Spark」"
+                ]
+            }
+        ]
+    },
+    "pc98_era": {
+        "category_name": "📜 舊作 (TH01 - TH05)",
+        "description": "PC-98 時代作品登場的角色",
+        "characters": [
+            {
+                "id": "mima",
+                "name": "魅魔",
+                "en_name": "Mima",
+                "title": "久遠的夢幻",
+                "debut": "東方靈異傳 ～ Highly Responsive to Prayers (TH01)",
+                "species": "惡靈",
+                "ability": "使用魔法程度的能力",
+                "location": "博麗神社附近",
+                "theme_song": "Reincarnation",
+                "color": "#00FF7F",
+                "description": "附身於博麗神社的小祠堂附近的惡靈，實力非常強大。",
+                "spell_cards": [
+                    "邪符「Unseal Magic」"
+                ]
+            },
+            {
+                "id": "shingyoku",
+                "name": "神玉",
+                "en_name": "Shingyoku",
+                "title": "神界與魔界的門衛",
+                "debut": "東方靈異傳 ～ Highly Responsive to Prayers (TH01)",
+                "species": "神靈 / 不明",
+                "ability": "變身與空間轉換程度的能力",
+                "location": "博麗神社與異界的交界",
+                "theme_song": "永遠の巫女",
+                "color": "#8B0000",
+                "description": "負責鎮守現實與異次元入口的守護者，擁有陰陽玉、男性神官與女性神明三種切換型態。",
+                "spell_cards": [
+                    "多重幾何陰陽彈幕"
+                ]
+            },
+            {
+                "id": "sariel",
+                "name": "薩麗愛爾",
+                "en_name": "Sariel",
+                "title": "死之天使",
+                "debut": "東方靈異傳 ～ Highly Responsive to Prayers (TH01)",
+                "species": "天使",
+                "ability": "操縱光與死程度的能力",
+                "location": "魔界深處",
+                "theme_song": "いざ、倒れ逝くその時まで",
+                "color": "#FFFFFF",
+                "description": "魔界路線的最終頭目，擁有六片純白羽翼的死亡天使。戰鬥進入後期羽翼會化為駭人的異形姿態。",
+                "spell_cards": [
+                    "魔界十字光束",
+                    "毀滅之眼"
+                ]
+            },
+            {
+                "id": "konngara",
+                "name": "孔加拉",
+                "en_name": "Konngara",
+                "title": "星之騎士",
+                "debut": "東方靈異傳 ～ Highly Responsive to Prayers (TH01)",
+                "species": "夜叉 / 鬼神",
+                "ability": "操縱劍氣與剛力程度的能力",
+                "location": "地獄深處",
+                "theme_song": "星幽剣士",
+                "color": "#DC143C",
+                "description": "地獄路線的最終頭目，手持巨劍與盛著鮮血的缽，散發出威嚴且極具壓迫感的劍士。",
+                "spell_cards": [
+                    "星幽烈斬",
+                    "全方位業火彈"
+                ]
+            },
+            {
+                "id": "genjii",
+                "name": "玄爺",
+                "en_name": "Genjii",
+                "title": "博麗的守護神龜",
+                "debut": "東方封魔錄 ～ Story of Eastern Wonderland (TH02)",
+                "species": "神龜",
+                "ability": "在空中飛翔程度的能力",
+                "location": "博麗神社",
+                "theme_song": "無",
+                "color": "#228B22",
+                "description": "在靈夢還未掌握飛行能力時，背著靈夢在空中作戰的老烏龜，稱呼靈夢為「主人」。",
+                "spell_cards": []
+            },
+            {
+                "id": "yumemi",
+                "name": "岡崎夢美",
+                "en_name": "Okazaki Yumemi",
+                "title": "尋找魔法的教授",
+                "debut": "東方夢時空 ～ Phantasmagoria of Dim.Dream (TH03)",
+                "species": "人類 (外界人)",
+                "ability": "使用科學模擬魔法程度的能力",
+                "location": "可能性空間移動船",
+                "theme_song": "Strawberry Crisis!!",
+                "color": "#FF69B4",
+                "description": "來自外界的未來大學教授。為了證明「魔法」的存在而駕駛飛船來到幻想鄉，性格充滿求知慾但行事瘋狂。",
+                "spell_cards": [
+                    "十字架光束兵器",
+                    "科學模擬草莓彈幕"
+                ]
+            },
+            {
+                "id": "yuuka_pc98",
+                "name": "風見幽香 (舊作)",
+                "en_name": "Kazami Yuuka",
+                "title": "夢幻館的主人",
+                "debut": "東方幻想鄉 ～ Lotus Land Story (TH04)",
+                "species": "妖怪",
+                "ability": "操縱花程度的能力 (舊作偏向純粹強大魔力)",
+                "location": "夢幻館",
+                "theme_song": "眠れる恐怖 ～ Sleeping Terror",
+                "color": "#FFD700",
+                "description": "位於湖底的夢幻館主人。舊作時期性格極度抖S，實力深不可測，是魔理沙「極限火花」招式的最初原型使用者。",
+                "spell_cards": [
+                    "雙子分身攻擊",
+                    "原初之魔砲 (Master Spark 原型)"
+                ]
+            },
+            {
+                "id": "gengetsu",
+                "name": "幻月",
+                "en_name": "Gengetsu",
+                "title": "夢幻世界的支配者",
+                "debut": "東方幻想鄉 ～ Lotus Land Story (TH04)",
+                "species": "惡魔",
+                "ability": "展開極凶惡彈幕程度的能力",
+                "location": "夢幻世界",
+                "theme_song": "かわいい悪魔 ～ Innocence",
+                "color": "#FFB6C1",
+                "description": "夢幻世界的真正主人，長著天使般的羽翼，性格卻十分惡劣。被認為是舊作歷史上難度最恐怖的 Extra 頭目之一。",
+                "spell_cards": [
+                    "發狂發散彈幕"
+                ]
+            },
+            {
+                "id": "alice_pc98",
+                "name": "愛麗絲 (舊作)",
+                "en_name": "Alice",
+                "title": "死之少女 / 魔法使的少女",
+                "debut": "東方怪綺談 ～ Mystic Square (TH05)",
+                "species": "魔法使 (魔界人)",
+                "ability": "操縱魔法程度的能力",
+                "location": "魔界",
+                "theme_song": "the Grimoire of Alice",
+                "color": "#87CEEB",
+                "description": "舊作時期的愛麗絲。尚未精通人偶操控，而是拿著被稱為「Grimoire」的究極魔導書，使用極度華麗且高火力的全屬性魔法。",
+                "spell_cards": [
+                    "究極魔術「Grimoire of Alice」",
+                    "全方位星辰彈幕"
+                ]
+            },
+            {
+                "id": "shinki",
+                "name": "神綺",
+                "en_name": "Shinki",
+                "title": "魔界之神",
+                "debut": "東方怪綺談 ～ Mystic Square (TH05)",
+                "species": "神",
+                "ability": "創造魔界萬物程度的能力",
+                "location": "魔界",
+                "theme_song": "神話幻想 ～ Infinite Being",
+                "color": "#C0C0C0",
+                "description": "創造了魔界以及其中一切生靈的造物主，包括愛麗絲。擁有巨大的六翼，散發著無上的神性，但有時會表現出天然呆的一面。",
+                "spell_cards": [
+                    "六翼神罰彈幕",
+                    "魔界創造之火"
+                ]
+            }
+        ]
+    },
+    "th06_eoSD": {
+        "category_name": "🔴 東方紅魔鄉 (TH06)",
+        "description": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil 登場角色",
+        "characters": [
+            {
+                "id": "rumia",
+                "name": "露米婭",
+                "en_name": "Rumia",
+                "title": "宵闇的妖怪",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "妖怪",
+                "ability": "操縱黑暗程度的能力",
+                "location": "獸道",
+                "theme_song": "妖魔夜行",
+                "color": "#000000",
+                "description": "經常在夜晚出沒的食人妖怪。平時周圍被黑暗籠罩，看起來像一團黑影。性格單純，總是張開雙臂擺出十字架的姿勢。",
+                "spell_cards": [
+                    "夜符「Night Bird」",
+                    "闇符「Demarcation」"
+                ]
+            },
+            {
+                "id": "daiyousei",
+                "name": "大妖精",
+                "en_name": "Daiyousei",
+                "title": "無名的大妖精",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "妖精",
+                "ability": "無明確設定 (具備一般妖精的特徵)",
+                "location": "霧之湖",
+                "theme_song": "無 (道中曲: Lunate Elf)",
+                "color": "#32CD32",
+                "description": "居住在霧之湖附近的妖精，相較於普通妖精擁有更強的力量。在遊戲中作為第二關中頭目登場，沒有官方台詞，通常與琪露諾一起行動。",
+                "spell_cards": []
+            },
+            {
+                "id": "cirno",
+                "name": "琪露諾",
+                "en_name": "Cirno",
+                "title": "湖上的冰精",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "妖精",
+                "ability": "操縱冷氣程度的能力",
+                "location": "霧之湖",
+                "theme_song": "おてんば恋娘",
+                "color": "#00BFFF",
+                "description": "住在霧之湖的冰之妖精。性格好戰且自信，喜歡凍結青蛙玩耍。雖然常被玩家戲稱為「⑨（笨蛋）」，但在妖精中實力算是名列前茅。",
+                "spell_cards": [
+                    "冰符「Icicle Fall」",
+                    "凍符「Perfect Freeze」"
+                ]
+            },
+            {
+                "id": "meiling",
+                "name": "紅美鈴",
+                "en_name": "Hong Meiling",
+                "title": "華人小娘",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "妖怪",
+                "ability": "操縱氣程度的能力",
+                "location": "紅魔館大門",
+                "theme_song": "明治十七年の上海アリス",
+                "color": "#008000",
+                "description": "擔任紅魔館門衛的妖怪。擅長中國武術，平時負責看守大門，但偶爾會在值班時打瞌睡。對待人類相對友善，沒有一般妖怪的強烈惡意。",
+                "spell_cards": [
+                    "華符「芳華絢爛」",
+                    "彩符「彩雨」"
+                ]
+            },
+            {
+                "id": "koakuma",
+                "name": "小惡魔",
+                "en_name": "Koakuma",
+                "title": "無名的小惡魔",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "惡魔",
+                "ability": "無明確設定",
+                "location": "紅魔館地下圖書館",
+                "theme_song": "無 (道中曲: ヴワル魔法図書館)",
+                "color": "#8B0000",
+                "description": "居住在紅魔館大圖書館裡的惡魔，擔任帕秋莉的助手。在遊戲中為第四關中頭目，沒有官方名字，由粉絲稱呼為「小惡魔」。",
+                "spell_cards": []
+            },
+            {
+                "id": "patchouli",
+                "name": "帕秋莉・諾蕾姬",
+                "en_name": "Patchouli Knowledge",
+                "title": "知識與避世的少女",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "魔法使",
+                "ability": "操縱火水木金土日月程度的能力",
+                "location": "紅魔館地下圖書館",
+                "theme_song": "ラクトガール ～ 少女密室",
+                "color": "#DDA0DD",
+                "description": "蕾米莉亞的朋友，紅魔館地下圖書館的管理者。天生的魔法使，擁有極高的智力與龐大的魔力，但因患有哮喘加上缺乏運動，體質非常虛弱。",
+                "spell_cards": [
+                    "火符「Agni Shine」",
+                    "木符「Sylphy Horn」",
+                    "日符「Royal Flare」"
+                ]
+            },
+            {
+                "id": "sakuya",
+                "name": "十六夜咲夜",
+                "en_name": "Izayoi Sakuya",
+                "title": "紅魔館的女僕長",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "人類",
+                "ability": "操縱時間程度的能力",
+                "location": "紅魔館",
+                "theme_song": "月時計 ～ ルナ・ダイアル",
+                "color": "#4682B4",
+                "description": "紅魔館唯一的人類女僕長。做事瀟灑完美，精通飛刀術。",
+                "spell_cards": [
+                    "奇術「Eternal Meek」",
+                    "傷符「Inscribe Red Soul」"
+                ]
+            },
+            {
+                "id": "remilia",
+                "name": "蕾米莉亞・斯卡蕾特",
+                "en_name": "Remilia Scarlet",
+                "title": "永遠鮮紅的幼月",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "吸血鬼",
+                "ability": "操縱命運程度的能力",
+                "location": "紅魔館",
+                "theme_song": "亡き王女の為のセプテット",
+                "color": "#DC143C",
+                "description": "紅魔館的主人，引發「紅霧異變」的元凶。雖然活了五百多年，但外表與性格都如同幼女。具備吸血鬼驚人的身體能力與領袖氣質。",
+                "spell_cards": [
+                    "神槍「Spear the Gungnir」",
+                    "紅符「Scarlet Shoot」",
+                    "「紅色の幻想郷」"
+                ]
+            },
+            {
+                "id": "flandre",
+                "name": "芙蘭朵露・斯卡蕾特",
+                "en_name": "Flandre Scarlet",
+                "title": "惡魔之妹",
+                "debut": "東方紅魔鄉 ～ the Embodiment of Scarlet Devil (TH06)",
+                "species": "吸血鬼",
+                "ability": "破壞一切事物程度的能力",
+                "location": "紅魔館地下室",
+                "theme_song": "U.N.オーエンは彼女なのか？",
+                "color": "#FF4500",
+                "description": "蕾米莉亞的親妹妹，本作的 Extra 關卡頭目。擁有極端恐怖的破壞力，情緒較不穩定，因此長達 495 年間都被關在紅魔館的地下室裡，對外界事物充滿好奇。",
+                "spell_cards": [
+                    "禁忌「Cranberry Trap」",
+                    "禁忌「Lävatein」",
+                    "秘彈「And Then Will There Be None?」"
+                ]
+            }
+        ]
+    }
+}
