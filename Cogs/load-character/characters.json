@@ -365,5 +365,445 @@
                 ]
             }
         ]
+    },
+    "th07_pcb": {
+        "category_name": "🌸 東方妖妖夢 (TH07)",
+        "description": "東方妖妖夢 ～ Perfect Cherry Blossom 登場角色",
+        "characters": [
+            {
+                "id": "letty",
+                "name": "蕾蒂・霍瓦特羅克",
+                "en_name": "Letty Whiterock",
+                "title": "只屬於冬天的妖怪",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "妖怪 (雪女)",
+                "ability": "操縱寒氣程度的能力",
+                "location": "有雪的地方",
+                "theme_song": "クリスタライズシルバー",
+                "color": "#E0FFFF",
+                "description": "只有在冬季才會出現的妖怪。性格沉穩，並不常主動攻擊人類，當春天到來時就會躲到看不見的地方。代表著寒冷的冬季本身。",
+                "spell_cards": [
+                    "寒符「Lingering Cold」",
+                    "冬符「Flower Wither Away」",
+                    "白符「Undulation Ray」"
+                ]
+            },
+            {
+                "id": "chen",
+                "name": "橙",
+                "en_name": "Chen",
+                "title": "凶兆的黑貓",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "妖獸 (貓又 / 式神)",
+                "ability": "使用妖術程度的能力",
+                "location": "迷途之家",
+                "theme_song": "ティアオイエツォン (withered leaf)",
+                "color": "#228B22",
+                "description": "八雲藍的式神（也就是八雲紫的式神的式神）。平常在迷途之家出沒，雖然是妖怪但保留了貓怕水的特性。被潑水就會解除式神狀態。",
+                "spell_cards": [
+                    "仙符「鳳凰卵」",
+                    "鬼符「鬼門金神」",
+                    "天符「天仙鳴動」"
+                ]
+            },
+            {
+                "id": "alice_pcb",
+                "name": "愛麗絲・瑪格特羅依德",
+                "en_name": "Alice Margatroid",
+                "title": "七色的人偶使",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "魔法使",
+                "ability": "操縱人偶程度的能力",
+                "location": "魔法之森",
+                "theme_song": "ブクレシュティの人形師 / 人形裁判 ～ 人の形弄びし少女",
+                "color": "#FFB6C1",
+                "description": "住在魔法之森的魔法使，從舊作回歸至 Windows 平台的第一作。精通人偶製作與操控，能同時指揮大量人偶進行精密的戰鬥。性格有些傲嬌但骨子裡是個好人。",
+                "spell_cards": [
+                    "操符「乙女文樂」",
+                    "咒詛「魔彩光之上海人偶」",
+                    "魔符「Artful Sacrifice」"
+                ]
+            },
+            {
+                "id": "lily_white",
+                "name": "莉莉白",
+                "en_name": "Lily White",
+                "title": "告知春天來臨的妖精",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "妖精",
+                "ability": "告知春天來臨程度的能力",
+                "location": "幻想鄉全境",
+                "theme_song": "無 (道中曲: 天空の花の都)",
+                "color": "#FFFFFF",
+                "description": "當春天到來時，就會興奮地在幻想鄉各地飛來飛去傳遞春之訊息的妖精。雖然沒有惡意，但因為過度興奮會散佈大量的彈幕。",
+                "spell_cards": []
+            },
+            {
+                "id": "lunasa",
+                "name": "露娜薩・普莉茲姆利巴",
+                "en_name": "Lunasa Prismriver",
+                "title": "騷靈提琴手",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "騷靈 (Poltergeist)",
+                "ability": "演奏不使用雙手的樂器程度的能力 (小提琴)",
+                "location": "冥界階梯 / 普莉茲姆利巴洋館",
+                "theme_song": "幽霊楽団 ～ Phantom Ensemble",
+                "color": "#000000",
+                "description": "普莉茲姆利巴三姐妹的長女。性格沉穩有些陰鬱，擅長演奏小提琴，其演奏的音色會使聽者感到憂鬱。",
+                "spell_cards": [
+                    "弦奏「Guarnieri del Gesù」",
+                    "神弦「Stradivarius」"
+                ]
+            },
+            {
+                "id": "merlin",
+                "name": "梅露蘭・普莉茲姆利巴",
+                "en_name": "Merlin Prismriver",
+                "title": "騷靈小號手",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "騷靈 (Poltergeist)",
+                "ability": "演奏不使用雙手的樂器程度的能力 (小號)",
+                "location": "冥界階梯 / 普莉茲姆利巴洋館",
+                "theme_song": "幽霊楽団 ～ Phantom Ensemble",
+                "color": "#FFC0CB",
+                "description": "普莉茲姆利巴三姐妹的次女。性格開朗活潑，甚至有些天然呆。擅長演奏小號，其演奏的音色會使聽者情緒高昂。",
+                "spell_cards": [
+                    "管奏「Quiotl of Ghost」",
+                    "冥管「Ghost Clifford」"
+                ]
+            },
+            {
+                "id": "lyrica",
+                "name": "莉莉卡・普莉茲姆利巴",
+                "en_name": "Lyrica Prismriver",
+                "title": "騷靈鍵盤手",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "騷靈 (Poltergeist)",
+                "ability": "演奏不使用雙手的樂器程度的能力 (鍵盤樂器)",
+                "location": "冥界階梯 / 普莉茲姆利巴洋館",
+                "theme_song": "幽霊楽団 ～ Phantom Ensemble",
+                "color": "#FF0000",
+                "description": "普莉茲姆利巴三姐妹的三女。性格狡黠聰明，擅長演奏鍵盤樂器，其音色主要用於調和兩位姐姐的音樂。",
+                "spell_cards": [
+                    "冥鍵「Fazioli 冥界」",
+                    "大合葬「Phantom Concerto」"
+                ]
+            },
+            {
+                "id": "youmu",
+                "name": "魂魄妖夢",
+                "en_name": "Konpaku Youmu",
+                "title": "半人半靈的庭師",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "半人半靈",
+                "ability": "使用劍術程度的能力",
+                "location": "白玉樓",
+                "theme_song": "広有射怪鳥事 ～ Till When?",
+                "color": "#00FA9A",
+                "description": "西行寺幽幽子的專屬庭師兼護衛。性格認真耿直，手持斬斷迷惘的「樓觀劍」與斬斷未練的「白樓劍」戰鬥。身邊常伴隨著半個靈體。",
+                "spell_cards": [
+                    "人符「現世斬」",
+                    "獄界劍「二百由旬之一閃」",
+                    "六道劍「一念無量劫」"
+                ]
+            },
+            {
+                "id": "yuyuko",
+                "name": "西行寺幽幽子",
+                "en_name": "Saigyouji Yuyuko",
+                "title": "華胥的亡靈",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "亡靈",
+                "ability": "操縱死亡程度的能力",
+                "location": "白玉樓",
+                "theme_song": "幽雅に咲かせ、墨染の桜 ～ Border of Life",
+                "color": "#FF69B4",
+                "description": "冥界白玉樓的主人。千年前生前曾為人類，死後成為亡靈公主。外表優雅、食量極大，看似天然呆但實際上心思深不可測。為了讓「西行妖」盛開而引發了春雪異變。",
+                "spell_cards": [
+                    "死符「驚夢」",
+                    "櫻符「完全墨染的櫻花」",
+                    "「反魂蝶」"
+                ]
+            },
+            {
+                "id": "ran",
+                "name": "八雲藍",
+                "en_name": "Yakumo Ran",
+                "title": "隙間妖怪的式神",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "妖獸 (九尾狐 / 式神)",
+                "ability": "操縱式神程度的能力",
+                "location": "幻想鄉的邊界 / 迷途之家",
+                "theme_song": "少女幻葬 ～ Necro-Fantasy",
+                "color": "#FFA500",
+                "description": "八雲紫的式神，本體是擁有強大妖力的九尾狐。智力極高，擅長進行複雜的數學與結界運算。在紫沉睡時負責代為管理幻想鄉的事務。",
+                "spell_cards": [
+                    "式神「前鬼後鬼的守護」",
+                    "式輝「狐狸妖怪雷射」",
+                    "幻神「飯綱權現降臨」"
+                ]
+            },
+            {
+                "id": "yukari",
+                "name": "八雲紫",
+                "en_name": "Yakumo Yukari",
+                "title": "潛伏於境界中的妖怪",
+                "debut": "東方妖妖夢 ～ Perfect Cherry Blossom (TH07)",
+                "species": "妖怪",
+                "ability": "操縱境界程度的能力",
+                "location": "幻想鄉的邊界",
+                "theme_song": "ネクロファンタジア",
+                "color": "#800080",
+                "description": "建立幻想鄉的賢者之一。能力極度強大，能隨意操縱物理或概念上的「境界」（如生與死、虛與實）。性格隨性且神祕，經常躲在隙間裡睡覺或觀察外界。",
+                "spell_cards": [
+                    "結界「動與靜的均衡」",
+                    "境界「生與死的境界」",
+                    "紫奧義「彈幕結界」"
+                ]
+            }
+        ]
+    },
+    "th08_in": {
+        "category_name": "🌕 東方永夜抄 (TH08)",
+        "description": "東方永夜抄 ～ Imperishable Night 登場角色",
+        "characters": [
+            {
+                "id": "wriggle",
+                "name": "莉格露・奈特巴格",
+                "en_name": "Wriggle Nightbug",
+                "title": "闇中蠢動的光蟲",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "妖怪 (螢火蟲)",
+                "ability": "操縱昆蟲程度的能力",
+                "location": "草叢 / 森林",
+                "theme_song": "蠢々秋月 ～ Mooned Insect",
+                "color": "#006400",
+                "description": "螢火蟲的妖怪，能指揮數量龐大的蟲群進行攻擊或收集情報。雖然常被視為微不足道的蟲子，但集結起來的蟲群力量不容小覷。非常怕冷與怕火。",
+                "spell_cards": [
+                    "螢符「地上流星」",
+                    "蟲符「螢火蟲現象」",
+                    "隱蟲「永夜蟄居」"
+                ]
+            },
+            {
+                "id": "mystia",
+                "name": "米斯蒂亞・蘿蕾拉",
+                "en_name": "Mystia Lorelei",
+                "title": "夜雀妖怪",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "妖怪 (夜雀)",
+                "ability": "以歌聲讓人發狂程度的能力、讓人得夜盲症程度的能力",
+                "location": "獸道",
+                "theme_song": "もう歌しか聞こえない",
+                "color": "#FF69B4",
+                "description": "經常在獸道出沒的夜雀妖怪。平常會推著小車經營烤八目鰻攤位，歌聲能讓人失去視覺（夜盲）或陷入瘋狂，藉此誘捕在夜間迷路的人類。",
+                "spell_cards": [
+                    "聲符「梟的夜鳴聲」",
+                    "蛾符「天蛾的蠱毒」",
+                    "夜雀「真夜中的合唱指揮」"
+                ]
+            },
+            {
+                "id": "keine",
+                "name": "上白澤慧音",
+                "en_name": "Kamishirasawa Keine",
+                "title": "知識與歷史的半獸",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "半獸 (白澤)",
+                "ability": "吞噬歷史程度的能力 (人類時) / 創造歷史程度的能力 (白澤時)",
+                "location": "人類村落",
+                "theme_song": "プレインエイジア",
+                "color": "#0000FF",
+                "description": "在人類村落開設寺子屋（學校）的老師，極度重視並保護人類。平時是人類姿態，滿月時會變身為傳說中的瑞獸「白澤」。為了保護村落，曾在異變中將村落的歷史隱藏起來。",
+                "spell_cards": [
+                    "產靈「最初的金字塔」",
+                    "始符「Ephemerality 137」",
+                    "「日出之國的天子」"
+                ]
+            },
+            {
+                "id": "tewi",
+                "name": "因幡帝",
+                "en_name": "Inaba Tewi",
+                "title": "幸運的白兔",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "妖獸 (兔)",
+                "ability": "使人變得幸運程度的能力",
+                "location": "迷途竹林",
+                "theme_song": "シンデレラケージ ～ Kagome-Kagome",
+                "color": "#FFC0CB",
+                "description": "統治迷途竹林所有地上的妖怪兔的首領。雖然外表嬌小，但實際上是活了極長時間的古老妖怪。性格狡猾、極度喜歡惡作劇，能為迷路或友善的人帶來幸運。",
+                "spell_cards": [
+                    "兔符「開運大紋」",
+                    "兔符「因幡的素兔」"
+                ]
+            },
+            {
+                "id": "reisen",
+                "name": "鈴仙・優曇華院・稻葉",
+                "en_name": "Reisen Udongein Inaba",
+                "title": "狂氣的月兔",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "月兔",
+                "ability": "操縱狂氣程度的能力 (操縱波長)",
+                "location": "永遠亭",
+                "theme_song": "狂気の瞳 ～ Invisible Full Moon",
+                "color": "#800080",
+                "description": "為了逃避月之都的戰爭而逃亡到幻想鄉的月兔。目前居住在永遠亭，擔任輝夜的寵物與永琳的藥師學徒。她的紅眼能操控事物的波長，使對手產生幻覺或陷入瘋狂。",
+                "spell_cards": [
+                    "波符「月面波紋 (Lunar Waver)」",
+                    "狂符「幻視調律 (Visionary Tuning)」",
+                    "「幻朧月睨 (Lunatic Red Eyes)」"
+                ]
+            },
+            {
+                "id": "eirin",
+                "name": "八意永琳",
+                "en_name": "Yagokoro Eirin",
+                "title": "月之頭腦",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "月之民",
+                "ability": "製作所有藥物程度的能力、擁有天才般頭腦程度的能力",
+                "location": "永遠亭",
+                "theme_song": "千年幻想郷 ～ History of the Moon",
+                "color": "#4169E1",
+                "description": "月之都的創始者之一，擁有超乎常理的智慧與醫學知識。因為出於同情為輝夜製作了禁藥「蓬萊藥」，感到愧疚而帶著輝夜逃亡至地球。本作永夜異變（替換假月亮）的實際執行者。",
+                "spell_cards": [
+                    "藥符「壺中的大銀河」",
+                    "覺神「神代的記憶」",
+                    "秘術「天文密葬法」"
+                ]
+            },
+            {
+                "id": "kaguya",
+                "name": "蓬萊山輝夜",
+                "en_name": "Houraisan Kaguya",
+                "title": "永遠與須臾的罪人",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "月之民 (蓬萊人)",
+                "ability": "操縱永遠與須臾程度的能力",
+                "location": "永遠亭",
+                "theme_song": "竹取飛翔 ～ Lunatic Princess",
+                "color": "#FF1493",
+                "description": "永遠亭的主人，《竹取物語》的原型人物。原本是月之公主，因服下蓬萊藥成為不老不死之身，犯下重罪被流放至地球。性格優雅從容，平時深居簡出，喜歡收藏各種奇珍異寶。",
+                "spell_cards": [
+                    "難題「龍頸之玉 -五色的彈丸-」",
+                    "難題「蓬萊的彈枝 -七色的彈幕-」",
+                    "「蓬萊的樹海」"
+                ]
+            },
+            {
+                "id": "mokou",
+                "name": "藤原妹紅",
+                "en_name": "Fujiwara no Mokou",
+                "title": "蓬萊的人形",
+                "debut": "東方永夜抄 ～ Imperishable Night (TH08)",
+                "species": "人類 (蓬萊人)",
+                "ability": "不老不死程度的能力、操縱火焰程度的能力",
+                "location": "迷途竹林",
+                "theme_song": "月まで届け、不死の煙",
+                "color": "#FF0000",
+                "description": "本作的 Extra 關卡頭目。千年前因父親向輝夜求婚失敗而備受屈辱，為了復仇而奪取並服下了蓬萊藥，成為不老不死的人類。隱居在竹林中，與輝夜進行了長達千年的互相廝殺，但同時也發展出微妙的孽緣。",
+                "spell_cards": [
+                    "滅罪「正直者之死」",
+                    "虛人「Wu」",
+                    "「不死鳥附體」"
+                ]
+            }
+        ]
+    },
+    "th09_pofv": {
+        "category_name": "🌺 東方花映塚 (TH09)",
+        "description": "東方花映塚 ～ Phantasmagoria of Flower View 登場角色",
+        "characters": [
+            {
+                "id": "medicine",
+                "name": "梅蒂欣・梅蘭可莉",
+                "en_name": "Medicine Melancholy",
+                "title": "充滿毒氣的小人偶",
+                "debut": "東方花映塚 ～ Phantasmagoria of Flower View (TH09)",
+                "species": "妖怪 (人偶)",
+                "ability": "操縱毒程度的能力",
+                "location": "無名之丘",
+                "theme_song": "ポイズンボディ ～ Forsaken Doll",
+                "color": "#8A2BE2",
+                "description": "被丟棄在鈴蘭花叢中的人偶，長年吸收鈴蘭的毒氣而化為妖怪。對拋棄人偶的人類抱有極大的敵意，希望能解放所有人偶。身邊總是跟著一個小小的精靈。",
+                "spell_cards": [
+                    "毒符「神經之毒」",
+                    "霧氣「毒氣迷路」"
+                ]
+            },
+            {
+                "id": "yuuka",
+                "name": "風見幽香",
+                "en_name": "Kazami Yuuka",
+                "title": "四季的鮮花之主",
+                "debut": "東方花映塚 ～ Phantasmagoria of Flower View (TH09)",
+                "species": "妖怪",
+                "ability": "操縱花程度的能力",
+                "location": "太陽花田",
+                "theme_song": "今昔幻想郷 ～ Flower Land",
+                "color": "#228B22",
+                "description": "從舊作時期便存在、於 Windows 平台再次登場的強大妖怪。平時在太陽花田悠閒度日，熱愛花朵，但如果有人膽敢破壞她的花，她會展現出極端恐怖與無情的一面。",
+                "spell_cards": [
+                    "花符「幻想鄉的開花」",
+                    "幻想「花鳥風月、嘯風弄月」"
+                ]
+            },
+            {
+                "id": "aya",
+                "name": "射命丸文",
+                "en_name": "Shameimaru Aya",
+                "title": "最接近村落的天狗",
+                "debut": "東方花映塚 ～ Phantasmagoria of Flower View (TH09)",
+                "species": "妖獸 (鴉天狗)",
+                "ability": "操縱風程度的能力",
+                "location": "妖怪之山",
+                "theme_song": "風神少女 (Short Version)",
+                "color": "#DC143C",
+                "description": "妖怪之山的鴉天狗，報紙《文文。新聞》的主編與記者。為了尋找獨家新聞而在幻想鄉四處奔走。擁有幻想鄉中最高級別的移動速度。",
+                "spell_cards": [
+                    "風神「風神木葉隱」",
+                    "旋符「紅葉扇風」",
+                    "疾風「風神少女」"
+                ]
+            },
+            {
+                "id": "komachi",
+                "name": "小野塚小町",
+                "en_name": "Onozuka Komachi",
+                "title": "三途河的擺渡人",
+                "debut": "東方花映塚 ～ Phantasmagoria of Flower View (TH09)",
+                "species": "死神",
+                "ability": "操縱距離程度的能力",
+                "location": "三途河",
+                "theme_song": "彼岸帰航 ～ Riverside View",
+                "color": "#FF4500",
+                "description": "負責在三途河上擺渡幽靈前往彼岸接受審判的死神。性格極度悠哉、喜歡摸魚偷懶。本作異變正是因為她偷懶不工作，導致幽靈滯留並憑依在花朵上而引發的。",
+                "spell_cards": [
+                    "舟符「河水流逝」",
+                    "死歌「八重霧之渡」",
+                    "死價「價格未定的渡船」"
+                ]
+            },
+            {
+                "id": "shikieiki",
+                "name": "四季映姬・亞瑪薩那度",
+                "en_name": "Shikieiki Yamaxanadu",
+                "title": "樂園的最高裁判長",
+                "debut": "東方花映塚 ～ Phantasmagoria of Flower View (TH09)",
+                "species": "閻魔",
+                "ability": "清楚明辨是非黑白程度的能力",
+                "location": "彼岸 (是非曲直廳)",
+                "theme_song": "六十年目の東方裁判 ～ Fate of Sixty Years",
+                "color": "#008000",
+                "description": "負責審判幻想鄉死者罪惡的閻魔，也是小町的頂頭上司。性格極度認真，手中拿著「悔悟之棒」與「淨頗黎之鏡」。喜歡對生者進行冗長但句句切中要害的說教，以引導他們走向善道。",
+                "spell_cards": [
+                    "罪符「彷徨的大罪」",
+                    "審判「十王裁判」",
+                    "審判「Guilty or Not Guilty」"
+                ]
+            }
+        ]
     }
 }
