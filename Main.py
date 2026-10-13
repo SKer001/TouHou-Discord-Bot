@@ -1,151 +1,132 @@
-import os
-import sys
-import asyncio
+import io
 import discord
+from discord import app_commands
 from discord.ext import commands
-from dotenv import load_dotenv
-from Database.db_manager import init_db
-
-# 讀取 .env 檔案
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+from PIL import Image
+from Database.db_manager import get_or_create_user, update_visibility
 
 
 # ---------------------------------------------------------
-# 💡 控制台彩色進度條函式 (ANSI Color)
+# 🎨 輔助函式：從 Discord 頭像 URL 提取主色調 (Dominant Color)
 # ---------------------------------------------------------
-def show_progress(current, total, prefix="載入進度", bar_length=30):
-    """
-    顯示 Console 彩色進度條
-    :param current: 目前數值
-    :param total: 總數值
-    :param prefix: 進度條前綴文字
-    :param bar_length: 進度條總格數（預設 30 格）
-    """
-    if total <= 0:
-        return
+async def get_avatar_dominant_color(user: discord.User | discord.Member) -> discord.Color:
+    """下載使用者頭像並擷取出現頻率最高的代表色彩，回傳 discord.Color 物件"""
+    try:
+        # 讀取頭像 Byte 資料 (限制尺寸為 64x64 以大幅提升運算速度)
+        avatar_bytes = await user.display_avatar.with_size(64).read()
 
-    # 計算進度比例 (限制在 0.0 ~ 1.0)
-    progress = min(max(current / total, 0.0), 1.0)
-    percent = int(progress * 100)
-    filled_length = int(bar_length * progress)
+        # 使用 Pillow 開啟圖片並轉為 RGB 模式
+        image = Image.open(io.BytesIO(avatar_bytes)).convert("RGB")
 
-    # ANSI 色塊設定 (綠色 filled: \033[32m█ | 紅色 remaining: \033[31m-)
-    GREEN_BLOCK = "\033[32m█\033[0m"
-    RED_BLOCK = "\033[31m-\033[0m"
+        # 使用 quantize(colors=1) 提取圖片出現次數最多的代表色 (主色)
+        quantized = image.quantize(colors=1, method=2)
+        palette = quantized.getpalette()[:3]  # 取得 R, G, B 三原色
 
-    bar = GREEN_BLOCK * filled_length + RED_BLOCK * (bar_length - filled_length)
+        return discord.Color.from_rgb(palette[0], palette[1], palette[2])
 
-    # \033[K 為清除至行尾指令，避免舊字元殘留
-    print(f"\r{prefix}: |{bar}| {percent:3d}% [{current}/{total}]\033[K", end="", flush=True)
-
-    # 達到 100% 時自動補換行
-    if current >= total:
-        print()
+    except Exception:
+        # 若抓取失敗 (如網路問題或圖片格式異常)，回傳預設的東方紅/主題色作為備用
+        return discord.Color.red()
 
 
 # ---------------------------------------------------------
-# 🤖 機器人主類別
+# 🛠️ 核心 Embed 渲染輔助函式
 # ---------------------------------------------------------
-class TouHouBot(commands.Bot):
-    def __init__(self):
-        super().__init__(
-            command_prefix="TB! ",
-            intents=discord.Intents.all(),  # 記得去 Developer Portal 開啟三大 特權 Intents
-            description="幻想鄉的日常維護機器人 (TouHou Bot Core)"
-        )
+def build_profile_embed(
+    user: discord.User | discord.Member,
+    user_data: dict,
+    dominant_color: discord.Color
+) -> discord.Embed:
+    """根據玩家資料與頭像主色繪製 Embed 個人資料卡"""
+    money = user_data.get("money", 1000)
+    level = user_data.get("level", 1)
+    p_point = user_data.get("exp", 0)  # 👈 將對應的 exp 欄位數值當作 P點
+    inventory = user_data.get("inventory", {})
+    is_public = bool(user_data.get("is_public", 1))
 
-    async def setup_hook(self):
-        
-        print("🔧 開始初始化系統...")
+    # 計算背包總道具數量
+    total_items = sum(inventory.values()) if isinstance(inventory, dict) else 0
 
-        # 📌 初始化 SQLite 資料庫
-        try:
-            await init_db()
-        except Exception as e:
-            print(f"❌ 資料庫初始化失敗: {e}")
-            
-        """機器人初始化：優先單獨載入 Logger/Logger.py，再載入 Cogs/load-*"""
-        print("🔧 開始初始化系統...")
+    # 決定邊條色彩：若設為私人則顯示暗灰；若公開則顯示頭像代表色
+    embed_color = dominant_color if is_public else discord.Color.dark_gray()
 
-        # ---------------------------------------------------------
-        # 📌 步驟 1：單獨、優先載入 Logger/Logger.py
-        # ---------------------------------------------------------
-        try:
-            await self.load_extension("Logger.Logger")
-            print("✅ [獨立載入成功] Logger.Logger")
-        except Exception as e:
-            print(f"❌ [獨立載入失敗] Logger.Logger: {e}")
-            
-        """機器人啟動時的初始化 hook (自動掃描 Cogs/load-* 並顯示進度)"""
-        print("🔧 開始初始化 Cogs 模組...")
+    embed = discord.Embed(
+        title=f"🌸 {user.display_name} 的幻想鄉通行證",
+        color=embed_color,
+        timestamp=discord.utils.utcnow()
+    )
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        cogs_dir = os.path.join(base_dir, "Cogs")
+    # 設定使用者頭像
+    embed.set_thumbnail(url=user.display_avatar.url)
 
-        # 1. 收集所有符合條件的 Cog 檔案路徑
-        cogs_to_load = []
-        if os.path.exists(cogs_dir):
-            for folder_name in os.listdir(cogs_dir):
-                folder_path = os.path.join(cogs_dir, folder_name)
+    # 基礎數據欄位
+    embed.add_field(name="💰 賽錢 (Money)", value=f"`{money:,}` 兩", inline=True)
+    embed.add_field(name="⭐ 等級 (Level)", value=f"Lv. `{level}`", inline=True)
+    embed.add_field(name="🔴 P點 (Power)", value=f"`{p_point:,}` P", inline=True)  # 👈 顯示為 P點
 
-                # 篩選：必須是「資料夾」且名稱為「load-」開頭
-                if os.path.isdir(folder_path) and folder_name.startswith("load-"):
-                    for filename in os.listdir(folder_path):
-                        if filename.endswith(".py") and not filename.startswith("__"):
-                            cog_import_path = f"Cogs.{folder_name}.{filename[:-3]}"
-                            cogs_to_load.append(cog_import_path)
+    embed.add_field(name="🎒 背包物品數", value=f"`{total_items}` 件道具", inline=True)
+    embed.add_field(name="🔒 卡片狀態", value="`🌐 公開`" if is_public else "`🔒 私人`", inline=True)
 
-        total_cogs = len(cogs_to_load)
-
-        # 2. 逐一載入 Cog 並更新進度條
-        if total_cogs > 0:
-            print(f"📦 找到 {total_cogs} 個模組，準備載入：")
-            for index, cog_path in enumerate(cogs_to_load, start=1):
-                try:
-                    await self.load_extension(cog_path)
-                    # 更新控制台彩色進度條
-                    show_progress(index, total_cogs, prefix="🚀 Cogs 載入進度")
-                except Exception as e:
-                    print(f"\n❌ 載入失敗 ({cog_path}): {e}")
-        else:
-            print("⚠️ 未找到任何 Cogs/load-* 模組。")
-
-        # 3. 同步 Slash Commands
-        try:
-            print("\n🔄 正在同步 Slash Commands 到 Discord...")
-            synced = await self.tree.sync()
-            print(f"✨ 成功同步 {len(synced)} 個斜線指令！")
-        except Exception as e:
-            print(f"\n❌ 同步斜線指令失敗: {e}")
-
-    async def on_ready(self):
-        print(f"🤖 {self.user} 已成功登入並上線！")
-        activity = discord.CustomActivity(name="🌸 符卡規則生效中 | 前綴: TB!")
-        
-        # 方案 B：動態顯示「正在玩某款東方遊戲」 (若要用方案 B，請把上一行註解並取消註解下一行)
-        # activity = discord.Game(name="東方紅魔鄉 ~ the Embodiment of Scarlet Devil")
-
-        # 方案 C：動態顯示「正在觀看某個內容」
-        # activity = discord.Activity(type=discord.ActivityType.watching, name="博麗神社賽錢箱")
-
-        await self.change_presence(
-            status=discord.Status.online,  # 可選: online(在線), idle(閒置), dnd(請勿打擾)
-            activity=activity
-        )
+    embed.set_footer(text="TouHouBot Profile System • 幻想鄉居民登記")
+    return embed
 
 
-# =========================================================
-# 主程式進入點
-# =========================================================
-async def main():
-    if not TOKEN:
-        print("❌ 錯誤：找不到 DISCORD_TOKEN，請檢查 .env 檔案內容！")
-        return
+# ---------------------------------------------------------
+# 🤖 Profile Cog 核心類別
+# ---------------------------------------------------------
+class Profile(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
 
-    bot = TouHouBot()
-    async with bot:
-        await bot.start(TOKEN)
+    @app_commands.command(name="profile", description="查看個人或指定成員的幻想鄉個人資料卡")
+    @app_commands.describe(
+        user="【可選】選擇要查看的伺服器成員 (留空則查看自己)",
+        visibility="【可選】設定您的資料卡公開狀態 (True: 公開 / False: 私人)"
+    )
+    async def profile_cmd(
+        self,
+        interaction: discord.Interaction,
+        user: discord.User | discord.Member = None,
+        visibility: bool = None
+    ):
+        # 1. 優先處理隱私變更 (始終只修改指令觸發者自身)
+        if visibility is not None:
+            await update_visibility(interaction.user.id, visibility)
+            # 若使用者調整了 visibility，強制將目標鎖定回自己
+            user = interaction.user
 
-if __name__ == "__main__":
-    asyncio.run(main())
+        # 2. 決定查詢目標（未指定時預設為指令觸發者自身）
+        target_user = user or interaction.user
+        is_self = (target_user.id == interaction.user.id)
+
+        # 3. 從 SQLite 撈取/自動建立玩家資料
+        target_data = await get_or_create_user(target_user.id)
+
+        # 4. 隱私權限檢查
+        target_is_public = bool(target_data.get("is_public", 1))
+
+        # 若查看他人，且對方設定為私人 ➔ 阻擋檢視
+        if not is_self and not target_is_public:
+            embed = discord.Embed(
+                title="🔒 無法存取個人資料",
+                description=f"**{target_user.display_name}** 已將其資料卡設為私人，無法公開檢視。",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        # 5. 🎨 動態擷取目標使用者的頭像代表色
+        dominant_color = await get_avatar_dominant_color(target_user)
+
+        # 6. 渲染 Embed 頁面
+        embed = build_profile_embed(target_user, target_data, dominant_color)
+
+        # 7. 決定訊息顯示方式：
+        #    若剛調整過 visibility、或是查看自己且設為私人，使用私密訊息 (ephemeral=True)
+        is_ephemeral = (visibility is not None) or (is_self and not target_is_public)
+
+        await interaction.response.send_message(embed=embed, ephemeral=is_ephemeral)
+
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(Profile(bot))
