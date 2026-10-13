@@ -4,6 +4,7 @@ import asyncio
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from Database.db_manager import init_db
 
 # 讀取 .env 檔案
 load_dotenv()
@@ -55,6 +56,15 @@ class TouHouBot(commands.Bot):
         )
 
     async def setup_hook(self):
+        
+        print("🔧 開始初始化系統...")
+
+        # 📌 初始化 SQLite 資料庫
+        try:
+            await init_db()
+        except Exception as e:
+            print(f"❌ 資料庫初始化失敗: {e}")
+            
         """機器人初始化：優先單獨載入 Logger/Logger.py，再載入 Cogs/load-*"""
         print("🔧 開始初始化系統...")
 
