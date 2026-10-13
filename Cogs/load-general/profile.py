@@ -39,8 +39,8 @@ def build_profile_embed(
 ) -> discord.Embed:
     """根據玩家資料與頭像主色繪製 Embed 個人資料卡"""
     money = user_data.get("money", 1000)
-    level = user_data.get("level", 1)
-    p_point = user_data.get("exp", 0)  # 👈 將對應的 exp 欄位數值當作 P點
+    p_power = user_data.get("level", 1)  # 👈 level 欄位代表 P點 (Power 火力)
+    exp = user_data.get("exp", 0)        # 👈 exp 欄位代表 經驗值 (EXP)
     inventory = user_data.get("inventory", {})
     is_public = bool(user_data.get("is_public", 1))
 
@@ -59,10 +59,10 @@ def build_profile_embed(
     # 設定使用者頭像
     embed.set_thumbnail(url=user.display_avatar.url)
 
-    # 基礎數據欄位
+    # 基礎數據欄位 (東方主題排版)
     embed.add_field(name="💰 賽錢 (Money)", value=f"`{money:,}` 兩", inline=True)
-    embed.add_field(name="⭐ 等級 (Level)", value=f"Lv. `{level}`", inline=True)
-    embed.add_field(name="🔴 P點 (Power)", value=f"`{p_point:,}` P", inline=True)  # 👈 顯示為 P點
+    embed.add_field(name="🔴 P點 (Power)", value=f"`{p_power}` P", inline=True)
+    embed.add_field(name="✨ 經驗值 (EXP)", value=f"`{exp:,}` EXP", inline=True)
 
     embed.add_field(name="🎒 背包物品數", value=f"`{total_items}` 件道具", inline=True)
     embed.add_field(name="🔒 卡片狀態", value="`🌐 公開`" if is_public else "`🔒 私人`", inline=True)
