@@ -40,7 +40,7 @@ def build_profile_embed(
     """根據玩家資料與頭像主色繪製 Embed 個人資料卡"""
     money = user_data.get("money", 1000)
     level = user_data.get("level", 1)
-    exp = user_data.get("exp", 0)
+    p_point = user_data.get("exp", 0)  # 👈 將對應的 exp 欄位數值當作 P點
     inventory = user_data.get("inventory", {})
     is_public = bool(user_data.get("is_public", 1))
 
@@ -62,7 +62,7 @@ def build_profile_embed(
     # 基礎數據欄位
     embed.add_field(name="💰 賽錢 (Money)", value=f"`{money:,}` 兩", inline=True)
     embed.add_field(name="⭐ 等級 (Level)", value=f"Lv. `{level}`", inline=True)
-    embed.add_field(name="✨ 經驗值 (EXP)", value=f"`{exp}` EXP", inline=True)
+    embed.add_field(name="🔴 P點 (Power)", value=f"`{p_point:,}` P", inline=True)  # 👈 顯示為 P點
 
     embed.add_field(name="🎒 背包物品數", value=f"`{total_items}` 件道具", inline=True)
     embed.add_field(name="🔒 卡片狀態", value="`🌐 公開`" if is_public else "`🔒 私人`", inline=True)
