@@ -1,6 +1,7 @@
 import io
 import discord
 from PIL import Image
+from Utils.item_data import get_item_info, CATEGORY_NAMES
 
 
 # ---------------------------------------------------------
@@ -212,3 +213,59 @@ def build_fortune_embed(
     embed.set_thumbnail(url=user.display_avatar.url)
     embed.set_footer(text="TouHouBot Fortune System • 每日 00:00 重置運勢")
     return embed
+
+def build_inventory_embed(
+    user: discord.User | discord.Member,
+    inventory: dict,
+    category: str,
+    page: int,
+    embed_color: discord.Color
+) -> tuple[discord.Embed, int]:
+    """繪製 3x3 網格背包與處理分頁，回傳 (Embed, 總頁數)"""
+    
+    # 1. 篩選符合分類的道具，且數量必須 > 0
+    filtered_items = {}
+    for item_id, amount in inventory.items():
+        if amount <= 0:
+            continue
+        info = get_item_info(item_id)
+        if category == "all" or info["category"] == category:
+            filtered_items[item_id] = amount
+
+    # 2. 依照 英文ID 進行 A-Z 排序
+    sorted_items = sorted(filtered_items.items(), key=lambda x: x[0])
+
+    # 3. 計算總頁數與當前頁
+    total_pages = max(1, (len(sorted_items) + 8) // 9)  # 天花板除法 (每頁 9 個)
+    page = max(1, min(page, total_pages))
+
+    cat_name = CATEGORY_NAMES.get(category, "🎒 道具")
+    embed = discord.Embed(
+        title=f"{cat_name} - {user.display_name} 的背包",
+        color=embed_color,
+        timestamp=discord.utils.utcnow()
+    )
+    embed.set_thumbnail(url=user.display_avatar.url)
+
+    # 4. 判斷是否有道具
+    if not sorted_items:
+        embed.description = "🍵 目前該分類空空如也...\n快去參與活動或投賽錢獲得道具吧！"
+    else:
+        embed.description = f"目前共有 `{len(sorted_items)}` 種道具"
+        
+        # 切片提取當前頁的 9 個道具
+        start_idx = (page - 1) * 9
+        end_idx = start_idx + 9
+        page_items = sorted_items[start_idx:end_idx]
+
+        # 3x3 Grid (inline=True)
+        for item_id, amount in page_items:
+            info = get_item_info(item_id)
+            embed.add_field(
+                name=f"{info['emoji']} {info['name']}",
+                value=f"數量: `{amount:,}`",
+                inline=True
+            )
+
+    embed.set_footer(text=f"第 {page} / {total_pages} 頁 • 幻想鄉居民登記")
+    return embed, total_pages
