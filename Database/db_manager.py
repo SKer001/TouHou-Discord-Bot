@@ -17,7 +17,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
                 money INTEGER DEFAULT 1000,
-                level INTEGER DEFAULT 1,
+                level INTEGER DEFAULT 0,
                 exp INTEGER DEFAULT 0,
                 last_daily TEXT DEFAULT NULL,
                 inventory TEXT DEFAULT '{}',
@@ -57,7 +57,7 @@ async def get_or_create_user(user_id: int) -> dict:
 
             # 若不存在，插入新玩家 (預設給予 1000 賽錢)
             await db.execute(
-                "INSERT INTO users (user_id, money, level, exp, inventory) VALUES (?, 1000, 1, 0, '{}')",
+                "INSERT INTO users (user_id, money, level, exp, inventory) VALUES (?, 1000, 0, 0, '{}')",
                 (user_id,)
             )
             await db.commit()
@@ -88,6 +88,20 @@ async def add_money(user_id: int, amount: int) -> int:
         async with db.execute("SELECT money FROM users WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+
+async def reset_daily(user_id: int) -> bool:
+    """
+    【開發者 / 管理專用】重置指定玩家的 last_daily 簽到紀錄
+    將 last_daily 設為 NULL，使其能立即再次觸發每日簽到。
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET last_daily = NULL WHERE user_id = ?",
+            (user_id,)
+        )
+        await db.commit()
+    return True
 
 
 async def update_daily_time(user_id: int, date_str: str):
@@ -149,3 +163,78 @@ async def update_visibility(user_id: int, is_public: bool):
             (value, user_id)
         )
         await db.commit()
+        
+        
+# Database/db_manager.py
+
+def get_required_exp_for_level(level: int) -> int:
+    """計算從當前階級 (level) 升到下一階級 (level + 1) 所需的經驗值"""
+    return 50 + (level * 15)
+
+
+def get_total_exp_for_level(level: int) -> int:
+    """計算到達指定 level 所需的累積總經驗值"""
+    # 等差數列求和: sum_{i=0}^{level-1} (50 + 15*i)
+    if level <= 0:
+        return 0
+    return level * 50 + 15 * level * (level - 1) // 2
+
+
+async def add_exp(user_id: int, exp_amount: int) -> dict:
+    """
+    給予或扣除玩家經驗值，並自動計算對應 P點 (0.0 P ~ 100.0 P)
+    - 支援正負數調整
+    - 自動重算累積總經驗值，徹底防止負數 EXP
+    - 最低 0.0 P (0 EXP)，最高 100.0 P (FULL POWER)
+    """
+    user_data = await get_or_create_user(user_id)
+    current_level = user_data.get("level", 0)  # 內部 level: 0 ~ 1000
+    current_exp = user_data.get("exp", 0)
+
+    old_p = current_level / 10.0
+
+    # 1. 換算出當前的「歷史累積總經驗值」並加上變動量
+    total_exp = get_total_exp_for_level(current_level) + current_exp + exp_amount
+
+    # 2. 嚴格防呆：總經驗值不得低於 0
+    if total_exp <= 0:
+        new_level = 0
+        new_exp = 0
+    else:
+        # 3. 從 Level 0 開始重新推算階級與剩餘 EXP
+        new_level = 0
+        while new_level < 1000:
+            req_exp = get_required_exp_for_level(new_level)
+            if total_exp >= req_exp:
+                total_exp -= req_exp
+                new_level += 1
+            else:
+                break
+
+        # 滿等 (1000 level = 100.0 P) 封頂保護
+        if new_level >= 1000:
+            new_level = 1000
+            new_exp = 0
+        else:
+            new_exp = total_exp
+
+    new_p = new_level / 10.0
+    leveled_up = (new_p > old_p)
+    is_degraded = (new_p < old_p)
+
+    # 4. 寫回 SQLite 資料庫
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET level = ?, exp = ? WHERE user_id = ?",
+            (new_level, new_exp, user_id)
+        )
+        await db.commit()
+
+    return {
+        "leveled_up": leveled_up,
+        "is_degraded": is_degraded,
+        "old_p": old_p,
+        "new_p": new_p,
+        "current_exp": new_exp,
+        "is_max": (new_level >= 1000)
+    }
