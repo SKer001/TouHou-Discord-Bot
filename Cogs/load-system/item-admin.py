@@ -297,7 +297,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
         raw_inv = user_data.get("inventory", "{}")
         inventory = json.loads(raw_inv) if isinstance(raw_inv, str) else (raw_inv or {})
 
-        # 🎲 進行 number 次獨立隨機抽樣 (方案 A)
+        # 🎲 進行 number 次獨立隨機抽樣
         item_keys = list(all_items.keys())
         gained_summary = {}
 
@@ -308,18 +308,29 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
 
         await update_user_inventory(target.id, inventory)
 
-        # 繪製獲得結果清單 Embed
+        # 🟢 取出所有抽到的道具種類清單
+        summary_items = list(gained_summary.items())
+        
+        # 🟢 開頭說明
+        header = f"成功向 **{target.display_name}** 發放了 `{number}` 件隨機道具：\n\n"
+        
+        # 🟢 只取前 25 種道具建立完整字串
+        lines = []
+        for g_id, g_count in summary_items[:25]:
+            info = all_items.get(g_id, {"name": g_id, "emoji": "📦"})
+            lines.append(f"• {info['emoji']} **{info['name']}** x `{g_count}`")
+
+        # 🟢 超過 25 種時補上提示
+        if len(summary_items) > 25:
+            lines.append(f"\n…（另有 `{len(summary_items) - 25}` 種道具已成功寫入背包，此處省略顯示）")
+
         embed = discord.Embed(
             title="🎁 隨機道具發放完成",
-            description=f"成功向 **{target.display_name}** 發放了 `{number}` 件隨機道具：",
+            description=header + "\n".join(lines),
             color=discord.Color.gold()
         )
-        for g_id, g_count in gained_summary.items():
-            info = all_items.get(g_id, {"name": g_id, "emoji": "📦"})
-            embed.add_field(name=f"{info['emoji']} {info['name']}", value=f"x `{g_count}`", inline=True)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
-
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ItemAdmin(bot))

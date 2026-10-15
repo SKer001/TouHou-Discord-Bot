@@ -109,6 +109,23 @@ async def delete_item_db(item_id: str):
 
 async def batch_import_db(items_dict: dict, overwrite: bool) -> tuple[int, int]:
     """批量匯入 JSON 道具 (回傳: 成功數, 跳過數)"""
+    """
+    範例 JSON 格式:
+    {
+        "new_potion": {
+            "name": "特級回復藥",
+            "emoji": "🧪",
+            "category": "consumable",
+            "desc": "永遠亭特製的藥水，能大幅恢復體力。"
+        },
+        "youmu_sword": {
+            "name": "樓觀劍",
+            "emoji": "🗡️",
+            "category": "special",
+            "desc": "妖夢的佩劍，據說能斬斷迷惘。"
+        }
+    }
+    """
     success, skipped = 0, 0
     async with aiosqlite.connect(DB_PATH) as db:
         for item_id, data in items_dict.items():
