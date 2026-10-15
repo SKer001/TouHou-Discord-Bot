@@ -140,7 +140,7 @@ class ItemEditView(discord.ui.View):
 # ---------------------------------------------------------
 # 🤖 ItemAdmin Cog
 # ---------------------------------------------------------
-class ItemAdmin(commands.Cog):
+class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="【開發者專用】道具資料庫管理指令"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 

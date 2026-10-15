@@ -23,7 +23,7 @@ async def save_user_inventory(user_id: int, inventory: dict):
         await db.commit()
 
 
-class UserAdmin(commands.Cog):
+class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="【開發者專用】玩家數據與經濟管理指令"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 

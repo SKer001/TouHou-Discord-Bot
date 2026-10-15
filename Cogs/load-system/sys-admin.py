@@ -72,7 +72,7 @@ class ReloadCogView(discord.ui.View):
 # ---------------------------------------------------------
 # 🤖 SysAdmin Cog
 # ---------------------------------------------------------
-class SysAdmin(commands.Cog):
+class SysAdmin(commands.GroupCog, group_name="admin-sys", group_description="【開發者專用】系統與模組維護指令"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
