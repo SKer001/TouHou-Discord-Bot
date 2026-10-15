@@ -6,6 +6,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+# 🟢 引入主資料庫的核心函式，確保資料同步
+from Database.db_manager import add_money, add_exp
+
 from Utils.embed_builder import (
     build_daily_embed,
     build_daily_repeat_embed,
@@ -20,11 +23,12 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "daily.db")
 
 
 # ---------------------------------------------------------
-# 💾 獨立資料庫邏輯
+# 💾 獨立資料庫邏輯 (僅負責記錄時間與運勢)
 # ---------------------------------------------------------
 async def init_daily_db():
     """初始化同級目錄下的 daily.db"""
     async with aiosqlite.connect(DB_PATH) as db:
+        # 保留舊欄位以防止 SQLite 結構衝突，但內部運作已不再使用 money/level/exp
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users_daily (
                 user_id INTEGER PRIMARY KEY,
@@ -48,49 +52,11 @@ async def get_or_create_daily_user(user_id: int) -> dict:
                 return dict(row)
 
         await db.execute(
-            "INSERT INTO users_daily (user_id, money, level, exp) VALUES (?, 1000, 0, 0)",
+            "INSERT INTO users_daily (user_id) VALUES (?)",
             (user_id,)
         )
         await db.commit()
-        return {"user_id": user_id, "money": 1000, "level": 0, "exp": 0, "last_daily": None, "fortune_level": 3}
-
-
-async def add_exp_internal(user_id: int, exp_amount: int) -> dict:
-    """計算經驗值與 0.0 P ~ 100.0 P 升級"""
-    user_data = await get_or_create_daily_user(user_id)
-    current_level = user_data.get("level", 0)
-    current_exp = user_data.get("exp", 0)
-
-    if current_level >= 1000:
-        return {"leveled_up": False, "old_p": 100.0, "new_p": 100.0, "is_max": True}
-
-    old_p = current_level / 10.0
-    current_exp += exp_amount
-    leveled_up = False
-
-    while current_level < 1000:
-        req_exp = 50 + (current_level * 15)
-        if current_exp >= req_exp:
-            current_exp -= req_exp
-            current_level += 1
-            leveled_up = True
-        else:
-            break
-
-    if current_level >= 1000:
-        current_level = 1000
-        current_exp = 0
-
-    new_p = current_level / 10.0
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "UPDATE users_daily SET level = ?, exp = ? WHERE user_id = ?",
-            (current_level, current_exp, user_id)
-        )
-        await db.commit()
-
-    return {"leveled_up": leveled_up, "old_p": old_p, "new_p": new_p, "is_max": (current_level >= 1000)}
+        return {"user_id": user_id, "last_daily": None, "fortune_level": 3}
 
 
 # ---------------------------------------------------------
@@ -132,25 +98,24 @@ class Daily(commands.Cog):
         money_gained = random.randint(min_m, max_m)
         exp_gained = random.randint(100, 200)
 
-        # 計算新賽錢與寫入資料庫
-        new_money = user_data.get("money", 1000) + money_gained
-
+        # 🟢 1. 將簽到日期與運勢寫回 daily.db
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("""
                 UPDATE users_daily 
-                SET money = ?, last_daily = ?, fortune_level = ? 
+                SET last_daily = ?, fortune_level = ? 
                 WHERE user_id = ?
-            """, (new_money, today_str, fortune_level, user_id))
+            """, (today_str, fortune_level, user_id))
             await db.commit()
 
-        # 經驗值與升級計算
-        exp_result = await add_exp_internal(user_id, exp_gained)
+        # 🟢 2. 呼叫主資料庫統一寫入，確保全域資料完美同步
+        new_money = await add_money(user_id, money_gained)
+        exp_result = await add_exp(user_id, exp_gained)
 
-        # 發送簽到卡片
+        # 3. 發送簽到卡片
         daily_embed = build_daily_embed(interaction.user, money_gained, exp_gained, fortune_level, new_money)
         await interaction.response.send_message(embed=daily_embed)
 
-        # 💥 若升級，追投 POWER UP 卡片
+        # 4. 💥 若觸發升級，追投 POWER UP 卡片
         if exp_result.get("leveled_up"):
             power_up_embed = build_power_up_embed(interaction.user, exp_result)
             await interaction.followup.send(embed=power_up_embed)

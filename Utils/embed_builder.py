@@ -1,7 +1,7 @@
 import io
 import discord
 from PIL import Image
-from Utils.item_data import get_item_info, CATEGORY_NAMES
+from Utils.item_data import CATEGORY_NAMES
 
 
 # ---------------------------------------------------------
@@ -217,6 +217,7 @@ def build_fortune_embed(
 def build_inventory_embed(
     user: discord.User | discord.Member,
     inventory: dict,
+    item_templates: dict,  # 👈 新增這個參數：完整的道具字典
     category: str,
     page: int,
     embed_color: discord.Color
@@ -228,7 +229,12 @@ def build_inventory_embed(
     for item_id, amount in inventory.items():
         if amount <= 0:
             continue
-        info = get_item_info(item_id)
+            
+        # 從傳入的字典中尋找道具，若無則給予預設值防呆
+        info = item_templates.get(item_id, {
+            "name": "未知道具", "emoji": "❓", "category": "special", "desc": "未知的物品。"
+        })
+        
         if category == "all" or info["category"] == category:
             filtered_items[item_id] = amount
 
@@ -236,7 +242,7 @@ def build_inventory_embed(
     sorted_items = sorted(filtered_items.items(), key=lambda x: x[0])
 
     # 3. 計算總頁數與當前頁
-    total_pages = max(1, (len(sorted_items) + 8) // 9)  # 天花板除法 (每頁 9 個)
+    total_pages = max(1, (len(sorted_items) + 8) // 9)
     page = max(1, min(page, total_pages))
 
     cat_name = CATEGORY_NAMES.get(category, "🎒 道具")
@@ -253,14 +259,14 @@ def build_inventory_embed(
     else:
         embed.description = f"目前共有 `{len(sorted_items)}` 種道具"
         
-        # 切片提取當前頁的 9 個道具
+        # 提取當前頁的 9 個道具
         start_idx = (page - 1) * 9
         end_idx = start_idx + 9
         page_items = sorted_items[start_idx:end_idx]
 
-        # 3x3 Grid (inline=True)
+        # 3x3 Grid
         for item_id, amount in page_items:
-            info = get_item_info(item_id)
+            info = item_templates.get(item_id, {"name": "未知道具", "emoji": "❓"})
             embed.add_field(
                 name=f"{info['emoji']} {info['name']}",
                 value=f"數量: `{amount:,}`",

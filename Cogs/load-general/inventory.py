@@ -3,6 +3,7 @@ import json
 from discord import app_commands
 from discord.ext import commands
 from Database.db_manager import get_or_create_user
+from Utils.item_data import get_all_items
 from Utils.embed_builder import build_inventory_embed
 
 
@@ -35,11 +36,12 @@ class PageJumpModal(discord.ui.Modal, title='跳轉背包頁面'):
 # 🕹️ 背包互動 UI 控制器 (View)
 # ---------------------------------------------------------
 class InventoryView(discord.ui.View):
-    def __init__(self, invoker_id: int, user: discord.User, inventory: dict, color: discord.Color):
-        super().__init__(timeout=120)  # 選單 2 分鐘後逾時
+    def __init__(self, invoker_id: int, user: discord.User, inventory: dict, item_templates: dict, color: discord.Color):
+        super().__init__(timeout=120)
         self.invoker_id = invoker_id
         self.user = user
         self.inventory = inventory
+        self.item_templates = item_templates  # 保存道具字典
         self.color = color
         self.current_page = 1
         self.category = "all"
@@ -48,33 +50,28 @@ class InventoryView(discord.ui.View):
         self.update_components()
 
     def update_components(self):
-        # 預渲染一次以取得正確的總頁數
         _, self.total_pages = build_inventory_embed(
-            self.user, self.inventory, self.category, self.current_page, self.color
+            self.user, self.inventory, self.item_templates, self.category, self.current_page, self.color
         )
-        # 防呆修正是界線
         self.current_page = max(1, min(self.current_page, self.total_pages))
         self.btn_page.label = f" {self.current_page} / {self.total_pages} "
 
     async def update_message(self, interaction: discord.Interaction):
         self.update_components()
         embed, _ = build_inventory_embed(
-            self.user, self.inventory, self.category, self.current_page, self.color
+            self.user, self.inventory, self.item_templates, self.category, self.current_page, self.color
         )
         await interaction.response.edit_message(embed=embed, view=self)
 
-    # 確保只有指令使用者能按按鈕
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.invoker_id:
             await interaction.response.send_message("❌ 只有該指令的使用者才能操作此選單！", ephemeral=True)
             return False
         return True
 
-    # --- 下拉選單 (分類切換) ---
     @discord.ui.select(
         placeholder="🌸 選擇道具分類...",
-        min_values=1,
-        max_values=1,
+        min_values=1, max_values=1,
         options=[
             discord.SelectOption(label="全部道具", value="all", emoji="🌸", description="顯示背包內所有道具"),
             discord.SelectOption(label="消耗品 / 食物", value="consumable", emoji="🍵", description="可以使用的日常消耗品"),
@@ -84,34 +81,28 @@ class InventoryView(discord.ui.View):
     )
     async def select_category(self, interaction: discord.Interaction, select: discord.ui.Select):
         self.category = select.values[0]
-        self.current_page = 1  # 切換分類強制回到第 1 頁
-        
-        # 更新下拉選單的預設顯示選項
+        self.current_page = 1
         for opt in select.options:
             opt.default = (opt.value == self.category)
-            
         await self.update_message(interaction)
 
-    # --- 左翻頁按鈕 ---
     @discord.ui.button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, row=1)
     async def btn_prev(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page -= 1
         if self.current_page < 1:
-            self.current_page = self.total_pages  # 循環到最後一頁
+            self.current_page = self.total_pages
         await self.update_message(interaction)
 
-    # --- 當前頁數 (點擊跳轉) ---
     @discord.ui.button(label=" 1 / 1 ", style=discord.ButtonStyle.secondary, row=1)
     async def btn_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         modal = PageJumpModal(self)
         await interaction.response.send_modal(modal)
 
-    # --- 右翻頁按鈕 ---
     @discord.ui.button(label="下一頁 ▶️", style=discord.ButtonStyle.primary, row=1)
     async def btn_next(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.current_page += 1
         if self.current_page > self.total_pages:
-            self.current_page = 1  # 循環到第一頁
+            self.current_page = 1
         await self.update_message(interaction)
 
 
@@ -130,13 +121,12 @@ class InventoryCog(commands.Cog):
         target_user = target or interaction.user
         user_data = await get_or_create_user(target_user.id)
         
-        # 隱私權限檢查 (非本人 且 設定為不公開)
         is_public = bool(user_data.get("is_public", 1))
         if target and not is_public and target.id != interaction.user.id:
             await interaction.followup.send(f"🔒 **{target_user.display_name}** 已設定個人卡片為私密，無法檢視其背包！", ephemeral=True)
             return
 
-        # 讀取並轉換資料庫的 JSON 庫存字串
+        # 讀取 JSON 背包
         raw_inv = user_data.get("inventory", "{}")
         if isinstance(raw_inv, str):
             try:
@@ -146,12 +136,14 @@ class InventoryCog(commands.Cog):
         else:
             inventory = raw_inv if raw_inv else {}
 
-        # 這裡為了簡化載入，使用 Discord 原生抓取用戶的主題色
+        # 🚀 在指令觸發時，向 SQLite 查詢所有的道具設定檔
+        item_templates = await get_all_items()
+
         embed_color = target_user.color if target_user.color != discord.Color.default() else discord.Color.dark_theme()
 
-        # 初始化 View 與 Embed
-        view = InventoryView(interaction.user.id, target_user, inventory, embed_color)
-        embed, _ = build_inventory_embed(target_user, inventory, "all", 1, embed_color)
+        # 將 item_templates 傳遞給 View 與 Embed
+        view = InventoryView(interaction.user.id, target_user, inventory, item_templates, embed_color)
+        embed, _ = build_inventory_embed(target_user, inventory, item_templates, "all", 1, embed_color)
         
         await interaction.followup.send(embed=embed, view=view)
 
