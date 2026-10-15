@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from Database.db_manager import get_or_create_user
+from Database.db_manager import get_or_create_user, update_user_inventory
 from Utils.item_data import (
     get_all_items, get_item, add_item_db, 
     update_item_db, delete_item_db, batch_import_db, CATEGORY_NAMES
@@ -291,8 +291,8 @@ class ItemAdmin(commands.Cog):
             await interaction.response.send_message("❌ 目前道具資料庫庫存為空，無法進行隨機抽樣！", ephemeral=True)
             return
 
-        target_user = target or interaction.user
-        user_data = await get_or_create_user(target_user.id)
+        target = target or interaction.user
+        user_data = await get_or_create_user(target.id)
         
         raw_inv = user_data.get("inventory", "{}")
         inventory = json.loads(raw_inv) if isinstance(raw_inv, str) else (raw_inv or {})
@@ -306,12 +306,12 @@ class ItemAdmin(commands.Cog):
             gained_summary[picked_id] = gained_summary.get(picked_id, 0) + 1
             inventory[picked_id] = inventory.get(picked_id, 0) + 1
 
-        await save_user_inventory(target_user.id, inventory)
+        await update_user_inventory(target.id, inventory)
 
         # 繪製獲得結果清單 Embed
         embed = discord.Embed(
             title="🎁 隨機道具發放完成",
-            description=f"成功向 **{target_user.display_name}** 發放了 `{number}` 件隨機道具：",
+            description=f"成功向 **{target.display_name}** 發放了 `{number}` 件隨機道具：",
             color=discord.Color.gold()
         )
         for g_id, g_count in gained_summary.items():

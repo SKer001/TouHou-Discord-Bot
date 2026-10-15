@@ -238,3 +238,12 @@ async def add_exp(user_id: int, exp_amount: int) -> dict:
         "current_exp": new_exp,
         "is_max": (new_level >= 1000)
     }
+    
+async def update_user_inventory(user_id: int, inventory: dict):
+    """統一更新玩家背包資料"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET inventory = ? WHERE user_id = ?",
+            (json.dumps(inventory, ensure_ascii=False), user_id)
+        )
+        await db.commit()

@@ -4,7 +4,7 @@ import aiosqlite
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Database.db_manager import reset_daily as reset_main_daily, add_money, add_exp, get_or_create_user
+from Database.db_manager import reset_daily as reset_main_daily, add_money, add_exp, get_or_create_user, update_user_inventory
 from Utils.item_data import get_all_items, get_item
 
 ADMIN_ID = 403895664666214400
@@ -132,7 +132,7 @@ class UserAdmin(commands.Cog):
             inventory[item_id] = new_amount
             msg = f"🔻 已成功扣除 **{target.display_name}** 的 {item_name} x `{amount}`！ (剩餘：`{new_amount}` 件)"
 
-        await save_user_inventory(target.id, inventory)
+        await update_user_inventory(target.id, inventory)
         await interaction.response.send_message(msg, ephemeral=True)
 
     # 5. 🧹 /clear_inventory 清空指定成員背包
@@ -143,8 +143,7 @@ class UserAdmin(commands.Cog):
         if interaction.user.id != ADMIN_ID:
             await interaction.response.send_message("❌ 無權限", ephemeral=True)
             return
-
-        await save_user_inventory(target.id, {})
+        await update_user_inventory(target.id, {})
         await interaction.response.send_message(
             f"🧹 已成功清空 **{target.display_name}** 的背包，所有道具皆已歸零移除！",
             ephemeral=True
