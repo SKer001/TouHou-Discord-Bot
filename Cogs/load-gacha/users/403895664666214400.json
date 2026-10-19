@@ -1,0 +1,219 @@
+{
+    "user_id": 403895664666214400,
+    "stats": {
+        "total_draws": 21,
+        "total_fusions": 0
+    },
+    "cards": [
+        {
+            "instance_id": "c_th05_520b8cd7",
+            "character_key": "yuki_mai",
+            "name": "雪與舞",
+            "emoji": "❄️",
+            "rarity": "N",
+            "title": "魔界魔法使二人組",
+            "completeness": 0.1134,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th06_8c523bc5",
+            "character_key": "rumia",
+            "name": "露米婭",
+            "emoji": "🥐",
+            "rarity": "R",
+            "title": "宵暗的妖怪",
+            "completeness": 0.0077,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th04_360dc94a",
+            "character_key": "gengetsu",
+            "name": "幻月",
+            "emoji": "🌙",
+            "rarity": "R",
+            "title": "夢幻館的主人",
+            "completeness": 0.0706,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th04_ea479d19",
+            "character_key": "elly",
+            "name": "艾莉",
+            "emoji": "🪓",
+            "rarity": "N",
+            "title": "館門守衛",
+            "completeness": 0.2516,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th05_8b293575",
+            "character_key": "yumeko",
+            "name": "夢子",
+            "emoji": "🗡️",
+            "rarity": "SR",
+            "title": "飛刀之魔界女僕",
+            "completeness": 0.001,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th06_a0e50748",
+            "character_key": "meiling",
+            "name": "紅美鈴",
+            "emoji": "🐉",
+            "rarity": "R",
+            "title": "華人小娘",
+            "completeness": 0.0124,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th06_3860286e",
+            "character_key": "cirno",
+            "name": "琪露諾",
+            "emoji": "🧊",
+            "rarity": "SR",
+            "title": "冰之妖精",
+            "completeness": 0.7461,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th03_01be7e9d",
+            "character_key": "yumemi",
+            "name": "岡崎夢美",
+            "emoji": "🎓",
+            "rarity": "R",
+            "title": "比較物理學教授",
+            "completeness": 0.101,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th04_44edabfb",
+            "character_key": "mugetsu",
+            "name": "夢月",
+            "emoji": "🧹",
+            "rarity": "N",
+            "title": "夢幻館的女僕",
+            "completeness": 0.001,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th02_28957092",
+            "character_key": "genji",
+            "name": "玄爺",
+            "emoji": "🐢",
+            "rarity": "R",
+            "title": "靈夢的御用坐騎",
+            "completeness": 0.0028,
+            "obtained_at": "2026-10-19 14:14:40"
+        },
+        {
+            "instance_id": "c_th05_acf39128",
+            "character_key": "alice",
+            "name": "愛麗絲",
+            "emoji": "🧸",
+            "rarity": "SR",
+            "title": "魔界的人形使",
+            "completeness": 0.2426,
+            "obtained_at": "2026-10-19 14:15:08"
+        },
+        {
+            "instance_id": "c_th06_7b134a3b",
+            "character_key": "koakuma",
+            "name": "小惡魔",
+            "emoji": "🦇",
+            "rarity": "N",
+            "title": "大圖書館的使魔",
+            "completeness": 0.001,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th02_dd97f481",
+            "character_key": "genji",
+            "name": "玄爺",
+            "emoji": "🐢",
+            "rarity": "N",
+            "title": "飛天神龜",
+            "completeness": 0.2525,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th03_a4b8e352",
+            "character_key": "yumemi",
+            "name": "岡崎夢美",
+            "emoji": "🎓",
+            "rarity": "R",
+            "title": "比較物理學教授",
+            "completeness": 0.081,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th02_e88e1e1c",
+            "character_key": "genji",
+            "name": "玄爺",
+            "emoji": "🐢",
+            "rarity": "N",
+            "title": "飛天神龜",
+            "completeness": 0.0495,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th05_1dbafc17",
+            "character_key": "alice",
+            "name": "愛麗絲",
+            "emoji": "🧸",
+            "rarity": "SR",
+            "title": "魔界的人形使",
+            "completeness": 0.9671,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th06_f3bfacc6",
+            "character_key": "patchouli",
+            "name": "帕秋莉·諾蕾姬",
+            "emoji": "📖",
+            "rarity": "SSR",
+            "title": "不動的大圖書館",
+            "completeness": 0.0328,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th01_becada0a",
+            "character_key": "mima",
+            "name": "魅魔",
+            "emoji": "👻",
+            "rarity": "SR",
+            "title": "久遠的博麗神社惡靈",
+            "completeness": 0.0018,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th03_5e2759e2",
+            "character_key": "yumemi",
+            "name": "岡崎夢美",
+            "emoji": "🎓",
+            "rarity": "R",
+            "title": "比較物理學教授",
+            "completeness": 0.0098,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th06_4c5bcd91",
+            "character_key": "patchouli",
+            "name": "帕秋莉·諾蕾姬",
+            "emoji": "📖",
+            "rarity": "SR",
+            "title": "七曜的魔導士",
+            "completeness": 0.0117,
+            "obtained_at": "2026-10-19 14:37:57"
+        },
+        {
+            "instance_id": "c_th01_ee5d7f54",
+            "character_key": "reimu",
+            "name": "博麗靈夢",
+            "emoji": "☯️",
+            "rarity": "SR",
+            "title": "博麗神社的巫女",
+            "completeness": 0.001,
+            "obtained_at": "2026-10-19 14:37:57"
+        }
+    ]
+}
