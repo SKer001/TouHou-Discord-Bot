@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 from Database.db_manager import get_or_create_user
 from Utils.item_data import get_all_items
-from .general_embeds import build_inventory_embed
+from .Embeds.general_embeds import build_inventory_embed
 
 
 # ---------------------------------------------------------

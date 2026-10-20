@@ -9,7 +9,7 @@ from discord.ext import commands
 # 🟢 引入主資料庫的核心函式，確保資料同步
 from Database.db_manager import add_money, add_exp
 
-from .general_embeds import (
+from .Embeds.general_embeds import (
     build_daily_embed,
     build_daily_repeat_embed,
     build_fortune_embed,

@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from Database.db_manager import get_or_create_user, update_visibility
-from .general_embeds import build_profile_embed, get_avatar_dominant_color
+from .Embeds.general_embeds import build_profile_embed, get_avatar_dominant_color
 
 
 class Profile(commands.Cog):
