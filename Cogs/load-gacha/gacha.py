@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 
 from Database.db_manager import get_or_create_user, add_money
-from Utils.embed_builder import (
+from .gacha_embeds import (
     build_gacha_single_embed, 
     build_gacha_ten_embed,
     build_card_inventory_embed,
