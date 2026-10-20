@@ -1,7 +1,7 @@
 {
     "user_id": 403895664666214400,
     "stats": {
-        "total_draws": 446,
+        "total_draws": 456,
         "total_fusions": 0
     },
     "cards": [
@@ -844,6 +844,106 @@
             "title": "紅魔館的女僕長",
             "completeness": 0.4336,
             "obtained_at": "2026-10-20 15:30:58"
+        },
+        {
+            "instance_id": "c_th06_e23c21e1",
+            "character_key": "daiyousei",
+            "name": "大妖精",
+            "emoji": "🧚",
+            "rarity": "R",
+            "title": "湖畔的守護精靈",
+            "completeness": 0.0058,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th05_79d5ad1f",
+            "character_key": "shinki",
+            "name": "神綺",
+            "emoji": "👑",
+            "rarity": "SSR",
+            "title": "魔界之神",
+            "completeness": 0.0624,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th06_9a01aba9",
+            "character_key": "daiyousei",
+            "name": "大妖精",
+            "emoji": "🧚",
+            "rarity": "N",
+            "title": "霧之湖的大妖精",
+            "completeness": 0.0096,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th06_da146841",
+            "character_key": "patchouli",
+            "name": "帕秋莉·諾蕾姬",
+            "emoji": "📖",
+            "rarity": "SR",
+            "title": "七曜的魔導士",
+            "completeness": 0.2569,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th06_cdc080c1",
+            "character_key": "meiling",
+            "name": "紅美鈴",
+            "emoji": "🐉",
+            "rarity": "R",
+            "title": "華人小娘",
+            "completeness": 0.3698,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th03_e2bdd368",
+            "character_key": "chiyuri",
+            "name": "北白川千百合",
+            "emoji": "📐",
+            "rarity": "N",
+            "title": "教授助手",
+            "completeness": 0.2515,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th02_cd7fa2c7",
+            "character_key": "marisa",
+            "name": "霧雨魔理沙",
+            "emoji": "🧹",
+            "rarity": "SR",
+            "title": "普通的魔法使",
+            "completeness": 0.047,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th05_e55e6f68",
+            "character_key": "yumeko",
+            "name": "夢子",
+            "emoji": "🗡️",
+            "rarity": "SSR",
+            "title": "神綺的終極刃舞",
+            "completeness": 0.0061,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th03_c26db32e",
+            "character_key": "chiyuri",
+            "name": "北白川千百合",
+            "emoji": "📐",
+            "rarity": "N",
+            "title": "教授助手",
+            "completeness": 0.0115,
+            "obtained_at": "2026-10-20 20:08:40"
+        },
+        {
+            "instance_id": "c_th06_5de5c9a3",
+            "character_key": "patchouli",
+            "name": "帕秋莉·諾蕾姬",
+            "emoji": "📖",
+            "rarity": "SR",
+            "title": "七曜的魔導士",
+            "completeness": 0.1056,
+            "obtained_at": "2026-10-20 20:08:40"
         }
     ]
 }
