@@ -1,4 +1,5 @@
 import discord
+from discord import ui
 from discord.ext import commands
 from discord import app_commands
 import json
@@ -9,19 +10,19 @@ from datetime import datetime
 
 from Database.db_manager import get_or_create_user, add_money
 from .Embeds.gacha_embeds import (
-    build_gacha_single_embed, 
-    build_gacha_ten_embeds,
-    build_card_inventory_embeds,
-    build_card_detail_embed
+    INVENTORY_PER_PAGE,
+    build_gacha_single_container,
+    build_gacha_ten_container,
+    build_card_inventory_container,
+    build_card_detail_container,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 USERS_DIR = os.path.join(BASE_DIR, "users")
 CHAR_FILE = os.path.join(BASE_DIR, "character.json")
-THUMBNAILS_DIR = os.path.join(BASE_DIR, "images", "Thumbnails")
+THUMBNAILS_FILE = os.path.join(BASE_DIR, "images", "Thumbnails.json")
 
 os.makedirs(USERS_DIR, exist_ok=True)
-os.makedirs(THUMBNAILS_DIR, exist_ok=True)
 
 try:
     with open(CHAR_FILE, "r", encoding="utf-8") as f:
@@ -29,6 +30,14 @@ try:
 except (json.JSONDecodeError, FileNotFoundError) as e:
     print(f"❌ [Gacha Error] 讀取 {CHAR_FILE} 失敗：{e}")
     ALL_CHARACTERS = {}
+
+# 🖼️ 讀取 Thumbnails.json：{"角色ID": "圖片URL", ..., "fill": "預設圖URL"}
+try:
+    with open(THUMBNAILS_FILE, "r", encoding="utf-8") as f:
+        THUMBNAILS = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError) as e:
+    print(f"❌ [Gacha Error] 讀取 {THUMBNAILS_FILE} 失敗：{e}")
+    THUMBNAILS = {}
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
 
@@ -41,13 +50,24 @@ def sort_cards(cards: list) -> list:
     ))
 
 
-# ================= 🎛️ 抽卡結果控制按鈕 View =================
-class GachaResultView(discord.ui.View):
-    def __init__(self, user_id: int, user_name: str, gacha_cog):
+# ================= 🎛️ 抽卡結果 View (Components V2) =================
+class GachaResultView(ui.LayoutView):
+    def __init__(self, user_id: int, user_name: str, gacha_cog, container: ui.Container):
         super().__init__(timeout=180)
         self.user_id = user_id
         self.user_name = user_name
         self.gacha_cog = gacha_cog
+
+        single_btn = ui.Button(label="🌸 繼續單抽 (2,000)", style=discord.ButtonStyle.primary)
+        single_btn.callback = self.draw_single_again
+        ten_btn = ui.Button(label="⛩️ 繼續十連 (20,000)", style=discord.ButtonStyle.success)
+        ten_btn.callback = self.draw_ten_again
+        inv_btn = ui.Button(label="🎒 查看卡庫", style=discord.ButtonStyle.secondary)
+        inv_btn.callback = self.view_inventory
+
+        container.add_item(ui.Separator())
+        container.add_item(ui.ActionRow(single_btn, ten_btn, inv_btn))
+        self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
@@ -55,38 +75,25 @@ class GachaResultView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🌸 繼續單抽 (2,000)", style=discord.ButtonStyle.primary, row=0)
-    async def draw_single_again(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def draw_single_again(self, interaction: discord.Interaction):
         await self.gacha_cog.execute_gacha(interaction, draw_count=1)
 
-    @discord.ui.button(label="⛩️ 繼續十連 (20,000)", style=discord.ButtonStyle.success, row=0)
-    async def draw_ten_again(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def draw_ten_again(self, interaction: discord.Interaction):
         await self.gacha_cog.execute_gacha(interaction, draw_count=10)
 
-    @discord.ui.button(label="🎒 查看卡庫", style=discord.ButtonStyle.secondary, row=0)
-    async def view_inventory(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def view_inventory(self, interaction: discord.Interaction):
         await interaction.response.defer()
         cards = self.gacha_cog.get_user_cards(self.user_id)
         if not cards:
             await interaction.followup.send("🎒 你的卡冊空空如也，快進行祈願吧！", ephemeral=True)
             return
 
-        sorted_cards = sort_cards(cards)
-        inv_view = InventoryView(self.user_id, sorted_cards, self.user_name, self.gacha_cog)
-        embeds, files = build_card_inventory_embeds(
-            inv_view.get_current_page_cards(),
-            inv_view.current_page,
-            inv_view.total_pages,
-            len(sorted_cards),
-            sorted_cards,
-            self.user_name,
-            THUMBNAILS_DIR
-        )
-        await interaction.edit_original_response(content=None, embeds=embeds, attachments=files, view=inv_view)
+        inv_view = InventoryView(self.user_id, sort_cards(cards), self.user_name, self.gacha_cog)
+        await interaction.edit_original_response(view=inv_view)
 
 
-# ================= 🎒 背包互動 View =================
-class InventoryView(discord.ui.View):
+# ================= 🎒 背包互動 View (Components V2) =================
+class InventoryView(ui.LayoutView):
     def __init__(self, user_id: int, cards: list, user_name: str, gacha_cog):
         super().__init__(timeout=180)
         self.user_id = user_id
@@ -96,7 +103,7 @@ class InventoryView(discord.ui.View):
         self.current_filter = "ALL"
         self.filtered_cards = self.all_cards
         self.current_page = 1
-        self.per_page = 10
+        self.per_page = INVENTORY_PER_PAGE
         self.selected_card = None
         self.update_components()
 
@@ -110,13 +117,31 @@ class InventoryView(discord.ui.View):
         return self.filtered_cards[start:end]
 
     def update_components(self):
+        """依目前狀態 (卡冊列表 / 單卡詳情) 重新組出整個畫面"""
         self.clear_items()
 
+        # ---- 單卡詳情 ----
         if self.selected_card:
-            back_btn = discord.ui.Button(label="🔙 返回卡冊", style=discord.ButtonStyle.secondary, row=0)
+            container = build_card_detail_container(self.selected_card, self.user_name, THUMBNAILS)
+            back_btn = ui.Button(label="🔙 返回卡冊", style=discord.ButtonStyle.secondary)
             back_btn.callback = self.back_button_callback
-            self.add_item(back_btn)
+            container.add_item(ui.Separator())
+            container.add_item(ui.ActionRow(back_btn))
+            self.add_item(container)
             return
+
+        # ---- 卡冊列表 ----
+        container = build_card_inventory_container(
+            self.get_current_page_cards(),
+            self.current_page,
+            self.total_pages,
+            len(self.all_cards),
+            self.all_cards,
+            self.user_name,
+            THUMBNAILS,
+            self.per_page,
+        )
+        container.add_item(ui.Separator())
 
         filter_options = [
             discord.SelectOption(label="全部階級 (ALL)", value="ALL", default=(self.current_filter == "ALL")),
@@ -127,9 +152,9 @@ class InventoryView(discord.ui.View):
             discord.SelectOption(label="UR 階級", value="UR", default=(self.current_filter == "UR")),
             discord.SelectOption(label="LR 階級", value="LR", default=(self.current_filter == "LR")),
         ]
-        filter_select = discord.ui.Select(placeholder="🔍 選擇稀有度篩選...", options=filter_options, row=0)
+        filter_select = ui.Select(placeholder="🔍 選擇稀有度篩選...", options=filter_options)
         filter_select.callback = self.filter_select_callback
-        self.add_item(filter_select)
+        container.add_item(ui.ActionRow(filter_select))
 
         page_cards = self.get_current_page_cards()
         if page_cards:
@@ -141,20 +166,18 @@ class InventoryView(discord.ui.View):
                     value=card["instance_id"],
                     emoji=card.get("emoji", "🎴")
                 ))
-            card_select = discord.ui.Select(placeholder="🎴 選擇卡牌檢視詳細鑑定...", options=card_options, row=1)
+            card_select = ui.Select(placeholder="🎴 選擇卡牌檢視詳細鑑定...", options=card_options)
             card_select.callback = self.card_select_callback
-            self.add_item(card_select)
+            container.add_item(ui.ActionRow(card_select))
 
-        prev_btn = discord.ui.Button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, disabled=(self.current_page <= 1), row=2)
+        prev_btn = ui.Button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, disabled=(self.current_page <= 1))
         prev_btn.callback = self.prev_page_callback
-        self.add_item(prev_btn)
-
-        page_btn = discord.ui.Button(label=f"📄 {self.current_page} / {self.total_pages} 頁", style=discord.ButtonStyle.secondary, disabled=True, row=2)
-        self.add_item(page_btn)
-
-        next_btn = discord.ui.Button(label="下一頁 ▶️", style=discord.ButtonStyle.primary, disabled=(self.current_page >= self.total_pages), row=2)
+        page_btn = ui.Button(label=f"📄 {self.current_page} / {self.total_pages} 頁", style=discord.ButtonStyle.secondary, disabled=True)
+        next_btn = ui.Button(label="下一頁 ▶️", style=discord.ButtonStyle.primary, disabled=(self.current_page >= self.total_pages))
         next_btn.callback = self.next_page_callback
-        self.add_item(next_btn)
+        container.add_item(ui.ActionRow(prev_btn, page_btn, next_btn))
+
+        self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
@@ -169,8 +192,7 @@ class InventoryView(discord.ui.View):
         self.filtered_cards = self.all_cards if select_val == "ALL" else [c for c in self.all_cards if c.get("rarity") == select_val]
         self.current_page = 1
         self.update_components()
-        embeds, files = build_card_inventory_embeds(self.get_current_page_cards(), self.current_page, self.total_pages, len(self.all_cards), self.all_cards, self.user_name, THUMBNAILS_DIR)
-        await interaction.edit_original_response(embeds=embeds, attachments=files, view=self)
+        await interaction.edit_original_response(view=self)
 
     async def card_select_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -179,31 +201,27 @@ class InventoryView(discord.ui.View):
         if card:
             self.selected_card = card
             self.update_components()
-            embed, files = build_card_detail_embed(card, self.user_name, THUMBNAILS_DIR)
-            await interaction.edit_original_response(embeds=[embed], attachments=files, view=self)
+            await interaction.edit_original_response(view=self)
 
     async def back_button_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
         self.selected_card = None
         self.update_components()
-        embeds, files = build_card_inventory_embeds(self.get_current_page_cards(), self.current_page, self.total_pages, len(self.all_cards), self.all_cards, self.user_name, THUMBNAILS_DIR)
-        await interaction.edit_original_response(embeds=embeds, attachments=files, view=self)
+        await interaction.edit_original_response(view=self)
 
     async def prev_page_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
         if self.current_page > 1:
             self.current_page -= 1
             self.update_components()
-            embeds, files = build_card_inventory_embeds(self.get_current_page_cards(), self.current_page, self.total_pages, len(self.all_cards), self.all_cards, self.user_name, THUMBNAILS_DIR)
-            await interaction.edit_original_response(embeds=embeds, attachments=files, view=self)
+            await interaction.edit_original_response(view=self)
 
     async def next_page_callback(self, interaction: discord.Interaction):
         await interaction.response.defer()
         if self.current_page < self.total_pages:
             self.current_page += 1
             self.update_components()
-            embeds, files = build_card_inventory_embeds(self.get_current_page_cards(), self.current_page, self.total_pages, len(self.all_cards), self.all_cards, self.user_name, THUMBNAILS_DIR)
-            await interaction.edit_original_response(embeds=embeds, attachments=files, view=self)
+            await interaction.edit_original_response(view=self)
 
 
 # ================= 🎴 Cog 類別 =================
@@ -272,22 +290,21 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         user_data["stats"]["total_draws"] += draw_count
         self.save_user_data(user_id, user_data)
 
-        view = GachaResultView(user_id, interaction.user.display_name, self)
-
         if draw_count == 1:
-            embed, files = build_gacha_single_embed(
-                results[0], interaction.user.display_name, total_cost, THUMBNAILS_DIR
+            container = build_gacha_single_container(
+                results[0], interaction.user.display_name, total_cost, THUMBNAILS
             )
-            embeds = [embed]
         else:
-            embeds, files = build_gacha_ten_embeds(
-                results, interaction.user.display_name, total_cost, THUMBNAILS_DIR
+            container = build_gacha_ten_container(
+                results, interaction.user.display_name, total_cost, THUMBNAILS
             )
+
+        view = GachaResultView(user_id, interaction.user.display_name, self, container)
 
         if interaction.type == discord.InteractionType.component:
-            await interaction.edit_original_response(content=None, embeds=embeds, attachments=files, view=view)
+            await interaction.edit_original_response(view=view)
         else:
-            await interaction.followup.send(embeds=embeds, files=files, view=view)
+            await interaction.followup.send(view=view)
 
     @app_commands.command(name="gacha", description="⛩️ 博麗神社祈願：消耗賽錢抽取角色卡牌")
     @app_commands.choices(pull_type=[
@@ -307,19 +324,8 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             await interaction.followup.send("🎒 你的卡冊空空如也，快去使用 `/card gacha` 進行第一次祈願吧！", ephemeral=True)
             return
 
-        sorted_user_cards = sort_cards(cards)
-        view = InventoryView(user_id, sorted_user_cards, interaction.user.display_name, self)
-        embeds, files = build_card_inventory_embeds(
-            view.get_current_page_cards(),
-            view.current_page,
-            view.total_pages,
-            len(sorted_user_cards),
-            sorted_user_cards,
-            interaction.user.display_name,
-            THUMBNAILS_DIR
-        )
-
-        await interaction.followup.send(embeds=embeds, files=files, view=view)
+        view = InventoryView(user_id, sort_cards(cards), interaction.user.display_name, self)
+        await interaction.followup.send(view=view)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(GachaCardSys(bot))
