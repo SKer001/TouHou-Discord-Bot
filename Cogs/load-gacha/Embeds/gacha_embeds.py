@@ -63,7 +63,7 @@ def build_gacha_single_embed(card_data: dict, user_name: str, cost: int, thumbna
         description=f"投入了 `{cost:,}` 賽錢，塞錢箱發出了清脆的聲響...",
         color=color
     )
-    embed.add_field(name="角色", value=f"{card_data['emoji']} **{card_data['name']}**", inline=True)
+    embed.add_field(name="角色", value=f"{card_data.get('emoji', '🎴')} **{card_data['name']}**", inline=True)
     embed.add_field(name="階級與稱號", value=f"`[{card_data['rarity']}]` {card_data['title']}", inline=True)
     embed.add_field(name="完整度品相", value=eval_str, inline=False)
     embed.set_footer(text=f"卡牌編號: {card_data['instance_id']} | 擁有者: {user_name}")
@@ -103,7 +103,6 @@ def build_gacha_ten_embeds(results: list[dict], user_name: str, total_cost: int,
             f"└ ID: `{card['instance_id']}` · {eval_str}"
         )
 
-        # 🔑 絕對不要設定 url 參數！讓它作為一般純 Embed 發送
         embed = discord.Embed(
             title=title_str,
             description=card_desc,
@@ -165,7 +164,6 @@ def build_card_inventory_embeds(
         global_idx = start_idx + page_idx
         eval_str, _ = get_completeness_eval(card['completeness'])
 
-        # 👑 第一張卡片顯示總持有量與階級統計 Header
         if page_idx == 0:
             header_desc = f"📊 **持有總量**：`{total_cards_count}` 張\n🏷️ **階級統計**：{stats_str}\n\n"
         else:
@@ -177,7 +175,6 @@ def build_card_inventory_embeds(
             f"└ {eval_str} | ID: `{card['instance_id']}`"
         )
 
-        # 🔑 絕對不要設定 url 參數！所有 Embed 統一使用 main_color，觸發邊條無縫黏合！
         embed = discord.Embed(
             title=f"{global_idx}. {card.get('emoji', '🎴')} [{card['rarity']}] {card['name']}",
             description=card_desc,
@@ -187,7 +184,6 @@ def build_card_inventory_embeds(
         if page_idx == total_in_page - 1:
             embed.set_footer(text=f"頁數: {current_page} / {total_pages} | 使用選單可進行篩選與詳細檢視")
 
-        # 🖼️ 為該張卡片掛載獨立縮圖
         _apply_thumbnail(embed, card.get("character_key"), thumbnails_dir, files, used_keys)
         embeds.append(embed)
 
