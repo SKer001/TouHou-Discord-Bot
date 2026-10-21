@@ -20,7 +20,8 @@ from .Embeds.gacha_embeds import (
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 USERS_DIR = os.path.join(BASE_DIR, "users")
 CHAR_FILE = os.path.join(BASE_DIR, "character.json")
-THUMBNAILS_FILE = os.path.join(BASE_DIR, "images", "Thumbnails.json")
+PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
+THUMBNAILS_FILE = os.path.join(PROJECT_ROOT, "images", "Thumbnails.json")
 
 os.makedirs(USERS_DIR, exist_ok=True)
 

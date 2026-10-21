@@ -1,5 +1,6 @@
 import io
 import discord
+from discord import ui
 from PIL import Image
 from Utils.item_data import CATEGORY_NAMES
 
@@ -212,64 +213,86 @@ def build_fortune_embed(
     embed.set_footer(text="TouHouBot Fortune System • 每日 00:00 重置運勢")
     return embed
 
-def build_inventory_embed(
-    user: discord.User | discord.Member,
-    inventory: dict,
-    item_templates: dict,  # 👈 新增這個參數：完整的道具字典
-    category: str,
-    page: int,
-    embed_color: discord.Color
-) -> tuple[discord.Embed, int]:
-    """繪製 3x3 網格背包與處理分頁，回傳 (Embed, 總頁數)"""
-    
-    # 1. 篩選符合分類的道具，且數量必須 > 0
-    filtered_items = {}
+# ---------------------------------------------------------
+# 🎒 3. 背包 (Components V2：Container + Section + 分頁)
+# ---------------------------------------------------------
+# 需要 discord.py >= 2.6。每頁道具數；V2 每則訊息最多 40 個元件，
+# 目前整個背包畫面只用到約 13 個，所以這個數字可以放心調大。
+ITEMS_PER_PAGE = 10
+
+# 「全部道具」時的排序：依分類分組，同分類內再依道具 ID A-Z
+CATEGORY_ORDER = {"consumable": 0, "collectible": 1, "special": 2}
+UNKNOWN_ITEM = {"name": "未知道具", "emoji": "❓", "category": "special", "desc": "未知的物品。"}
+
+
+def get_inventory_view_data(inventory: dict, item_templates: dict, category: str, page: int) -> dict:
+    """
+    一次算好背包畫面需要的所有資料 (篩選、排序、分頁、各分類數量)，
+    避免 View 為了取得總頁數而重複計算兩次。
+    """
+    entries = []                                   # [(item_id, amount, info), ...]
+    category_counts = {"all": 0, "consumable": 0, "collectible": 0, "special": 0}
+
     for item_id, amount in inventory.items():
-        if amount <= 0:
+        if not isinstance(amount, int) or amount <= 0:
             continue
-            
-        # 從傳入的字典中尋找道具，若無則給予預設值防呆
-        info = item_templates.get(item_id, {
-            "name": "未知道具", "emoji": "❓", "category": "special", "desc": "未知的物品。"
-        })
-        
-        if category == "all" or info["category"] == category:
-            filtered_items[item_id] = amount
+        info = item_templates.get(item_id, UNKNOWN_ITEM)
+        cat = info.get("category", "special")
+        category_counts["all"] += 1
+        if cat in category_counts:
+            category_counts[cat] += 1
+        if category == "all" or cat == category:
+            entries.append((item_id, amount, info))
 
-    # 2. 依照 英文ID 進行 A-Z 排序
-    sorted_items = sorted(filtered_items.items(), key=lambda x: x[0])
+    entries.sort(key=lambda e: (CATEGORY_ORDER.get(e[2].get("category"), 99), e[0]))
 
-    # 3. 計算總頁數與當前頁
-    total_pages = max(1, (len(sorted_items) + 8) // 9)
+    total_pages = max(1, (len(entries) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
     page = max(1, min(page, total_pages))
+    start = (page - 1) * ITEMS_PER_PAGE
 
+    return {
+        "items": entries[start:start + ITEMS_PER_PAGE],
+        "page": page,
+        "total_pages": total_pages,
+        "kinds": len(entries),                      # 目前分類的道具種類數
+        "total_amount": sum(e[1] for e in entries), # 目前分類的道具總件數
+        "category_counts": category_counts,         # 各分類種類數 (給選單顯示)
+    }
+
+
+def build_inventory_container(
+    user: discord.User | discord.Member,
+    data: dict,
+    category: str,
+    embed_color: discord.Color,
+) -> ui.Container:
+    """繪製背包：標題區(右側頭像) + 分隔線 + 當頁道具清單 (含道具說明)"""
     cat_name = CATEGORY_NAMES.get(category, "🎒 道具")
-    embed = discord.Embed(
-        title=f"{cat_name} - {user.display_name} 的背包",
-        color=embed_color,
-        timestamp=discord.utils.utcnow()
+
+    header = ui.Section(
+        ui.TextDisplay(
+            f"## {cat_name} - {user.display_name} 的背包\n"
+            f"共 `{data['kinds']}` 種道具 · 合計 `{data['total_amount']:,}` 件\n"
+            f"-# 第 {data['page']} / {data['total_pages']} 頁 • 幻想鄉居民登記"
+        ),
+        accessory=ui.Thumbnail(user.display_avatar.with_size(128).url),
     )
-    embed.set_thumbnail(url=user.display_avatar.url)
 
-    # 4. 判斷是否有道具
-    if not sorted_items:
-        embed.description = "🍵 目前該分類空空如也...\n快去參與活動或投賽錢獲得道具吧！"
-    else:
-        embed.description = f"目前共有 `{len(sorted_items)}` 種道具"
-        
-        # 提取當前頁的 9 個道具
-        start_idx = (page - 1) * 9
-        end_idx = start_idx + 9
-        page_items = sorted_items[start_idx:end_idx]
+    container = ui.Container(accent_color=embed_color)
+    container.add_item(header)
+    container.add_item(ui.Separator())
 
-        # 3x3 Grid
-        for item_id, amount in page_items:
-            info = item_templates.get(item_id, {"name": "未知道具", "emoji": "❓"})
-            embed.add_field(
-                name=f"{info['emoji']} {info['name']}",
-                value=f"數量: `{amount:,}`",
-                inline=True
-            )
+    if not data["items"]:
+        container.add_item(ui.TextDisplay("🍵 目前該分類空空如也...\n快去參與活動或投賽錢獲得道具吧！"))
+        return container
 
-    embed.set_footer(text=f"第 {page} / {total_pages} 頁 • 幻想鄉居民登記")
-    return embed, total_pages
+    lines = []
+    for _item_id, amount, info in data["items"]:
+        line = f"{info.get('emoji', '❓')} **{info.get('name', '未知道具')}** ×`{amount:,}`"
+        desc = info.get("desc")
+        if desc:
+            line += f"\n-# {desc}"
+        lines.append(line)
+
+    container.add_item(ui.TextDisplay("\n\n".join(lines)))
+    return container

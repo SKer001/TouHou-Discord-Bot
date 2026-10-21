@@ -1,13 +1,25 @@
 import os
 import json
 import discord
-from discord import app_commands
+from discord import app_commands, ui
 from discord.ext import commands
+from .Embeds.character_embeds import (
+    build_home_container,
+    build_category_container,
+    build_character_container,
+)
 
 # ---------------------------------------------------------
-# 💡 載入同目錄下的 characters.json 資料庫
+# 💡 路徑設定
+#   - characters.json：與本檔同目錄
+#   - images/Thumbnails.json：在專案根目錄 (與 Main.py 同級)，
+#     本檔位於 Cogs/load-character/，往上兩層就是根目錄
 # ---------------------------------------------------------
-JSON_PATH = os.path.join(os.path.dirname(__file__), "characters.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+JSON_PATH = os.path.join(BASE_DIR, "characters.json")
+PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
+THUMBNAILS_FILE = os.path.join(PROJECT_ROOT, "images", "Thumbnails.json")
+
 
 def load_character_data() -> dict:
     if os.path.exists(JSON_PATH):
@@ -16,218 +28,122 @@ def load_character_data() -> dict:
     return {}
 
 
-# ---------------------------------------------------------
-# 🎛️ 選單 1：選擇「當前分類下的其他角色」
-# ---------------------------------------------------------
-class SameCategoryCharacterSelect(discord.ui.Select):
-    def __init__(self, category_key: str, current_char_id: str, db_data: dict):
-        self.category_key = category_key
-        self.db_data = db_data
-
-        category = db_data.get(category_key, {})
-        characters = category.get("characters", [])
-
-        options = []
-        for char in characters[:25]:  # 防止超過 25 個
-            is_current = (char["id"] == current_char_id)
-            options.append(
-                discord.SelectOption(
-                    label=char["name"],
-                    value=char["id"],
-                    description=f"{char['en_name']} - {char['title']}",
-                    default=is_current,
-                    emoji="👤"
-                )
-            )
-
-        super().__init__(
-            placeholder="選擇「當前分類」的其他角色...",
-            min_values=1,
-            max_values=1,
-            options=options,
-            row=0
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-        selected_char_id = self.values[0]
-        category = self.db_data.get(self.category_key, {})
-        target_char = next((c for c in category.get("characters", []) if c["id"] == selected_char_id), None)
-
-        if target_char:
-            embed = build_character_embed(target_char)
-            view = CharacterProfileView(self.category_key, target_char["id"], self.db_data)
-            await interaction.response.edit_message(embed=embed, view=view)
+def load_thumbnails() -> dict:
+    """格式：{"角色ID": "圖片URL", ..., "fill": "預設圖URL"}；讀取失敗時回傳空字典 (只顯示文字)"""
+    try:
+        with open(THUMBNAILS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"❌ [Character Error] 讀取 {THUMBNAILS_FILE} 失敗：{e}")
+        return {}
 
 
 # ---------------------------------------------------------
-# 🎛️ 選單 2：選擇「切換到其他作品/傳記分類」
+# 🎛️ 圖鑑瀏覽 View (Components V2)
+#   同一個 View 依狀態切換三種畫面：
+#   首頁 (只有分類選單) ➔ 分類頁 (角色選單 + 分類選單) ➔ 角色檔案頁 (同上)
 # ---------------------------------------------------------
-class CategorySwitchSelect(discord.ui.Select):
-    def __init__(self, current_category_key: str, db_data: dict):
-        self.db_data = db_data
-
-        options = []
-        for cat_key, cat_data in db_data.items():
-            options.append(
-                discord.SelectOption(
-                    label=cat_data["category_name"],
-                    value=cat_key,
-                    description=cat_data.get("description", "")[:50],
-                    default=(cat_key == current_category_key),
-                    emoji="📚"
-                )
-            )
-
-        super().__init__(
-            placeholder="切換到其他作品/分類...",
-            min_values=1,
-            max_values=1,
-            options=options[:25],
-            row=1
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-        selected_cat_key = self.values[0]
-        view = CharacterSelectionView(selected_cat_key, self.db_data)
-        cat_name = self.db_data[selected_cat_key]["category_name"]
-
-        embed = discord.Embed(
-            title=f"📂 已選擇分類：{cat_name}",
-            description="請從下方選單選擇您要檢視的角色：",
-            color=discord.Color.blue()
-        )
-        await interaction.response.edit_message(embed=embed, view=view)
-
-
-# ---------------------------------------------------------
-# 🎛️ 容器 1：角色圖鑑檢視頁面 (包含雙下拉選單)
-# ---------------------------------------------------------
-class CharacterProfileView(discord.ui.View):
-    def __init__(self, category_key: str, current_char_id: str, db_data: dict):
+class CharacterBrowserView(ui.LayoutView):
+    def __init__(self, db_data: dict, thumbnails: dict):
         super().__init__(timeout=180)
-        # 加入「當前分類角色」選單
-        self.add_item(SameCategoryCharacterSelect(category_key, current_char_id, db_data))
-        # 加入「作品分類切換」選單
-        self.add_item(CategorySwitchSelect(category_key, db_data))
-
-
-# ---------------------------------------------------------
-# 🎛️ 選單 3：第一階段（選擇分類後，選擇該分類的角色）
-# ---------------------------------------------------------
-class InitialCharacterSelect(discord.ui.Select):
-    def __init__(self, category_key: str, db_data: dict):
-        self.category_key = category_key
         self.db_data = db_data
+        self.thumbnails = thumbnails
+        self.category_key = None
+        self.char_id = None
+        self.message = None  # 送出後由指令填入，供逾時時停用選單
+        self.char_select = None
+        self.category_select = None
 
-        category = db_data.get(category_key, {})
-        characters = category.get("characters", [])
+        self.build()
 
-        options = []
-        for char in characters[:25]:
-            options.append(
-                discord.SelectOption(
-                    label=char["name"],
-                    value=char["id"],
-                    description=f"{char['en_name']} - {char['title']}",
-                    emoji="👤"
-                )
+    def build(self):
+        """依目前狀態重新組出整個畫面"""
+        self.char_select = None
+
+        if self.category_key is None:
+            container = build_home_container(self.db_data)
+        elif self.char_id is None:
+            container = build_category_container(self.db_data[self.category_key])
+        else:
+            char = self._get_char(self.category_key, self.char_id)
+            container = build_character_container(char, self.thumbnails)
+
+        container.add_item(ui.Separator())
+
+        # 選單 1：當前分類的角色 (進入分類後才出現)
+        if self.category_key is not None:
+            characters = self.db_data[self.category_key].get("characters", [])
+            self.char_select = ui.Select(
+                placeholder="選擇「當前分類」的其他角色..." if self.char_id else "請選擇角色...",
+                options=[
+                    discord.SelectOption(
+                        label=ch["name"],
+                        value=ch["id"],
+                        description=f"{ch.get('en_name', '')} - {ch.get('title', '')}"[:100],
+                        default=(ch["id"] == self.char_id),
+                        emoji="👤",
+                    )
+                    for ch in characters[:25]
+                ],
             )
+            self.char_select.callback = self.on_character
+            container.add_item(ui.ActionRow(self.char_select))
 
-        super().__init__(
-            placeholder="請選擇角色...",
-            min_values=1,
-            max_values=1,
-            options=options
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-        selected_char_id = self.values[0]
-        category = self.db_data.get(self.category_key, {})
-        target_char = next((c for c in category.get("characters", []) if c["id"] == selected_char_id), None)
-
-        if target_char:
-            embed = build_character_embed(target_char)
-            view = CharacterProfileView(self.category_key, target_char["id"], self.db_data)
-            await interaction.response.edit_message(embed=embed, view=view)
-
-
-class CharacterSelectionView(discord.ui.View):
-    def __init__(self, category_key: str, db_data: dict):
-        super().__init__(timeout=120)
-        self.add_item(InitialCharacterSelect(category_key, db_data))
-
-
-# ---------------------------------------------------------
-# 🎛️ 選單 0：指令觸發第一步 (選擇分類/作品)
-# ---------------------------------------------------------
-class InitialCategorySelect(discord.ui.Select):
-    def __init__(self, db_data: dict):
-        self.db_data = db_data
-
-        options = []
-        for cat_key, cat_data in db_data.items():
-            options.append(
+        # 選單 2：作品 / 分類
+        self.category_select = ui.Select(
+            placeholder="請選擇作品/角色分類..." if self.category_key is None else "切換到其他作品/分類...",
+            options=[
                 discord.SelectOption(
-                    label=cat_data["category_name"],
-                    value=cat_key,
-                    description=cat_data.get("description", "")[:50],
-                    emoji="📂"
+                    label=cat["category_name"],
+                    value=key,
+                    description=cat.get("description", "")[:100],
+                    default=(key == self.category_key),
+                    emoji="📂" if self.category_key is None else "📚",
                 )
-            )
-
-        super().__init__(
-            placeholder="請選擇作品/角色分類...",
-            min_values=1,
-            max_values=1,
-            options=options[:25]
+                for key, cat in list(self.db_data.items())[:25]
+            ],
         )
+        self.category_select.callback = self.on_category
+        container.add_item(ui.ActionRow(self.category_select))
 
-    async def callback(self, interaction: discord.Interaction):
-        selected_cat_key = self.values[0]
-        cat_name = self.db_data[selected_cat_key]["category_name"]
+        self.clear_items()
+        self.add_item(container)
 
-        embed = discord.Embed(
-            title=f"📂 已選擇：{cat_name}",
-            description="請從下方選單選擇該分類中的角色：",
-            color=discord.Color.blue()
-        )
-        view = CharacterSelectionView(selected_cat_key, self.db_data)
-        await interaction.response.edit_message(embed=embed, view=view)
+    def _get_char(self, category_key: str, char_id: str):
+        characters = self.db_data.get(category_key, {}).get("characters", [])
+        return next((c for c in characters if c["id"] == char_id), None)
 
+    async def refresh(self, interaction: discord.Interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
 
-class InitialCategoryView(discord.ui.View):
-    def __init__(self, db_data: dict):
-        super().__init__(timeout=120)
-        self.add_item(InitialCategorySelect(db_data))
+    async def on_category(self, interaction: discord.Interaction):
+        selected = interaction.data["values"][0]
+        if selected not in self.db_data:
+            await interaction.response.send_message("❌ 找不到該分類，請重新使用 `/character`。", ephemeral=True)
+            return
+        self.category_key = selected
+        self.char_id = None
+        await self.refresh(interaction)
 
+    async def on_character(self, interaction: discord.Interaction):
+        selected = interaction.data["values"][0]
+        if self._get_char(self.category_key, selected) is None:
+            await interaction.response.send_message("❌ 找不到該角色，請重新使用 `/character`。", ephemeral=True)
+            return
+        self.char_id = selected
+        await self.refresh(interaction)
 
-# ---------------------------------------------------------
-# 🛠️ 核心 Embed 渲染輔助函式
-# ---------------------------------------------------------
-def build_character_embed(char_data: dict) -> discord.Embed:
-    # 支援 16 進位顏色碼
-    color_hex = char_data.get("color", "#FF0000").lstrip("#")
-    color = discord.Color(int(color_hex, 16))
-
-    embed = discord.Embed(
-        title=f"【{char_data['title']}】{char_data['name']}",
-        description=f"**初次登場作品：** `{char_data['debut']}`\n\n{char_data['description']}",
-        color=color
-    )
-    embed.set_author(name=f"{char_data['name']} ({char_data['en_name']})")
-    
-    embed.add_field(name="種族", value=char_data.get("species", "未知"), inline=True)
-    embed.add_field(name="主要居所", value=char_data.get("location", "未知"), inline=True)
-    embed.add_field(name="主要能力", value=f"`{char_data.get('ability', '無')}`", inline=False)
-    embed.add_field(name="代表主題曲", value=f"🎵 {char_data.get('theme_song', '無')}", inline=False)
-
-    spells = char_data.get("spell_cards", [])
-    if spells:
-        spells_text = "\n".join([f"• {s}" for s in spells])
-        embed.add_field(name="🃏 代表符卡", value=f"```text\n{spells_text}\n```", inline=False)
-
-    embed.set_footer(text="TouHou Project Character Profile • 東方角色圖鑑")
-    return embed
+    async def on_timeout(self):
+        """逾時後把選單反灰，避免點到沒反應的控制項"""
+        for select in (self.char_select, self.category_select):
+            if select is not None:
+                select.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
 
 # ---------------------------------------------------------
@@ -246,13 +162,9 @@ class CharacterProfileCog(commands.Cog):
             await interaction.response.send_message("❌ 無法載入 `characters.json` 資料庫，請檢查檔案是否存在。", ephemeral=True)
             return
 
-        embed = discord.Embed(
-            title="🌸 東方 Project 角色圖鑑資料庫",
-            description="請先從下方下拉式選單選擇 **角色分類 / 作品章節**：",
-            color=discord.Color.purple()
-        )
-        view = InitialCategoryView(db_data)
-        await interaction.response.send_message(embed=embed, view=view)
+        view = CharacterBrowserView(db_data, load_thumbnails())
+        await interaction.response.send_message(view=view)
+        view.message = await interaction.original_response()
 
 
 async def setup(bot: commands.Bot):
