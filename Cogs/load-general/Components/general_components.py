@@ -226,7 +226,7 @@ def build_inventory_container(
     user: discord.User | discord.Member,
     data: dict,
     category: str,
-    embed_color: discord.Color,
+    accent_color: discord.Color,
 ) -> ui.Container:
     """繪製背包：標題區(右側頭像) + 分隔線 + 當頁道具清單 (含道具說明)"""
     cat_name = CATEGORY_NAMES.get(category, "🎒 道具")
@@ -240,7 +240,7 @@ def build_inventory_container(
         accessory=ui.Thumbnail(user.display_avatar.with_size(128).url),
     )
 
-    container = ui.Container(accent_color=embed_color)
+    container = ui.Container(accent_color=accent_color)
     container.add_item(header)
     container.add_item(ui.Separator())
 

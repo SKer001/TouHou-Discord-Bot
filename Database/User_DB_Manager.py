@@ -392,3 +392,63 @@ async def add_gacha_cards(user_id: int, cards: list[dict], draw_count: int | Non
             (user_id, draw_count),
         )
         await db.commit()
+
+
+async def transform_cards(user_id: int, instance_ids: list[str], build_new_card, count_fusion: bool = False) -> tuple[list[dict], dict]:
+    """
+    合成 / 融合共用：消耗指定卡牌並產生一張新卡 (同一個交易)。
+    - 以 BEGIN IMMEDIATE 鎖定資料庫，讀取 → 驗證 → 刪除 → 寫入之間不會被其他操作插隊
+    - build_new_card(consumed_cards) 負責驗證並回傳新卡；條件不符時丟出 ValueError
+    - 任何一張卡已不屬於玩家 (被用掉 / 不存在) 也會丟出 ValueError，整筆不寫入
+    - count_fusion=True 時累加 gacha_stats.total_fusions
+    回傳 (被消耗的卡牌, 新卡)
+    """
+    if len(set(instance_ids)) != len(instance_ids):
+        raise ValueError("不能選擇同一張卡牌兩次")
+
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            placeholders = ", ".join("?" for _ in instance_ids)
+            async with db.execute(
+                f"""
+                SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at
+                FROM gacha_cards WHERE user_id = ? AND instance_id IN ({placeholders})
+                """,
+                (user_id, *instance_ids),
+            ) as cursor:
+                rows = {row["instance_id"]: dict(row) for row in await cursor.fetchall()}
+            if len(rows) != len(instance_ids):
+                raise ValueError("部分卡牌已不在你的卡冊中")
+            consumed = [rows[i] for i in instance_ids]   # 保持呼叫端給的順序
+
+            new_card = build_new_card(consumed)
+
+            await db.execute(
+                f"DELETE FROM gacha_cards WHERE user_id = ? AND instance_id IN ({placeholders})",
+                (user_id, *instance_ids),
+            )
+            await db.execute(
+                """
+                INSERT INTO gacha_cards
+                    (instance_id, user_id, character_key, name, emoji, rarity, title, completeness, obtained_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_card["instance_id"], user_id, new_card["character_key"], new_card["name"], new_card.get("emoji"),
+                    new_card["rarity"], new_card.get("title"), new_card["completeness"], new_card.get("obtained_at"),
+                ),
+            )
+            if count_fusion:
+                await db.execute(
+                    """
+                    INSERT INTO gacha_stats (user_id, total_fusions) VALUES (?, 1)
+                    ON CONFLICT(user_id) DO UPDATE SET total_fusions = total_fusions + 1
+                    """,
+                    (user_id,),
+                )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return consumed, new_card

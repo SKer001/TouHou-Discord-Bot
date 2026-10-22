@@ -18,14 +18,14 @@ Database/
   Users.db / Item.db         SQLite 檔（Users.db 含玩家資料，勿推上 git）
   item.new.json              道具批次匯入用資料
 Cogs/
-  load-character/  character.py, Embeds/character_embeds.py, characters.json   # 圖鑑資料
-  load-gacha/      gacha.py, Embeds/gacha_embeds.py, Gacha_Pool.json            # 卡池（與圖鑑資料分開）
-  load-general/    profile.py, inventory.py, Admin-item.py, Admin-user.py, Embeds/general_embeds.py
+  load-character/  character.py, Components/character_components.py, characters.json   # 圖鑑資料
+  load-gacha/      gacha.py, Components/gacha_components.py, Gacha_Pool.json            # 卡池（與圖鑑資料分開）
+  load-general/    profile.py, inventory.py, Admin-item.py, Admin-user.py, Components/general_components.py
   load-system/     Admin-sys.py
 Logger/Logger.py             日誌與錯誤回報（需要 .env 的 LOG_CHANNEL_ID）
 images/                      專案根目錄；Thumbnails.json = {"角色id": "圖片URL", ..., "fill": "預設圖URL"}
 ```
-- Main.py 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Embeds.x import ...`（命名空間套件）。
+- Main.py 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Components.x import ...`（命名空間套件）。
 - **載入器會載入資料夾內每一個 .py**：舊檔（例如已刪除的 `daily.py`）殘留會讓載入失敗。
 - `.env` 需要 `DISCORD_TOKEN`、`LOG_CHANNEL_ID`（皆不進 git）。`.gitignore` 目前有 `/.env`、`/Logger/Logs/`、`__pycache__/` 等；**建議加入 `/Database/Users.db`**（公開 repo，避免玩家資料外洩）。
 - 專案換行符為 **LF**。
@@ -61,7 +61,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 ## 5. 各 Cog 重點
 - **gacha.py**：卡池讀 `Gacha_Pool.json`（變數 `GACHA_POOL`）；單抽 2,000、十連 20,000 賽錢；卡池空時**先中止再扣款**；稀有度權重 `[75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；結果畫面可繼續單抽/十連/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。
 - **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。
-- **inventory.py / general_embeds.py**：背包每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色。
+- **inventory.py / general_components.py**：背包每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色。
 - **Admin-user.py / Admin-item.py**：管理員 ID 寫死在 `ADMIN_ID = 403895664666214400`，其他人使用回「無權限」。指令：`reset_daily`、`add_money`、`add_exp`、`take_item`、`clear_inventory`、`add_item`、`add_items_batch`、`edit_item`、`give_item`、`give_items`。
 - **Logger.py**：記錄指令/元件互動並把重大事件回報到 `LOG_CHANNEL_ID`；`Admin-sys.py` 未改動。
 
@@ -88,7 +88,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
    - 順手修好原本壞掉的 `/give_item`（背包寫不進去）
 
 ## 8. 目前狀態與待辦（請使用者自行完成）
-已交付 `db_refactor.zip`（10 個檔案，路徑與專案相同）：`Database/User_DB_Manager.py`、`Database/Item_DB_Manager.py`、`migrate_legacy.py`、`Main.py`、`Cogs/load-gacha/gacha.py`、`Cogs/load-general/{profile,inventory,Admin-item,Admin-user}.py`、`Cogs/load-general/Embeds/general_embeds.py`。
+已交付 `db_refactor.zip`（10 個檔案，路徑與專案相同）：`Database/User_DB_Manager.py`、`Database/Item_DB_Manager.py`、`migrate_legacy.py`、`Main.py`、`Cogs/load-gacha/gacha.py`、`Cogs/load-general/{profile,inventory,Admin-item,Admin-user}.py`、`Cogs/load-general/Components/general_components.py`。
 
 使用者需手動：
 1. 搬檔：`Utils/item.db`→`Database/Item.db`、`Utils/item.new.json`→`Database/`、`Cogs/load-gacha/character.json`→`Gacha_Pool.json`

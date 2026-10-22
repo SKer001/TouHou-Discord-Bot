@@ -3,11 +3,12 @@ import json
 import discord
 from discord import app_commands, ui
 from discord.ext import commands
-from .Embeds.character_embeds import (
+from .Components.character_components import (
     build_home_container,
     build_category_container,
     build_character_container,
 )
+from Utils.components import send_notice
 
 # ---------------------------------------------------------
 # 💡 路徑設定
@@ -120,7 +121,7 @@ class CharacterBrowserView(ui.LayoutView):
     async def on_category(self, interaction: discord.Interaction):
         selected = interaction.data["values"][0]
         if selected not in self.db_data:
-            await interaction.response.send_message("❌ 找不到該分類，請重新使用 `/character`。", ephemeral=True)
+            await send_notice(interaction, "❌ 找不到該分類，請重新使用 `/character`。")
             return
         self.category_key = selected
         self.char_id = None
@@ -129,7 +130,7 @@ class CharacterBrowserView(ui.LayoutView):
     async def on_character(self, interaction: discord.Interaction):
         selected = interaction.data["values"][0]
         if self._get_char(self.category_key, selected) is None:
-            await interaction.response.send_message("❌ 找不到該角色，請重新使用 `/character`。", ephemeral=True)
+            await send_notice(interaction, "❌ 找不到該角色，請重新使用 `/character`。")
             return
         self.char_id = selected
         await self.refresh(interaction)
@@ -159,7 +160,7 @@ class CharacterProfileCog(commands.Cog):
         db_data = load_character_data()
 
         if not db_data:
-            await interaction.response.send_message("❌ 無法載入 `characters.json` 資料庫，請檢查檔案是否存在。", ephemeral=True)
+            await send_notice(interaction, "❌ 無法載入 `characters.json` 資料庫，請檢查檔案是否存在。")
             return
 
         view = CharacterBrowserView(db_data, load_thumbnails())

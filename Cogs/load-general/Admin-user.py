@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 from Database.User_DB_Manager import reset_daily, add_money, add_exp, get_or_create_user, update_user_inventory
 from Database.Item_DB_Manager import get_all_items, get_item
+from Utils.components import send_notice
 
 ADMIN_ID = 403895664666214400
 
@@ -26,13 +27,13 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def reset_daily_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member = None):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 您沒有權限使用此開發者指令！", ephemeral=True)
+            await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
         target_user = target or interaction.user
         await reset_daily(target_user.id)
 
-        await interaction.response.send_message(f"🛠️ [Dev] 已成功重置 **{target_user.display_name}** 的 `/daily` 簽到狀態！", ephemeral=True)
+        await send_notice(interaction, f"🛠️ [Dev] 已成功重置 **{target_user.display_name}** 的 `/daily` 簽到狀態！")
 
     # 2. 💰 /add_money 調整賽錢
     @app_commands.command(name="add_money", description="【開發者專用】給予或扣除指定成員的賽錢")
@@ -40,14 +41,12 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def add_money_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, amount: int):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 您沒有權限使用此開發者指令！", ephemeral=True)
+            await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
         current_money = await add_money(target.id, amount)
         action_text = "給予" if amount >= 0 else "扣除"
-        await interaction.response.send_message(
-            f"🛠️ [Dev] 已成功向 **{target.display_name}** {action_text} 賽錢 `{abs(amount):,}` 兩！\n目前總金額：`{current_money:,}` 兩", ephemeral=True
-        )
+        await send_notice(interaction, f"🛠️ [Dev] 已成功向 **{target.display_name}** {action_text} 賽錢 `{abs(amount):,}` 兩！\n目前總金額：`{current_money:,}` 兩")
 
     # 3. ✨ /add_exp 調整經驗值與火力
     @app_commands.command(name="add_exp", description="【開發者專用】給予或扣除指定成員經驗值 (自動驗算對應 P點)")
@@ -55,7 +54,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def add_exp_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, amount: int):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 您沒有權限使用此開發者指令！", ephemeral=True)
+            await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
         exp_result = await add_exp(target.id, amount)
@@ -67,7 +66,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         if exp_result.get("leveled_up"): msg += "\n💥 **(POWER UP! 火力提升)**"
         elif exp_result.get("is_degraded"): msg += "\n📉 **(火力降階)**"
 
-        await interaction.response.send_message(msg, ephemeral=True)
+        await send_notice(interaction, msg)
 
     # 4. 🔻 /take_item 扣除指定成員特定道具 (數量<=0自動移除 Key)
     @app_commands.command(name="take_item", description="【開發者專用】扣除或移除指定成員的特定道具")
@@ -80,11 +79,11 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def take_item_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, item_id: str, amount: int):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 無權限", ephemeral=True)
+            await send_notice(interaction, "❌ 無權限")
             return
 
         if amount <= 0:
-            await interaction.response.send_message("❌ 扣除數量必須大於 0！", ephemeral=True)
+            await send_notice(interaction, "❌ 扣除數量必須大於 0！")
             return
 
         user_data = await get_or_create_user(target.id)
@@ -92,7 +91,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         inventory = json.loads(raw_inv) if isinstance(raw_inv, str) else (raw_inv or {})
 
         if item_id not in inventory or inventory[item_id] <= 0:
-            await interaction.response.send_message(f"❌ **{target.display_name}** 的背包內並沒有道具 `{item_id}`！", ephemeral=True)
+            await send_notice(interaction, f"❌ **{target.display_name}** 的背包內並沒有道具 `{item_id}`！")
             return
 
         current_amount = inventory[item_id]
@@ -109,7 +108,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
             msg = f"🔻 已成功扣除 **{target.display_name}** 的 {item_name} x `{amount}`！ (剩餘：`{new_amount}` 件)"
 
         await update_user_inventory(target.id, inventory)
-        await interaction.response.send_message(msg, ephemeral=True)
+        await send_notice(interaction, msg)
 
     # 5. 🧹 /clear_inventory 清空指定成員背包
     @app_commands.command(name="clear_inventory", description="【開發者專用】完全清空指定成員的背包庫存")
@@ -117,13 +116,10 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def clear_inventory_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 無權限", ephemeral=True)
+            await send_notice(interaction, "❌ 無權限")
             return
         await update_user_inventory(target.id, {})
-        await interaction.response.send_message(
-            f"🧹 已成功清空 **{target.display_name}** 的背包，所有道具皆已歸零移除！",
-            ephemeral=True
-        )
+        await send_notice(interaction, f"🧹 已成功清空 **{target.display_name}** 的背包，所有道具皆已歸零移除！")
 
 
 async def setup(bot: commands.Bot):

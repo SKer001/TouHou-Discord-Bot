@@ -9,13 +9,14 @@ from Database.User_DB_Manager import (
     get_or_create_user, update_visibility, add_money, add_exp,
     get_daily_status as db_get_daily_status, claim_daily,
 )
-from .Embeds.general_embeds import (
+from .Components.general_components import (
     get_avatar_dominant_color,
     build_profile_container,
     build_daily_repeat_container,
     build_power_up_container,
     build_notice_container,
 )
+from Utils.components import send_notice
 
 # ---------------------------------------------------------
 # ⚙️ 常數設定
@@ -114,7 +115,7 @@ class ProfileView(ui.LayoutView):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target_user.id:
-            await interaction.response.send_message("❌ 這不是你的資料卡，只有本人可以簽到！", ephemeral=True)
+            await send_notice(interaction, "❌ 這不是你的資料卡，只有本人可以簽到！")
             return False
         return True
 

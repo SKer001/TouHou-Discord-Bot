@@ -4,7 +4,8 @@ from discord import app_commands, ui
 from discord.ext import commands
 from Database.User_DB_Manager import get_or_create_user
 from Database.Item_DB_Manager import get_all_items
-from .Embeds.general_embeds import get_inventory_view_data, build_inventory_container
+from .Components.general_components import get_inventory_view_data, build_inventory_container
+from Utils.components import send_notice
 
 # 分類選單：(value, 名稱, emoji, 說明)
 CATEGORY_OPTIONS = [
@@ -35,7 +36,7 @@ class PageJumpModal(ui.Modal, title='跳轉背包頁面'):
         try:
             self.view_ref.current_page = int(self.page_input.value)
         except ValueError:
-            await interaction.response.send_message("❌ 請輸入有效的整數！", ephemeral=True)
+            await send_notice(interaction, "❌ 請輸入有效的整數！")
             return
         await self.view_ref.update_message(interaction)
 
@@ -102,7 +103,7 @@ class InventoryView(ui.LayoutView):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.invoker_id:
-            await interaction.response.send_message("❌ 只有該指令的使用者才能操作此選單！", ephemeral=True)
+            await send_notice(interaction, "❌ 只有該指令的使用者才能操作此選單！")
             return False
         return True
 
@@ -150,7 +151,7 @@ class InventoryCog(commands.Cog):
 
         is_public = bool(user_data.get("is_public", 1))
         if target and not is_public and target.id != interaction.user.id:
-            await interaction.followup.send(f"🔒 **{target_user.display_name}** 已設定個人卡片為私密，無法檢視其背包！", ephemeral=True)
+            await send_notice(interaction, f"🔒 **{target_user.display_name}** 已設定個人卡片為私密，無法檢視其背包！")
             return
 
         # 讀取 JSON 背包
@@ -166,9 +167,9 @@ class InventoryCog(commands.Cog):
         # 向 SQLite 查詢所有的道具設定檔
         item_templates = await get_all_items()
 
-        embed_color = target_user.color if target_user.color != discord.Color.default() else discord.Color.dark_theme()
+        accent_color = target_user.color if target_user.color != discord.Color.default() else discord.Color.dark_theme()
 
-        view = InventoryView(interaction.user.id, target_user, inventory, item_templates, embed_color)
+        view = InventoryView(interaction.user.id, target_user, inventory, item_templates, accent_color)
         view.message = await interaction.followup.send(view=view)
 
 

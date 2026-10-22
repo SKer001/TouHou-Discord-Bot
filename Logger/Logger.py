@@ -9,6 +9,7 @@ from logging.handlers import TimedRotatingFileHandler
 from dotenv import load_dotenv
 import datetime
 import json
+from Utils.components import send_notice
 
 load_dotenv()
 
@@ -87,9 +88,9 @@ class Logger(commands.Cog):
         bot.tree.error(self.on_app_command_error)
 
     # -----------------------------------------------------
-    # 💡 通用輔助函式：傳送 Embed 到指定頻道 (重大事件專用)
+    # 💡 通用輔助函式：傳送 Components V2 通知到指定頻道 (重大事件專用)
     # -----------------------------------------------------
-    async def send_embed_log(self, title: str, description: str, color: discord.Color, fields: dict = None):
+    async def send_alert_log(self, title: str, description: str, color: discord.Color, fields: dict = None):
         """非同步發送重大事件至指定 DiscordLog 頻道"""
         try:
             channel = self.bot.get_channel(LOG_CHANNEL_ID)
@@ -97,19 +98,24 @@ class Logger(commands.Cog):
                 # 若抓不到頻道物件（例如快取尚未建立），嘗試從 API 拉取
                 channel = await self.bot.fetch_channel(LOG_CHANNEL_ID)
 
-            embed = discord.Embed(
-                title=title,
-                description=description,
-                color=color,
-                timestamp=discord.utils.utcnow() # 自動帶上 UTC 國際時間
-            )
-            embed.set_footer(text="System Alert Log")
+            container = discord.ui.Container(accent_color=color)
+            container.add_item(discord.ui.TextDisplay(f"## {title}\n{description}"))
 
             if fields:
-                for name, value in fields.items():
-                    embed.add_field(name=name, value=value, inline=False)
+                container.add_item(discord.ui.Separator())
+                container.add_item(discord.ui.TextDisplay(
+                    "\n".join(f"**{name}**\n{value}" for name, value in fields.items())
+                ))
 
-            await channel.send(embed=embed)
+            # Discord 時間戳記：每位讀者會看到自己時區的時間
+            container.add_item(discord.ui.Separator())
+            container.add_item(discord.ui.TextDisplay(
+                f"-# System Alert Log • <t:{int(discord.utils.utcnow().timestamp())}:F>"
+            ))
+
+            view = discord.ui.LayoutView(timeout=None)
+            view.add_item(container)
+            await channel.send(view=view)
         except Exception as e:
             logger.error(f"[SYSTEM ERROR] 無法發送 Log 至頻道 {LOG_CHANNEL_ID}: {e}")
 
@@ -122,7 +128,7 @@ class Logger(commands.Cog):
         logger.info(msg)
         
         # 📢 發送至 Discord 頻道
-        await self.send_embed_log(
+        await self.send_alert_log(
             title="🟢 機器人已順利啟動",
             description=f"**Bot 名稱:** {self.bot.user}\n**Bot ID:** `{self.bot.user.id}`",
             color=discord.Color.green()
@@ -133,7 +139,7 @@ class Logger(commands.Cog):
         logger.warning("[SYSTEM] Bot disconnected from Discord WebSocket!")
         
         # 📢 發送至 Discord 頻道
-        await self.send_embed_log(
+        await self.send_alert_log(
             title="🔴 機器人已中斷連線",
             description="Bot 與 Discord 連線（WebSocket）已斷開，正嘗試重新連線中...",
             color=discord.Color.red()
@@ -144,7 +150,7 @@ class Logger(commands.Cog):
         logger.info("[SYSTEM] Bot session successfully resumed.")
         
         # 📢 發送至 Discord 頻道
-        await self.send_embed_log(
+        await self.send_alert_log(
             title="🟡 連線已恢復 (Session Resumed)",
             description="與 Discord 的 WebSocket 連線已重新建立。",
             color=discord.Color.gold()
@@ -183,7 +189,7 @@ class Logger(commands.Cog):
             "🔍 Traceback 簡報": f"```python\n{tb_snippet}\n```"
         }
 
-        await self.send_embed_log(
+        await self.send_alert_log(
             title="🚨 斜線指令執行異常 (Command Error)",
             description="在執行 Slash Command 時捕捉到未處理的 Exception。",
             color=discord.Color.dark_red(),
@@ -192,7 +198,7 @@ class Logger(commands.Cog):
 
         # 3. 回覆給使用者友善提示
         if not interaction.response.is_done():
-            await interaction.response.send_message("❌ 執行指令時發生內部錯誤，已自動通報開發團隊處理。", ephemeral=True)
+            await send_notice(interaction, "❌ 執行指令時發生內部錯誤，已自動通報開發團隊處理。")
 
     # =====================================================
     # C. 全局 Interaction 監聽 (一般日常操作：僅寫入 Log 檔)

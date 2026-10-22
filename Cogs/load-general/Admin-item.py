@@ -6,9 +6,10 @@ from discord.ext import commands
 
 from Database.User_DB_Manager import get_or_create_user, update_user_inventory
 from Database.Item_DB_Manager import (
-    get_all_items, get_item, add_item_db, 
+    get_all_items, get_item, add_item_db,
     update_item_db, delete_item_db, batch_import_db, CATEGORY_NAMES
 )
+from Utils.components import send_notice, notice_container
 
 ADMIN_ID = 403895664666214400
 
@@ -51,75 +52,107 @@ class ItemEditModal(discord.ui.Modal, title="✏️ 編輯道具詳細資料"):
         await self.view_ref.update_message(interaction, "✅ 道具資料已成功更新！")
 
 
-class ConfirmDeleteView(discord.ui.View):
-    def __init__(self, parent_view):
-        super().__init__(timeout=60)
-        self.parent_view = parent_view
-
-    @discord.ui.button(label="✔️ 確定刪除", style=discord.ButtonStyle.danger)
-    async def btn_confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await delete_item_db(self.parent_view.item_data["item_id"])
-        embed = discord.Embed(
-            title="🗑️ 道具已刪除",
-            description=f"已成功從資料庫中移除 `{self.parent_view.item_data['item_id']}`！",
-            color=discord.Color.red()
-        )
-        await interaction.response.edit_message(embed=embed, view=None)
-
-    @discord.ui.button(label="❌ 取消", style=discord.ButtonStyle.secondary)
-    async def btn_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.parent_view.update_message(interaction, "↩️ 已取消刪除操作。")
+CATEGORY_OPTIONS = [
+    ("🍵 消耗品", "consumable"),
+    ("🎴 收藏品", "collectible"),
+    ("🛠️ 裝備與特殊", "special"),
+]
 
 
-class ItemEditView(discord.ui.View):
+class ItemEditView(discord.ui.LayoutView):
+    """道具編輯控制台 (Components V2)：編輯畫面 / 刪除確認 / 已刪除，三種狀態同一個 View"""
     def __init__(self, item_data: dict):
         super().__init__(timeout=300)
         self.item_data = item_data
-        self.update_category_select()
+        self.build()
 
-    def update_category_select(self):
-        for opt in self.select_category.options:
-            opt.default = (opt.value == self.item_data["category"])
+    def build(self, notice: str = None, mode: str = "edit"):
+        self.clear_items()
+        item = self.item_data
 
-    async def update_message(self, interaction: discord.Interaction, notice: str = None):
-        self.update_category_select()
-        embed = discord.Embed(title=f"🛠️ 編輯道具：{self.item_data['item_id']}", color=discord.Color.orange())
-        embed.add_field(name="名稱", value=f"{self.item_data['emoji']} {self.item_data['name']}", inline=True)
-        embed.add_field(name="分類", value=CATEGORY_NAMES.get(self.item_data["category"], "未知"), inline=True)
-        embed.add_field(name="描述", value=self.item_data["desc"], inline=False)
+        # ---- 已刪除 ----
+        if mode == "deleted":
+            self.add_item(notice_container(f"### 🗑️ 道具已刪除\n已成功從資料庫中移除 `{item['item_id']}`！"))
+            return
+
+        # ---- 刪除確認 ----
+        if mode == "confirm_delete":
+            confirm_btn = discord.ui.Button(label="✔️ 確定刪除", style=discord.ButtonStyle.danger)
+            confirm_btn.callback = self.confirm_delete_callback
+            cancel_btn = discord.ui.Button(label="❌ 取消", style=discord.ButtonStyle.secondary)
+            cancel_btn.callback = self.cancel_delete_callback
+
+            container = discord.ui.Container(accent_color=discord.Color.red())
+            container.add_item(discord.ui.TextDisplay(
+                f"## ⚠️ 刪除確認\n"
+                f"確定要永久刪除道具 **{item['name']}** (`{item['item_id']}`) 嗎？\n"
+                f"*(玩家背包內的該道具將會變成無效資料)*"
+            ))
+            container.add_item(discord.ui.Separator())
+            container.add_item(discord.ui.ActionRow(confirm_btn, cancel_btn))
+            self.add_item(container)
+            return
+
+        # ---- 編輯畫面 ----
+        category_select = discord.ui.Select(
+            placeholder="更換分類...",
+            options=[
+                discord.SelectOption(label=label, value=value, default=(value == item["category"]))
+                for label, value in CATEGORY_OPTIONS
+            ],
+        )
+        category_select.callback = self.select_category_callback
+        edit_btn = discord.ui.Button(label="✏️ 編輯詳細資料", style=discord.ButtonStyle.primary)
+        edit_btn.callback = self.edit_callback
+        delete_btn = discord.ui.Button(label="🗑️ 刪除物品", style=discord.ButtonStyle.danger)
+        delete_btn.callback = self.delete_callback
+
+        container = discord.ui.Container(accent_color=discord.Color.orange())
+        container.add_item(discord.ui.TextDisplay(
+            f"## 🛠️ 編輯道具：{item['item_id']}\n"
+            f"**名稱**：{item['emoji']} {item['name']}\n"
+            f"**分類**：{CATEGORY_NAMES.get(item['category'], '未知')}\n"
+            f"**描述**：\n{item['desc']}"
+        ))
+        container.add_item(discord.ui.Separator())
+        container.add_item(discord.ui.ActionRow(category_select))
+        container.add_item(discord.ui.ActionRow(edit_btn, delete_btn))
         if notice:
-            embed.set_footer(text=notice)
-        await interaction.response.edit_message(embed=embed, view=self)
+            container.add_item(discord.ui.TextDisplay(f"-# {notice}"))
+        self.add_item(container)
 
-    @discord.ui.select(
-        placeholder="更換分類...", row=0,
-        options=[
-            discord.SelectOption(label="🍵 消耗品", value="consumable"),
-            discord.SelectOption(label="🎴 收藏品", value="collectible"),
-            discord.SelectOption(label="🛠️ 裝備與特殊", value="special")
-        ]
-    )
-    async def select_category(self, interaction: discord.Interaction, select: discord.ui.Select):
-        new_category = select.values[0]
+    async def update_message(self, interaction: discord.Interaction, notice: str = None, mode: str = "edit"):
+        self.build(notice, mode)
+        await interaction.response.edit_message(view=self)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != ADMIN_ID:
+            await send_notice(interaction, "❌ 無權限")
+            return False
+        return True
+
+    async def select_category_callback(self, interaction: discord.Interaction):
+        new_category = interaction.data["values"][0]
         self.item_data["category"] = new_category
         await update_item_db(
-            self.item_data["item_id"], self.item_data["name"], 
+            self.item_data["item_id"], self.item_data["name"],
             self.item_data["emoji"], new_category, self.item_data["desc"]
         )
         await self.update_message(interaction, f"✅ 分類已更改為：{CATEGORY_NAMES[new_category]}")
 
-    @discord.ui.button(label="✏️ 編輯詳細資料", style=discord.ButtonStyle.primary, row=1)
-    async def btn_edit(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def edit_callback(self, interaction: discord.Interaction):
         await interaction.response.send_modal(ItemEditModal(self, self.item_data))
 
-    @discord.ui.button(label="🗑️ 刪除物品", style=discord.ButtonStyle.danger, row=1)
-    async def btn_delete(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = discord.Embed(
-            title="⚠️ 刪除確認",
-            description=f"確定要永久刪除道具 **{self.item_data['name']}** (`{self.item_data['item_id']}`) 嗎？\n*(玩家背包內的該道具將會變成無效資料)*",
-            color=discord.Color.red()
-        )
-        await interaction.response.edit_message(embed=embed, view=ConfirmDeleteView(self))
+    async def delete_callback(self, interaction: discord.Interaction):
+        await self.update_message(interaction, mode="confirm_delete")
+
+    async def confirm_delete_callback(self, interaction: discord.Interaction):
+        await delete_item_db(self.item_data["item_id"])
+        await self.update_message(interaction, mode="deleted")
+        self.stop()
+
+    async def cancel_delete_callback(self, interaction: discord.Interaction):
+        await self.update_message(interaction, "↩️ 已取消刪除操作。")
 
 
 # ---------------------------------------------------------
@@ -148,14 +181,14 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def add_item_cmd(self, interaction: discord.Interaction, item_id: str, name: str, emoji: str, category: app_commands.Choice[str], desc: str):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 無權限", ephemeral=True)
+            await send_notice(interaction, "❌ 無權限")
             return
             
         success = await add_item_db(item_id, name, emoji, category.value, desc)
         if success:
-            await interaction.response.send_message(f"✅ 成功新增道具：{emoji} **{name}** (`{item_id}`)", ephemeral=True)
+            await send_notice(interaction, f"✅ 成功新增道具：{emoji} **{name}** (`{item_id}`)")
         else:
-            await interaction.response.send_message(f"❌ 新增失敗！道具 ID `{item_id}` 已存在。", ephemeral=True)
+            await send_notice(interaction, f"❌ 新增失敗！道具 ID `{item_id}` 已存在。")
 
     # 2. 📦 /add_items_batch 批量上傳
     @app_commands.command(name="add_items_batch", description="【開發者專用】上傳 JSON 檔案批量新增/覆寫道具")
@@ -163,11 +196,11 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def add_items_batch_cmd(self, interaction: discord.Interaction, file: discord.Attachment, overwrite: bool = False):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 無權限", ephemeral=True)
+            await send_notice(interaction, "❌ 無權限")
             return
 
         if not file.filename.endswith(".json"):
-            await interaction.response.send_message("❌ 請上傳 `.json` 格式的檔案！", ephemeral=True)
+            await send_notice(interaction, "❌ 請上傳 `.json` 格式的檔案！")
             return
 
         await interaction.response.defer(ephemeral=True)
@@ -177,9 +210,9 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
             items_dict = json.loads(content.decode('utf-8'))
             
             success, skipped = await batch_import_db(items_dict, overwrite)
-            await interaction.followup.send(f"✅ 批量匯入完成！\n成功新增/更新：`{success}` 件\n略過(重複)：`{skipped}` 件")
+            await send_notice(interaction, f"✅ 批量匯入完成！\n成功新增/更新：`{success}` 件\n略過(重複)：`{skipped}` 件")
         except Exception as e:
-            await interaction.followup.send(f"❌ JSON 解析失敗，請檢查檔案格式！\n```py\n{e}\n```")
+            await send_notice(interaction, f"❌ JSON 解析失敗，請檢查檔案格式！\n```py\n{e}\n```")
 
     # 3. 📦 /edit_item 編輯控制台
     @app_commands.command(name="edit_item", description="【開發者專用】開啟道具編輯控制台")
@@ -187,21 +220,16 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def edit_item_cmd(self, interaction: discord.Interaction, item_id: str):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 無權限", ephemeral=True)
+            await send_notice(interaction, "❌ 無權限")
             return
 
         item_data = await get_item(item_id)
         if not item_data:
-            await interaction.response.send_message(f"❌ 找不到道具 ID `{item_id}`，請確認是否輸入正確。", ephemeral=True)
+            await send_notice(interaction, f"❌ 找不到道具 ID `{item_id}`，請確認是否輸入正確。")
             return
 
         view = ItemEditView(item_data)
-        embed = discord.Embed(title=f"🛠️ 編輯道具：{item_id}", color=discord.Color.orange())
-        embed.add_field(name="名稱", value=f"{item_data['emoji']} {item_data['name']}", inline=True)
-        embed.add_field(name="分類", value=CATEGORY_NAMES.get(item_data["category"], "未知"), inline=True)
-        embed.add_field(name="描述", value=item_data["desc"], inline=False)
-
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(view=view, ephemeral=True)
 
     # 4. 🎁 /give_item 給予指定道具與數量
     @app_commands.command(name="give_item", description="【開發者專用】給予指定成員特定道具與數量")
@@ -227,16 +255,16 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
         target: discord.User | discord.Member = None
     ):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 無權限", ephemeral=True)
+            await send_notice(interaction, "❌ 無權限")
             return
 
         if amount <= 0:
-            await interaction.response.send_message("❌ 給予數量必須大於 0！", ephemeral=True)
+            await send_notice(interaction, "❌ 給予數量必須大於 0！")
             return
 
         item_info = await get_item(item_id)
         if not item_info:
-            await interaction.response.send_message(f"❌ 道具 ID `{item_id}` 不存在於資料庫中！", ephemeral=True)
+            await send_notice(interaction, f"❌ 道具 ID `{item_id}` 不存在於資料庫中！")
             return
 
         target_user = target or interaction.user
@@ -250,10 +278,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
         inventory[item_id] = inventory.get(item_id, 0) + amount
         await update_user_inventory(target_user.id, inventory)
 
-        await interaction.response.send_message(
-            f"🎁 成功向 **{target_user.display_name}** 發放 {item_info['emoji']} **{item_info['name']}** x `{amount}`！",
-            ephemeral=True
-        )
+        await send_notice(interaction, f"🎁 成功向 **{target_user.display_name}** 發放 {item_info['emoji']} **{item_info['name']}** x `{amount}`！")
 
     # 5. 🎲 /give_items 隨機給予多件道具 (方案 A 獨立抽取)
     @app_commands.command(name="give_items", description="【開發者專用】隨機給予指定成員多件道具")
@@ -264,16 +289,16 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     @app_commands.default_permissions(administrator=True)
     async def give_items_cmd(self, interaction: discord.Interaction, number: int, target: discord.User | discord.Member = None):
         if interaction.user.id != ADMIN_ID:
-            await interaction.response.send_message("❌ 無權限", ephemeral=True)
+            await send_notice(interaction, "❌ 無權限")
             return
 
         if number <= 0:
-            await interaction.response.send_message("❌ 抽取數量必須大於 0！", ephemeral=True)
+            await send_notice(interaction, "❌ 抽取數量必須大於 0！")
             return
 
         all_items = await get_all_items()
         if not all_items:
-            await interaction.response.send_message("❌ 目前道具資料庫庫存為空，無法進行隨機抽樣！", ephemeral=True)
+            await send_notice(interaction, "❌ 目前道具資料庫庫存為空，無法進行隨機抽樣！")
             return
 
         target = target or interaction.user
@@ -309,13 +334,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
         if len(summary_items) > 25:
             lines.append(f"\n…（另有 `{len(summary_items) - 25}` 種道具已成功寫入背包，此處省略顯示）")
 
-        embed = discord.Embed(
-            title="🎁 隨機道具發放完成",
-            description=header + "\n".join(lines),
-            color=discord.Color.gold()
-        )
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await send_notice(interaction, "## 🎁 隨機道具發放完成\n" + header + "\n".join(lines), color=discord.Color.gold())
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ItemAdmin(bot))

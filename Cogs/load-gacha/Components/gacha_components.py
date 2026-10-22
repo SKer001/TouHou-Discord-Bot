@@ -176,3 +176,83 @@ def build_card_detail_container(card_data: dict, user_name: str, thumbnails: dic
     container = ui.Container(accent_color=color)
     container.add_item(_card_block(text, card_data.get("character_key"), thumbnails))
     return container
+
+
+# ================= ⚗️ 合成 / 🔮 融合 =================
+def _material_lines(cards: list[dict]) -> str:
+    lines = []
+    for idx, card in enumerate(cards, start=1):
+        eval_str, _ = get_completeness_eval(card["completeness"])
+        lines.append(f"**{idx}.** `{card['instance_id']}` · {eval_str}")
+    return "\n".join(lines)
+
+
+def build_synthesis_preview_container(card_a: dict, card_b: dict, preview: dict, user_name: str, thumbnails: dict = None) -> ui.Container:
+    """合成確認畫面：兩張素材 + 預計結果 (一般 / 加倍兩種可能，按下確認才擲加倍)"""
+    normal_eval, color = get_completeness_eval(preview["normal_completeness"])
+    doubled_eval, _ = get_completeness_eval(preview["doubled_completeness"])
+    chance = preview["double_chance"] * 100
+
+    text = (
+        f"## ⚗️ 卡牌合成確認\n"
+        f"{card_a.get('emoji', '🎴')} `[{card_a['rarity']}]` **{card_a['name']}** - *{card_a['title']}*\n\n"
+        f"**消耗素材**\n{_material_lines([card_a, card_b])}\n\n"
+        f"**一般結果**：{normal_eval}（`+{preview['normal_increase']:.4f}`）\n"
+        f"**✨ 加倍結果**：{doubled_eval}（`+{preview['doubled_increase']:.4f}`）\n"
+        f"**🎲 加倍機率**：`{chance:.2f}%`\n"
+        f"-# 兩張完整度越接近，增幅與加倍機率越高\n\n"
+        f"-# ⚠️ 確認後兩張素材卡會消失，並產生一張新卡 | 擁有者: {user_name}"
+    )
+    container = ui.Container(accent_color=color)
+    container.add_item(_card_block(text, card_a.get("character_key"), thumbnails))
+    return container
+
+
+def build_synthesis_result_container(new_card: dict, increase: float, doubled: bool, user_name: str, thumbnails: dict = None) -> ui.Container:
+    """合成完成"""
+    eval_str, color = get_completeness_eval(new_card["completeness"])
+    bonus_str = f"`+{increase:.4f}`" + (" ✨ 加倍！" if doubled else "")
+
+    text = (
+        f"## ⚗️ 合成成功！\n"
+        f"兩張卡牌的靈力交融在一起，化為了新的形態...\n\n"
+        f"**角色**：{new_card.get('emoji', '🎴')} **{new_card['name']}**\n"
+        f"**階級與稱號**：`[{new_card['rarity']}]` {new_card['title']}\n"
+        f"**完整度品相**：{eval_str}（{bonus_str}）\n\n"
+        f"-# 卡牌編號: {new_card['instance_id']} | 擁有者: {user_name}"
+    )
+    container = ui.Container(accent_color=color)
+    container.add_item(_card_block(text, new_card.get("character_key"), thumbnails))
+    return container
+
+
+def build_fusion_preview_container(cards: list[dict], next_rarity: str, next_title: str, user_name: str, thumbnails: dict = None) -> ui.Container:
+    """融合確認畫面：三張滿完整度素材 ➔ 高一階 (新卡完整度隨機)"""
+    base = cards[0]
+    text = (
+        f"## 🔮 卡牌融合確認\n"
+        f"{base.get('emoji', '🎴')} **{base['name']}**　`[{base['rarity']}]` ➔ `[{next_rarity}]`\n"
+        f"**新稱號**：*{next_title}*\n\n"
+        f"**消耗素材**\n{_material_lines(cards)}\n\n"
+        f"**新卡完整度**：🎲 隨機（與祈願相同）\n\n"
+        f"-# ⚠️ 確認後三張素材卡會消失，並產生一張高一階的新卡 | 擁有者: {user_name}"
+    )
+    container = ui.Container(accent_color=discord.Color.purple())
+    container.add_item(_card_block(text, base.get("character_key"), thumbnails))
+    return container
+
+
+def build_fusion_result_container(new_card: dict, old_rarity: str, user_name: str, thumbnails: dict = None) -> ui.Container:
+    """融合完成"""
+    eval_str, color = get_completeness_eval(new_card["completeness"])
+    text = (
+        f"## 🔮 融合成功！\n"
+        f"三張卡牌的力量產生共鳴，昇華為更高的階級！\n\n"
+        f"**角色**：{new_card.get('emoji', '🎴')} **{new_card['name']}**\n"
+        f"**階級與稱號**：`[{old_rarity}]` ➔ `[{new_card['rarity']}]` {new_card['title']}\n"
+        f"**完整度品相**：{eval_str}\n\n"
+        f"-# 卡牌編號: {new_card['instance_id']} | 擁有者: {user_name}"
+    )
+    container = ui.Container(accent_color=color)
+    container.add_item(_card_block(text, new_card.get("character_key"), thumbnails))
+    return container
