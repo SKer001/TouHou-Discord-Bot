@@ -2,6 +2,7 @@ import io
 import discord
 from discord import ui
 from PIL import Image
+from Database.db_manager import get_required_exp_for_level
 from Utils.item_data import CATEGORY_NAMES
 
 
@@ -21,23 +22,85 @@ async def get_avatar_dominant_color(user: discord.User | discord.Member) -> disc
 
 
 # ---------------------------------------------------------
-# 🌸 1. 個人資料卡 Embed (Profile Card)
+# 🔮 運勢對照表
 # ---------------------------------------------------------
-# Utils/embed_builder.py
+FORTUNE_MAP = {
+    5: {"name": "🌟 大吉 (大顯神威)", "desc": "博麗大神顯靈！靈力極致充沛，萬事亨通！"},
+    4: {"name": "🎉 吉 (靈力充沛)", "desc": "守矢神社加護，符卡發動順暢無阻！"},
+    3: {"name": "🍡 中吉 (人里平穩)", "desc": "命蓮寺鐘聲祈福，平安無事、順風順水的一天。"},
+    2: {"name": "🍵 小吉 (茶柱立起)", "desc": "紅魔館的小憩時刻，平淡中帶有些許小幸運。"},
+    1: {"name": "🍃 末吉 (微風拂過)", "desc": "迷途竹林偶爾迷路，但終能找到出口。"},
+    0: {"name": "🍵 凶 (厄神降臨)", "desc": "雛大人幫你承受了厄運，今天適合低調行事。"},
+}
 
-# Utils/embed_builder.py
 
-def get_required_exp_for_level(level: int) -> int:
-    """計算當前階級 (level) 升到下一階級 (level + 1) 所需的經驗值"""
-    return 50 + (level * 15)
+def get_fortune_info(fortune_level) -> dict:
+    """查無對應等級 (含 None) 時，退回中吉"""
+    return FORTUNE_MAP.get(fortune_level, FORTUNE_MAP[3])
 
 
-def build_profile_embed(
+def _make_notice_text_container(color: discord.Color, text: str, avatar_url: str | None = None) -> ui.Container:
+    """標題 + 內文 (可選：右側頭像) 的簡單提示卡"""
+    container = ui.Container(accent_color=color)
+    if avatar_url:
+        container.add_item(ui.Section(ui.TextDisplay(text), accessory=ui.Thumbnail(avatar_url)))
+    else:
+        container.add_item(ui.TextDisplay(text))
+    return container
+
+
+def build_notice_container(title: str, text: str, color: discord.Color) -> ui.Container:
+    """通用提示卡 (例如：私人資料卡無法檢視)"""
+    return _make_notice_text_container(color, f"## {title}\n{text}")
+
+
+# ---------------------------------------------------------
+# 🌸 1. 個人資料卡 + 今日簽到 / 運勢 (Components V2)
+# ---------------------------------------------------------
+def _exp_text_and_bar(level: int, exp: int) -> tuple[str, str]:
+    """經驗值文字與 10 段進度條"""
+    if level >= 1000:
+        return f"`{exp:,}` / `MAX` EXP (🌟 **FULL POWER**)", f"`[{'🟥' * 10}]`"
+
+    req_exp = get_required_exp_for_level(level)
+    percentage = min(max(exp / req_exp, 0.0), 1.0)
+    filled = int(round(percentage * 10))
+    bar = "🟥" * filled + "⬜" * (10 - filled)
+    return f"`{exp:,}` / `{req_exp:,}` EXP *(還差 `{req_exp - exp:,}` EXP)*", f"`[{bar}]`"
+
+
+def _daily_section_text(daily_status: dict, is_self: bool, reward: dict | None) -> str:
+    """今日簽到狀態 + 運勢；reward 只在剛簽到完的那張卡片上顯示"""
+    if daily_status.get("signed_today"):
+        fortune = get_fortune_info(daily_status.get("fortune_level"))
+        text = (
+            f"### 🔮 今日運勢　✅ 今日已簽到\n"
+            f"**{fortune['name']}**\n"
+            f"*{fortune['desc']}*"
+        )
+        if reward:
+            text += f"\n\n🎉 **簽到成功！**　💰 `+{reward['money_gained']:,}` 兩　✨ `+{reward['exp_gained']:,}` EXP"
+    else:
+        hint = ("向博麗神社投賽錢，抽取今日運勢並獲得賽錢與經驗值吧！" if is_self
+                else "這位居民今天還沒有向博麗神社投賽錢。")
+        text = f"### 🔮 今日運勢　⌛ 尚未簽到\n{hint}"
+
+    return text + "\n-# 每日 00:00 重置簽到與運勢"
+
+
+def build_profile_container(
     user: discord.User | discord.Member,
     user_data: dict,
-    dominant_color: discord.Color
-) -> discord.Embed:
-    """根據玩家資料與頭像主色繪製 Embed 個人資料卡"""
+    daily_status: dict,
+    dominant_color: discord.Color,
+    is_self: bool = False,
+    reward: dict | None = None,
+    daily_button: ui.Button | None = None,
+) -> ui.Container:
+    """
+    個人資料卡：頭像標題 / 賽錢・P點・背包 / 經驗值進度條 / 今日簽到與運勢。
+    daily_button 不為 None 時，會放在「今日運勢」區塊的右側 (只有本人的卡片才會有)。
+    """
     money = user_data.get("money", 1000)
     current_level = user_data.get("level", 0)  # level 0~1000 (對應 0.0 P ~ 100.0 P)
     exp = user_data.get("exp", 0)
@@ -46,175 +109,74 @@ def build_profile_embed(
 
     p_power = current_level / 10.0
     total_items = sum(inventory.values()) if isinstance(inventory, dict) else 0
-    embed_color = dominant_color if is_public else discord.Color.dark_gray()
+    exp_text, exp_bar = _exp_text_and_bar(current_level, exp)
+    card_color = dominant_color if is_public else discord.Color.dark_gray()
 
-    # ---------------------------------------------------------
-    # 📊 1. 動態經驗值進度條計算
-    # ---------------------------------------------------------
-    if current_level >= 1000:
-        bar = "🟥" * 10
-        exp_text = f"`{exp:,}` / `MAX` EXP (🌟 **FULL POWER**)"
-        exp_bar = f"`[{bar}]`"
+    container = ui.Container(accent_color=card_color)
+
+    container.add_item(ui.Section(
+        ui.TextDisplay(
+            f"## 🌸 {user.display_name} 的幻想鄉通行證\n"
+            f"-# {'🌐 公開' if is_public else '🔒 私人'}資料卡 • TouHouBot Profile System • 幻想鄉居民登記"
+        ),
+        accessory=ui.Thumbnail(user.display_avatar.with_size(128).url),
+    ))
+    container.add_item(ui.Separator())
+
+    container.add_item(ui.TextDisplay(
+        f"💰 **賽錢**　`{money:,}` 兩\n"
+        f"🔴 **P點**　`{p_power:.1f}` P\n"
+        f"🎒 **背包物品數**　`{total_items}` 件道具\n\n"
+        f"✨ **經驗值 (EXP)**\n{exp_text}\n{exp_bar}"
+    ))
+    container.add_item(ui.Separator())
+
+    daily_text = _daily_section_text(daily_status, is_self, reward)
+    if daily_button is not None:
+        container.add_item(ui.Section(ui.TextDisplay(daily_text), accessory=daily_button))
     else:
-        req_exp = get_required_exp_for_level(current_level)
-        needed_exp = req_exp - exp
-        
-        # 計算 10 段進度條比例 (0 ~ 10)
-        percentage = min(max(exp / req_exp, 0.0), 1.0)
-        filled_length = int(round(percentage * 10))
-        empty_length = 10 - filled_length
-        
-        # 組合進度條字串 (綠色填滿 🟥 + 灰色未填滿 ⬜)
-        bar = "🟥" * filled_length + "⬜" * empty_length
-        exp_text = f"`{exp:,}` / `{req_exp:,}` EXP *(還差 `{needed_exp:,}` EXP)*"
-        exp_bar = f"`[{bar}]`"
+        container.add_item(ui.TextDisplay(daily_text))
 
-    # ---------------------------------------------------------
-    # 🎨 2. 建立與組裝 Embed 卡片
-    # ---------------------------------------------------------
-    embed = discord.Embed(
-        title=f"🌸 {user.display_name} 的幻想鄉通行證",
-        color=embed_color,
-        timestamp=discord.utils.utcnow()
-    )
-    embed.set_thumbnail(url=user.display_avatar.url)
+    return container
 
-    # 第一排：基礎資訊 (inline=True) -> 賽錢、P點、背包物品
-    embed.add_field(name="💰 賽錢 (Money)", value=f"`{money:,}` 兩", inline=True)
-    embed.add_field(name="🔴 P點 (Power)", value=f"`{p_power:.1f}` P", inline=True)
-    embed.add_field(name="🎒 背包物品數", value=f"`{total_items}` 件道具", inline=True)
-
-    # 第二排：經驗值與進度條 (inline=False) -> 獨佔整行寬度，絕對不折行！
-    embed.add_field(
-        name="✨ 經驗值 (EXP)",
-        value=f"{exp_text}\n{exp_bar}",
-        inline=False
-    )
-
-    # 第三排：卡片隱私狀態 (inline=False)
-    embed.add_field(
-        name="🔒 卡片狀態",
-        value="`🌐 公開`" if is_public else "`🔒 私人`",
-        inline=False
-    )
-
-    embed.set_footer(text="TouHouBot Profile System • 幻想鄉居民登記")
-    return embed
 
 # ---------------------------------------------------------
-# 💥 2. POWER UP 升級特效 Embed
+# ⌛ 2. 重複簽到提示 (Components V2)
 # ---------------------------------------------------------
-def build_power_up_embed(user: discord.User | discord.Member, result: dict) -> discord.Embed:
-    """繪製 POWER UP! 特效 Embed 訊息"""
-    old_p = result["old_p"]
-    new_p = result["new_p"]
-
-    embed = discord.Embed(
-        title="💥 POWER UP! 火力提升！",
-        description=f"🎉 恭喜 **{user.mention}** 彈幕火力獲得突破！",
-        color=discord.Color.gold()
+def build_daily_repeat_container(user: discord.User | discord.Member, fortune_level) -> ui.Container:
+    fortune = get_fortune_info(fortune_level)
+    return _make_notice_text_container(
+        discord.Color.dark_orange(),
+        f"## ⌛ 今天已經投過賽錢囉！\n"
+        f"**{user.display_name}**，你今天已經向博麗神社投過賽錢了。\n"
+        f"請等待明日 **00:00** 刷新後再來吧！\n\n"
+        f"### 🔮 你今天的運勢是\n"
+        f"**{fortune['name']}**\n"
+        f"*{fortune['desc']}*\n"
+        f"-# TouHouBot Daily System • 每日簽到限制 1 次",
+        user.display_avatar.with_size(128).url,
     )
 
-    embed.add_field(
-        name="🔴 彈幕火力 (Power)",
-        value=f"`{old_p:.1f} P` ➔ **`{new_p:.1f} P`**",
-        inline=False
-    )
-
-    if result.get("is_max"):
-        embed.set_footer(text="🌟 警告：火力已達最大上限 (FULL POWER!)")
-    else:
-        embed.set_footer(text="TouHouBot Power System • 繼續集滿 P 點以提升火力！")
-
-    embed.set_thumbnail(url=user.display_avatar.url)
-    return embed
-
-
-# Utils/embed_builder.py (請加入以下內容)
-
-FORTUNE_MAP = {
-    5: {"name": "🌟 大吉 (大顯神威)", "desc": "博麗大神顯靈！靈力極致充沛，萬事亨通！"},
-    4: {"name": "🎉 吉 (靈力充沛)", "desc": "守矢神社加護，符卡發動順暢無阻！"},
-    3: {"name": "🍡 中吉 (人里平穩)", "desc": "命蓮寺鐘聲祈福，平安無事、順風順水的一天。"},
-    2: {"name": "🍵 小吉 (茶柱立起)", "desc": "紅魔館的小憩時刻，平淡中帶有些許小幸運。"},
-    1: {"name": "🍃 末吉 (微風拂過)", "desc": "迷途竹林偶爾迷路，但終能找到出口。"},
-    0: {"name": "🍵 凶 (厄神降臨)", "desc": "雛大人幫你承受了厄運，今天適合低調行事。"}
-}
-
-def build_daily_embed(
-    user: discord.User | discord.Member,
-    money_gained: int,
-    exp_gained: int,
-    fortune_level: int,
-    current_money: int
-) -> discord.Embed:
-    """繪製 /daily 簽到成功 Embed"""
-    fortune_info = FORTUNE_MAP.get(fortune_level, FORTUNE_MAP[3])
-    
-    embed = discord.Embed(
-        title="⛩️ 博麗神社賽錢箱 • 簽到成功！",
-        description=f"**{user.mention}** 向賽錢箱投下了賽錢，並求得了一支運勢籤！",
-        color=discord.Color.gold() if fortune_level >= 4 else discord.Color.red(),
-        timestamp=discord.utils.utcnow()
-    )
-    
-    embed.add_field(name="🔮 今日運勢", value=f"**{fortune_info['name']}**\n*{fortune_info['desc']}*", inline=False)
-    embed.add_field(name="💰 獲得賽錢", value=f"`+{money_gained:,}` 兩", inline=True)
-    embed.add_field(name="✨ 獲得經驗", value=f"`+{exp_gained:,}` EXP", inline=True)
-    embed.add_field(name="🏦 目前賽錢總額", value=f"`{current_money:,}` 兩", inline=False)
-    
-    embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text="TouHouBot Daily System • 明天 00:00 後可再次投賽錢")
-    return embed
-
-def build_daily_repeat_embed(
-    user: discord.User | discord.Member,
-    fortune_level: int
-) -> discord.Embed:
-    """繪製重複簽到 (提醒與今日運勢) Embed"""
-    fortune_info = FORTUNE_MAP.get(fortune_level, FORTUNE_MAP[3])
-    
-    embed = discord.Embed(
-        title="⌛ 今天已經投過賽錢囉！",
-        description=f"**{user.display_name}**，你今天已經向博麗神社投過賽錢了。\n請等待明日 **00:00** 刷新後再來吧！",
-        color=discord.Color.dark_orange()
-    )
-    embed.add_field(
-        name="🔮 你今天的運勢是",
-        value=f"**{fortune_info['name']}**\n*{fortune_info['desc']}*",
-        inline=False
-    )
-    embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text="TouHouBot Daily System • 每日簽到限制 1 次")
-    return embed
-
-def build_fortune_embed(
-    user: discord.User | discord.Member,
-    fortune_level: int,
-    has_daily: bool
-) -> discord.Embed:
-    """繪製 /fortune 運勢查詢 Embed"""
-    if not has_daily:
-        embed = discord.Embed(
-            title="🔮 今日運勢未解鎖",
-            description=f"**{user.display_name}**，你今天還沒向博麗神社投賽錢喔！\n請先輸入 `/daily` 簽到並抽取的你今日運勢吧！",
-            color=discord.Color.blue()
-        )
-        embed.set_footer(text="TouHouBot Fortune System • 輸入 /daily 解鎖運勢")
-        return embed
-
-    fortune_info = FORTUNE_MAP.get(fortune_level, FORTUNE_MAP[3])
-    embed = discord.Embed(
-        title=f"🔮 {user.display_name} 的今日運勢",
-        description=f"**運勢階級**：{fortune_info['name']}\n\n📝 **籤詩解讀**：\n{fortune_info['desc']}",
-        color=discord.Color.purple()
-    )
-    embed.set_thumbnail(url=user.display_avatar.url)
-    embed.set_footer(text="TouHouBot Fortune System • 每日 00:00 重置運勢")
-    return embed
 
 # ---------------------------------------------------------
-# 🎒 3. 背包 (Components V2：Container + Section + 分頁)
+# 💥 3. POWER UP 升級特效 (Components V2)
+# ---------------------------------------------------------
+def build_power_up_container(user: discord.User | discord.Member, result: dict) -> ui.Container:
+    footer = ("🌟 警告：火力已達最大上限 (FULL POWER!)" if result.get("is_max")
+              else "TouHouBot Power System • 繼續集滿 P 點以提升火力！")
+    return _make_notice_text_container(
+        discord.Color.gold(),
+        f"## 💥 POWER UP! 火力提升！\n"
+        f"🎉 恭喜 **{user.display_name}** 彈幕火力獲得突破！\n\n"
+        f"🔴 **彈幕火力 (Power)**\n"
+        f"`{result['old_p']:.1f} P` ➔ **`{result['new_p']:.1f} P`**\n"
+        f"-# {footer}",
+        user.display_avatar.with_size(128).url,
+    )
+
+
+# ---------------------------------------------------------
+# 🎒 4. 背包 (Components V2：Container + Section + 分頁)
 # ---------------------------------------------------------
 # 需要 discord.py >= 2.6。每頁道具數；V2 每則訊息最多 40 個元件，
 # 目前整個背包畫面只用到約 13 個，所以這個數字可以放心調大。
