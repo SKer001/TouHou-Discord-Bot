@@ -4,7 +4,8 @@ import asyncio
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from Database.db_manager import init_db
+from Database.User_DB_Manager import init_db
+from Database.Item_DB_Manager import init_item_db
 
 # 讀取 .env 檔案
 load_dotenv()
@@ -64,6 +65,12 @@ class TouHouBot(commands.Bot):
             await init_db()
         except Exception as e:
             print(f"❌ 資料庫初始化失敗: {e}")
+
+        # 📌 初始化道具資料庫 (Item.db)
+        try:
+            await init_item_db()
+        except Exception as e:
+            print(f"❌ 道具資料庫初始化失敗: {e}")
             
         """機器人初始化：優先單獨載入 Logger/Logger.py，再載入 Cogs/load-*"""
         print("🔧 開始初始化系統...")

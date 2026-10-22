@@ -8,7 +8,7 @@ import random
 import uuid
 from datetime import datetime
 
-from Database.db_manager import get_or_create_user, add_money
+from Database.User_DB_Manager import get_or_create_user, add_money, get_user_cards, add_gacha_cards
 from .Embeds.gacha_embeds import (
     INVENTORY_PER_PAGE,
     build_gacha_single_container,
@@ -18,19 +18,16 @@ from .Embeds.gacha_embeds import (
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-USERS_DIR = os.path.join(BASE_DIR, "users")
-CHAR_FILE = os.path.join(BASE_DIR, "character.json")
+POOL_FILE = os.path.join(BASE_DIR, "Gacha_Pool.json")   # 卡池：哪些角色、稀有度、稱號
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
 THUMBNAILS_FILE = os.path.join(PROJECT_ROOT, "images", "Thumbnails.json")
 
-os.makedirs(USERS_DIR, exist_ok=True)
-
 try:
-    with open(CHAR_FILE, "r", encoding="utf-8") as f:
-        ALL_CHARACTERS = json.load(f)
+    with open(POOL_FILE, "r", encoding="utf-8") as f:
+        GACHA_POOL = json.load(f)
 except (json.JSONDecodeError, FileNotFoundError) as e:
-    print(f"❌ [Gacha Error] 讀取 {CHAR_FILE} 失敗：{e}")
-    ALL_CHARACTERS = {}
+    print(f"❌ [Gacha Error] 讀取 {POOL_FILE} 失敗：{e}")
+    GACHA_POOL = {}
 
 # 🖼️ 讀取 Thumbnails.json：{"角色ID": "圖片URL", ..., "fill": "預設圖URL"}
 try:
@@ -84,7 +81,7 @@ class GachaResultView(ui.LayoutView):
 
     async def view_inventory(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        cards = self.gacha_cog.get_user_cards(self.user_id)
+        cards = await get_user_cards(self.user_id)
         if not cards:
             await interaction.followup.send("🎒 你的卡冊空空如也，快進行祈願吧！", ephemeral=True)
             return
@@ -230,27 +227,18 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    def get_user_data(self, user_id: int) -> dict:
-        path = f"{USERS_DIR}/{user_id}.json"
-        if not os.path.exists(path):
-            return {"user_id": user_id, "stats": {"total_draws": 0, "total_fusions": 0}, "cards": []}
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def get_user_cards(self, user_id: int) -> list:
-        return self.get_user_data(user_id).get("cards", [])
-
-    def save_user_data(self, user_id: int, data: dict):
-        path = f"{USERS_DIR}/{user_id}.json"
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-
     def generate_completeness(self) -> float:
         val = (random.gauss(0, 0.35)) ** 2
         return round(max(0.001, min(1.000, val)), 4)
 
     async def execute_gacha(self, interaction: discord.Interaction, draw_count: int):
         await interaction.response.defer()
+
+        # 卡池沒載入時直接中止，避免「賽錢已扣、卻抽不到卡」
+        if not GACHA_POOL:
+            await interaction.followup.send("❌ 卡池資料 `Gacha_Pool.json` 載入失敗，暫時無法祈願，請聯絡管理員。", ephemeral=True)
+            return
+
         user_id = interaction.user.id
         total_cost = draw_count * 2000
 
@@ -264,19 +252,18 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
 
         await add_money(user_id, -total_cost)
 
-        user_data = self.get_user_data(user_id)
         results = []
-        char_keys = list(ALL_CHARACTERS.keys())
+        char_keys = list(GACHA_POOL.keys())
 
         for _ in range(draw_count):
             char_key = random.choice(char_keys)
-            char_data = ALL_CHARACTERS[char_key]
+            char_data = GACHA_POOL[char_key]
             
             rarity = random.choices(char_data["rarities"], weights=[75, 22, 3], k=1)[0]
             title = char_data["titles"][rarity]
             
             new_card = {
-                "instance_id": f"c_{char_data['uuid'][:4]}_{uuid.uuid4().hex[:8]}",
+                "instance_id": f"c_{char_data['uuid'][:4]}_{uuid.uuid4().hex[:12]}",
                 "character_key": char_key,
                 "name": char_data["name"],
                 "emoji": char_data["emoji"],
@@ -286,10 +273,9 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
                 "obtained_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             results.append(new_card)
-            user_data["cards"].append(new_card)
 
-        user_data["stats"]["total_draws"] += draw_count
-        self.save_user_data(user_id, user_data)
+        # 卡牌與抽卡統計一起寫入 Users.db (同一個交易)
+        await add_gacha_cards(user_id, results, draw_count)
 
         if draw_count == 1:
             container = build_gacha_single_container(
@@ -319,7 +305,7 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     async def view_inventory(self, interaction: discord.Interaction):
         await interaction.response.defer()
         user_id = interaction.user.id
-        cards = self.get_user_cards(user_id)
+        cards = await get_user_cards(user_id)
 
         if not cards:
             await interaction.followup.send("🎒 你的卡冊空空如也，快去使用 `/card gacha` 進行第一次祈願吧！", ephemeral=True)

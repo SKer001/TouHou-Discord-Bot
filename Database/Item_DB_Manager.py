@@ -1,9 +1,14 @@
-# Utils/item_data.py
+"""
+🎒 道具範本資料庫管理 (Database/Item.db)
+
+只負責「道具長什麼樣子」(名稱 / 圖示 / 分類 / 說明)。
+玩家背包裡有哪些道具、各幾件，存在 Users.db：請見 User_DB_Manager.py
+"""
 import os
 import aiosqlite
 
-# 設定資料庫路徑：與這個腳本同目錄下的 item.db
-DB_PATH = os.path.join(os.path.dirname(__file__), "item.db")
+# 設定資料庫路徑：與這個腳本同目錄下的 Item.db
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Item.db")
 
 CATEGORY_NAMES = {
     "all": "🌸 全部道具",
@@ -29,7 +34,10 @@ DEFAULT_ITEMS = [
 ]
 
 async def init_item_db():
-    """初始化 item.db 資料表，若為空則寫入預設資料"""
+    """初始化 Item.db 資料表，若為空則寫入預設資料"""
+    if not os.path.exists(DB_PATH):
+        print("⚠️ [ItemDB] 找不到 Database/Item.db，將建立新的並只寫入預設道具！")
+        print("⚠️ [ItemDB] 若你是在搬移資料夾，請確認原本的 item.db 已放到 Database/ 並改名為 Item.db。")
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS item_templates (
@@ -67,8 +75,6 @@ async def get_all_items() -> dict:
                     "desc": row[4]
                 }
     return items
-
-# --- 以下新增至 Utils/item_data.py 最下方 ---
 
 async def get_item(item_id: str) -> dict | None:
     """查詢單一道具"""

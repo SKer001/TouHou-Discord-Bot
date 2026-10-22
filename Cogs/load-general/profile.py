@@ -1,13 +1,14 @@
-import os
 import random
 from datetime import datetime, timezone, timedelta
 
-import aiosqlite
 import discord
 from discord import app_commands, ui
 from discord.ext import commands
 
-from Database.db_manager import get_or_create_user, update_visibility, add_money, add_exp
+from Database.User_DB_Manager import (
+    get_or_create_user, update_visibility, add_money, add_exp,
+    get_daily_status as db_get_daily_status, claim_daily,
+)
 from .Embeds.general_embeds import (
     get_avatar_dominant_color,
     build_profile_container,
@@ -20,8 +21,6 @@ from .Embeds.general_embeds import (
 # ⚙️ 常數設定
 # ---------------------------------------------------------
 TAIWAN_TZ = timezone(timedelta(hours=8))
-# 與 Admin-user.py 的 /reset_daily 共用同一個檔案，請勿改位置或欄位名稱
-DB_PATH = os.path.join(os.path.dirname(__file__), "daily.db")
 
 # 運勢等級 (0~5) 對應的賽錢範圍
 MONEY_RANGES = {
@@ -46,60 +45,12 @@ def make_view(container: ui.Container) -> ui.LayoutView:
 
 
 # ---------------------------------------------------------
-# 💾 daily.db：只負責記錄「簽到日期」與「當日運勢」
+# 📅 每日簽到：簽到日期與當日運勢存在 Users.db 的 users 資料表
+#    (資料庫操作請見 Database/User_DB_Manager.py；這裡只負責決定「今天」是哪一天)
 # ---------------------------------------------------------
-async def init_daily_db():
-    async with aiosqlite.connect(DB_PATH) as db:
-        # 保留舊欄位以防止 SQLite 結構衝突，但內部運作已不再使用 money/level/exp
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS users_daily (
-                user_id INTEGER PRIMARY KEY,
-                money INTEGER DEFAULT 1000,
-                level INTEGER DEFAULT 0,
-                exp INTEGER DEFAULT 0,
-                last_daily TEXT DEFAULT NULL,
-                fortune_level INTEGER DEFAULT 3
-            )
-        """)
-        await db.commit()
-
-
 async def get_daily_status(user_id: int) -> dict:
-    """
-    唯讀查詢今日簽到狀態 (查看別人的資料卡時也安全，不會替對方建立資料)。
-    回傳 {"signed_today": bool, "fortune_level": int | None}
-    """
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT last_daily, fortune_level FROM users_daily WHERE user_id = ?", (user_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-
-    if row and row["last_daily"] == today_str():
-        level = row["fortune_level"] if row["fortune_level"] is not None else 3
-        return {"signed_today": True, "fortune_level": level}
-    return {"signed_today": False, "fortune_level": None}
-
-
-async def claim_daily(user_id: int, today: str, fortune_level: int) -> bool:
-    """
-    原子性地「搶」今天的簽到名額：只有 last_daily 不是今天時才會寫入成功。
-    連點按鈕或兩個視窗同時簽到，也只會有一個人拿到 True，不會重複領獎。
-    """
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("INSERT OR IGNORE INTO users_daily (user_id) VALUES (?)", (user_id,))
-        cursor = await db.execute(
-            """
-            UPDATE users_daily
-            SET last_daily = ?, fortune_level = ?
-            WHERE user_id = ? AND (last_daily IS NULL OR last_daily != ?)
-            """,
-            (today, fortune_level, user_id, today),
-        )
-        claimed = cursor.rowcount == 1
-        await db.commit()
-    return claimed
+    """唯讀查詢今天的簽到狀態：{"signed_today": bool, "fortune_level": int | None}"""
+    return await db_get_daily_status(user_id, today_str())
 
 
 async def perform_daily(user_id: int) -> dict | None:
@@ -209,9 +160,6 @@ class ProfileView(ui.LayoutView):
 class Profile(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    async def cog_load(self):
-        await init_daily_db()
 
     # 1. 🌸 /profile 個人資料卡 (含今日簽到狀態、運勢與簽到按鈕)
     @app_commands.command(name="profile", description="查看個人或指定成員的幻想鄉個人資料卡")

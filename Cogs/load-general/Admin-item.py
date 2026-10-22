@@ -1,31 +1,16 @@
-import os
 import json
 import random
-import aiosqlite
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from Database.db_manager import get_or_create_user, update_user_inventory
-from Utils.item_data import (
+from Database.User_DB_Manager import get_or_create_user, update_user_inventory
+from Database.Item_DB_Manager import (
     get_all_items, get_item, add_item_db, 
     update_item_db, delete_item_db, batch_import_db, CATEGORY_NAMES
 )
 
 ADMIN_ID = 403895664666214400
-MAIN_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "Database", "database.db")
-
-
-# ---------------------------------------------------------
-# 🛠️ 內部資料庫輔助函式：更新玩家背包
-# ---------------------------------------------------------
-async def save_user_inventory(user_id: int, inventory: dict):
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
-        await db.execute(
-            "UPDATE users SET inventory = ? WHERE user_id = ?",
-            (json.dumps(inventory, ensure_ascii=False), user_id)
-        )
-        await db.commit()
 
 
 # ---------------------------------------------------------
@@ -263,7 +248,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
 
         # 增加道具數量
         inventory[item_id] = inventory.get(item_id, 0) + amount
-        await save_user_inventory(target_user.id, inventory)
+        await update_user_inventory(target_user.id, inventory)
 
         await interaction.response.send_message(
             f"🎁 成功向 **{target_user.display_name}** 發放 {item_info['emoji']} **{item_info['name']}** x `{amount}`！",

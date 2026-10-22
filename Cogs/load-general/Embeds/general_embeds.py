@@ -2,8 +2,8 @@ import io
 import discord
 from discord import ui
 from PIL import Image
-from Database.db_manager import get_required_exp_for_level
-from Utils.item_data import CATEGORY_NAMES
+from Database.User_DB_Manager import get_required_exp_for_level
+from Database.Item_DB_Manager import CATEGORY_NAMES
 
 
 # ---------------------------------------------------------

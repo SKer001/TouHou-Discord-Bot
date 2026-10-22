@@ -2,8 +2,8 @@ import discord
 import json
 from discord import app_commands, ui
 from discord.ext import commands
-from Database.db_manager import get_or_create_user
-from Utils.item_data import get_all_items
+from Database.User_DB_Manager import get_or_create_user
+from Database.Item_DB_Manager import get_all_items
 from .Embeds.general_embeds import get_inventory_view_data, build_inventory_container
 
 # 分類選單：(value, 名稱, emoji, 說明)

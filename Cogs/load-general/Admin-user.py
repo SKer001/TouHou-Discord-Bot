@@ -1,26 +1,11 @@
-import os
 import json
-import aiosqlite
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Database.db_manager import reset_daily as reset_main_daily, add_money, add_exp, get_or_create_user, update_user_inventory
-from Utils.item_data import get_all_items, get_item
+from Database.User_DB_Manager import reset_daily, add_money, add_exp, get_or_create_user, update_user_inventory
+from Database.Item_DB_Manager import get_all_items, get_item
 
 ADMIN_ID = 403895664666214400
-MAIN_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "Database", "database.db")
-
-
-# ---------------------------------------------------------
-# 🛠️ 內部資料庫輔助函式：更新玩家背包
-# ---------------------------------------------------------
-async def save_user_inventory(user_id: int, inventory: dict):
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
-        await db.execute(
-            "UPDATE users SET inventory = ? WHERE user_id = ?",
-            (json.dumps(inventory, ensure_ascii=False), user_id)
-        )
-        await db.commit()
 
 
 class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="【開發者專用】玩家數據與經濟管理指令"):
@@ -45,16 +30,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
             return
 
         target_user = target or interaction.user
-        await reset_main_daily(target_user.id)
-
-        try:
-            daily_db_path = os.path.join(os.path.dirname(__file__), "..", "load-general", "daily.db")
-            if os.path.exists(daily_db_path):
-                async with aiosqlite.connect(daily_db_path) as db:
-                    await db.execute("UPDATE users_daily SET last_daily = NULL WHERE user_id = ?", (target_user.id,))
-                    await db.commit()
-        except Exception as e:
-            print(f"⚠️ [UserAdmin] 同步重置 daily.db 時出錯: {e}")
+        await reset_daily(target_user.id)
 
         await interaction.response.send_message(f"🛠️ [Dev] 已成功重置 **{target_user.display_name}** 的 `/daily` 簽到狀態！", ephemeral=True)
 
