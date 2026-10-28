@@ -60,15 +60,26 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - 體力：`users.stamina`（預設 240）、`users.stamina_updated_at`（UTC ISO）。**不用背景排程**，每次讀取 / 使用 / 回復時才結算：
   - `calc_stamina(stored, updated_at, now)` 純計算：每 6 分鐘 +1，自然回復只到 240（`STAMINA_MAX`），零頭保留；超過 240（道具）時不再自然回復；已滿時時鐘停在現在。回傳 `stamina / max / updated_at / next_in / full_in`。
   - `get_stamina`（唯讀）、`spend_stamina(user_id, n)`（不夠不扣，回傳 `ok=False`）、`add_stamina(user_id, n)`（可超過 240，扣到 0 為止），寫入都用 `BEGIN IMMEDIATE`。
-  - 目前沒有任何功能消耗體力；之後的「恢復體力」道具 / profile 按鈕請用 `add_stamina`。
+  - 目前沒有任何功能**消耗**體力；回復靠道具：`use_stamina_item(user_id, item_id, restore)` 在同一個交易裡背包 -1、體力 +restore（可超過 240），背包沒有時 `ok=False` 什麼都不改，回傳含 `before` / `left`。
+- 背包：`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
 - 合成 / 融合：`transform_cards(user_id, instance_ids, build_new_card, count_fusion=False)`
   - `BEGIN IMMEDIATE` 鎖定 → 讀取素材 → `build_new_card(consumed)` 驗證並產生新卡（條件不符丟 `ValueError`）→ 刪素材 → 寫新卡 → 融合時 `total_fusions + 1`，全部同一個交易。
   - 素材已不屬於玩家、重複 ID、驗證失敗都會回滾並丟 `ValueError`；連點或兩個確認畫面同時按只會成功一次。
 - 玩家 `inventory` 欄位是 JSON 字串（`{"道具id": 數量}`），讀取時需處理 str/dict 兩種型別。
 
 ### Item.db（`Item_DB_Manager.py`）
-- `get_all_items`、`get_item`、`add_item_db`、`update_item_db`、`delete_item_db`、`batch_import_db`、`CATEGORY_NAMES`、`DEFAULT_ITEMS`；`init_item_db()` 在 Item.db 缺少時會警告。
+- `get_all_items`、`get_item`、`add_item_db`、`update_item_db`、`delete_item_db`、`batch_import_db`、`replace_all_items(items)`、`CATEGORY_NAMES`、`DEFAULT_ITEMS`、`DAILY_REWARD_ITEM`；`init_item_db()` 在 Item.db 缺少時會警告，**資料表空白時會寫入 `DEFAULT_ITEMS`**（所以預設清單要跟實際想要的道具一致）。
+- `item_templates(item_id PK, name, emoji, category, description, effect TEXT DEFAULT '{}')`；`effect` 是 JSON（目前支援 `{"stamina": N}`），讀出來是 dict；舊資料表缺 `effect` 會自動補。`update_item_db`（Modal 編輯）不會改動 effect。
 - 道具分類：`consumable`（消耗品）、`collectible`（收藏品）、`special`（裝備與特殊）。
+- **目前道具（2026-10-28 使用者指定，舊的 demo 道具與所有玩家背包已清空）**：全部是 `consumable` 體力道具。
+  | ID | 名稱 | 體力 |
+  |---|---|---|
+  | `yuyuko_dango` | 🍡 幽夢三色團子 | 120 |
+  | `sakuya_scone_tea` | 🫖 咲夜特製司康與紅茶 | 120 |
+  | `marisa_mushroom_soup` | 🍄 螢光蘑菇濃湯 | 67 |
+  | `reimu_onigiri` | 🍙 陰陽梅干飯糰 | 60（每日簽到贈送 1 個，`DAILY_REWARD_ITEM`） |
+  - 目前只有簽到能拿到 🍙；其他三個只能用管理員指令發放。`Database/item.new.json` 是這四個道具的批次匯入範本。
+- 動到真實資料前的備份放在 `Database/backups/`（已加入 `.gitignore`，只留在本機）。
 
 - 管理員卡冊操作：`delete_gacha_cards(user_id, ids)`、`clear_gacha_cards(user_id)`、`update_cards_completeness(user_id, ids, value)`，都只動該玩家自己的卡並回傳實際影響張數。
 
@@ -113,10 +124,10 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
     - 三個 autocomplete 都只列出符合條件的（`find_fusion_groups`：持有 3 張以上 1.0000 且還能升階）；系統自動取最早獲得的三張（滿完整度的卡除了 ID 都一樣）。角色 `gacha.enabled` 為 false 時不在 `GACHA_POOL`，也就不能融合。
     - 新卡完整度與祈願相同（`generate_completeness`），`total_fusions + 1`。
   - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
-- **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。
+- **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。簽到成功會多送 `DAILY_REWARD_ITEM`（顯示在獎勵那行）。本人的資料卡底部有「⚡ 恢復體力」按鈕 ➔ `StaminaItemView`：列出背包裡有 `effect.stamina` 的道具 ➔ 選擇後顯示說明與「使用後體力」➔ 「🍽️ 使用 1 個」（連點保護）➔ 可繼續使用或「🔙 返回資料卡」。
 - **inventory.py / general_components.py**：背包每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
 - **leaderboard.py**：`/leaderboard category`（賽錢、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
-- **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定，一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
+- **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定（目前 2 位：`403895664666214400`、`414789026189672449`），一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
   - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`take_item`、`clear_inventory`、`add_stamina`（可為負數）
   - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`give_item`、`give_items`
   - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；注意不會重載 `Components/` 子模組）、`sync`、`shutdown`
@@ -143,6 +154,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 13. 管理員 ID 移到 `.env`（`Utils/config.py`）、新增 `requirements.txt`；祈願改為單一交易並加入每卡池 100 抽 UR 保底與 `/card history`；卡冊加上收集進度與合成 / 融合捷徑（只有卡冊主人看得到）；圖鑑顯示自己的收藏；新增體力系統與 `/leaderboard`；測試放進 `tests/`。
 14. 新增 `tools/botcli.py`：不連 Discord 就能假裝打指令、點按鈕與選單、送出 Modal 來測試機器人（沙盒資料庫 `.botcli/`）。
 15. 新增實機工具：`botcli --live` 把畫面真的送到測試頻道讓 Discord 驗證、`tools/discord_peek.py` 讀頻道看實機結果（測試頻道沿用 log 頻道）。
+16. 道具改版：Item.db 加上 `effect` 欄位；刪除全部 83 個舊 demo 道具與所有玩家背包（備份在 `Database/backups/`），換成 4 個體力道具；簽到送 🍙；資料卡新增「⚡ 恢復體力」；`add_item` 改為原子操作；新增第二位管理員。
 
 ## 7. 驗證方式
 - 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
@@ -162,7 +174,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：10 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 41、V2 通知 32、保底 21、體力 21、botcli 17、卡池 14、排行榜 10，共 308 項）。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 41、V2 通知 32、保底 21、體力 21、道具 21、botcli 17、卡池 14、排行榜 10，共 329 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進：`Thumbnails.json` 只有 `fill`、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
 
 ## 8. 使用者的決定與工作習慣

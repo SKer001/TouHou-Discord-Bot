@@ -299,18 +299,44 @@ async def update_daily_time(user_id: int, date_str: str):
 # ---------------------------------------------------------
 # 🎒 5. 背包道具操作 (Inventory)
 # ---------------------------------------------------------
+def _load_inventory(raw) -> dict:
+    if isinstance(raw, dict):
+        return raw
+    try:
+        value = json.loads(raw or "{}")
+        return value if isinstance(value, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
 async def add_item(user_id: int, item_id: str, amount: int = 1) -> dict:
-    """給予玩家指定道具與數量，傳回更新後的背包字典"""
-    user_data = await get_or_create_user(user_id)
-    inventory = user_data["inventory"]
-
-    # 更新背包數量
-    inventory[item_id] = inventory.get(item_id, 0) + amount
-    if inventory[item_id] <= 0:
-        del inventory[item_id]  # 數量小於等於 0 則移除道具
-
-    await update_user_inventory(user_id, inventory)
+    """給予 (或扣除) 玩家指定道具與數量，傳回更新後的背包字典；同一個交易，不會因同時寫入而遺失"""
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            async with db.execute("SELECT inventory FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                inventory = _load_inventory((await cursor.fetchone())["inventory"])
+            inventory[item_id] = inventory.get(item_id, 0) + amount
+            if inventory[item_id] <= 0:
+                del inventory[item_id]  # 數量小於等於 0 則移除道具
+            await db.execute(
+                "UPDATE users SET inventory = ? WHERE user_id = ?",
+                (json.dumps(inventory, ensure_ascii=False), user_id),
+            )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
     return inventory
+
+
+async def clear_all_inventories() -> int:
+    """清空所有玩家的背包，回傳受影響的玩家數"""
+    async with connect() as db:
+        cursor = await db.execute("UPDATE users SET inventory = '{}' WHERE inventory IS NOT NULL AND inventory != '{}'")
+        await db.commit()
+        return cursor.rowcount
 
 
 async def update_user_inventory(user_id: int, inventory: dict):
@@ -672,3 +698,40 @@ async def spend_stamina(user_id: int, amount: int) -> dict:
 async def add_stamina(user_id: int, amount: int) -> dict:
     """回復 / 扣除體力 (道具、管理員用)；可以超過 240，扣到 0 為止"""
     return await _change_stamina(user_id, amount, require_enough=False)
+
+
+async def use_stamina_item(user_id: int, item_id: str, restore: int) -> dict:
+    """
+    使用一個體力道具：背包 -1、體力 +restore (可超過 240)，同一個交易
+    回傳 {"ok": bool, "left": 剩餘數量, 以及 calc_stamina 的欄位 (使用後)}；背包沒有這個道具時 ok=False 且什麼都不改
+    """
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            async with db.execute(
+                "SELECT inventory, stamina, stamina_updated_at FROM users WHERE user_id = ?", (user_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+            inventory = _load_inventory(row["inventory"])
+            now = datetime.now(timezone.utc)
+            info = calc_stamina(row["stamina"], row["stamina_updated_at"], now)
+            if inventory.get(item_id, 0) <= 0:
+                await db.rollback()
+                return {**info, "ok": False, "left": 0}
+
+            inventory[item_id] -= 1
+            left = inventory[item_id]
+            if left <= 0:
+                del inventory[item_id]
+            new_value = info["stamina"] + restore
+            updated_at = now.isoformat() if info["stamina"] >= STAMINA_MAX else info["updated_at"]
+            await db.execute(
+                "UPDATE users SET inventory = ?, stamina = ?, stamina_updated_at = ? WHERE user_id = ?",
+                (json.dumps(inventory, ensure_ascii=False), new_value, updated_at, user_id),
+            )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {**calc_stamina(new_value, updated_at, now), "ok": True, "left": left, "before": info["stamina"]}

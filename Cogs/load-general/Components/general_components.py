@@ -80,6 +80,9 @@ def _daily_section_text(daily_status: dict, is_self: bool, reward: dict | None) 
         )
         if reward:
             text += f"\n\n🎉 **簽到成功！**　💰 `+{reward['money_gained']:,}` 兩　✨ `+{reward['exp_gained']:,}` EXP"
+            if reward.get("item"):
+                item = reward["item"]
+                text += f"　{item['emoji']} {item['name']} `×{item['amount']}`"
     else:
         hint = ("向博麗神社投賽錢，抽取今日運勢並獲得賽錢與經驗值吧！" if is_self
                 else "這位居民今天還沒有向博麗神社投賽錢。")
@@ -101,9 +104,54 @@ def _stamina_text(stamina: dict | None) -> str:
     if stamina is None:
         return ""
     head = f"⚡ **體力**　`{stamina['stamina']} / {stamina['max']}`"
+    if stamina["stamina"] > stamina["max"]:
+        return f"{head}　✨ 超過上限（用掉到 {stamina['max']} 以下才會開始自然回復）\n"
     if stamina["stamina"] >= stamina["max"]:
         return f"{head}　✅ 已回滿\n"
     return f"{head}　-# 下次 +1：{_format_duration(stamina['next_in'])} · 回滿：{_format_duration(stamina['full_in'])}\n"
+
+
+def build_stamina_item_container(
+    user: discord.User | discord.Member,
+    stamina: dict,
+    owned: list[tuple[str, dict, int]],
+    selected: str | None = None,
+    notice: str | None = None,
+) -> ui.Container:
+    """
+    恢復體力畫面：目前體力 + 背包裡的體力道具
+    owned = [(道具ID, 道具資料, 數量), ...]；selected 有值時顯示該道具的說明與使用後的體力
+    """
+    container = ui.Container(accent_color=discord.Color.green())
+    container.add_item(ui.TextDisplay(
+        f"## ⚡ {user.display_name} 的恢復體力\n"
+        f"{_stamina_text(stamina).strip()}\n"
+        f"-# 道具可以讓體力超過自然回復上限 {stamina['max']}"
+    ))
+    if notice:
+        container.add_item(ui.TextDisplay(notice))
+    container.add_item(ui.Separator())
+
+    if not owned:
+        container.add_item(ui.TextDisplay("🎒 背包裡沒有任何體力道具。\n-# 每日簽到可以獲得 🍙 陰陽梅干飯糰！"))
+        return container
+
+    item = next(((iid, info, count) for iid, info, count in owned if iid == selected), None)
+    if item:
+        iid, info, count = item
+        restore = info["effect"].get("stamina", 0)
+        container.add_item(ui.TextDisplay(
+            f"### {info['emoji']} {info['name']}　`×{count}`\n"
+            f"*{info['desc']}*\n\n"
+            f"⚡ 使用 1 個：`{stamina['stamina']}` ➔ `{stamina['stamina'] + restore}`（`+{restore}`）"
+        ))
+    else:
+        lines = [
+            f"{info['emoji']} **{info['name']}**　`×{count}`　⚡ `+{info['effect'].get('stamina', 0)}`"
+            for _, info, count in owned
+        ]
+        container.add_item(ui.TextDisplay("\n".join(lines) + "\n-# 從下方選單選擇要使用的道具"))
+    return container
 
 
 def build_profile_container(

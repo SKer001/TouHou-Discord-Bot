@@ -1,302 +1,38 @@
 {
-    "scarlet_tea": {
-        "name": "紅魔館大吉嶺紅茶",
-        "emoji": "☕",
-        "category": "consumable",
-        "desc": "咲夜沖泡的高級紅茶，散發著優雅的香氣。"
-    },
-    "eirin_medicine": {
-        "name": "永琳的萬能藥",
-        "emoji": "💊",
-        "category": "consumable",
-        "desc": "永遠亭特製的秘密藥劑，據說能治癒百病。"
-    },
-    "dango_rabbit": {
-        "name": "鈴仙特製月餅團子",
+    "yuyuko_dango": {
+        "name": "幽夢三色團子",
         "emoji": "🍡",
         "category": "consumable",
-        "desc": "充滿月之資本主義香氣的團子，口感紮實。"
+        "desc": "白玉樓秘製的花見團子，口感軟糯 Q 彈並帶有淡淡櫻花香。吃下一串能讓消耗的靈力與體力瞬間恢復，但要小心別被某位亡靈大小姐搶走了。",
+        "effect": {
+            "stamina": 120
+        }
     },
-    "kappa_cucumber": {
-        "name": "河童的新鮮小黃瓜",
-        "emoji": "🥒",
+    "sakuya_scone_tea": {
+        "name": "咲夜特製司康與紅茶",
+        "emoji": "🫖",
         "category": "consumable",
-        "desc": "妖怪之山特產的小黃瓜，河童們最愛的清脆零食。"
+        "desc": "完美女僕精心烘焙的司康餅，搭配溫熱濃郁的伯爵紅茶。優雅地享用完後，全身的疲勞彷彿被時間停止般一掃而空。",
+        "effect": {
+            "stamina": 120
+        }
     },
-    "tofu_momiji": {
-        "name": "椛的紅葉楓葉豆腐",
-        "emoji": "🍁",
+    "marisa_mushroom_soup": {
+        "name": "螢光蘑菇濃湯",
+        "emoji": "🍄",
         "category": "consumable",
-        "desc": "天狗巡邏時隨身攜帶的乾糧，清淡卻營養豐富。"
+        "desc": "採集自魔法森林深處的未知蘑菇熬煮而成。雖然湯汁呈現可疑的七彩螢光且偶爾會冒泡，但喝下去意外地能讓人精神百倍！",
+        "effect": {
+            "stamina": 67
+        }
     },
-    "subterranean_sake": {
-        "name": "地底灼熱清酒",
-        "emoji": "🍶",
+    "reimu_onigiri": {
+        "name": "陰陽梅干飯糰",
+        "emoji": "🍙",
         "category": "consumable",
-        "desc": "舊地獄溫泉街販售的烈酒，喝下一口全身發熱。"
-    },
-    "myouren_candy": {
-        "name": "命蓮寺菩提糖",
-        "emoji": "🍬",
-        "category": "consumable",
-        "desc": "參拜命蓮寺獲得的糖果，甜而不膩且能淨化心靈。"
-    },
-    "human_village_bun": {
-        "name": "人間之里熱饅頭",
-        "emoji": "🥯",
-        "category": "consumable",
-        "desc": "人里店家剛出爐的豆沙饅頭，深受人類與妖怪喜愛。"
-    },
-    "mystia_grilled_lamprey": {
-        "name": "米斯蒂亞的烤八目鰻",
-        "emoji": "🍢",
-        "category": "consumable",
-        "desc": "夜雀路邊攤的招牌名產，據說對治療夜盲症有奇效。"
-    },
-    "cirno_shaved_ice": {
-        "name": "絕對零度刨冰",
-        "emoji": "🍧",
-        "category": "consumable",
-        "desc": "琪露諾用冰霜魔法製成的刨冰，透心涼的冰爽感覺。"
-    },
-    "suwako_frog_candy": {
-        "name": "青蛙形狀麥芽糖",
-        "emoji": "🐸",
-        "category": "consumable",
-        "desc": "守矢神社祭典上販售的可愛軟糖。"
-    },
-    "kanako_rice_wine": {
-        "name": "神奈子的御神酒",
-        "emoji": "🍷",
-        "category": "consumable",
-        "desc": "供奉給建御名方神的濃郁神酒，蘊含著信仰之力。"
-    },
-    "yuyuko_sakura_tea": {
-        "name": "西行庵櫻花煎茶",
-        "emoji": "🌸",
-        "category": "consumable",
-        "desc": "漂浮著櫻花瓣的清茶，幽幽子用餐完畢後的必備飲品。"
-    },
-    "reisen_pill": {
-        "name": "狂氣月波藥丸",
-        "emoji": "🔴",
-        "category": "consumable",
-        "desc": "帶有紅眼幻象效應的實驗藥丸，請謹慎食用。"
-    },
-    "flandre_pudding": {
-        "name": "芙蘭朵露的鮮紅布丁",
-        "emoji": "🍮",
-        "category": "consumable",
-        "desc": "外表鮮紅誘人的精緻布丁，甜度非常高。"
-    },
-    "patchouli_herbal_tea": {
-        "name": "帕秋莉草本止咳茶",
-        "emoji": "🍵",
-        "category": "consumable",
-        "desc": "專為哮喘與貧血調製的草藥茶，帶有微微苦味。"
-    },
-    "seiga_taoist_pill": {
-        "name": "青娥的仙家丹藥",
-        "emoji": "🍡",
-        "category": "consumable",
-        "desc": "邪仙青娥煉製的丹藥，據說能讓人輕身延年。"
-    },
-    "renko_watch": {
-        "name": "蓮子的星空懷錶",
-        "emoji": "⌚",
-        "category": "special",
-        "desc": "只要看著星空就能知道時間與所在位置的特殊懷錶。"
-    },
-    "sakuya_stopwatch": {
-        "name": "操縱時間的懷錶",
-        "emoji": "⏱️",
-        "category": "special",
-        "desc": "咲夜用來輔助發動時符的能力懷錶，指針走動異常精準。"
-    },
-    "reimu_gohei": {
-        "name": "博麗巫女的御幣",
-        "emoji": "🧹",
-        "category": "special",
-        "desc": "靈夢使用的祓串，能輕鬆打退各路低級妖怪。"
-    },
-    "remilia_spear": {
-        "name": "神槍「岡格尼爾」",
-        "emoji": "🔱",
-        "category": "special",
-        "desc": "蕾米莉亞召喚出的赤紅神槍，投擲後必定命中目標。"
-    },
-    "flandre_levatein": {
-        "name": "災禍之劍「萊瓦汀」",
-        "emoji": "🗡️",
-        "category": "special",
-        "desc": "芙蘭朵露持有的火焰魔劍，燃燒著毀滅一切的烈焰。"
-    },
-    "patchouli_element_crystal": {
-        "name": "七曜元素水晶",
-        "emoji": "💎",
-        "category": "special",
-        "desc": "凝聚金木水火土日月七種屬性的魔法法器。"
-    },
-    "nitori_wrench": {
-        "name": "萬能河童扳手",
-        "emoji": "🔧",
-        "category": "special",
-        "desc": "河童重工量產的高科技工程工具，適用於各種機械維修。"
-    },
-    "momiji_shield": {
-        "name": "白樺木天狗大盾",
-        "emoji": "🛡️",
-        "category": "special",
-        "desc": "白狼天狗佩帶的大型木盾，防禦力堅固。"
-    },
-    "hatate_phone": {
-        "name": "姬海棠的念寫手機",
-        "emoji": "📱",
-        "category": "special",
-        "desc": "能夠在網絡與新聞資料庫中自動搜尋念寫畫面的手機。"
-    },
-    "mononobe_plate": {
-        "name": "十種神寶之土皿",
-        "emoji": "🍽️",
-        "category": "special",
-        "desc": "物部布都用於風水風術與投擲攻擊的陶瓷皿。"
-    },
-    "byakuren_scroll": {
-        "name": "魔人經卷",
-        "emoji": "📜",
-        "category": "special",
-        "desc": "聖白蓮持有的自動吟唱經卷，能大幅強化自身肉體機能。"
-    },
-    "miko_shakujo": {
-        "name": "七星劍與笏板",
-        "emoji": "⚔️",
-        "category": "special",
-        "desc": "豐聰耳神子的法器，能聽取十個人的心聲。"
-    },
-    "tenshi_hisou_sword": {
-        "name": "緋想之劍",
-        "emoji": "🗡️",
-        "category": "special",
-        "desc": "比那名居天子的神器，能斬斷氣質並引發地震。"
-    },
-    "iku_raikou_hagoromo": {
-        "name": "雷雲羽衣",
-        "emoji": "🧣",
-        "category": "special",
-        "desc": "永江衣玖飄逸的羽衣，能隨意伸縮並操縱雷電。"
-    },
-    "junko_grudge_talisman": {
-        "name": "純化怨念符咒",
-        "emoji": "🏷️",
-        "category": "special",
-        "desc": "純狐將力量純化後形成的符咒，散發無可匹敵的威壓。"
-    },
-    "sagume_word_orb": {
-        "name": "探女的反轉寶珠",
-        "emoji": "🔮",
-        "category": "special",
-        "desc": "能將口中說出的言詞逆轉事態發展的神秘玉石。"
-    },
-    "kosuzu_scroll": {
-        "name": "妖魔夜行繪卷",
-        "emoji": "📖",
-        "category": "special",
-        "desc": "鈴奈庵收藏的稀有妖魔書，記載著古老妖怪的故事。"
-    },
-    "akyuu_brush": {
-        "name": "幻想鄉緣起毛筆",
-        "emoji": "🖌️",
-        "category": "special",
-        "desc": "稗田阿求記載九代人記憶與妖怪圖鑑所使用的毛筆。"
-    },
-    "kokoro_mask": {
-        "name": "秦心之希望面具",
-        "emoji": "🎭",
-        "category": "special",
-        "desc": "能調和各種情感情緒的第六十六面具。"
-    },
-    "scarlet_bat_wing": {
-        "name": "吸血鬼的蝠翼碎片",
-        "emoji": "🦇",
-        "category": "collectible",
-        "desc": "紅魔館主人戰鬥時掉落的翅膀殘羽。"
-    },
-    "ice_crystal": {
-        "name": "琪露諾的九角冰晶",
-        "emoji": "❄️",
-        "category": "collectible",
-        "desc": "完美對稱且永不融化的冰雪精靈結晶。"
-    },
-    "phantom_ectoplasm": {
-        "name": "幽靈的外質魂魄",
-        "emoji": "👻",
-        "category": "collectible",
-        "desc": "白玉樓周圍飄散的幽靈靈體碎片，摸起來涼涼的。"
-    },
-    "bamboo_moon_feather": {
-        "name": "蓬萊玉枝花瓣",
-        "emoji": "🌿",
-        "category": "collectible",
-        "desc": "輝夜展示的難題寶物之一，發出七色的彩虹光芒。"
-    },
-    "suwako_iron_ring": {
-        "name": "諏訪子的神具鐵輪",
-        "emoji": "⭕",
-        "category": "collectible",
-        "desc": "古代赤口神戰鬥時使用的巨型鐵輪縮小模型。"
-    },
-    "kanako_onbashira": {
-        "name": "御柱的樟木碎片",
-        "emoji": "🪵",
-        "category": "collectible",
-        "desc": "守矢神社矗立的四根巨大御柱上掉落的木屑。"
-    },
-    "koishi_phone": {
-        "name": "戀的破舊打不通電話",
-        "emoji": "☎️",
-        "category": "collectible",
-        "desc": "無意識少女隨身帶的玩具電話，聽筒裡只有雜音。"
-    },
-    "satori_third_eye": {
-        "name": "睜開的覺之眼結晶",
-        "emoji": "👁️",
-        "category": "collectible",
-        "desc": "古明地覺讀取心聲的器官結晶，泛著淡淡紫光。"
-    },
-    "utsuho_control_rod": {
-        "name": "控制棒廢料零件",
-        "emoji": "☢️",
-        "category": "collectible",
-        "desc": "阿空右腳裝備的控制棒替換下來的金屬零件。"
-    },
-    "hina_curse_doll": {
-        "name": "鍵山雛的轉厄雛人形",
-        "emoji": "🎎",
-        "category": "collectible",
-        "desc": "吸收了人間之里無數災厄與不幸的小人偶。"
-    },
-    "parsee_jealousy_jewel": {
-        "name": "水橋帕露西的妒火寶石",
-        "emoji": "💎",
-        "category": "collectible",
-        "desc": "由強烈嫉妒心凝聚形成的綠色透明晶體。"
-    },
-    "yuugi_hoshiguma_horn": {
-        "name": "星熊勇儀的鬼角削片",
-        "emoji": "🦏",
-        "category": "collectible",
-        "desc": "鬼族四天王勇儀強硬鬼角上的自然脫落碎片。"
-    },
-    "rinnosuke_glasses": {
-        "name": "香霖堂單片眼鏡",
-        "emoji": "👓",
-        "category": "collectible",
-        "desc": "霖之助用來鑑賞外界道具名稱與用途的眼鏡。"
-    },
-    "shikieiki_mirror": {
-        "name": "淨玻璃鏡碎片",
-        "emoji": "🪞",
-        "category": "collectible",
-        "desc": "四季映姬用來審判死者生前罪業的神聖鏡子碎片。"
+        "desc": "用海苔包著酸梅的簡單飯糰，海苔上還貼心地剪出了陰陽玉的圖案。雖然樸素，卻能快速補充退治妖怪所需的體力。",
+        "effect": {
+            "stamina": 60
+        }
     }
 }
