@@ -92,6 +92,7 @@ Utils/
   character_data.py      角色資料載入器
   config.py              .env 設定 (管理員 ID)
 tests/                   測試 (python tests/run_all.py)
+tools/botcli.py          指令列模擬器 (不連 Discord 測試指令)
 Logger/Logger.py         日誌與錯誤回報
 images/Thumbnails.json   角色縮圖對照表 {"角色id": "圖片URL", "fill": "預設圖URL"}
 ```
@@ -114,6 +115,18 @@ python tests/run_all.py
 ```
 
 測試使用暫存資料庫與假的 Discord 互動，不會連上 Discord，也不會改動 `Database/` 裡的真實資料（執行前後會自動比對）。執行前請先關掉機器人。
+
+### 🖥️ 指令列模擬器 `tools/botcli.py`
+
+不用開 Discord，直接在終端機「假裝打指令」，畫面會印成文字，可以接著點按鈕、選選單：
+
+```bash
+python tools/botcli.py "/card gacha pool:th06 pull_type:10" "click 繼續十連" "/card inventory" "select 卡池 th06"
+```
+
+- 不帶步驟執行會進入互動模式，輸入 `help` 查看所有語法（`click`、`select`、`modal`、`as`、`? /指令 參數` 查 autocomplete …）。
+- 使用沙盒資料庫 `.botcli/`（從 `Database/` 唯讀複製一份），不會動到真實資料；`--reset` 重新複製、`--fresh` 從空白開始。
+- 遇到錯誤（程式例外、沒有回應、超過元件上限等）會標示出來，結束碼為 1。
 
 ## 🔧 開發備註
 - 新增模組：在 `Cogs/load-*/` 放入 `.py` 檔，並提供 `async def setup(bot)`。資料夾第一層的每個 `.py` 都會被當成模組載入，不要在那裡放非模組檔案。
