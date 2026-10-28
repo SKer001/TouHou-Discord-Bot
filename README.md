@@ -127,6 +127,15 @@ python tools/botcli.py "/card gacha pool:th06 pull_type:10" "click 繼續十連"
 - 不帶步驟執行會進入互動模式，輸入 `help` 查看所有語法（`click`、`select`、`modal`、`as`、`? /指令 參數` 查 autocomplete …）。
 - 使用沙盒資料庫 `.botcli/`（從 `Database/` 唯讀複製一份），不會動到真實資料；`--reset` 重新複製、`--fresh` 從空白開始。
 - 遇到錯誤（程式例外、沒有回應、超過元件上限等）會標示出來，結束碼為 1。
+- 加上 `--live` 會把每一步的畫面真的送到測試頻道（`.env` 的 `TEST_CHANNEL_ID`，沒有就用 `LOG_CHANNEL_ID`），讓 Discord 驗證實際內容；鏡像訊息的按鈕是停用的。
+
+### 👀 讀取測試頻道 `tools/discord_peek.py`
+
+```bash
+python tools/discord_peek.py -n 5 --bot-only
+```
+
+用機器人的 Token 讀測試頻道最新的訊息，把實機的 V2 畫面印成文字（ephemeral 訊息讀不到）。
 
 ## 🔧 開發備註
 - 新增模組：在 `Cogs/load-*/` 放入 `.py` 檔，並提供 `async def setup(bot)`。資料夾第一層的每個 `.py` 都會被當成模組載入，不要在那裡放非模組檔案。

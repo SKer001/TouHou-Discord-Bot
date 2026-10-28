@@ -15,7 +15,9 @@ Main.py                      入口；setup_hook 先 init_db() 再 init_item_db(
 README.md                    給人看的專案說明 (功能、指令、安裝、新增角色)
 requirements.txt             套件清單：pip install -r requirements.txt
 tests/                       測試 (python tests/run_all.py)，見第 7 節
-tools/botcli.py              不連 Discord 的指令列測試工具：假裝打指令、點按鈕、選選單，見第 7 節
+tools/botcli.py              指令列測試工具：假裝打指令、點按鈕、選選單；--live 會把畫面真的送到測試頻道，見第 7 節
+tools/discord_peek.py        用機器人 Token 讀測試頻道最新訊息，把實機 V2 畫面印成文字，見第 7 節
+tools/discord_rest.py        上面兩個工具共用的 Discord REST 小工具 (只用 REST，不連 Gateway)
 Characters/                  角色資料，一角色一檔：Main/ (主要主角)、TH01/ ~ TH06/ (各代)；圖鑑與卡池都讀這裡
 Database/
   User_DB_Manager.py         玩家資料庫（Users.db）所有存取
@@ -140,6 +142,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 12. 刪除已不再讀取的舊資料 `Cogs/load-gacha/Gacha_Pool.json`、`Cogs/load-character/characters.json`（舊圖鑑的 en_name / debut / location / theme_song / color / spell_cards 只存在 git 歷史中，需要時可從提交 d8fb060 以前取回）。`images/Original/` 是縮圖的高解析度原圖，保留。根目錄 `JSON.json` 是使用者的格式範本，不要動。
 13. 管理員 ID 移到 `.env`（`Utils/config.py`）、新增 `requirements.txt`；祈願改為單一交易並加入每卡池 100 抽 UR 保底與 `/card history`；卡冊加上收集進度與合成 / 融合捷徑（只有卡冊主人看得到）；圖鑑顯示自己的收藏；新增體力系統與 `/leaderboard`；測試放進 `tests/`。
 14. 新增 `tools/botcli.py`：不連 Discord 就能假裝打指令、點按鈕與選單、送出 Modal 來測試機器人（沙盒資料庫 `.botcli/`）。
+15. 新增實機工具：`botcli --live` 把畫面真的送到測試頻道讓 Discord 驗證、`tools/discord_peek.py` 讀頻道看實機結果（測試頻道沿用 log 頻道）。
 
 ## 7. 驗證方式
 - 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
@@ -155,7 +158,11 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
   - 會自動抓的問題：回覆帶 content / embed、同一互動回應兩次、指令或元件沒有回應、元件超過 40 個、autocomplete 超過 25 個或選項超過 100 字、Discord 會擋下的參數（choices、Range）、程式例外（印出 traceback）。有任何錯誤時結束碼為 1。
   - 在 Git Bash 執行時 `/card` 可能被改寫成路徑，CLI 會自動還原；也可以省略開頭的 `/`（`card gacha …`）。
   - `tree.sync` 會被略過；頭像不會下載（主色退回預設紅色）。
-- 最近一次：10 個測試檔共 304 項全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 41、V2 通知 32、保底 21、體力 21、卡池 14、botcli 13、排行榜 10）。V2 畫面細節仍以 Discord 實機為準。
+  - 步驟還有 `wait 秒數`、`say 文字`（示範用）。
+- **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
+  - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
+  - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
+- 最近一次：10 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 41、V2 通知 32、保底 21、體力 21、botcli 17、卡池 14、排行榜 10，共 308 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進：`Thumbnails.json` 只有 `fill`、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
 
 ## 8. 使用者的決定與工作習慣

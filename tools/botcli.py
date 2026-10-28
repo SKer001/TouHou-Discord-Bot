@@ -24,6 +24,8 @@
   users                       列出沙盒中的玩家
   sql <SELECT ...>            在沙盒 Users.db 上執行唯讀查詢
   commands                    列出所有斜線指令與參數
+  wait [秒]                   暫停一下 (示範用)
+  say 文字                    印出一段說明 (示範用)
 """
 import argparse
 import asyncio
@@ -41,6 +43,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+sys.path.insert(1, os.path.join(ROOT, "tools"))   # discord_rest (實機鏡像用)
 os.chdir(ROOT)
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -358,6 +361,10 @@ class BotCLI:
         self.me = self.get_user(admin, "管理員(me)" if ADMIN_IDS else "me")   # 「me」永遠指這個身分
         self.current = self.me
         self.errors = 0
+        self.live = None            # --live 時為 DiscordREST
+        self.live_channel = None
+        self.live_queue: list[Message] = []
+        self.live_ids: dict[int, str] = {}   # botcli 訊息編號 ➔ Discord 訊息 id
 
     # ---------------- 使用者 ----------------
     def get_user(self, user_id: int, name: str | None = None) -> FakeUser:
@@ -417,6 +424,45 @@ class BotCLI:
         self.last_touched = msg
         self.focus = msg
         self.print_message(msg, action)
+        if self.live is not None and msg not in self.live_queue:
+            self.live_queue.append(msg)
+
+    # ---------------- 🌐 實機鏡像 (--live) ----------------
+    @staticmethod
+    def _freeze(components: list):
+        """把鏡像訊息上的按鈕 / 選單全部停用 (鏡像只是畫面預覽，點了沒有作用)"""
+        for comp in components:
+            if comp.get("type") in (2, 3, 5, 6, 7, 8):
+                comp["disabled"] = True
+            _freeze_children = comp.get("components") or []
+            BotCLI._freeze(_freeze_children)
+            if comp.get("accessory"):
+                BotCLI._freeze([comp["accessory"]])
+
+    async def flush_live(self, step_line: str):
+        """把這一步新增 / 更新的訊息真的送到 Discord 測試頻道，讓 Discord 驗證實際的 V2 內容"""
+        from discord_rest import count_components, describe_error
+        queue, self.live_queue = self.live_queue, []
+        for msg in queue:
+            if msg.view is None:
+                continue
+            components = msg.view.to_components()
+            self._freeze(components)
+            if count_components(components) < 40:
+                note = "（原本僅自己可見）" if msg.ephemeral else ""
+                components.insert(0, {"type": 10, "content": f"-# 🧪 botcli 鏡像 #{msg.id}{note} · `{step_line[:80]}` · 按鈕無作用"})
+            payload = {"flags": 1 << 15, "components": components, "allowed_mentions": {"parse": []}}
+            remote = self.live_ids.get(msg.id)
+            if remote:
+                status, data = await self.live.patch(f"/channels/{self.live_channel}/messages/{remote}", payload)
+            else:
+                status, data = await self.live.post(f"/channels/{self.live_channel}/messages", payload)
+            if status in (200, 201):
+                self.live_ids[msg.id] = data["id"]
+                print(f"  📡 已{'更新' if remote else '送出'}到 Discord 測試頻道（訊息 id {data['id']}）")
+            else:
+                self.errors += 1
+                print(f"  ❌ Discord 拒絕了訊息 #{msg.id}（HTTP {status}）：\n    " + describe_error(data).replace("\n", "\n    "))
 
     def print_message(self, msg: Message, action: str = "show"):
         refs = {}
@@ -723,6 +769,10 @@ class BotCLI:
             elif head == "show":
                 msg = self.messages[int(tokens[1].lstrip("#")) - 1] if len(tokens) > 1 else self.target_message()
                 self.print_message(msg)
+            elif head == "wait":
+                await asyncio.sleep(float(tokens[1]) if len(tokens) > 1 else 1)
+            elif head == "say":
+                print(f"💬 {' '.join(tokens[1:])}")
             elif head == "users":
                 await self.list_users()
             elif head == "sql":
@@ -742,6 +792,8 @@ class BotCLI:
             traceback.print_exc(file=sys.stdout)
         # 讓 view 裡排程的小任務有機會跑完
         await asyncio.sleep(0)
+        if self.live is not None and self.live_queue:
+            await self.flush_live(line)
 
 
 async def amain(args):
@@ -760,17 +812,35 @@ async def amain(args):
         with open(args.file, encoding="utf-8") as f:
             steps += f.read().splitlines()
 
-    if steps:
-        for line in steps:
-            await cli.step(line)
-    else:
-        print("輸入 help 查看語法，exit 離開")
-        loop = asyncio.get_running_loop()
-        while True:
-            line = await loop.run_in_executor(None, lambda: input("botcli> "))
-            if line.strip() in ("exit", "quit", "q"):
-                break
-            await cli.step(line)
+    live_api = None
+    if args.live or args.live_channel:
+        from discord_rest import DiscordREST, describe_error, test_channel_id
+        live_api = DiscordREST()
+        await live_api.__aenter__()
+        cli.live_channel = args.live_channel or test_channel_id()
+        status, data = await live_api.get(f"/channels/{cli.live_channel}")
+        if status != 200:
+            print(f"❌ 無法使用測試頻道 {cli.live_channel}：{describe_error(data)}")
+            await live_api.__aexit__(None, None, None)
+            return 1
+        cli.live = live_api
+        print(f"🌐 實機鏡像：每一步的畫面都會送到 #{data.get('name', cli.live_channel)}（{cli.live_channel}）")
+
+    try:
+        if steps:
+            for line in steps:
+                await cli.step(line)
+        else:
+            print("輸入 help 查看語法，exit 離開")
+            loop = asyncio.get_running_loop()
+            while True:
+                line = await loop.run_in_executor(None, lambda: input("botcli> "))
+                if line.strip() in ("exit", "quit", "q"):
+                    break
+                await cli.step(line)
+    finally:
+        if live_api is not None:
+            await live_api.__aexit__(None, None, None)
 
     print(f"\n🏁 結束 · 錯誤 {cli.errors} 個")
     return 1 if cli.errors else 0
@@ -784,6 +854,8 @@ def main():
     parser.add_argument("--reset", action="store_true", help="重新從 Database/ 複製沙盒資料庫")
     parser.add_argument("--fresh", action="store_true", help="沙盒 Users.db 從空白開始")
     parser.add_argument("--sandbox", help="沙盒資料夾 (預設 .botcli/；測試用暫存資料夾)")
+    parser.add_argument("--live", action="store_true", help="實機鏡像：把每一步的畫面真的送到測試頻道 (TEST_CHANNEL_ID / LOG_CHANNEL_ID)")
+    parser.add_argument("--live-channel", type=int, help="實機鏡像要送到的頻道 ID")
     args = parser.parse_args()
     sys.exit(asyncio.run(amain(args)))
 

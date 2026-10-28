@@ -61,5 +61,30 @@ check("autocomplete", "cirno = 🧊 琪露諾" in out)
 # 5. 不會碰到真實資料庫 (沙盒在暫存資料夾)
 check("sandbox files", os.path.exists(os.path.join(tmp, "Users.db")))
 
+# 6. 實機工具的離線部分 (不連網路)：元件轉文字、計數、錯誤說明、鏡像時停用按鈕
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+sys.path.insert(0, ROOT)
+from discord_rest import render_components, count_components, describe_error
+payload = [{"type": 17, "accent_color": 0xf1c40f, "components": [
+    {"type": 10, "content": "## 標題"},
+    {"type": 9, "components": [{"type": 10, "content": "內文"}], "accessory": {"type": 11, "media": {"url": "https://x/fill.png"}}},
+    {"type": 14},
+    {"type": 1, "components": [{"type": 2, "style": 1, "label": "按我", "custom_id": "a"}]},
+    {"type": 1, "components": [{"type": 3, "custom_id": "s", "placeholder": "選單", "options": [{"label": "甲", "value": "a", "default": True}]}]},
+]}]
+text = "\n".join(render_components(payload))
+check("render", "色條 #f1c40f" in text and "內文" in text and "fill.png" in text and "[藍] 按我" in text and "a = 甲 ✓" in text)
+check(f"count {count_components(payload)}", count_components(payload) == 10)
+err = describe_error({"message": "Invalid Form Body", "code": 50035,
+                      "errors": {"components": {"_errors": [{"code": "BASE_TYPE_MAX_LENGTH", "message": "Must be 40 or fewer in length."}]}}})
+check("describe error", "components：Must be 40 or fewer" in err)
+import importlib.util
+spec = importlib.util.spec_from_file_location("botcli_mod", os.path.join(ROOT, "tools", "botcli.py"))
+botcli_mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(botcli_mod)
+frozen = [dict(payload[0], components=[dict(c) for c in payload[0]["components"]])]
+frozen[0]["components"][3] = {"type": 1, "components": [{"type": 2, "label": "x", "custom_id": "a"}]}
+botcli_mod.BotCLI._freeze(frozen)
+check("freeze buttons", frozen[0]["components"][3]["components"][0]["disabled"] is True)
+
 shutil.rmtree(tmp, ignore_errors=True)
 print(f"passed {ok}, failed {fail}")
