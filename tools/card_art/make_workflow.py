@@ -21,6 +21,7 @@ NEGATIVE = (
 BASE = {
     "reimu": "1girl, hakurei reimu, touhou, red bow, hair tubes, frilled bow, detached sleeves, red and white miko outfit, red skirt, yellow ascot",
     "marisa": "1girl, kirisame marisa, touhou, witch hat, blonde hair, long hair, side braid, hair bow, black dress, white apron",
+    "mima": "1girl, mima (touhou), touhou, green hair, long hair, green eyes, wizard hat, blue hat, sun symbol, blue robe, blue cape, ghost tail, no legs, holding staff, crescent staff",
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -62,10 +63,30 @@ SCENES = {
         "glowing magic circle, energy, intense grin, hair and hat flowing violently, "
         "flying high above the clouds, sky, light rays, bloom, epic, powerful, dynamic angle"
     ),
+    # 魅魔 SR「久遠的博麗神社惡靈」：在荒廢的舊博麗神社上空悠哉飄著
+    ("mima", "SR"): (
+        "floating in the air, relaxed pose, mischievous smile, sitting cross-legged in the air, "
+        "old hakurei shrine, overgrown, moss, tall grass, old torii, afternoon, warm sunlight, "
+        "fireflies, soft lighting, daylight, looking at viewer"
+    ),
+    # 魅魔 SSR「祟高而冷酷的惡靈」：舉杖施法，冷笑，魔法陣與星形彈幕
+    ("mima", "SSR"): (
+        "floating, raising staff, casting spell, cold smile, half-closed eyes, magic circle, star danmaku, "
+        "blue magic, glowing crescent, cape fluttering, wind, spectral wisps, "
+        "above an old shrine, blue sky, clouds, dynamic angle, looking at viewer"
+    ),
+    # 魅魔 UR「憑依博麗之陰影」：靈體光焰與巨大魔法陣，氣場全開
+    ("mima", "UR"): (
+        "floating high in the sky, staff raised overhead, glowing eyes, confident evil smile, "
+        "huge spectral flames, ghostly blue aura, giant magic circle behind her, crescent moon, sun symbol glowing, "
+        "massive star danmaku, light rays, bloom, cape billowing, hair flowing, "
+        "above the clouds, epic, powerful, majestic, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
     "marisa": "standing, holding broom, carrying broom, broom on shoulder, walking",   # 不加的話常畫成拿著掃帚
+    "mima": "legs, feet, shoes, socks, standing",                                       # 幽靈尾巴，沒有腳
 }
 
 

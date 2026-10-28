@@ -107,7 +107,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕原圖產生（含底部 TouHou / Project 小字）。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
-  - 目前完成：靈夢、魔理沙的 SR / SSR / UR（魔理沙 UR 的掃帚柄是手動修正後的圖）。其餘 22 位尚未生成，用 fill。
+  - 目前完成：靈夢、魔理沙、魅魔（魔理沙 UR 的掃帚柄是手動修正後的圖）。其餘尚未生成的角色用 fill。依 Characters 分類順序一位一位做，每階級 4 張候選給使用者挑。
 - **通知工具 `Utils/components.py`**：
   - `send_notice(interaction, text, color=None, footer=None, ephemeral=True)`：自動判斷用 `response` 或 `followup` 送出，預設 ephemeral。
   - `notice_container()` / `notice_view()`：需要自行加按鈕或嵌進其他畫面時使用。

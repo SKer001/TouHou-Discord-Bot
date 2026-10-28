@@ -23,6 +23,7 @@ RAW_BASE = "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/he
 EN_NAMES = {
     "reimu": "Hakurei Reimu",
     "marisa": "Kirisame Marisa",
+    "mima": "Mima",
 }
 
 
