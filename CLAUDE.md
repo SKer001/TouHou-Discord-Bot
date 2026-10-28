@@ -20,8 +20,8 @@ Database/
   Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 8 節）
   item.new.json              道具批次匯入用資料
 Cogs/
-  load-character/  character.py, Components/character_components.py   # 圖鑑 (characters.json 為舊資料，已不再讀取)
-  load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理 (Gacha_Pool.json 為舊資料，已不再讀取)
+  load-character/  character.py, Components/character_components.py   # 圖鑑
+  load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理
   load-general/    profile.py, inventory.py, Admin-item.py, Admin-user.py, Components/general_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
@@ -122,6 +122,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 9. 新增 `Characters/` 一角色一檔（24 位卡池角色），`/character` 圖鑑與抽卡卡池都改讀這裡；卡池分代數（舊作 / 紅魔鄉）。
 10. 合成公式改為依位數動態決定上限、加倍改為依階級的機率；SP 改為 I/II/III 等級結構並加入 `spent`（B 點）。
 11. 卡冊改成疊卡列表 + 卡池 / 階級篩選 + 排序；新增 `/admin-gacha`；合成、融合、管理員選卡都改成「代數 → 角色 → 分頁選卡」避開 25 個選項上限。新增 `README.md`。
+12. 刪除已不再讀取的舊資料 `Cogs/load-gacha/Gacha_Pool.json`、`Cogs/load-character/characters.json`（舊圖鑑的 en_name / debut / location / theme_song / color / spell_cards 只存在 git 歷史中，需要時可從提交 d8fb060 以前取回）。`images/Original/` 是縮圖的高解析度原圖，保留。根目錄 `JSON.json` 是使用者的格式範本，不要動。
 
 ## 7. 驗證方式
 - 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
