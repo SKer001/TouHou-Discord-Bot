@@ -18,6 +18,7 @@ tests/                       測試 (python tests/run_all.py)，見第 7 節
 tools/botcli.py              指令列測試工具：假裝打指令、點按鈕、選選單；--live 會把畫面真的送到測試頻道，見第 7 節
 tools/discord_peek.py        用機器人 Token 讀測試頻道最新訊息，把實機 V2 畫面印成文字，見第 7 節
 tools/discord_rest.py        上面兩個工具共用的 Discord REST 小工具 (只用 REST，不連 Gateway)
+tools/card_art/              卡面產生工具 (ComfyUI 生圖 → 蓋卡框 → 寫字 → 縮圖)，見第 4 節「卡面」
 Characters/                  角色資料，一角色一檔：Main/ (主要主角)、TH01/ ~ TH06/ (各代)；圖鑑與卡池都讀這裡
 Database/
   User_DB_Manager.py         玩家資料庫（Users.db）所有存取
@@ -33,7 +34,10 @@ Utils/components.py          共用的 Components V2 通知工具（send_notice 
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
 Utils/config.py              .env 設定：ADMIN_IDS 與 is_admin(user)
 Logger/Logger.py             日誌與錯誤回報（需要 .env 的 LOG_CHANNEL_ID）
-images/                      專案根目錄；Thumbnails.json = {"角色id": "圖片URL", ..., "fill": "預設圖URL"}
+images/                      專案根目錄；Thumbnails.json = {"角色id_階級": URL, "角色id": URL, ..., "fill": 預設圖URL}
+  Thumbnails/                Discord 用的縮圖 (460×640)：<角色id>_<階級>.png、fill.png
+  Original/Art/              沒有加框的角色原圖 <角色id>_<階級>.png (ComfyUI 生成、使用者挑選)
+  Original/Thumbnails/       fill.png 原圖、empty_greenscreen.jpg (使用者給的綠幕卡框)、empty.png (去背後的空白卡框)
 ```
 - Main.py 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Components.x import ...`（命名空間套件）。
 - **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾或專案根的 `Utils/`。
@@ -97,7 +101,13 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - 使用 `ui.LayoutView`、`ui.Container(accent_color=…)`、`ui.Section(TextDisplay, accessory=Thumbnail|Button)`、`ui.Separator`、`ui.ActionRow`。
 - **單則訊息最多 40 個元件**；V2 訊息不能帶 `content`/`embeds`，且一旦是 V2 之後只能以 V2 編輯。
 - 互動回呼寫成 `button.callback = self.xxx` 並在 `build()` 內重組畫面（`clear_items()` 後重新 `add_item`）；多種狀態（例如編輯 / 刪除確認 / 已刪除）放在同一個 View 用 `build(mode=...)` 切換。
-- 縮圖規則：用角色 `id` 查 `images/Thumbnails.json`，查不到用 `"fill"`，連 URL 都沒有就只顯示文字。
+- 縮圖規則：依序查 `images/Thumbnails.json` 的 `角色id_階級` → `角色id` → `"fill"`，連 URL 都沒有就只顯示文字。卡牌畫面用該卡的階級（融合預覽用升階後的階級）；圖鑑用檢視者擁有的最高階級，沒有收藏時用最低階級。
+- **卡面（`tools/card_art/`）**：
+  - 流程：`make_workflow.py <角色> <階級> <種子> <out.json>` 產生 ComfyUI 工作流程（Animagine XL 4.0 Opt、896×1064、一次 2 張）→ 使用者挑圖 → 存成 `images/Original/Art/<角色>_<階級>.png` → `python tools/card_art/build_cards.py [角色…]` 產生 `images/Thumbnails/<角色>_<階級>.png` 並寫入 Thumbnails.json → **push 之後** Discord 才抓得到圖。
+  - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕原圖產生（含底部 TouHou / Project 小字）。
+  - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
+  - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
+  - 目前完成：靈夢、魔理沙的 SR / SSR / UR（魔理沙 UR 的掃帚柄是手動修正後的圖）。其餘 22 位尚未生成，用 fill。
 - **通知工具 `Utils/components.py`**：
   - `send_notice(interaction, text, color=None, footer=None, ephemeral=True)`：自動判斷用 `response` 或 `followup` 送出，預設 ephemeral。
   - `notice_container()` / `notice_view()`：需要自行加按鈕或嵌進其他畫面時使用。
@@ -157,6 +167,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 15. 新增實機工具：`botcli --live` 把畫面真的送到測試頻道讓 Discord 驗證、`tools/discord_peek.py` 讀頻道看實機結果（測試頻道沿用 log 頻道）。
 16. 道具改版：Item.db 加上 `effect` 欄位；刪除全部 83 個舊 demo 道具與所有玩家背包（備份在 `Database/backups/`），換成 4 個體力道具；簽到送 🍙；資料卡新增「⚡ 恢復體力」；`add_item` 改為原子操作；新增第二位管理員。
 17. `/admin-item give_item` 與 `/admin-user take_item` 合併成 `/admin-item manage`（分類 + 分頁 + 堆疊列表 → Modal 輸入數量，正數給予、負數扣除，不能扣到小於 0）。
+18. 卡面：ComfyUI 生成角色圖、套上綠幕去背的空白卡框、寫稱號 / 名字 / 等級圖（`tools/card_art/`）；縮圖改成依「角色＋階級」顯示，先完成靈夢、魔理沙各 3 張。
 
 ## 7. 驗證方式
 - 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
@@ -176,8 +187,8 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 41、V2 通知 32、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 349 項）。V2 畫面細節仍以 Discord 實機為準。
-- 已知待改進：`Thumbnails.json` 只有 `fill`、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
+- 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 32、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 355 項）。V2 畫面細節仍以 Discord 實機為準。
+- 已知待改進：其餘 22 位角色的卡面、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
 
 ## 8. 使用者的決定與工作習慣
 - **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。
@@ -189,7 +200,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 ## 9. 給 Claude Code 的工作守則
 - 動資料前先備份；遷移類工作**不得刪除或改動舊檔**。
 - 修改後保持 LF 換行；沿用既有的程式風格與繁體中文註解/文案（emoji 標題風格）。
-- 新增畫面或通知一律用 V2（優先用 `Utils/components.py`），注意 40 個元件上限，縮圖走 `Thumbnails.json` + `fill` 後備。
+- 新增畫面或通知一律用 V2（優先用 `Utils/components.py`），注意 40 個元件上限，縮圖走 `Thumbnails.json`（角色_階級 → 角色 → `fill` 後備）。
 - 資料庫寫入涉及多表時用單一交易；日常領獎類操作用原子 `UPDATE … WHERE` 防重複；會消耗東西的操作先給確認畫面。
 - 使用者可能繞過 autocomplete 直接輸入值，指令內一定要再驗證一次。
 - 新 Cog 檔放進 `Cogs/load-*/`，不要留下舊的同名/過期檔案。

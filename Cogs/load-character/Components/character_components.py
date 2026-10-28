@@ -30,12 +30,12 @@ SP_TYPE_NAMES = {
 
 
 # ---------------------------------------------------------
-# 🖼️ Thumbnail：依角色 ID 查 images/Thumbnails.json，沒有就用 "fill"
+# 🖼️ Thumbnail：依 "角色_階級" ➔ 角色 ID 查 images/Thumbnails.json，沒有就用 "fill"
 # ---------------------------------------------------------
-def get_thumbnail_url(char_id: str | None, thumbnails: dict | None) -> str | None:
+def get_thumbnail_url(char_id: str | None, thumbnails: dict | None, rarity: str | None = None) -> str | None:
     if not thumbnails:
         return None
-    return thumbnails.get(char_id) or thumbnails.get("fill")
+    return (thumbnails.get(f"{char_id}_{rarity}") if rarity else None) or thumbnails.get(char_id) or thumbnails.get("fill")
 
 
 def _rarity_range(char: dict) -> str:
@@ -111,7 +111,10 @@ def build_character_container(char: dict, category_name: str, thumbnails: dict |
         f"-# {category_name}\n"
         f"{profile.get('description', '')}"
     )
-    url = get_thumbnail_url(char.get("id"), thumbnails)
+    # 卡面：檢視者擁有的最高階級，沒有收藏時用最低階級
+    owned_rarities = [r for r in rarities if my_cards.get(r)]
+    thumb_rarity = owned_rarities[-1] if owned_rarities else (rarities[0] if rarities else None)
+    url = get_thumbnail_url(char.get("id"), thumbnails, thumb_rarity)
     if url:
         container.add_item(ui.Section(ui.TextDisplay(header_text), accessory=ui.Thumbnail(url)))
     else:

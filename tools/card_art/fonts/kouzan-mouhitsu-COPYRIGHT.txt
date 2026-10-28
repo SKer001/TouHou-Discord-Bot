@@ -1,0 +1,33 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-name: 衡山毛筆フォント
+               衡山毛筆フォント行書
+               衡山毛筆フォント草書
+Source: https://opentype.jp/kouzanmouhitufont.htm
+        https://opentype.jp/kouzangyousho.htm
+        https://opentype.jp/kouzansousho.htm
+Upstream-contact: 青柳衡山 (Kouzan Aoyagi) <kouzan _atmark_ kuc.biglobe.ne.jp>
+
+Files: *.ttf
+Copyright: 青柳衡山 (Kouzan Aoyagi) <kouzan _atmark_ kuc.biglobe.ne.jp>
+License: public-domain
+ You can use it with no charge.
+ We do NOT execise our copyright, so it is completely free.
+ You can modifty it freely.
+ You can redistribute it, bundle it for CD, books, magazines, etc.
+ You can use it with no restrictions.
+ WE PROVIDE ABSOLUTELY NO WARRANTY. YOU ASSUME ALL RISKS ASSOCIATED WITH ITS USE.
+ .
+ Original Text (in Japanese)
+  無料でご利用できます。
+  著作権放棄で完全フリーです。
+  改編も自由です。
+  雑誌・書籍への掲載・CD収録も自由です。
+  使用についての制限はありません。
+  無保証です。お客様の責任でご利用ください。
+
+Files: debian/*
+Copyright: 2009-2019, Hideki Yamane (Debian-JP) <henrich@debian.or.jp>
+License: GPL-2+
+ On Debian systems the full text of the GNU General Public 
+ License can be found in the `/usr/share/common-licenses/GPL-2'
+ file.

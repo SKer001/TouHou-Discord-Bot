@@ -44,21 +44,21 @@ def get_completeness_eval(completeness: float) -> tuple[str, discord.Color]:
 
 
 # ================= 🖼️ Thumbnail 機制 =================
-def get_thumbnail_url(char_key: str | None, thumbnails: dict | None) -> str | None:
+def get_thumbnail_url(char_key: str | None, thumbnails: dict | None, rarity: str | None = None) -> str | None:
     """
-    依角色 ID (例如 "marisa") 到 Thumbnails.json 查 URL：
-    1. 有該 ID 且 URL 不為空 ➔ 使用角色專屬圖片
-    2. 沒有該 ID ➔ 退回使用 "fill" 的 URL
-    3. 連 "fill" 都沒有 ➔ 回傳 None (該項目只顯示文字)
+    依角色 ID 與階級 (例如 "marisa" + "UR") 到 Thumbnails.json 查 URL：
+    1. 有 "角色_階級" (例如 "marisa_UR") ➔ 使用該階級的卡面
+    2. 有角色 ID ➔ 使用角色專屬圖片
+    3. 都沒有 ➔ 退回使用 "fill" 的 URL；連 "fill" 都沒有 ➔ 回傳 None (該項目只顯示文字)
     """
     if not thumbnails:
         return None
-    return thumbnails.get(char_key) or thumbnails.get("fill")
+    return (thumbnails.get(f"{char_key}_{rarity}") if rarity else None) or thumbnails.get(char_key) or thumbnails.get("fill")
 
 
-def _card_block(text: str, char_key: str | None, thumbnails: dict | None):
+def _card_block(text: str, char_key: str | None, thumbnails: dict | None, rarity: str | None = None):
     """文字 + 右側縮圖的 Section；沒有任何圖片 URL 時退化成純文字"""
-    url = get_thumbnail_url(char_key, thumbnails)
+    url = get_thumbnail_url(char_key, thumbnails, rarity)
     if url:
         return ui.Section(ui.TextDisplay(text), accessory=ui.Thumbnail(url))
     return ui.TextDisplay(text)
@@ -92,7 +92,7 @@ def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thu
     )
 
     container = ui.Container(accent_color=color)
-    container.add_item(_card_block(text, card_data.get("character_key"), thumbnails))
+    container.add_item(_card_block(text, card_data.get("character_key"), thumbnails, card_data.get("rarity")))
     return container
 
 
@@ -113,7 +113,7 @@ def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: i
     container.add_item(ui.Separator())
 
     for idx, card in enumerate(results, start=1):
-        container.add_item(_card_block(_card_text(idx, card, id_first=True), card.get("character_key"), thumbnails))
+        container.add_item(_card_block(_card_text(idx, card, id_first=True), card.get("character_key"), thumbnails, card.get("rarity")))
 
     return container
 
@@ -205,7 +205,7 @@ def build_stack_list_container(
             f"├ *{stack['title']}*\n"
             f"└ 最高完整度 {best_eval}"
         )
-        container.add_item(_card_block(text, stack["character_key"], thumbnails))
+        container.add_item(_card_block(text, stack["character_key"], thumbnails, stack["rarity"]))
 
     return container
 
@@ -232,7 +232,7 @@ def build_stack_cards_container(
     for idx, card in enumerate(cards_page, start=start_index):
         eval_str, _ = get_completeness_eval(card["completeness"])
         text = f"**{idx}.** {eval_str}\n└ ID: `{card['instance_id']}` · 取得於 `{card.get('obtained_at', '未知')}`"
-        container.add_item(_card_block(text, card.get("character_key"), thumbnails))
+        container.add_item(_card_block(text, card.get("character_key"), thumbnails, card.get("rarity")))
 
     return container
 
@@ -253,7 +253,7 @@ def build_card_detail_container(card_data: dict, user_name: str, thumbnails: dic
     )
 
     container = ui.Container(accent_color=color)
-    container.add_item(_card_block(text, card_data.get("character_key"), thumbnails))
+    container.add_item(_card_block(text, card_data.get("character_key"), thumbnails, card_data.get("rarity")))
     return container
 
 
@@ -283,7 +283,7 @@ def build_synthesis_preview_container(card_a: dict, card_b: dict, preview: dict,
         f"-# ⚠️ 確認後兩張素材卡會消失，並產生一張新卡 | 擁有者: {user_name}"
     )
     container = ui.Container(accent_color=color)
-    container.add_item(_card_block(text, card_a.get("character_key"), thumbnails))
+    container.add_item(_card_block(text, card_a.get("character_key"), thumbnails, card_a.get("rarity")))
     return container
 
 
@@ -301,7 +301,7 @@ def build_synthesis_result_container(new_card: dict, increase: float, doubled: b
         f"-# 卡牌編號: {new_card['instance_id']} | 擁有者: {user_name}"
     )
     container = ui.Container(accent_color=color)
-    container.add_item(_card_block(text, new_card.get("character_key"), thumbnails))
+    container.add_item(_card_block(text, new_card.get("character_key"), thumbnails, new_card.get("rarity")))
     return container
 
 
@@ -317,7 +317,7 @@ def build_fusion_preview_container(cards: list[dict], next_rarity: str, next_tit
         f"-# ⚠️ 確認後三張素材卡會消失，並產生一張高一階的新卡 | 擁有者: {user_name}"
     )
     container = ui.Container(accent_color=discord.Color.purple())
-    container.add_item(_card_block(text, base.get("character_key"), thumbnails))
+    container.add_item(_card_block(text, base.get("character_key"), thumbnails, next_rarity))
     return container
 
 
@@ -333,5 +333,5 @@ def build_fusion_result_container(new_card: dict, old_rarity: str, user_name: st
         f"-# 卡牌編號: {new_card['instance_id']} | 擁有者: {user_name}"
     )
     container = ui.Container(accent_color=color)
-    container.add_item(_card_block(text, new_card.get("character_key"), thumbnails))
+    container.add_item(_card_block(text, new_card.get("character_key"), thumbnails, new_card.get("rarity")))
     return container

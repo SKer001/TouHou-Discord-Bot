@@ -1,3 +1,9 @@
 {
+    "marisa_SR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/marisa_SR.png",
+    "marisa_SSR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/marisa_SSR.png",
+    "marisa_UR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/marisa_UR.png",
+    "reimu_SR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/reimu_SR.png",
+    "reimu_SSR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/reimu_SSR.png",
+    "reimu_UR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/reimu_UR.png",
     "fill": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/fill.png"
 }
