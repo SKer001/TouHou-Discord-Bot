@@ -1,0 +1,61 @@
+{
+    "id": "meiling",
+    "name": "紅美鈴",
+    "emoji": "🐉",
+    "category": "th06",
+    "profile": {
+        "title": "華人小娘",
+        "species": "妖怪",
+        "ability": "操縱氣程度的能力",
+        "description": "擔任紅魔館門衛的妖怪。擅長中國武術，平時負責看守大門，但偶爾會在值班時打瞌睡。對待人類相對友善，沒有一般妖怪的強烈惡意。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-7a8b9c0d-1e2f-3a4b",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "華人小娘",
+            "SR": "紅魔館的彩虹門衛",
+            "SSR": "太極拳之終極衛士"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "meiling_SP",
+        "name": "彩符「彩雨」",
+        "levels": {
+            "R": {
+                "id": "meiling_SP_I",
+                "name": "Easy・初陣・彩符「彩雨」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "meiling_SP_II",
+                "name": "Lunatic・瘋狂・彩符「彩雨」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "meiling_SP_III",
+                "name": "Phantasm・幻象・彩符「彩雨」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

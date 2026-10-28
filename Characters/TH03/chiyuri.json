@@ -1,0 +1,61 @@
+{
+    "id": "chiyuri",
+    "name": "北白川千百合",
+    "emoji": "📐",
+    "category": "th03",
+    "profile": {
+        "title": "教授助手",
+        "species": "人類",
+        "ability": "駕駛可能性空間移動船程度的能力",
+        "description": "岡崎夢美的助手，穿著水手服，負責操縱可能性空間移動船來到幻想鄉。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th03-4f5a6b7c-8d9e-0f1a",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "教授助手",
+            "R": "水手服科學家",
+            "SR": "時空船之助手"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "chiyuri_SP",
+        "name": "空間「可能性移動船」",
+        "levels": {
+            "N": {
+                "id": "chiyuri_SP_I",
+                "name": "Easy・初陣・空間「可能性移動船」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "chiyuri_SP_II",
+                "name": "Lunatic・瘋狂・空間「可能性移動船」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "chiyuri_SP_III",
+                "name": "Phantasm・幻象・空間「可能性移動船」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

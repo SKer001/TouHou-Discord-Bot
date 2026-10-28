@@ -1,0 +1,61 @@
+{
+    "id": "marisa",
+    "name": "霧雨魔理沙",
+    "emoji": "🧹",
+    "category": "main_character",
+    "profile": {
+        "title": "普通魔法使",
+        "species": "人類",
+        "ability": "使用魔法程度的能力",
+        "description": "住在魔法之森的普通魔法使。極度努力，好勝且性格直爽。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th02-1c2d3e4f-5a6b-7c8d",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "普通的魔法使",
+            "SSR": "東洋的西洋魔術師",
+            "UR": "極光之魔彈專家"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "marisa_SP",
+        "name": "戀符「Master Spark」",
+        "levels": {
+            "SR": {
+                "id": "marisa_SP_I",
+                "name": "Easy・初陣・戀符「Master Spark」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "marisa_SP_II",
+                "name": "Lunatic・瘋狂・戀符「Master Spark」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "marisa_SP_III",
+                "name": "Phantasm・幻象・戀符「Master Spark」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

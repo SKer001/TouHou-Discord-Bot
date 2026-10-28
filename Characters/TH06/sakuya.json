@@ -1,0 +1,61 @@
+{
+    "id": "sakuya",
+    "name": "十六夜咲夜",
+    "emoji": "⏱️",
+    "category": "th06",
+    "profile": {
+        "title": "紅魔館的女僕長",
+        "species": "人類",
+        "ability": "操縱時間程度的能力",
+        "description": "紅魔館唯一的人類女僕長。做事瀟灑完美，精通飛刀術。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-0d1e2f3a-4b5c-6d7e",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "紅魔館的女僕長",
+            "SSR": "完美而瀟灑的從者",
+            "UR": "操縱時間的幻影女僕"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "sakuya_SP",
+        "name": "幻世「The World」",
+        "levels": {
+            "SR": {
+                "id": "sakuya_SP_I",
+                "name": "Easy・初陣・幻世「The World」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "sakuya_SP_II",
+                "name": "Lunatic・瘋狂・幻世「The World」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "sakuya_SP_III",
+                "name": "Phantasm・幻象・幻世「The World」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

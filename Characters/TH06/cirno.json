@@ -1,0 +1,61 @@
+{
+    "id": "cirno",
+    "name": "琪露諾",
+    "emoji": "🧊",
+    "category": "th06",
+    "profile": {
+        "title": "湖上的冰精",
+        "species": "妖精",
+        "ability": "操縱冷氣程度的能力",
+        "description": "住在霧之湖的冰之妖精。性格好戰且自信，喜歡凍結青蛙玩耍。雖然常被玩家戲稱為「⑨（笨蛋）」，但在妖精中實力算是名列前茅。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-6f7a8b9c-0d1e-2f3a",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "冰之妖精",
+            "SSR": "湖上的冰精女王",
+            "UR": "絕對零度之最強⑨"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "cirno_SP",
+        "name": "凍符「Perfect Freeze」",
+        "levels": {
+            "SR": {
+                "id": "cirno_SP_I",
+                "name": "Easy・初陣・凍符「Perfect Freeze」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "cirno_SP_II",
+                "name": "Lunatic・瘋狂・凍符「Perfect Freeze」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "cirno_SP_III",
+                "name": "Phantasm・幻象・凍符「Perfect Freeze」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

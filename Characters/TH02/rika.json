@@ -1,0 +1,61 @@
+{
+    "id": "rika",
+    "name": "里香",
+    "emoji": "🚜",
+    "category": "th02",
+    "profile": {
+        "title": "戰車技師",
+        "species": "人類",
+        "ability": "操縱自製戰車程度的能力",
+        "description": "熱愛機械的工程師少女，駕駛自製的戰車「花菱」向靈夢挑戰。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th02-3e4f5a6b-7c8d-9e0f",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "戰車技師",
+            "R": "邪惡工程師",
+            "SR": "花樣戰車大師"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "rika_SP",
+        "name": "邪眼「Evil Eye Σ」",
+        "levels": {
+            "N": {
+                "id": "rika_SP_I",
+                "name": "Easy・初陣・邪眼「Evil Eye Σ」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "rika_SP_II",
+                "name": "Lunatic・瘋狂・邪眼「Evil Eye Σ」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "rika_SP_III",
+                "name": "Phantasm・幻象・邪眼「Evil Eye Σ」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

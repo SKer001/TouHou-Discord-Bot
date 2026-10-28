@@ -12,17 +12,20 @@
 ## 2. 專案結構（目前狀態）
 ```
 Main.py                      入口；setup_hook 先 init_db() 再 init_item_db()，並自動載入 Cogs/load-*/ 下所有 .py
+README.md                    給人看的專案說明 (功能、指令、安裝、新增角色)
+Characters/                  角色資料，一角色一檔：Main/ (主要主角)、TH01/ ~ TH06/ (各代)；圖鑑與卡池都讀這裡
 Database/
   User_DB_Manager.py         玩家資料庫（Users.db）所有存取
   Item_DB_Manager.py         道具資料庫（Item.db）所有存取
   Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 8 節）
   item.new.json              道具批次匯入用資料
 Cogs/
-  load-character/  character.py, Components/character_components.py, characters.json   # 圖鑑資料
-  load-gacha/      gacha.py, Components/gacha_components.py, Gacha_Pool.json            # 抽卡 / 卡冊 / 合成 / 融合；卡池與圖鑑資料分開
+  load-character/  character.py, Components/character_components.py   # 圖鑑 (characters.json 為舊資料，已不再讀取)
+  load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理 (Gacha_Pool.json 為舊資料，已不再讀取)
   load-general/    profile.py, inventory.py, Admin-item.py, Admin-user.py, Components/general_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
+Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
 Logger/Logger.py             日誌與錯誤回報（需要 .env 的 LOG_CHANNEL_ID）
 images/                      專案根目錄；Thumbnails.json = {"角色id": "圖片URL", ..., "fill": "預設圖URL"}
 ```
@@ -53,6 +56,14 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - `get_all_items`、`get_item`、`add_item_db`、`update_item_db`、`delete_item_db`、`batch_import_db`、`CATEGORY_NAMES`、`DEFAULT_ITEMS`；`init_item_db()` 在 Item.db 缺少時會警告。
 - 道具分類：`consumable`（消耗品）、`collectible`（收藏品）、`special`（裝備與特殊）。
 
+- 管理員卡冊操作：`delete_gacha_cards(user_id, ids)`、`clear_gacha_cards(user_id)`、`update_cards_completeness(user_id, ids, value)`，都只動該玩家自己的卡並回傳實際影響張數。
+
+### 角色資料（`Characters/<分類>/<id>.json`）
+- 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`base_stats{hp, atk, def}`（目前都是 0）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。
+- SP 等級名稱 = `Easy・初陣` / `Lunatic・瘋狂` / `Phantasm・幻象` + `・` + SP 名稱；`spent` 是 B 點消耗（B 點系統尚未實作）。`type`、`spent`、`cooldown`、`desc` 目前只用於圖鑑顯示。
+- 驗證：檔名必須等於 `id`、`special_powers.levels` 的鍵必須等於 `gacha.rarities`。分類顯示名稱在 `Utils/character_data.py` 的 `CATEGORY_INFO`。
+- 舊作角色、大妖精、小惡魔的介紹與 SP 名稱是 Claude 依風格自訂的，使用者尚未確認。
+
 ### 卡牌 ID
 - 格式 `c_<角色uuid前4碼>_<隨機hex>`。`instance_id` 是**全域主鍵**，隨機段為 **12 碼**；舊的 8 碼 ID 仍有效。合成的新卡沿用素材 ID 的前綴，融合的新卡用卡池中的 uuid。
 
@@ -66,21 +77,24 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
   - `send_notice(interaction, text, color=None, footer=None, ephemeral=True)`：自動判斷用 `response` 或 `followup` 送出，預設 ephemeral。
   - `notice_container()` / `notice_view()`：需要自行加按鈕或嵌進其他畫面時使用。
   - 色條依開頭 emoji 自動上色：❌/🚫/🗑️ 紅、⚠️ 橘、✅/🎁/✨/🟢 綠、↩️/✖️/⚙️ 灰，其他 blurple。
-- V2 畫面清單：`/card gacha`、`/card inventory`、`/card synthesis`、`/card fusion`、道具背包 `/inventory`（分類 + 分頁 + 跳頁 Modal）、`/character` 圖鑑（分類→角色→檔案頁）、`/profile`（含今日簽到狀態、運勢、簽到按鈕）、`/daily`、`/admin-item edit_item` 編輯控制台、`/admin-sys reload` 重載控制台、Logger 重大事件通知，以及所有錯誤 / 成功提示。
+- V2 畫面清單：`/card gacha`、`/card inventory`、`/card synthesis`、`/card fusion`、道具背包 `/inventory`（分類 + 分頁 + 跳頁 Modal）、`/character` 圖鑑（分類→角色→檔案頁）、`/profile`（含今日簽到狀態、運勢、簽到按鈕）、`/daily`、`/admin-item edit_item` 編輯控制台、`/admin-sys reload` 重載控制台、`/admin-gacha` 各畫面、Logger 重大事件通知，以及所有錯誤 / 成功提示。
+- **autocomplete 最多 25 個選項**：選項可能變多的地方一律「先選代數 (pool) → 再選角色」，選卡改用分頁選單畫面（每頁 20 張），不要直接用 autocomplete 列出卡牌。
 - 原本的 `/fortune` 已併入 `/profile`，已不存在。
 
 ## 5. 各 Cog 重點
 - **gacha.py**（指令群組 `/card`）：
-  - 卡池讀 `Gacha_Pool.json`（變數 `GACHA_POOL`）；每個角色有三個階級 `rarities`（例如 `["SR","SSR","UR"]`）與各階級稱號 `titles`。
-  - 祈願：單抽 2,000、十連 20,000 賽錢；卡池空時**先中止再扣款**；稀有度權重 `[75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；結果畫面可繼續單抽/十連/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。
-  - **合成 `/card synthesis card1 card2`**：兩張不同的、同角色、同階級、完整度都未滿 1.0000 的卡 → 一張新卡。
-    - autocomplete：`card1` 只列出有夥伴的卡；`card2` 依 `interaction.namespace.card1` 篩選（排除第一張本身）。
+  - **卡池分代數**：`GACHA_POOLS` = `classic`（📜 舊作卡池：Main + TH01～TH05，15 位）、`th06`（🔴 紅魔鄉卡池，9 位），每個卡池列出包含的 `Characters/` 資料夾。`GACHA_POOL = load_gacha_pool()` 在載入模組時從 `Characters/` 讀取 `gacha.enabled` 的角色（每筆含 `pool`），改角色檔後要 `/admin-sys reload` 抽卡模組。`card_pool_key(card)` 取卡牌所屬卡池，角色不在卡池時為 `"other"`。
+  - 每個角色有三個階級 `rarities`（例如 `["SR","SSR","UR"]`）與各階級稱號 `titles`。
+  - 祈願 `/card gacha pool pull_type`：單抽 2,000、十連 20,000 賽錢；卡池沒角色時**先中止再扣款**；稀有度權重 `[75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；結果畫面顯示卡池名稱，可繼續單抽/十連（沿用同卡池）/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。⚠️ 扣款 `add_money` 與寫卡 `add_gacha_cards` 目前不在同一個交易。
+  - **卡冊 `/card inventory`**（`InventoryView`）：疊卡列表（同角色同階級一疊，每頁 `STACKS_PER_PAGE = 7`）→ 單一疊（依完整度高到低，每頁 `STACK_CARDS_PER_PAGE = 8`）→ 單卡詳情；卡池篩選（含「其他」）、階級篩選、排序按鈕循環切換 `INVENTORY_SORTS`（階級 / 完整度 / 最新 / 數量）。
+  - **合成 `/card synthesis pool character`**：兩張不同的、同角色、同階級、完整度都未滿 1.0000 的卡 → 一張新卡。
+    - `pool` / `character` autocomplete 只列出有可合成組合（`find_synthesis_groups`）的代數與角色；送出後開 `SynthesisPickerView`：步驟 1 選第一張 → 步驟 2 只列可配對的卡（皆可分頁）→ `make_synthesis_view()` 重新讀資料庫後交給 `CardActionConfirmView`。
     - 公式 `calc_synthesis` / `roll_synthesis`：新完整度 = 較高那張 + 增幅；相對差距 `d = |a-b| / 較高那張`。
     - 增幅上限依**較低那張**的位數（`SYNTHESIS_CAPS`）：0.x → 0.2、0.0x → 0.05、0.00x → 0.01、0.000x → 0.005；增幅 = 上限 × (1 − d)，至少 0.0001，新完整度不超過 1.0000。
     - 加倍：機率 = 階級機率 × (1 − d)²（`SYNTHESIS_DOUBLE_CHANCE`：N 99%、R 50%、SR 30%、SSR 15%、UR 10%、LR 5%；完整度一模一樣時 d = 0 即原始機率）；加倍時增幅 ×2，可超過上限。
     - 確認畫面同時顯示一般結果、加倍結果與加倍機率，按「確認合成」才擲骰並消耗卡牌。
-  - **融合 `/card fusion target`**：三張同角色、同階級、完整度 1.0000 的卡 → 該角色的下一個階級（稱號換成新階級的）；已是最高階不能融合。
-    - autocomplete 選的是「角色＋階級」組合（value `角色key|階級`），只列出持有 3 張以上 1.0000 且還能升階的；系統自動取最早獲得的三張（滿完整度的卡除了 ID 都一樣）。
+  - **融合 `/card fusion pool character rarity`**：三張同角色、同階級、完整度 1.0000 的卡 → 該角色的下一個階級（稱號換成新階級的）；已是最高階不能融合。
+    - 三個 autocomplete 都只列出符合條件的（`find_fusion_groups`：持有 3 張以上 1.0000 且還能升階）；系統自動取最早獲得的三張（滿完整度的卡除了 ID 都一樣）。角色 `gacha.enabled` 為 false 時不在 `GACHA_POOL`，也就不能融合。
     - 新卡完整度與祈願相同（`generate_completeness`），`total_fusions + 1`。
   - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
 - **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。
@@ -88,7 +102,12 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - **Admin-user.py / Admin-item.py / Admin-sys.py**：管理員 ID 寫死在 `ADMIN_ID = 403895664666214400`，其他人使用回「無權限」。
   - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`take_item`、`clear_inventory`
   - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`give_item`、`give_items`
-  - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載）、`sync`、`shutdown`
+  - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；注意不會重載 `Components/` 子模組）、`sync`、`shutdown`
+  - `/admin-gacha`（`Cogs/load-gacha/Admin-gacha.py`）：`view target`（用 `InventoryView` 檢視對方卡冊）、`give target pool character rarity [amount 1~20] [completeness]`（不算抽卡次數）、`remove target pool character`、`set_completeness target pool character value`、`clear target`（確認畫面）。
+    - `remove` / `set_completeness` 共用 `CardPickerView`：每頁 20 張、可多選 → 確認 → 執行後重新讀取並回到列表。
+    - 每個指令開頭用 `_deny()` 檢查管理員（不要用 Cog 層級的 `interaction_check`，失敗會被 Logger 當成指令錯誤通報）。
+    - 用 `gacha_mod()`（`importlib.import_module`）在呼叫時取得抽卡模組，`/admin-sys reload` 抽卡模組後會拿到新的卡池。
+- **character.py**：`/character` 每次執行都用 `load_categories()` 重新讀 `Characters/`（改角色檔不必重開）；角色頁顯示稱號、種族、能力、基礎數值、卡牌階級與稱號、SP 三個等級，色條依最高階級上色。
 - **Logger.py**：記錄指令/元件互動到 `Logger/Logs/`，重大事件（開機、斷線、重連、指令錯誤）用 `send_alert_log()` 以 V2 送到 `LOG_CHANNEL_ID`，時間用 Discord 時間戳記 `<t:…:F>`。
 
 ## 6. 重構歷程（時間順序）
@@ -100,11 +119,16 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 6. 資料庫與檔案結構重整（提交 7b1bdf6）：`database.db`、`daily.db`、gacha `users/*.json` 全部併入 `Database/Users.db`；道具資料移到 `Database/Item.db`；gacha `character.json` → `Gacha_Pool.json`。一次性遷移腳本 `migrate_legacy.py` 已執行完畢並刪除，舊檔也已移除。
 7. 新增卡牌合成 / 融合（提交 cbf85f1）。
 8. 所有通知改用 Components V2、`Embeds` 改名 `Components`、新增 `Utils/components.py`（同一個提交 cbf85f1）。
+9. 新增 `Characters/` 一角色一檔（24 位卡池角色），`/character` 圖鑑與抽卡卡池都改讀這裡；卡池分代數（舊作 / 紅魔鄉）。
+10. 合成公式改為依位數動態決定上限、加倍改為依階級的機率；SP 改為 I/II/III 等級結構並加入 `spent`（B 點）。
+11. 卡冊改成疊卡列表 + 卡池 / 階級篩選 + 排序；新增 `/admin-gacha`；合成、融合、管理員選卡都改成「代數 → 角色 → 分頁選卡」避開 25 個選項上限。新增 `README.md`。
 
 ## 7. 驗證方式
 - 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
 - 測試做法：把 `udm.DB_PATH` / `idm.DB_PATH` 指到暫存資料夾（道具資料庫用副本），用真實 discord.py 物件 + 假的 Interaction（response / followup / namespace）呼叫指令的 `callback` 與 autocomplete，並斷言回覆都是 `LayoutView`（沒有 content / embed）。**測試絕不碰真實的 Users.db / Item.db**（前後比對 sha256）。
-- 最近一次：合成 / 融合 45 項、V2 通知 30 項全數通過；所有 Cog 都能載入；機器人實機啟動、同步 8 個斜線指令成功。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：合成 / 融合 54、Admin-gacha 54、卡冊 37、卡池 14、V2 通知 31、圖鑑 39，共 229 項全數通過；所有 Cog 都能載入；機器人實機啟動、8 個模組、同步 9 個斜線指令成功。V2 畫面細節仍以 Discord 實機為準。
+- 測試腳本沒有放進 repo（放在 Claude 的暫存資料夾），換電腦後要照上面的做法重寫。
+- 已知待改進：抽卡扣款與寫卡不同交易、管理員 ID 寫死在 4 個檔案、沒有 `requirements.txt`、`Thumbnails.json` 只有 `fill`、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本。
 
 ## 8. 使用者的決定與工作習慣
 - **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。

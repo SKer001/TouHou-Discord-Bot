@@ -1,0 +1,61 @@
+{
+    "id": "shinki",
+    "name": "神綺",
+    "emoji": "👑",
+    "category": "th05",
+    "profile": {
+        "title": "魔界之神",
+        "species": "神",
+        "ability": "創造魔界萬物程度的能力",
+        "description": "創造了魔界以及其中一切生靈的造物主，包括愛麗絲。擁有巨大的六翼，散發著無上的神性，但有時會表現出天然呆的一面。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th05-3c4d5e6f-7a8b-9c0d",
+        "rarities": [
+            "SSR",
+            "UR",
+            "LR"
+        ],
+        "titles": {
+            "SSR": "魔界之神",
+            "UR": "創造萬物之母",
+            "LR": "魔界宇宙之創世主"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "shinki_SP",
+        "name": "魔界神「創世之光」",
+        "levels": {
+            "SSR": {
+                "id": "shinki_SP_I",
+                "name": "Easy・初陣・魔界神「創世之光」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "shinki_SP_II",
+                "name": "Lunatic・瘋狂・魔界神「創世之光」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "LR": {
+                "id": "shinki_SP_III",
+                "name": "Phantasm・幻象・魔界神「創世之光」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

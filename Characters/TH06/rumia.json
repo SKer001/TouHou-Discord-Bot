@@ -1,0 +1,61 @@
+{
+    "id": "rumia",
+    "name": "露米婭",
+    "emoji": "🥐",
+    "category": "th06",
+    "profile": {
+        "title": "宵闇的妖怪",
+        "species": "妖怪",
+        "ability": "操縱黑暗程度的能力",
+        "description": "經常在夜晚出沒的食人妖怪。平時周圍被黑暗籠罩，看起來像一團黑影。性格單純，總是張開雙臂擺出十字架的姿勢。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-4d5e6f7a-8b9c-0d1e",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "宵暗的妖怪",
+            "SR": "暗夜的吞噬者",
+            "SSR": "封印解放之宵暗"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "rumia_SP",
+        "name": "闇符「Demarcation」",
+        "levels": {
+            "R": {
+                "id": "rumia_SP_I",
+                "name": "Easy・初陣・闇符「Demarcation」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "rumia_SP_II",
+                "name": "Lunatic・瘋狂・闇符「Demarcation」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "rumia_SP_III",
+                "name": "Phantasm・幻象・闇符「Demarcation」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

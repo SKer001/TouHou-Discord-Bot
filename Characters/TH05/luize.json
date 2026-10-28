@@ -1,0 +1,61 @@
+{
+    "id": "luize",
+    "name": "露易絲",
+    "emoji": "🎒",
+    "category": "th05",
+    "profile": {
+        "title": "魔界旅行者",
+        "species": "魔界人",
+        "ability": "未明確設定",
+        "description": "來自魔界的觀光客，戴著寬簷帽、提著行李四處旅行，性格開朗。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th05-9e0f1a2b-3c4d-5e6f",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "魔界旅行者",
+            "R": "觀光的魔界人",
+            "SR": "邊境流浪魔導士"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "luize_SP",
+        "name": "魔界「旅人的彈幕」",
+        "levels": {
+            "N": {
+                "id": "luize_SP_I",
+                "name": "Easy・初陣・魔界「旅人的彈幕」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "luize_SP_II",
+                "name": "Lunatic・瘋狂・魔界「旅人的彈幕」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "luize_SP_III",
+                "name": "Phantasm・幻象・魔界「旅人的彈幕」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

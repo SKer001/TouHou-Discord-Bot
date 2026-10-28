@@ -1,0 +1,61 @@
+{
+    "id": "koakuma",
+    "name": "小惡魔",
+    "emoji": "🦇",
+    "category": "th06",
+    "profile": {
+        "title": "無名的小惡魔",
+        "species": "惡魔",
+        "ability": "無明確設定",
+        "description": "居住在紅魔館大圖書館裡的惡魔，擔任帕秋莉的助手。在遊戲中為第四關中頭目，沒有官方名字，由粉絲稱呼為「小惡魔」。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-8b9c0d1e-2f3a-4b5c",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "大圖書館的使魔",
+            "R": "司書的助手小惡魔",
+            "SR": "黑魔法秘典守護者"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "koakuma_SP",
+        "name": "使魔「小惡魔的惡作劇」",
+        "levels": {
+            "N": {
+                "id": "koakuma_SP_I",
+                "name": "Easy・初陣・使魔「小惡魔的惡作劇」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "koakuma_SP_II",
+                "name": "Lunatic・瘋狂・使魔「小惡魔的惡作劇」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "koakuma_SP_III",
+                "name": "Phantasm・幻象・使魔「小惡魔的惡作劇」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

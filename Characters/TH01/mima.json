@@ -1,0 +1,61 @@
+{
+    "id": "mima",
+    "name": "魅魔",
+    "emoji": "👻",
+    "category": "th01",
+    "profile": {
+        "title": "久遠的夢幻",
+        "species": "惡靈",
+        "ability": "使用魔法程度的能力",
+        "description": "附身於博麗神社的小祠堂附近的惡靈，實力非常強大。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th01-9b23c4d5-6e7f-8a9b",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "久遠的博麗神社惡靈",
+            "SSR": "祟高而冷酷的惡靈",
+            "UR": "憑依博麗之陰影"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "mima_SP",
+        "name": "魅魔「Twilight Spark」",
+        "levels": {
+            "SR": {
+                "id": "mima_SP_I",
+                "name": "Easy・初陣・魅魔「Twilight Spark」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "mima_SP_II",
+                "name": "Lunatic・瘋狂・魅魔「Twilight Spark」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "mima_SP_III",
+                "name": "Phantasm・幻象・魅魔「Twilight Spark」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

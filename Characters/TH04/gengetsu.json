@@ -1,0 +1,61 @@
+{
+    "id": "gengetsu",
+    "name": "幻月",
+    "emoji": "🌙",
+    "category": "th04",
+    "profile": {
+        "title": "夢幻世界的支配者",
+        "species": "惡魔",
+        "ability": "展開極凶惡彈幕程度的能力",
+        "description": "夢幻世界的真正主人，長著天使般的羽翼，性格卻十分惡劣。被認為是舊作歷史上難度最恐怖的 Extra 頭目之一。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th04-8d9e0f1a-2b3c-4d5e",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "夢幻館的主人",
+            "SR": "金翼的夢幻魔王",
+            "SSR": "漆黑夢幻之支配者"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "gengetsu_SP",
+        "name": "發狂發散彈幕",
+        "levels": {
+            "R": {
+                "id": "gengetsu_SP_I",
+                "name": "Easy・初陣・發狂發散彈幕",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "gengetsu_SP_II",
+                "name": "Lunatic・瘋狂・發狂發散彈幕",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "gengetsu_SP_III",
+                "name": "Phantasm・幻象・發狂發散彈幕",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

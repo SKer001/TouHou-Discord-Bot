@@ -9,13 +9,18 @@
 呼叫端 (gacha.py) 再把按鈕 / 選單加進 Container，最後放進 LayoutView 送出。
 
 ⚠️ Components V2 訊息不能同時帶 content / embeds，且「每則訊息最多 40 個元件」，
-   (Section 本身 + 文字 + Thumbnail = 3 個)，所以卡冊每頁預設 8 張。
+   (Section 本身 + 文字 + Thumbnail = 3 個)，所以每頁的列數要算過。
 """
 import discord
 from discord import ui
 
-# 卡冊每頁張數：8 張 Section(24) + 標題/分隔(3~4) + 兩個選單列(4) + 翻頁列(4) = 36 < 40
-INVENTORY_PER_PAGE = 8
+# 卡冊 (疊卡列表) 每頁疊數：
+#   Container + 標題 + 分隔(3) + 7 疊 Section(21) + 分隔(1)
+#   + 卡池篩選 / 階級篩選 / 疊選單 三列(6) + 翻頁與排序列(5) = 36 < 40
+STACKS_PER_PAGE = 7
+# 單一疊內每頁張數：
+#   Container + 標題 + 分隔(3) + 8 張 Section(24) + 分隔(1) + 卡牌選單列(2) + 返回與翻頁列(5) = 35 < 40
+STACK_CARDS_PER_PAGE = 8
 
 
 def get_completeness_eval(completeness: float) -> tuple[str, discord.Color]:
@@ -68,12 +73,13 @@ def _card_text(index: int, card: dict, id_first: bool = True) -> str:
 
 
 # ================= 🎴 Container 建構 =================
-def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thumbnails: dict = None) -> ui.Container:
+def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thumbnails: dict = None, pool_name: str = "") -> ui.Container:
     """單抽結果"""
     eval_str, color = get_completeness_eval(card_data["completeness"])
 
     text = (
         f"## ⛩️ 博麗神社祈願成功！\n"
+        f"-# 卡池：{pool_name}\n"
         f"投入了 `{cost:,}` 賽錢，塞錢箱發出了清脆的聲響...\n\n"
         f"**角色**：{card_data.get('emoji', '🎴')} **{card_data['name']}**\n"
         f"**階級與稱號**：`[{card_data['rarity']}]` {card_data['title']}\n"
@@ -86,7 +92,7 @@ def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thu
     return container
 
 
-def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: int, thumbnails: dict = None) -> ui.Container:
+def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: int, thumbnails: dict = None, pool_name: str = "") -> ui.Container:
     """十連結果：標題 + 分隔線 + 10 個『文字＋右側縮圖』的 Section"""
     best_card = max(results, key=lambda c: c["completeness"])
     _, color = get_completeness_eval(best_card["completeness"])
@@ -94,6 +100,7 @@ def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: i
     container = ui.Container(accent_color=color)
     container.add_item(ui.TextDisplay(
         f"## ⛩️ {user_name} 的抽卡結果（十連模式）\n"
+        f"🎰 卡池：{pool_name}\n"
         f"共抽到 **{len(results)}** 張卡片 · 消耗賽錢：`{total_cost:,}` 🪙\n"
         f"-# 卡牌已全數寫入個人卡庫"
     ))
@@ -105,55 +112,86 @@ def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: i
     return container
 
 
-def build_card_inventory_container(
-    cards_page: list,
-    current_page: int,
-    total_pages: int,
-    total_cards_count: int,
-    all_cards: list,
-    user_name: str,
-    thumbnails: dict = None,
-    per_page: int = INVENTORY_PER_PAGE,
-) -> ui.Container:
-    """個人卡冊：當頁卡牌，每張一個『文字＋右側縮圖』的 Section"""
-    if not cards_page:
-        container = ui.Container(accent_color=discord.Color.blue())
-        container.add_item(ui.TextDisplay(
-            f"## 🎒 {user_name} 的博麗神社卡冊\n"
-            f"*（當前分類下沒有任何卡牌）*\n"
-            f"-# 頁數: {current_page} / {total_pages}"
-        ))
-        return container
-
-    best_page_card = max(cards_page, key=lambda c: c["completeness"])
-    _, color = get_completeness_eval(best_page_card["completeness"])
-
+def _rarity_stats(all_cards: list) -> str:
     rarity_counts = {"N": 0, "R": 0, "SR": 0, "SSR": 0, "UR": 0, "LR": 0}
     for card in all_cards:
         r = card.get("rarity", "N")
         if r in rarity_counts:
             rarity_counts[r] += 1
+    return " | ".join(f"`{r}`: {n}" for r, n in rarity_counts.items())
 
-    stats_str = (
-        f"`N`: {rarity_counts['N']} | `R`: {rarity_counts['R']} | `SR`: {rarity_counts['SR']} | "
-        f"`SSR`: {rarity_counts['SSR']} | `UR`: {rarity_counts['UR']} | `LR`: {rarity_counts['LR']}"
+
+def build_stack_list_container(
+    stacks_page: list[dict],
+    current_page: int,
+    total_pages: int,
+    total_stacks: int,
+    all_cards: list,
+    user_name: str,
+    thumbnails: dict = None,
+    filter_desc: str = "",
+    start_index: int = 1,
+) -> ui.Container:
+    """
+    個人卡冊 (疊卡模式)：同角色、同階級的卡疊成一列
+    stack = {"character_key", "rarity", "name", "emoji", "title", "cards": [...], "best": float}
+    """
+    header = (
+        f"## 🎒 {user_name} 的博麗神社卡冊\n"
+        f"📊 **持有總量**：`{len(all_cards)}` 張 · `{total_stacks}` 疊 (目前篩選)\n"
+        f"🏷️ **階級統計**：{_rarity_stats(all_cards)}\n"
+        f"-# {filter_desc}"
     )
 
+    if not stacks_page:
+        container = ui.Container(accent_color=discord.Color.blue())
+        container.add_item(ui.TextDisplay(header))
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay(f"*（當前篩選下沒有任何卡牌）*\n-# 頁數: {current_page} / {total_pages}"))
+        return container
+
+    best_stack = max(stacks_page, key=lambda s: s["best"])
+    _, color = get_completeness_eval(best_stack["best"])
+
+    container = ui.Container(accent_color=color)
+    container.add_item(ui.TextDisplay(header))
+    container.add_item(ui.Separator())
+
+    for idx, stack in enumerate(stacks_page, start=start_index):
+        best_eval, _ = get_completeness_eval(stack["best"])
+        text = (
+            f"**{idx}.** {stack.get('emoji', '🎴')} `[{stack['rarity']}]` **{stack['name']}**　×**{len(stack['cards'])}**\n"
+            f"├ *{stack['title']}*\n"
+            f"└ 最高完整度 {best_eval}"
+        )
+        container.add_item(_card_block(text, stack["character_key"], thumbnails))
+
+    return container
+
+
+def build_stack_cards_container(
+    stack: dict,
+    cards_page: list,
+    current_page: int,
+    total_pages: int,
+    user_name: str,
+    thumbnails: dict = None,
+    start_index: int = 1,
+) -> ui.Container:
+    """單一疊的內容：列出這一疊裡的每一張卡 (依完整度由高到低)"""
+    _, color = get_completeness_eval(stack["best"])
     container = ui.Container(accent_color=color)
     container.add_item(ui.TextDisplay(
-        f"## 🎒 {user_name} 的博麗神社卡冊\n"
-        f"📊 **持有總量**：`{total_cards_count}` 張\n"
-        f"🏷️ **階級統計**：{stats_str}"
+        f"## {stack.get('emoji', '🎴')} `[{stack['rarity']}]` {stack['name']}　×{len(stack['cards'])}\n"
+        f"*{stack['title']}*\n"
+        f"-# {user_name} 的卡冊 · 依完整度由高到低排列"
     ))
     container.add_item(ui.Separator())
 
-    start_idx = (current_page - 1) * per_page + 1
-    for page_idx, card in enumerate(cards_page):
-        container.add_item(_card_block(
-            _card_text(start_idx + page_idx, card, id_first=False),
-            card.get("character_key"),
-            thumbnails,
-        ))
+    for idx, card in enumerate(cards_page, start=start_index):
+        eval_str, _ = get_completeness_eval(card["completeness"])
+        text = f"**{idx}.** {eval_str}\n└ ID: `{card['instance_id']}` · 取得於 `{card.get('obtained_at', '未知')}`"
+        container.add_item(_card_block(text, card.get("character_key"), thumbnails))
 
     return container
 

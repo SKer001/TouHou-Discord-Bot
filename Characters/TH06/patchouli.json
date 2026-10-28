@@ -1,0 +1,61 @@
+{
+    "id": "patchouli",
+    "name": "帕秋莉·諾蕾姬",
+    "emoji": "📖",
+    "category": "th06",
+    "profile": {
+        "title": "知識與避世的少女",
+        "species": "魔法使",
+        "ability": "操縱火水木金土日月程度的能力",
+        "description": "蕾米莉亞的朋友，紅魔館地下圖書館的管理者。天生的魔法使，擁有極高的智力與龐大的魔力，但因患有哮喘加上缺乏運動，體質非常虛弱。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-9c0d1e2f-3a4b-5c6d",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "七曜的魔導士",
+            "SSR": "不動的大圖書館",
+            "UR": "元素極致之大魔導士"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "patchouli_SP",
+        "name": "日符「Royal Flare」",
+        "levels": {
+            "SR": {
+                "id": "patchouli_SP_I",
+                "name": "Easy・初陣・日符「Royal Flare」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "patchouli_SP_II",
+                "name": "Lunatic・瘋狂・日符「Royal Flare」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "patchouli_SP_III",
+                "name": "Phantasm・幻象・日符「Royal Flare」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

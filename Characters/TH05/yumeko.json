@@ -1,0 +1,61 @@
+{
+    "id": "yumeko",
+    "name": "夢子",
+    "emoji": "🗡️",
+    "category": "th05",
+    "profile": {
+        "title": "魔界的女長官",
+        "species": "魔界人",
+        "ability": "操縱無數刀劍程度的能力",
+        "description": "侍奉魔界神神綺的女僕長，對神綺忠心耿耿，擅長以刀劍作戰。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th05-2b3c4d5e-6f7a-8b9c",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "魔界的女長官",
+            "SR": "飛刀之魔界女僕",
+            "SSR": "神綺的終極刃舞"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "yumeko_SP",
+        "name": "劍技「魔界之刃」",
+        "levels": {
+            "R": {
+                "id": "yumeko_SP_I",
+                "name": "Easy・初陣・劍技「魔界之刃」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "yumeko_SP_II",
+                "name": "Lunatic・瘋狂・劍技「魔界之刃」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "yumeko_SP_III",
+                "name": "Phantasm・幻象・劍技「魔界之刃」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

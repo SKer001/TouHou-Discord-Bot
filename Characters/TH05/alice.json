@@ -1,0 +1,61 @@
+{
+    "id": "alice",
+    "name": "愛麗絲",
+    "emoji": "🧸",
+    "category": "th05",
+    "profile": {
+        "title": "魔界的人形使",
+        "species": "魔界人",
+        "ability": "使用魔法與人偶程度的能力",
+        "description": "魔界的少女魔法使，手持魔導書，在神綺的魔界中阻擋入侵者。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th05-0f1a2b3c-4d5e-6f7a",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "魔界的人形使",
+            "SSR": "死之少女",
+            "UR": "魔法之國的死靈法師"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "alice_SP",
+        "name": "人形「Little Legion」",
+        "levels": {
+            "SR": {
+                "id": "alice_SP_I",
+                "name": "Easy・初陣・人形「Little Legion」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "alice_SP_II",
+                "name": "Lunatic・瘋狂・人形「Little Legion」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "alice_SP_III",
+                "name": "Phantasm・幻象・人形「Little Legion」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

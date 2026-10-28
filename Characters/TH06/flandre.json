@@ -1,0 +1,61 @@
+{
+    "id": "flandre",
+    "name": "芙蘭朵露·斯卡蕾特",
+    "emoji": "💎",
+    "category": "th06",
+    "profile": {
+        "title": "惡魔之妹",
+        "species": "吸血鬼",
+        "ability": "破壞一切事物程度的能力",
+        "description": "蕾米莉亞的親妹妹，本作的 Extra 關卡頭目。擁有極端恐怖的破壞力，情緒較不穩定，因此長達 495 年間都被關在紅魔館的地下室裡，對外界事物充滿好奇。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-2f3a4b5c-6d7e-8f9a",
+        "rarities": [
+            "SSR",
+            "UR",
+            "LR"
+        ],
+        "titles": {
+            "SSR": "惡魔的妹",
+            "UR": "毀滅一切的狂氣之妹",
+            "LR": "掌控萬物目之四重存在"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "flandre_SP",
+        "name": "禁忌「Lävatein」",
+        "levels": {
+            "SSR": {
+                "id": "flandre_SP_I",
+                "name": "Easy・初陣・禁忌「Lävatein」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "flandre_SP_II",
+                "name": "Lunatic・瘋狂・禁忌「Lävatein」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "LR": {
+                "id": "flandre_SP_III",
+                "name": "Phantasm・幻象・禁忌「Lävatein」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

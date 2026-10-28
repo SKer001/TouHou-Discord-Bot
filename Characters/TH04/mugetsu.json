@@ -1,0 +1,61 @@
+{
+    "id": "mugetsu",
+    "name": "夢月",
+    "emoji": "🧹",
+    "category": "th04",
+    "profile": {
+        "title": "夢幻館的女僕",
+        "species": "夢魔",
+        "ability": "支配夢境程度的能力",
+        "description": "幻月的妹妹，穿著女僕裝的夢魔，與姐姐一同住在夢幻世界。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th04-7c8d9e0f-1a2b-3c4d",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "夢幻館的女僕",
+            "R": "夢幻的仙境女僕",
+            "SR": "惡夢之女補佐"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "mugetsu_SP",
+        "name": "夢月「惡夢侵蝕」",
+        "levels": {
+            "N": {
+                "id": "mugetsu_SP_I",
+                "name": "Easy・初陣・夢月「惡夢侵蝕」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "mugetsu_SP_II",
+                "name": "Lunatic・瘋狂・夢月「惡夢侵蝕」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "mugetsu_SP_III",
+                "name": "Phantasm・幻象・夢月「惡夢侵蝕」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

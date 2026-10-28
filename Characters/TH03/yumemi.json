@@ -1,0 +1,61 @@
+{
+    "id": "yumemi",
+    "name": "岡崎夢美",
+    "emoji": "🎓",
+    "category": "th03",
+    "profile": {
+        "title": "尋找魔法的教授",
+        "species": "人類 (外界人)",
+        "ability": "使用科學模擬魔法程度的能力",
+        "description": "來自外界的未來大學教授。為了證明「魔法」的存在而駕駛飛船來到幻想鄉，性格充滿求知慾但行事瘋狂。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th03-5a6b7c8d-9e0f-1a2b",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "比較物理學教授",
+            "SR": "夢幻的魔術教授",
+            "SSR": "時空空間之主宰"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "yumemi_SP",
+        "name": "十字架光束兵器",
+        "levels": {
+            "R": {
+                "id": "yumemi_SP_I",
+                "name": "Easy・初陣・十字架光束兵器",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "yumemi_SP_II",
+                "name": "Lunatic・瘋狂・十字架光束兵器",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "yumemi_SP_III",
+                "name": "Phantasm・幻象・十字架光束兵器",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

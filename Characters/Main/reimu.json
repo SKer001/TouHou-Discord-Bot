@@ -1,0 +1,61 @@
+{
+    "id": "reimu",
+    "name": "博麗靈夢",
+    "emoji": "☯️",
+    "category": "main_character",
+    "profile": {
+        "title": "博麗神社的巫女",
+        "species": "人類",
+        "ability": "主要是在空中飛翔程度的能力",
+        "description": "博麗神社的現任巫女。性格隨性直率，對任何人事物都一視同仁。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th01-8f3a12b4-5c6d-7e8f",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "博麗神社的巫女",
+            "SSR": "樂園的奇妙巫女",
+            "UR": "博麗大結界之守護者"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "reimu_SP",
+        "name": "夢想天生",
+        "levels": {
+            "SR": {
+                "id": "reimu_SP_I",
+                "name": "Easy・初陣・夢想天生",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SSR": {
+                "id": "reimu_SP_II",
+                "name": "Lunatic・瘋狂・夢想天生",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "UR": {
+                "id": "reimu_SP_III",
+                "name": "Phantasm・幻象・夢想天生",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

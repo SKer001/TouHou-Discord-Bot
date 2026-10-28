@@ -10,10 +10,12 @@ from datetime import datetime
 
 from Database.User_DB_Manager import get_or_create_user, add_money, get_user_cards, add_gacha_cards, transform_cards
 from .Components.gacha_components import (
-    INVENTORY_PER_PAGE,
+    STACKS_PER_PAGE,
+    STACK_CARDS_PER_PAGE,
     build_gacha_single_container,
     build_gacha_ten_container,
-    build_card_inventory_container,
+    build_stack_list_container,
+    build_stack_cards_container,
     build_card_detail_container,
     build_synthesis_preview_container,
     build_synthesis_result_container,
@@ -21,18 +23,48 @@ from .Components.gacha_components import (
     build_fusion_result_container,
 )
 from Utils.components import send_notice
+from Utils.character_data import load_categories
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-POOL_FILE = os.path.join(BASE_DIR, "Gacha_Pool.json")   # 卡池：哪些角色、稀有度、稱號
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
 THUMBNAILS_FILE = os.path.join(PROJECT_ROOT, "images", "Thumbnails.json")
 
-try:
-    with open(POOL_FILE, "r", encoding="utf-8") as f:
-        GACHA_POOL = json.load(f)
-except (json.JSONDecodeError, FileNotFoundError) as e:
-    print(f"❌ [Gacha Error] 讀取 {POOL_FILE} 失敗：{e}")
-    GACHA_POOL = {}
+# 🎰 卡池依代數劃分：每個卡池包含哪些 Characters/ 分類資料夾
+#    新增卡池 ➔ 在這裡加一筆，並把角色檔放進對應資料夾即可
+GACHA_POOLS = {
+    "classic": {"name": "📜 舊作卡池", "desc": "主要主角 + TH01 ~ TH05", "folders": ["Main", "TH01", "TH02", "TH03", "TH04", "TH05"]},
+    "th06":    {"name": "🔴 紅魔鄉卡池", "desc": "TH06 東方紅魔鄉", "folders": ["TH06"]},
+}
+
+
+def load_gacha_pool() -> dict:
+    """
+    從 Characters/ 讀取 gacha.enabled 的角色：
+    {"角色id": {"name", "emoji", "uuid", "rarities", "titles", "pool"}, ...}
+    """
+    folder_to_pool = {folder: key for key, pool in GACHA_POOLS.items() for folder in pool["folders"]}
+    result = {}
+    for folder, category in load_categories().items():
+        pool_key = folder_to_pool.get(folder)
+        for char in category["characters"]:
+            gacha = char["gacha"]
+            if pool_key is None or not gacha.get("enabled"):
+                continue
+            result[char["id"]] = {
+                "name": char["name"],
+                "emoji": char["emoji"],
+                "uuid": gacha["uuid"],
+                "rarities": gacha["rarities"],
+                "titles": gacha["titles"],
+                "pool": pool_key,
+            }
+    return result
+
+
+# 角色資料在載入 Cog 時讀取一次；改了 Characters/ 之後用 /admin-sys reload 重新載入本模組
+GACHA_POOL = load_gacha_pool()
+if not GACHA_POOL:
+    print("❌ [Gacha Error] Characters/ 中沒有任何可祈願的角色")
 
 # 🖼️ 讀取 Thumbnails.json：{"角色ID": "圖片URL", ..., "fill": "預設圖URL"}
 try:
@@ -142,25 +174,14 @@ def find_fusion_groups(cards: list) -> dict:
     return {k: v for k, v in groups.items() if len(v) >= FUSION_COUNT}
 
 
-def _card_choice_name(card: dict) -> str:
-    name = f"{card.get('emoji', '🎴')} [{card['rarity']}] {card['name']} · {card['completeness']:.4f} · {card['instance_id']}"
-    return name[:100]
-
-
-def _match_current(card: dict, current: str) -> bool:
-    current = current.strip().lower()
-    if not current:
-        return True
-    return any(current in str(card.get(k, "")).lower() for k in ("name", "instance_id", "title", "rarity", "character_key"))
-
-
 # ================= 🎛️ 抽卡結果 View (Components V2) =================
 class GachaResultView(ui.LayoutView):
-    def __init__(self, user_id: int, user_name: str, gacha_cog, container: ui.Container):
+    def __init__(self, user_id: int, user_name: str, gacha_cog, container: ui.Container, pool_key: str):
         super().__init__(timeout=180)
         self.user_id = user_id
         self.user_name = user_name
         self.gacha_cog = gacha_cog
+        self.pool_key = pool_key   # 「繼續祈願」沿用同一個卡池
 
         single_btn = ui.Button(label="🌸 繼續單抽 (2,000)", style=discord.ButtonStyle.primary)
         single_btn.callback = self.draw_single_again
@@ -180,10 +201,10 @@ class GachaResultView(ui.LayoutView):
         return True
 
     async def draw_single_again(self, interaction: discord.Interaction):
-        await self.gacha_cog.execute_gacha(interaction, draw_count=1)
+        await self.gacha_cog.execute_gacha(interaction, draw_count=1, pool_key=self.pool_key)
 
     async def draw_ten_again(self, interaction: discord.Interaction):
-        await self.gacha_cog.execute_gacha(interaction, draw_count=10)
+        await self.gacha_cog.execute_gacha(interaction, draw_count=10, pool_key=self.pool_key)
 
     async def view_inventory(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -196,136 +217,282 @@ class GachaResultView(ui.LayoutView):
         await interaction.edit_original_response(view=inv_view)
 
 
-# ================= 🎒 背包互動 View (Components V2) =================
+# ================= 🎒 卡冊 View (Components V2) =================
+# 疊卡排序方式：(key, 顯示名稱)；排序按鈕依序切換
+INVENTORY_SORTS = [("rarity", "階級"), ("best", "完整度"), ("latest", "最新"), ("count", "數量")]
+RARITY_FILTERS = ["ALL", "N", "R", "SR", "SSR", "UR", "LR"]
+OTHER_POOL = "other"   # 角色已不在任何卡池中的卡
+
+
+def card_pool_key(card: dict) -> str:
+    return GACHA_POOL.get(card["character_key"], {}).get("pool", OTHER_POOL)
+
+
+def build_stacks(cards: list) -> list[dict]:
+    """同角色、同階級的卡疊成一疊；疊內依完整度由高到低"""
+    stacks = {}
+    for card in cards:
+        stack = stacks.setdefault((card["character_key"], card["rarity"]), {
+            "character_key": card["character_key"],
+            "rarity": card["rarity"],
+            "name": card["name"],
+            "emoji": card.get("emoji", "🎴"),
+            "title": card.get("title", ""),
+            "pool": card_pool_key(card),
+            "cards": [],
+        })
+        stack["cards"].append(card)
+    for stack in stacks.values():
+        stack["cards"].sort(key=lambda c: c["completeness"], reverse=True)
+        stack["best"] = stack["cards"][0]["completeness"]
+        stack["latest"] = max(c.get("obtained_at") or "" for c in stack["cards"])
+    return list(stacks.values())
+
+
+def sort_stacks(stacks: list, mode: str) -> list:
+    if mode == "best":
+        return sorted(stacks, key=lambda s: (-s["best"], s["character_key"]))
+    if mode == "latest":
+        return sorted(stacks, key=lambda s: s["latest"], reverse=True)
+    if mode == "count":
+        return sorted(stacks, key=lambda s: (-len(s["cards"]), -RARITY_ORDER.get(s["rarity"], 0), s["character_key"]))
+    # 預設：階級由高到低，同階級依角色
+    return sorted(stacks, key=lambda s: (-RARITY_ORDER.get(s["rarity"], 0), s["character_key"]))
+
+
+def _stack_value(stack: dict) -> str:
+    return f"{stack['character_key']}|{stack['rarity']}"
+
+
 class InventoryView(ui.LayoutView):
+    """
+    卡冊：同一個 View 依狀態切換三種畫面
+      疊卡列表 (卡池 / 階級篩選 + 排序) ➔ 單一疊的卡牌列表 ➔ 單卡詳情
+    """
     def __init__(self, user_id: int, cards: list, user_name: str, gacha_cog):
         super().__init__(timeout=180)
         self.user_id = user_id
         self.user_name = user_name
         self.gacha_cog = gacha_cog
-        self.all_cards = sort_cards(cards)
-        self.current_filter = "ALL"
-        self.filtered_cards = self.all_cards
-        self.current_page = 1
-        self.per_page = INVENTORY_PER_PAGE
+        self.all_cards = cards
+        self.all_stacks = build_stacks(cards)
+
+        self.pool_filter = "ALL"
+        self.rarity_filter = "ALL"
+        self.sort_index = 0
+        self.page = 1
+
+        self.selected_stack = None   # 疊的 value ("角色|階級")
+        self.stack_page = 1
         self.selected_card = None
-        self.update_components()
+        self.build()
 
+    # ---------------- 資料 ----------------
     @property
-    def total_pages(self) -> int:
-        return max(1, (len(self.filtered_cards) + self.per_page - 1) // self.per_page)
+    def sort_mode(self) -> str:
+        return INVENTORY_SORTS[self.sort_index][0]
 
-    def get_current_page_cards(self) -> list:
-        start = (self.current_page - 1) * self.per_page
-        end = start + self.per_page
-        return self.filtered_cards[start:end]
+    def filtered_stacks(self) -> list:
+        stacks = [
+            s for s in self.all_stacks
+            if (self.pool_filter == "ALL" or s["pool"] == self.pool_filter)
+            and (self.rarity_filter == "ALL" or s["rarity"] == self.rarity_filter)
+        ]
+        return sort_stacks(stacks, self.sort_mode)
 
-    def update_components(self):
-        """依目前狀態 (卡冊列表 / 單卡詳情) 重新組出整個畫面"""
+    def get_stack(self, value: str) -> dict | None:
+        return next((s for s in self.all_stacks if _stack_value(s) == value), None)
+
+    @staticmethod
+    def _pages(count: int, per_page: int) -> int:
+        return max(1, (count + per_page - 1) // per_page)
+
+    def _filter_desc(self) -> str:
+        pool = "全部卡池" if self.pool_filter == "ALL" else GACHA_POOLS.get(self.pool_filter, {}).get("name", "📦 其他")
+        rarity = "全部階級" if self.rarity_filter == "ALL" else f"{self.rarity_filter} 階級"
+        return f"篩選：{pool} · {rarity} · 排序：{INVENTORY_SORTS[self.sort_index][1]}"
+
+    # ---------------- 畫面 ----------------
+    def build(self):
         self.clear_items()
-
-        # ---- 單卡詳情 ----
         if self.selected_card:
-            container = build_card_detail_container(self.selected_card, self.user_name, THUMBNAILS)
-            back_btn = ui.Button(label="🔙 返回卡冊", style=discord.ButtonStyle.secondary)
-            back_btn.callback = self.back_button_callback
-            container.add_item(ui.Separator())
-            container.add_item(ui.ActionRow(back_btn))
-            self.add_item(container)
-            return
+            self._build_card_detail()
+        elif self.selected_stack:
+            self._build_stack()
+        else:
+            self._build_list()
 
-        # ---- 卡冊列表 ----
-        container = build_card_inventory_container(
-            self.get_current_page_cards(),
-            self.current_page,
-            self.total_pages,
-            len(self.all_cards),
-            self.all_cards,
-            self.user_name,
-            THUMBNAILS,
-            self.per_page,
+    def _button(self, label: str, callback, style=discord.ButtonStyle.primary, disabled: bool = False) -> ui.Button:
+        btn = ui.Button(label=label, style=style, disabled=disabled)
+        if callback is not None:   # 頁碼按鈕只是顯示用，沒有回呼
+            btn.callback = callback
+        return btn
+
+    def _build_list(self):
+        stacks = self.filtered_stacks()
+        total_pages = self._pages(len(stacks), STACKS_PER_PAGE)
+        self.page = min(self.page, total_pages)
+        start = (self.page - 1) * STACKS_PER_PAGE
+        page_stacks = stacks[start:start + STACKS_PER_PAGE]
+
+        container = build_stack_list_container(
+            page_stacks, self.page, total_pages, len(stacks), self.all_cards,
+            self.user_name, THUMBNAILS, self._filter_desc(), start + 1,
         )
         container.add_item(ui.Separator())
 
-        filter_options = [
-            discord.SelectOption(label="全部階級 (ALL)", value="ALL", default=(self.current_filter == "ALL")),
-            discord.SelectOption(label="N 階級", value="N", default=(self.current_filter == "N")),
-            discord.SelectOption(label="R 階級", value="R", default=(self.current_filter == "R")),
-            discord.SelectOption(label="SR 階級", value="SR", default=(self.current_filter == "SR")),
-            discord.SelectOption(label="SSR 階級", value="SSR", default=(self.current_filter == "SSR")),
-            discord.SelectOption(label="UR 階級", value="UR", default=(self.current_filter == "UR")),
-            discord.SelectOption(label="LR 階級", value="LR", default=(self.current_filter == "LR")),
+        # 卡池篩選
+        pool_options = [discord.SelectOption(label="全部卡池 (ALL)", value="ALL", default=(self.pool_filter == "ALL"))]
+        pool_options += [
+            discord.SelectOption(label=p["name"], value=key, description=p["desc"][:100], default=(self.pool_filter == key))
+            for key, p in GACHA_POOLS.items()
         ]
-        filter_select = ui.Select(placeholder="🔍 選擇稀有度篩選...", options=filter_options)
-        filter_select.callback = self.filter_select_callback
-        container.add_item(ui.ActionRow(filter_select))
+        if any(s["pool"] == OTHER_POOL for s in self.all_stacks):
+            pool_options.append(discord.SelectOption(label="📦 其他 (已不在卡池)", value=OTHER_POOL, default=(self.pool_filter == OTHER_POOL)))
+        pool_select = ui.Select(placeholder="🎰 選擇卡池篩選...", options=pool_options)
+        pool_select.callback = self.pool_select_callback
+        container.add_item(ui.ActionRow(pool_select))
 
-        page_cards = self.get_current_page_cards()
-        if page_cards:
-            card_options = []
-            for card in page_cards:
-                card_options.append(discord.SelectOption(
-                    label=f"[{card['rarity']}] {card['name']} - {card['title']}",
-                    description=f"Float: {card['completeness']:.4f} | ID: {card['instance_id']}",
-                    value=card["instance_id"],
-                    emoji=card.get("emoji", "🎴")
-                ))
-            card_select = ui.Select(placeholder="🎴 選擇卡牌檢視詳細鑑定...", options=card_options)
-            card_select.callback = self.card_select_callback
-            container.add_item(ui.ActionRow(card_select))
+        # 階級篩選
+        rarity_select = ui.Select(placeholder="🔍 選擇稀有度篩選...", options=[
+            discord.SelectOption(label="全部階級 (ALL)" if r == "ALL" else f"{r} 階級", value=r, default=(self.rarity_filter == r))
+            for r in RARITY_FILTERS
+        ])
+        rarity_select.callback = self.rarity_select_callback
+        container.add_item(ui.ActionRow(rarity_select))
 
-        prev_btn = ui.Button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, disabled=(self.current_page <= 1))
-        prev_btn.callback = self.prev_page_callback
-        page_btn = ui.Button(label=f"📄 {self.current_page} / {self.total_pages} 頁", style=discord.ButtonStyle.secondary, disabled=True)
-        next_btn = ui.Button(label="下一頁 ▶️", style=discord.ButtonStyle.primary, disabled=(self.current_page >= self.total_pages))
-        next_btn.callback = self.next_page_callback
-        container.add_item(ui.ActionRow(prev_btn, page_btn, next_btn))
+        # 當頁的疊 ➔ 點進去看這一疊的卡
+        if page_stacks:
+            stack_select = ui.Select(placeholder="🎴 選擇一疊卡牌查看內容...", options=[
+                discord.SelectOption(
+                    label=f"[{s['rarity']}] {s['name']} ×{len(s['cards'])}"[:100],
+                    description=f"{s['title']} · 最高 {s['best']:.4f}"[:100],
+                    value=_stack_value(s),
+                    emoji=s.get("emoji") or "🎴",
+                )
+                for s in page_stacks
+            ])
+            stack_select.callback = self.stack_select_callback
+            container.add_item(ui.ActionRow(stack_select))
 
+        container.add_item(ui.ActionRow(
+            self._button("◀️ 上一頁", self.prev_page_callback, disabled=(self.page <= 1)),
+            self._button(f"📄 {self.page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
+            self._button("下一頁 ▶️", self.next_page_callback, disabled=(self.page >= total_pages)),
+            self._button(f"🔃 排序：{INVENTORY_SORTS[self.sort_index][1]}", self.sort_callback, discord.ButtonStyle.secondary),
+        ))
         self.add_item(container)
 
+    def _build_stack(self):
+        stack = self.get_stack(self.selected_stack)
+        cards = stack["cards"]
+        total_pages = self._pages(len(cards), STACK_CARDS_PER_PAGE)
+        self.stack_page = min(self.stack_page, total_pages)
+        start = (self.stack_page - 1) * STACK_CARDS_PER_PAGE
+        page_cards = cards[start:start + STACK_CARDS_PER_PAGE]
+
+        container = build_stack_cards_container(
+            stack, page_cards, self.stack_page, total_pages, self.user_name, THUMBNAILS, start + 1
+        )
+        container.add_item(ui.Separator())
+
+        card_select = ui.Select(placeholder="🎴 選擇卡牌檢視詳細鑑定...", options=[
+            discord.SelectOption(
+                label=f"{start + i}. 完整度 {c['completeness']:.4f}",
+                description=f"ID: {c['instance_id']}"[:100],
+                value=c["instance_id"],
+                emoji=c.get("emoji") or "🎴",
+            )
+            for i, c in enumerate(page_cards, start=1)
+        ])
+        card_select.callback = self.card_select_callback
+        container.add_item(ui.ActionRow(card_select))
+
+        container.add_item(ui.ActionRow(
+            self._button("🔙 返回卡冊", self.back_to_list_callback, discord.ButtonStyle.secondary),
+            self._button("◀️ 上一頁", self.stack_prev_callback, disabled=(self.stack_page <= 1)),
+            self._button(f"📄 {self.stack_page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
+            self._button("下一頁 ▶️", self.stack_next_callback, disabled=(self.stack_page >= total_pages)),
+        ))
+        self.add_item(container)
+
+    def _build_card_detail(self):
+        container = build_card_detail_container(self.selected_card, self.user_name, THUMBNAILS)
+        container.add_item(ui.Separator())
+        container.add_item(ui.ActionRow(
+            self._button("🔙 返回這一疊", self.back_to_stack_callback, discord.ButtonStyle.secondary),
+            self._button("🎒 返回卡冊", self.back_to_list_callback, discord.ButtonStyle.secondary),
+        ))
+        self.add_item(container)
+
+    # ---------------- 互動 ----------------
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
             await send_notice(interaction, "❌ 這不是你的卡冊！")
             return False
         return True
 
-    async def filter_select_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        select_val = interaction.data["values"][0]
-        self.current_filter = select_val
-        self.filtered_cards = self.all_cards if select_val == "ALL" else [c for c in self.all_cards if c.get("rarity") == select_val]
-        self.current_page = 1
-        self.update_components()
-        await interaction.edit_original_response(view=self)
+    async def refresh(self, interaction: discord.Interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
 
-    async def card_select_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        instance_id = interaction.data["values"][0]
-        card = next((c for c in self.all_cards if c["instance_id"] == instance_id), None)
-        if card:
-            self.selected_card = card
-            self.update_components()
-            await interaction.edit_original_response(view=self)
+    async def pool_select_callback(self, interaction: discord.Interaction):
+        self.pool_filter = interaction.data["values"][0]
+        self.page = 1
+        await self.refresh(interaction)
 
-    async def back_button_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        self.selected_card = None
-        self.update_components()
-        await interaction.edit_original_response(view=self)
+    async def rarity_select_callback(self, interaction: discord.Interaction):
+        self.rarity_filter = interaction.data["values"][0]
+        self.page = 1
+        await self.refresh(interaction)
+
+    async def sort_callback(self, interaction: discord.Interaction):
+        self.sort_index = (self.sort_index + 1) % len(INVENTORY_SORTS)
+        self.page = 1
+        await self.refresh(interaction)
 
     async def prev_page_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.update_components()
-            await interaction.edit_original_response(view=self)
+        self.page = max(1, self.page - 1)
+        await self.refresh(interaction)
 
     async def next_page_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        if self.current_page < self.total_pages:
-            self.current_page += 1
-            self.update_components()
-            await interaction.edit_original_response(view=self)
+        self.page += 1   # build() 會把頁數限制在範圍內
+        await self.refresh(interaction)
+
+    async def stack_select_callback(self, interaction: discord.Interaction):
+        value = interaction.data["values"][0]
+        if self.get_stack(value) is None:
+            await send_notice(interaction, "❌ 找不到這一疊卡牌，請重新開啟 `/card inventory`。")
+            return
+        self.selected_stack = value
+        self.stack_page = 1
+        await self.refresh(interaction)
+
+    async def stack_prev_callback(self, interaction: discord.Interaction):
+        self.stack_page = max(1, self.stack_page - 1)
+        await self.refresh(interaction)
+
+    async def stack_next_callback(self, interaction: discord.Interaction):
+        self.stack_page += 1
+        await self.refresh(interaction)
+
+    async def card_select_callback(self, interaction: discord.Interaction):
+        instance_id = interaction.data["values"][0]
+        card = next((c for c in self.all_cards if c["instance_id"] == instance_id), None)
+        if card is None:
+            await send_notice(interaction, "❌ 找不到這張卡牌，請重新開啟 `/card inventory`。")
+            return
+        self.selected_card = card
+        await self.refresh(interaction)
+
+    async def back_to_stack_callback(self, interaction: discord.Interaction):
+        self.selected_card = None
+        await self.refresh(interaction)
+
+    async def back_to_list_callback(self, interaction: discord.Interaction):
+        self.selected_card = None
+        self.selected_stack = None
+        await self.refresh(interaction)
 
 
 # ================= ✅ 合成 / 融合確認 View (Components V2) =================
@@ -398,6 +565,144 @@ class CardActionConfirmView(ui.LayoutView):
         await interaction.edit_original_response(view=inv_view)
 
 
+# ================= ⚗️ 合成選卡 View (Components V2) =================
+SYNTH_PICK_PER_PAGE = 20   # 每頁張數 (選單最多 25 個選項)
+
+
+def find_synthesis_groups(cards: list) -> dict:
+    """{(角色, 階級): [未滿 1.0000 的卡, ...]}，只留下至少兩張 (可以互相合成) 的組合"""
+    groups = {}
+    for card in cards:
+        if not is_perfect(card):
+            groups.setdefault((card["character_key"], card["rarity"]), []).append(card)
+    return {k: v for k, v in groups.items() if len(v) >= 2}
+
+
+class SynthesisPickerView(ui.LayoutView):
+    """
+    合成選卡：選第一張 ➔ 選第二張 (只列出可以配對的) ➔ 交給 CardActionConfirmView 確認
+    兩個步驟都可以分頁，解決 autocomplete 最多 25 個選項的限制
+    """
+    def __init__(self, user_id: int, user_name: str, gacha_cog, character_key: str, cards: list):
+        super().__init__(timeout=180)
+        self.user_id = user_id
+        self.user_name = user_name
+        self.gacha_cog = gacha_cog
+        self.character_key = character_key
+        self.cards = sorted(cards, key=lambda c: (-RARITY_ORDER.get(c["rarity"], 0), -c["completeness"]))
+        self.first = None   # 已選的第一張
+        self.page = 1
+        self.build()
+
+    def _candidates(self) -> list:
+        if self.first is None:
+            return self.cards
+        return [c for c in self.cards if can_synthesize(self.first, c)]
+
+    def _button(self, label: str, callback, style=discord.ButtonStyle.primary, disabled: bool = False) -> ui.Button:
+        btn = ui.Button(label=label, style=style, disabled=disabled)
+        if callback is not None:
+            btn.callback = callback
+        return btn
+
+    def build(self):
+        self.clear_items()
+        candidates = self._candidates()
+        total_pages = max(1, (len(candidates) + SYNTH_PICK_PER_PAGE - 1) // SYNTH_PICK_PER_PAGE)
+        self.page = min(self.page, total_pages)
+        start = (self.page - 1) * SYNTH_PICK_PER_PAGE
+        page_cards = candidates[start:start + SYNTH_PICK_PER_PAGE]
+
+        sample = self.cards[0]
+        if self.first is None:
+            step = "**步驟 1 / 2**：選擇第一張素材卡"
+        else:
+            step = (
+                f"**步驟 2 / 2**：選擇第二張素材卡\n"
+                f"已選第一張：`[{self.first['rarity']}]` `{self.first['completeness']:.4f}` · `{self.first['instance_id']}`"
+            )
+        lines = "\n".join(
+            f"**{i}.** `[{c['rarity']}]` `{c['completeness']:.4f}` · `{c['instance_id']}`"
+            for i, c in enumerate(page_cards, start=start + 1)
+        )
+
+        container = ui.Container(accent_color=discord.Color.teal())
+        container.add_item(ui.TextDisplay(
+            f"## ⚗️ 卡牌合成：{sample.get('emoji', '🎴')} {sample['name']}\n{step}\n"
+            f"-# 共 {len(candidates)} 張可選 · 依階級、完整度由高到低排列 · 兩張完整度越接近越划算"
+        ))
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay(lines))
+        container.add_item(ui.Separator())
+
+        select = ui.Select(
+            placeholder="選擇第一張素材卡..." if self.first is None else "選擇第二張素材卡...",
+            options=[
+                discord.SelectOption(
+                    label=f"{i}. [{c['rarity']}] {c['completeness']:.4f}",
+                    description=c["instance_id"][:100],
+                    value=c["instance_id"],
+                    emoji=c.get("emoji") or "🎴",
+                )
+                for i, c in enumerate(page_cards, start=start + 1)
+            ],
+        )
+        select.callback = self.select_callback
+        container.add_item(ui.ActionRow(select))
+
+        nav = [
+            self._button("◀️ 上一頁", self.prev_callback, disabled=(self.page <= 1)),
+            self._button(f"📄 {self.page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
+            self._button("下一頁 ▶️", self.next_callback, disabled=(self.page >= total_pages)),
+        ]
+        if self.first is not None:
+            nav.insert(0, self._button("🔙 重選第一張", self.back_callback, discord.ButtonStyle.secondary))
+        container.add_item(ui.ActionRow(*nav))
+        self.add_item(container)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await send_notice(interaction, "❌ 這不是你的合成畫面！")
+            return False
+        return True
+
+    async def refresh(self, interaction: discord.Interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
+
+    async def select_callback(self, interaction: discord.Interaction):
+        chosen = interaction.data["values"][0]
+        card = next((c for c in self._candidates() if c["instance_id"] == chosen), None)
+        if card is None:
+            await send_notice(interaction, "❌ 找不到這張卡牌，請重新使用 `/card synthesis`。")
+            return
+        if self.first is None:
+            self.first = card
+            self.page = 1
+            await self.refresh(interaction)
+            return
+        # 兩張都選好了 ➔ 換成確認畫面 (會重新讀取資料庫確認卡牌還在)
+        result = await self.gacha_cog.make_synthesis_view(self.user_id, self.user_name, self.first["instance_id"], card["instance_id"])
+        if isinstance(result, str):
+            await send_notice(interaction, result)
+            return
+        self.stop()
+        await interaction.response.edit_message(view=result)
+
+    async def back_callback(self, interaction: discord.Interaction):
+        self.first = None
+        self.page = 1
+        await self.refresh(interaction)
+
+    async def prev_callback(self, interaction: discord.Interaction):
+        self.page = max(1, self.page - 1)
+        await self.refresh(interaction)
+
+    async def next_callback(self, interaction: discord.Interaction):
+        self.page += 1
+        await self.refresh(interaction)
+
+
 # ================= 🎴 Cog 類別 =================
 class GachaCardSys(commands.GroupCog, group_name="card", group_description="東方角色卡牌收集與合成系統"):
     def __init__(self, bot: commands.Bot):
@@ -407,12 +712,13 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         val = (random.gauss(0, 0.35)) ** 2
         return round(max(0.001, min(1.000, val)), 4)
 
-    async def execute_gacha(self, interaction: discord.Interaction, draw_count: int):
+    async def execute_gacha(self, interaction: discord.Interaction, draw_count: int, pool_key: str):
         await interaction.response.defer()
 
-        # 卡池沒載入時直接中止，避免「賽錢已扣、卻抽不到卡」
-        if not GACHA_POOL:
-            await send_notice(interaction, "❌ 卡池資料 `Gacha_Pool.json` 載入失敗，暫時無法祈願，請聯絡管理員。")
+        # 卡池沒有角色時直接中止，避免「賽錢已扣、卻抽不到卡」
+        char_keys = [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
+        if not char_keys:
+            await send_notice(interaction, "❌ 這個卡池目前沒有任何角色，暫時無法祈願，請聯絡管理員。")
             return
 
         user_id = interaction.user.id
@@ -429,7 +735,6 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         await add_money(user_id, -total_cost)
 
         results = []
-        char_keys = list(GACHA_POOL.keys())
 
         for _ in range(draw_count):
             char_key = random.choice(char_keys)
@@ -453,16 +758,17 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         # 卡牌與抽卡統計一起寫入 Users.db (同一個交易)
         await add_gacha_cards(user_id, results, draw_count)
 
+        pool_name = GACHA_POOLS[pool_key]["name"]
         if draw_count == 1:
             container = build_gacha_single_container(
-                results[0], interaction.user.display_name, total_cost, THUMBNAILS
+                results[0], interaction.user.display_name, total_cost, THUMBNAILS, pool_name
             )
         else:
             container = build_gacha_ten_container(
-                results, interaction.user.display_name, total_cost, THUMBNAILS
+                results, interaction.user.display_name, total_cost, THUMBNAILS, pool_name
             )
 
-        view = GachaResultView(user_id, interaction.user.display_name, self, container)
+        view = GachaResultView(user_id, interaction.user.display_name, self, container, pool_key)
 
         if interaction.type == discord.InteractionType.component:
             await interaction.edit_original_response(view=view)
@@ -470,12 +776,16 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             await interaction.followup.send(view=view)
 
     @app_commands.command(name="gacha", description="⛩️ 博麗神社祈願：消耗賽錢抽取角色卡牌")
-    @app_commands.choices(pull_type=[
-        app_commands.Choice(name="單次祈願 (2,000 賽錢)", value=1),
-        app_commands.Choice(name="十連祈願 (20,000 賽錢)", value=10)
-    ])
-    async def gacha_card(self, interaction: discord.Interaction, pull_type: app_commands.Choice[int]):
-        await self.execute_gacha(interaction, pull_type.value)
+    @app_commands.describe(pool="要祈願的卡池 (依作品代數劃分)", pull_type="單抽或十連")
+    @app_commands.choices(
+        pool=[app_commands.Choice(name=f"{p['name']} ({p['desc']})", value=key) for key, p in GACHA_POOLS.items()],
+        pull_type=[
+            app_commands.Choice(name="單次祈願 (2,000 賽錢)", value=1),
+            app_commands.Choice(name="十連祈願 (20,000 賽錢)", value=10),
+        ],
+    )
+    async def gacha_card(self, interaction: discord.Interaction, pool: app_commands.Choice[str], pull_type: app_commands.Choice[int]):
+        await self.execute_gacha(interaction, pull_type.value, pool.value)
 
     @app_commands.command(name="inventory", description="🎒 查看個人的博麗神社卡冊與持有卡牌")
     async def view_inventory(self, interaction: discord.Interaction):
@@ -490,52 +800,54 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         view = InventoryView(user_id, sort_cards(cards), interaction.user.display_name, self)
         await interaction.followup.send(view=view)
 
-    # ---------------- ⚗️ 合成 ----------------
-    async def synthesis_card1_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        """第一張：只列出「卡冊裡至少有另一張可以一起合成」的卡"""
-        cards = sort_cards(await get_user_cards(interaction.user.id))
+    # ---------------- 共用：代數 / 角色 autocomplete ----------------
+    def _pool_label(self, pool_key: str) -> str:
+        return GACHA_POOLS[pool_key]["name"] if pool_key in GACHA_POOLS else "📦 其他 (已不在卡池)"
+
+    def _pool_choices(self, groups: dict, current: str) -> list[app_commands.Choice[str]]:
+        """groups = {(角色, 階級): [卡...]}；依代數彙整成選項"""
+        counts = {}
+        for cards in groups.values():
+            pool_key = card_pool_key(cards[0])
+            counts[pool_key] = counts.get(pool_key, 0) + 1
         choices = []
-        for card in cards:
-            if not _match_current(card, current):
+        for pool_key, count in counts.items():
+            label = self._pool_label(pool_key)
+            if current.lower() in f"{pool_key} {label}".lower():
+                choices.append(app_commands.Choice(name=f"{label} · {count} 組可用", value=pool_key))
+        return choices[:AUTOCOMPLETE_LIMIT]
+
+    def _character_choices(self, groups: dict, pool_key: str | None, current: str) -> list[app_commands.Choice[str]]:
+        """依已選的代數列出有可用組合的角色"""
+        owned = {}
+        for (char_key, _), cards in groups.items():
+            if card_pool_key(cards[0]) != pool_key:
                 continue
-            if any(can_synthesize(card, other) for other in cards):
-                choices.append(app_commands.Choice(name=_card_choice_name(card), value=card["instance_id"]))
-            if len(choices) >= AUTOCOMPLETE_LIMIT:
-                break
-        return choices
+            entry = owned.setdefault(char_key, {"name": cards[0]["name"], "emoji": cards[0].get("emoji", "🎴"), "count": 0})
+            entry["count"] += len(cards)
+        current = current.strip().lower()
+        return [
+            app_commands.Choice(name=f"{e['emoji']} {e['name']} ({key}) · {e['count']} 張可用"[:100], value=key)
+            for key, e in owned.items()
+            if not current or current in key.lower() or current in e["name"].lower()
+        ][:AUTOCOMPLETE_LIMIT]
 
-    async def synthesis_card2_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        """第二張：依已選的第一張篩選 (同角色、同階級、排除第一張本身)；還沒選第一張時跟第一張一樣"""
-        first_id = getattr(interaction.namespace, "card1", None)
-        cards = sort_cards(await get_user_cards(interaction.user.id))
-        first = next((c for c in cards if c["instance_id"] == first_id), None)
-        if first is None:
-            return await self.synthesis_card1_autocomplete(interaction, current)
+    # ---------------- ⚗️ 合成 ----------------
+    async def synthesis_pool_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        return self._pool_choices(find_synthesis_groups(await get_user_cards(interaction.user.id)), current)
 
-        choices = []
-        for card in cards:
-            if _match_current(card, current) and can_synthesize(first, card):
-                choices.append(app_commands.Choice(name=_card_choice_name(card), value=card["instance_id"]))
-            if len(choices) >= AUTOCOMPLETE_LIMIT:
-                break
-        return choices
+    async def synthesis_character_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        groups = find_synthesis_groups(await get_user_cards(interaction.user.id))
+        return self._character_choices(groups, getattr(interaction.namespace, "pool", None), current)
 
-    @app_commands.command(name="synthesis", description="⚗️ 合成卡牌：兩張同角色、同階級的卡合成一張完整度更高的卡")
-    @app_commands.describe(card1="第一張素材卡", card2="第二張素材卡 (會依第一張自動篩選)")
-    @app_commands.autocomplete(card1=synthesis_card1_autocomplete, card2=synthesis_card2_autocomplete)
-    async def synthesis(self, interaction: discord.Interaction, card1: str, card2: str):
-        user_id = interaction.user.id
-        user_name = interaction.user.display_name
+    async def make_synthesis_view(self, user_id: int, user_name: str, card1: str, card2: str):
+        """建立合成確認畫面；卡牌不存在或條件不符時回傳錯誤訊息 (str)"""
         cards = {c["instance_id"]: c for c in await get_user_cards(user_id)}
         card_a, card_b = cards.get(card1), cards.get(card2)
-
-        # 使用者也可能不透過 autocomplete 直接輸入，所以這裡一樣要檢查
         if card_a is None or card_b is None:
-            await send_notice(interaction, "❌ 找不到指定的卡牌，請從選單中選擇你卡冊裡的卡。")
-            return
+            return "❌ 找不到指定的卡牌，可能已經被合成或融合掉了。"
         if not can_synthesize(card_a, card_b):
-            await send_notice(interaction, "❌ **無法合成！**\n合成需要兩張「不同的」、「同角色」、「同階級」的卡牌，且完整度都未達 `1.0000`。")
-            return
+            return "❌ **無法合成！**\n合成需要兩張「不同的」、「同角色」、「同階級」的卡牌，且完整度都未達 `1.0000`。"
 
         preview = calc_synthesis(card_a["completeness"], card_b["completeness"], card_a["rarity"])
         container = build_synthesis_preview_container(card_a, card_b, preview, user_name, THUMBNAILS)
@@ -566,37 +878,58 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             result = new_card.pop("_result")
             return build_synthesis_result_container(new_card, result["increase"], result["doubled"], user_name, THUMBNAILS)
 
-        view = CardActionConfirmView(user_id, user_name, self, container, on_confirm, "⚗️ 確認合成")
+        return CardActionConfirmView(user_id, user_name, self, container, on_confirm, "⚗️ 確認合成")
+
+    @app_commands.command(name="synthesis", description="⚗️ 合成卡牌：兩張同角色、同階級的卡合成一張完整度更高的卡")
+    @app_commands.describe(pool="代數 (只列出有可合成卡牌的)", character="角色 (只列出該代數中有可合成卡牌的)")
+    @app_commands.autocomplete(pool=synthesis_pool_autocomplete, character=synthesis_character_autocomplete)
+    async def synthesis(self, interaction: discord.Interaction, pool: str, character: str):
+        user_id = interaction.user.id
+        # 使用者也可能不透過 autocomplete 直接輸入，所以這裡一樣要檢查
+        cards = [
+            c for group in find_synthesis_groups(await get_user_cards(user_id)).values() for c in group
+            if c["character_key"] == character and card_pool_key(c) == pool
+        ]
+        if not cards:
+            await send_notice(interaction, "❌ **無法合成！**\n這個角色沒有可以合成的卡牌：合成需要兩張「同角色」、「同階級」且完整度都未達 `1.0000` 的卡牌。")
+            return
+        view = SynthesisPickerView(user_id, interaction.user.display_name, self, character, cards)
         await interaction.response.send_message(view=view)
 
     # ---------------- 🔮 融合 ----------------
-    async def fusion_target_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        """只列出「有 3 張以上 1.0000 且還能升階」的角色＋階級"""
+    async def fusion_pool_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        return self._pool_choices(find_fusion_groups(await get_user_cards(interaction.user.id)), current)
+
+    async def fusion_character_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        groups = find_fusion_groups(await get_user_cards(interaction.user.id))
+        return self._character_choices(groups, getattr(interaction.namespace, "pool", None), current)
+
+    async def fusion_rarity_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        """依已選的角色列出可以融合的階級 (每個角色最多 2 個)"""
+        char_key = getattr(interaction.namespace, "character", None)
         groups = find_fusion_groups(await get_user_cards(interaction.user.id))
         choices = []
-        for (char_key, rarity), group in sorted(groups.items(), key=lambda kv: (RARITY_ORDER.get(kv[0][1], 0), kv[0][0])):
-            sample = group[0]
-            if not _match_current(sample, current):
+        for (key, rarity), group in sorted(groups.items(), key=lambda kv: RARITY_ORDER.get(kv[0][1], 0)):
+            if key != char_key or current.upper() not in rarity:
                 continue
-            name = (
-                f"{sample.get('emoji', '🎴')} {sample['name']} [{rarity} → {get_next_rarity(sample)}]"
-                f" · 持有 {len(group)} 張 1.0000"
-            )
-            choices.append(app_commands.Choice(name=name[:100], value=f"{char_key}|{rarity}"))
-            if len(choices) >= AUTOCOMPLETE_LIMIT:
-                break
+            name = f"[{rarity} → {get_next_rarity(group[0])}] · 持有 {len(group)} 張 1.0000"
+            choices.append(app_commands.Choice(name=name, value=rarity))
         return choices
 
     @app_commands.command(name="fusion", description="🔮 融合卡牌：三張同角色、同階級且完整度 1.0000 的卡融合成高一階的卡")
-    @app_commands.describe(target="要融合的角色與階級 (只會列出符合條件的組合)")
-    @app_commands.autocomplete(target=fusion_target_autocomplete)
-    async def fusion(self, interaction: discord.Interaction, target: str):
+    @app_commands.describe(
+        pool="代數 (只列出有可融合卡牌的)",
+        character="角色 (只列出該代數中有可融合卡牌的)",
+        rarity="要融合的階級 (只列出符合條件的)",
+    )
+    @app_commands.autocomplete(pool=fusion_pool_autocomplete, character=fusion_character_autocomplete, rarity=fusion_rarity_autocomplete)
+    async def fusion(self, interaction: discord.Interaction, pool: str, character: str, rarity: str):
         user_id = interaction.user.id
         user_name = interaction.user.display_name
-        char_key, _, rarity = target.partition("|")
+        char_key = character
         group = find_fusion_groups(await get_user_cards(user_id)).get((char_key, rarity))
 
-        if not group:
+        if not group or card_pool_key(group[0]) != pool:
             await send_notice(interaction, f"❌ **無法融合！**\n融合需要 **{FUSION_COUNT}** 張「同角色」、「同階級」且完整度 `1.0000` 的卡牌，"
                 f"而且該角色必須還有更高的階級。")
             return

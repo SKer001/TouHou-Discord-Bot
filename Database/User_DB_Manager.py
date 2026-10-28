@@ -452,3 +452,42 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
             await db.rollback()
             raise
     return consumed, new_card
+
+
+# ---------------------------------------------------------
+# 🛠️ 8. 管理員卡冊操作 (Admin-gacha)
+# ---------------------------------------------------------
+async def delete_gacha_cards(user_id: int, instance_ids: list[str]) -> int:
+    """刪除玩家指定的卡牌，回傳實際刪除的張數 (不屬於該玩家的 ID 會被忽略)"""
+    if not instance_ids:
+        return 0
+    placeholders = ", ".join("?" for _ in instance_ids)
+    async with connect() as db:
+        cursor = await db.execute(
+            f"DELETE FROM gacha_cards WHERE user_id = ? AND instance_id IN ({placeholders})",
+            (user_id, *instance_ids),
+        )
+        await db.commit()
+        return cursor.rowcount
+
+
+async def clear_gacha_cards(user_id: int) -> int:
+    """清空玩家的整本卡冊 (抽卡統計保留)，回傳刪除的張數"""
+    async with connect() as db:
+        cursor = await db.execute("DELETE FROM gacha_cards WHERE user_id = ?", (user_id,))
+        await db.commit()
+        return cursor.rowcount
+
+
+async def update_cards_completeness(user_id: int, instance_ids: list[str], completeness: float) -> int:
+    """把玩家指定的卡牌完整度設為同一個值，回傳實際修改的張數 (不屬於該玩家的 ID 會被忽略)"""
+    if not instance_ids:
+        return 0
+    placeholders = ", ".join("?" for _ in instance_ids)
+    async with connect() as db:
+        cursor = await db.execute(
+            f"UPDATE gacha_cards SET completeness = ? WHERE user_id = ? AND instance_id IN ({placeholders})",
+            (completeness, user_id, *instance_ids),
+        )
+        await db.commit()
+        return cursor.rowcount

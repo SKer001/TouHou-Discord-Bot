@@ -1,0 +1,61 @@
+{
+    "id": "yuki_mai",
+    "name": "雪與舞",
+    "emoji": "❄️",
+    "category": "th05",
+    "profile": {
+        "title": "魔界魔法使二人組",
+        "species": "魔法使",
+        "ability": "操縱冰與火的魔法程度的能力",
+        "description": "黑白服裝的雪與藍色服裝的舞，一同行動的魔法使雙人組。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th05-1a2b3c4d-5e6f-7a8b",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "魔界魔法使二人組",
+            "R": "極寒與狂舞之魔女",
+            "SR": "黑白交織之魔界禁忌"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "yuki_mai_SP",
+        "name": "雙魔「雪與舞的合奏」",
+        "levels": {
+            "N": {
+                "id": "yuki_mai_SP_I",
+                "name": "Easy・初陣・雙魔「雪與舞的合奏」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "yuki_mai_SP_II",
+                "name": "Lunatic・瘋狂・雙魔「雪與舞的合奏」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "yuki_mai_SP_III",
+                "name": "Phantasm・幻象・雙魔「雪與舞的合奏」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

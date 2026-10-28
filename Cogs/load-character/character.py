@@ -9,24 +9,17 @@ from .Components.character_components import (
     build_character_container,
 )
 from Utils.components import send_notice
+from Utils.character_data import load_categories
 
 # ---------------------------------------------------------
 # 💡 路徑設定
-#   - characters.json：與本檔同目錄
+#   - 角色資料：專案根目錄的 Characters/<分類>/<角色id>.json (由 Utils/character_data.py 載入)
 #   - images/Thumbnails.json：在專案根目錄 (與 Main.py 同級)，
 #     本檔位於 Cogs/load-character/，往上兩層就是根目錄
 # ---------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-JSON_PATH = os.path.join(BASE_DIR, "characters.json")
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
 THUMBNAILS_FILE = os.path.join(PROJECT_ROOT, "images", "Thumbnails.json")
-
-
-def load_character_data() -> dict:
-    if os.path.exists(JSON_PATH):
-        with open(JSON_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
 
 
 def load_thumbnails() -> dict:
@@ -45,9 +38,9 @@ def load_thumbnails() -> dict:
 #   首頁 (只有分類選單) ➔ 分類頁 (角色選單 + 分類選單) ➔ 角色檔案頁 (同上)
 # ---------------------------------------------------------
 class CharacterBrowserView(ui.LayoutView):
-    def __init__(self, db_data: dict, thumbnails: dict):
+    def __init__(self, categories: dict, thumbnails: dict):
         super().__init__(timeout=180)
-        self.db_data = db_data
+        self.categories = categories
         self.thumbnails = thumbnails
         self.category_key = None
         self.char_id = None
@@ -62,27 +55,29 @@ class CharacterBrowserView(ui.LayoutView):
         self.char_select = None
 
         if self.category_key is None:
-            container = build_home_container(self.db_data)
+            container = build_home_container(self.categories)
         elif self.char_id is None:
-            container = build_category_container(self.db_data[self.category_key])
+            container = build_category_container(self.categories[self.category_key])
         else:
             char = self._get_char(self.category_key, self.char_id)
-            container = build_character_container(char, self.thumbnails)
+            container = build_character_container(
+                char, self.categories[self.category_key]["category_name"], self.thumbnails
+            )
 
         container.add_item(ui.Separator())
 
         # 選單 1：當前分類的角色 (進入分類後才出現)
         if self.category_key is not None:
-            characters = self.db_data[self.category_key].get("characters", [])
+            characters = self.categories[self.category_key]["characters"]
             self.char_select = ui.Select(
                 placeholder="選擇「當前分類」的其他角色..." if self.char_id else "請選擇角色...",
                 options=[
                     discord.SelectOption(
                         label=ch["name"],
                         value=ch["id"],
-                        description=f"{ch.get('en_name', '')} - {ch.get('title', '')}"[:100],
+                        description=ch["profile"].get("title", "")[:100] or None,
                         default=(ch["id"] == self.char_id),
-                        emoji="👤",
+                        emoji=ch.get("emoji") or "👤",
                     )
                     for ch in characters[:25]
                 ],
@@ -97,11 +92,11 @@ class CharacterBrowserView(ui.LayoutView):
                 discord.SelectOption(
                     label=cat["category_name"],
                     value=key,
-                    description=cat.get("description", "")[:100],
+                    description=cat.get("description", "")[:100] or None,
                     default=(key == self.category_key),
                     emoji="📂" if self.category_key is None else "📚",
                 )
-                for key, cat in list(self.db_data.items())[:25]
+                for key, cat in list(self.categories.items())[:25]
             ],
         )
         self.category_select.callback = self.on_category
@@ -111,7 +106,7 @@ class CharacterBrowserView(ui.LayoutView):
         self.add_item(container)
 
     def _get_char(self, category_key: str, char_id: str):
-        characters = self.db_data.get(category_key, {}).get("characters", [])
+        characters = self.categories.get(category_key, {}).get("characters", [])
         return next((c for c in characters if c["id"] == char_id), None)
 
     async def refresh(self, interaction: discord.Interaction):
@@ -120,7 +115,7 @@ class CharacterBrowserView(ui.LayoutView):
 
     async def on_category(self, interaction: discord.Interaction):
         selected = interaction.data["values"][0]
-        if selected not in self.db_data:
+        if selected not in self.categories:
             await send_notice(interaction, "❌ 找不到該分類，請重新使用 `/character`。")
             return
         self.category_key = selected
@@ -156,14 +151,14 @@ class CharacterProfileCog(commands.Cog):
 
     @app_commands.command(name="character", description="瀏覽東方 Project 角色檔案與資料庫")
     async def character_cmd(self, interaction: discord.Interaction):
-        # 每次發送時讀取最新的 JSON 資料
-        db_data = load_character_data()
+        # 每次發送時讀取最新的角色資料 (改了 Characters/ 底下的檔案不必重開機器人)
+        categories = load_categories()
 
-        if not db_data:
-            await send_notice(interaction, "❌ 無法載入 `characters.json` 資料庫，請檢查檔案是否存在。")
+        if not categories:
+            await send_notice(interaction, "❌ 無法載入 `Characters/` 角色資料，請檢查資料夾與檔案格式。")
             return
 
-        view = CharacterBrowserView(db_data, load_thumbnails())
+        view = CharacterBrowserView(categories, load_thumbnails())
         await interaction.response.send_message(view=view)
         view.message = await interaction.original_response()
 

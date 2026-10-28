@@ -1,0 +1,61 @@
+{
+    "id": "genji",
+    "name": "玄爺",
+    "emoji": "🐢",
+    "category": "th02",
+    "profile": {
+        "title": "飛天神龜",
+        "species": "龜",
+        "ability": "載著巫女在空中飛行程度的能力",
+        "description": "在博麗神社的池塘裡活了很久的老烏龜，舊作中載著靈夢四處飛行的坐騎。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th02-2d3e4f5a-6b7c-8d9e",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "飛天神龜",
+            "R": "靈夢的御用坐騎",
+            "SR": "萬年修行的靈龜"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "genji_SP",
+        "name": "仙龜「玄爺飛行」",
+        "levels": {
+            "N": {
+                "id": "genji_SP_I",
+                "name": "Easy・初陣・仙龜「玄爺飛行」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "genji_SP_II",
+                "name": "Lunatic・瘋狂・仙龜「玄爺飛行」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "genji_SP_III",
+                "name": "Phantasm・幻象・仙龜「玄爺飛行」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}

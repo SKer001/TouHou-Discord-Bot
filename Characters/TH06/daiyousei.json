@@ -1,0 +1,61 @@
+{
+    "id": "daiyousei",
+    "name": "大妖精",
+    "emoji": "🧚",
+    "category": "th06",
+    "profile": {
+        "title": "無名的大妖精",
+        "species": "妖精",
+        "ability": "無明確設定 (具備一般妖精的特徵)",
+        "description": "居住在霧之湖附近的妖精，相較於普通妖精擁有更強的力量。在遊戲中作為第二關中頭目登場，沒有官方台詞，通常與琪露諾一起行動。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th06-5e6f7a8b-9c0d-1e2f",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "霧之湖的大妖精",
+            "R": "湖畔的守護精靈",
+            "SR": "翠綠的大自然精靈"
+        }
+    },
+    "base_stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0
+    },
+    "special_powers": {
+        "id": "daiyousei_SP",
+        "name": "妖精「湖畔守護」",
+        "levels": {
+            "N": {
+                "id": "daiyousei_SP_I",
+                "name": "Easy・初陣・妖精「湖畔守護」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "R": {
+                "id": "daiyousei_SP_II",
+                "name": "Lunatic・瘋狂・妖精「湖畔守護」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            },
+            "SR": {
+                "id": "daiyousei_SP_III",
+                "name": "Phantasm・幻象・妖精「湖畔守護」",
+                "type": "damage",
+                "spent": 0,
+                "cooldown": 0,
+                "desc": ""
+            }
+        }
+    }
+}
