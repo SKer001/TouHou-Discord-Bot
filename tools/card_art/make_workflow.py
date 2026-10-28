@@ -9,7 +9,7 @@ import sys
 
 QUALITY = "masterpiece, high score, great score, absurdres"
 LIGHTING = "bright colors, light shadows, clean lineart, vibrant"
-COMPOSITION = "solo, full body, centered"
+COMPOSITION = "full body, centered"
 NEGATIVE = (
     "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, fewer digits, worst quality, "
     "low quality, low score, bad score, average score, signature, watermark, username, blurry, "
@@ -22,6 +22,11 @@ BASE = {
     "reimu": "1girl, hakurei reimu, touhou, red bow, hair tubes, frilled bow, detached sleeves, red and white miko outfit, red skirt, yellow ascot",
     "marisa": "1girl, kirisame marisa, touhou, witch hat, blonde hair, long hair, side braid, hair bow, black dress, white apron",
     "mima": "1girl, mima (touhou), touhou, green hair, long hair, green eyes, wizard hat, blue hat, sun symbol, blue robe, blue cape, ghost tail, no legs, holding staff, crescent staff",
+    "genji": (
+        "genjii (touhou), touhou, minogame, tortoise, old tortoise, land tortoise, green shell, olive brown skin, "
+        "four legs, clawed feet, long white beard, bushy white eyebrows, half-closed eyes, sleepy eyes, "
+        "long fluffy white tail, flowing white hair-like tail, wise, flying tortoise"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -82,17 +87,44 @@ SCENES = {
         "massive star danmaku, light rays, bloom, cape billowing, hair flowing, "
         "above the clouds, epic, powerful, majestic, dynamic angle"
     ),
+    # 玄爺 N「飛天神龜」：老龜悠哉地飛過湖面
+    ("genji", "N"): (
+        "no humans, animal focus, flying over a lake, calm expression, eyes half closed, "
+        "lake, reeds, water reflection, blue sky, clouds, soft lighting, daylight, peaceful"
+    ),
+    # 玄爺 R「靈夢的御用坐騎」：載著靈夢在空中飛行
+    ("genji", "R"): (
+        "hakurei reimu riding on the turtle's back, 1girl, brown hair, black hair, brown eyes, hair tubes, red bow, red and white miko outfit, detached sleeves, "
+        "sitting on turtle, flying through the sky, wind, ofuda, hakurei shrine far below, "
+        "cherry blossoms, petals, blue sky, clouds, daylight, cheerful"
+    ),
+    # 玄爺 SR「萬年修行的靈龜」：仙山雲海的神龜，靈氣環繞
+    ("genji", "SR"): (
+        "no humans, animal focus, ancient divine turtle, glowing golden aura, ancient runes glowing on shell, "
+        "floating above a sea of clouds, chinese mountains, waterfall, mystical, sacred, "
+        "light rays, bloom, sparkles, epic, majestic, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
     "marisa": "standing, holding broom, carrying broom, broom on shoulder, walking",   # 不加的話常畫成拿著掃帚
     "mima": "legs, feet, shoes, socks, standing",                                       # 幽靈尾巴，沒有腳
+    # 玄爺：照官方形象 (陸龜、白鬍子、白毛尾巴)；常被畫成海龜或多長翅膀
+    "genji": "sea turtle, flippers, wings, sharp teeth, fangs, open mouth, snake neck, monster",
+    ("genji", "N"): "1girl, human, humanization, anthropomorphic, girl",                   # 只畫烏龜
+    ("genji", "R"): "humanization, anthropomorphic, turtle girl, multiple girls, white hair, grey hair, silver hair, animal ears, tail on girl",   # 白鬍子的標籤會染到靈夢
+    ("genji", "SR"): "1girl, human, humanization, anthropomorphic, girl",
 }
 
 
+DUO = {("genji", "R")}
+
+
 def build(char_id: str, rarity: str, seed: int, batch: int = 2) -> dict:
-    positive = ", ".join([BASE[char_id], SCENES[(char_id, rarity)], COMPOSITION, LIGHTING, QUALITY])
-    negative = ", ".join(filter(None, [NEGATIVE, EXTRA_NEGATIVE.get(char_id)]))
+    solo = "" if (char_id, rarity) in DUO else "solo"   # 有其他角色同框的不加 solo
+    positive = ", ".join(filter(None, [BASE[char_id], SCENES[(char_id, rarity)], solo, COMPOSITION, LIGHTING, QUALITY]))
+    # 額外的負面提示：可依角色或「角色 + 階級」設定
+    negative = ", ".join(filter(None, [NEGATIVE, EXTRA_NEGATIVE.get(char_id), EXTRA_NEGATIVE.get((char_id, rarity))]))
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "animagine-xl-4.0-opt.safetensors"}},
         "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": positive}},

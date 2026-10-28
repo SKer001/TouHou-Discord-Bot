@@ -107,7 +107,20 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕原圖產生（含底部 TouHou / Project 小字）。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
-  - 目前完成：靈夢、魔理沙、魅魔（魔理沙 UR 的掃帚柄是手動修正後的圖）。其餘尚未生成的角色用 fill。依 Characters 分類順序一位一位做，每階級 4 張候選給使用者挑。
+  - **進度（2026-10-28）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺（TH02）。**下一位：里香 rika（TH02）**，之後依 `Characters/` 分類順序：千百合 chiyuri → 夢美 yumemi（TH03）→ 艾莉 elly → 幻月 gengetsu → 夢月 mugetsu（TH04）→ 愛麗絲 alice → 露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
+  - **每位角色的做法（使用者指定：一位一位處理）**：
+    1. 在 `make_workflow.py` 加 `BASE`（外觀 Danbooru 標籤）、每個階級的 `SCENES`（依稱號、個性、故事；階級越高越強），需要時加 `EXTRA_NEGATIVE`（可用角色或 `(角色, 階級)` 當鍵）；在 `build_cards.py` 加 `EN_NAMES`。先用一兩句話跟使用者說明各階級的構想。
+    2. 每個階級用兩個種子各生 2 張（共 4 張）：`make_workflow.py <角色> <階級> <種子> <out.json>` → ComfyUI MCP `run_workflow(wait=False)` → `job(action="wait")`。
+    3. `python tools/card_art/candidates.py <角色> --out <暫存資料夾>` 做對照表（取最新 4 張，標 1～4），用 SendUserFile 傳給使用者，順便指出明顯的問題（多出的腳、翅膀、髮色錯誤等）。
+    4. 使用者回覆例如「343」＝各階級依序選第 3、4、3 張 → 把 ComfyUI 輸出的那張複製成 `images/Original/Art/<角色>_<階級>.png` → `build_cards.py <角色>` → 跑測試 → commit + push（不用先問）。
+  - **使用者偏好與踩過的坑**：明亮、淡陰影、全身、貼近角色個性；字不能太粗（會糊）。魔理沙要加 `standing, holding broom` 負面提示不然會拿著掃帚；魅魔是幽靈尾巴但模型常畫出腳；玄爺照使用者給的官方形象（陸龜、白鬍子白眉、白毛尾巴，不是海龜、不要翅膀）；兩個角色同框時（玄爺 R 載著靈夢）外觀標籤會互相染色（靈夢變白髮），要在負面提示排除。使用者不滿意時會給參考圖或說明，照著改 prompt 重生。小瑕疵（例如掃帚柄沒對齊）可以用 PIL 剪貼 + ComfyUI 局部重繪 (VAEEncodeForInpaint) 修。
+  - **ComfyUI 環境（目前只裝在筆電）**：桌機要生圖得先安裝：
+    - 獨立虛擬環境 `~/Documents/comfy/venv`（Python 3.11、PyTorch CUDA 版），裡面 `pip install comfy-cli`，`comfy --workspace ~/Documents/comfy/ComfyUI install` 安裝 ComfyUI（筆電是 v0.43.0，含 ComfyUI-Manager）。
+    - 模型：`models/checkpoints/animagine-xl-4.0-opt.safetensors`（約 6.9GB，Hugging Face cagliostrolab/animagine-xl-4.0）。
+    - 啟動：`& '<venv>\Scripts\python.exe' '<ComfyUI>\main.py' --listen 127.0.0.1 --port 8188`（用終端機分頁跑，約 1～3 分鐘）。
+    - Claude 的 MCP：全域 Python `pip install comfy-mcp`，在 `~/.claude.json` 的 `mcpServers` 加 `comfyui`：command = 全域的 `comfy-mcp.exe`，env `COMFY_BIN` = venv 裡的 `comfy.exe`（`claude mcp add` 指令在這台不能用，直接改 json，改之前先備份）。
+    - ComfyUI 輸出在 `~/Documents/comfy/ComfyUI/output/touhou_card/`（`candidates.py` 預設讀這裡，路徑不同時設環境變數 `COMFY_OUTPUT`）。
+    - 筆電 RTX 4060 Laptop 8GB：896×1064 一次 2 張約 40 秒；8 個工作一次排進佇列沒問題。
 - **通知工具 `Utils/components.py`**：
   - `send_notice(interaction, text, color=None, footer=None, ephemeral=True)`：自動判斷用 `response` 或 `followup` 送出，預設 ephemeral。
   - `notice_container()` / `notice_view()`：需要自行加按鈕或嵌進其他畫面時使用。
@@ -167,7 +180,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 15. 新增實機工具：`botcli --live` 把畫面真的送到測試頻道讓 Discord 驗證、`tools/discord_peek.py` 讀頻道看實機結果（測試頻道沿用 log 頻道）。
 16. 道具改版：Item.db 加上 `effect` 欄位；刪除全部 83 個舊 demo 道具與所有玩家背包（備份在 `Database/backups/`），換成 4 個體力道具；簽到送 🍙；資料卡新增「⚡ 恢復體力」；`add_item` 改為原子操作；新增第二位管理員。
 17. `/admin-item give_item` 與 `/admin-user take_item` 合併成 `/admin-item manage`（分類 + 分頁 + 堆疊列表 → Modal 輸入數量，正數給予、負數扣除，不能扣到小於 0）。
-18. 卡面：ComfyUI 生成角色圖、套上綠幕去背的空白卡框、寫稱號 / 名字 / 等級圖（`tools/card_art/`）；縮圖改成依「角色＋階級」顯示，先完成靈夢、魔理沙各 3 張。
+18. 卡面：ComfyUI 生成角色圖、套上綠幕去背的空白卡框、寫稱號 / 名字 / 等級圖（`tools/card_art/`）；縮圖改成依「角色＋階級」顯示。之後一位一位補角色卡面（進度見第 4 節「卡面」）。
 
 ## 7. 驗證方式
 - 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
