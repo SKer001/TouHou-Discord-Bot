@@ -1,9 +1,7 @@
-import json
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Database.User_DB_Manager import reset_daily, add_money, add_exp, get_or_create_user, update_user_inventory, add_stamina
-from Database.Item_DB_Manager import get_all_items, get_item
+from Database.User_DB_Manager import reset_daily, add_money, add_exp, update_user_inventory, add_stamina
 from Utils.config import is_admin
 from Utils.components import send_notice
 
@@ -12,14 +10,6 @@ from Utils.components import send_notice
 class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="【開發者專用】玩家數據與經濟管理指令"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    async def item_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        items = await get_all_items()
-        choices = []
-        for item_id, data in items.items():
-            if current.lower() in item_id.lower() or current.lower() in data['name'].lower():
-                choices.append(app_commands.Choice(name=f"{data['emoji']} {item_id} ({data['name']})", value=item_id))
-        return choices[:25]
 
     # 1. 🛠️ /reset_daily 重置簽到
     @app_commands.command(name="reset_daily", description="【開發者專用】重置指定成員或自己的每日簽到狀態")
@@ -68,49 +58,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
 
         await send_notice(interaction, msg)
 
-    # 4. 🔻 /take_item 扣除指定成員特定道具 (數量<=0自動移除 Key)
-    @app_commands.command(name="take_item", description="【開發者專用】扣除或移除指定成員的特定道具")
-    @app_commands.describe(
-        target="要扣除道具的目標成員",
-        item_id="道具 ID / 名稱",
-        amount="要扣除的數量"
-    )
-    @app_commands.autocomplete(item_id=item_autocomplete)
-    @app_commands.default_permissions(administrator=True)
-    async def take_item_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, item_id: str, amount: int):
-        if not is_admin(interaction.user):
-            await send_notice(interaction, "❌ 無權限")
-            return
-
-        if amount <= 0:
-            await send_notice(interaction, "❌ 扣除數量必須大於 0！")
-            return
-
-        user_data = await get_or_create_user(target.id)
-        raw_inv = user_data.get("inventory", "{}")
-        inventory = json.loads(raw_inv) if isinstance(raw_inv, str) else (raw_inv or {})
-
-        if item_id not in inventory or inventory[item_id] <= 0:
-            await send_notice(interaction, f"❌ **{target.display_name}** 的背包內並沒有道具 `{item_id}`！")
-            return
-
-        current_amount = inventory[item_id]
-        new_amount = current_amount - amount
-
-        item_info = await get_item(item_id)
-        item_name = f"{item_info['emoji']} {item_info['name']}" if item_info else f"`{item_id}`"
-
-        if new_amount <= 0:
-            del inventory[item_id]
-            msg = f"🗑️ 已從 **{target.display_name}** 的背包中完全移除 {item_name}！"
-        else:
-            inventory[item_id] = new_amount
-            msg = f"🔻 已成功扣除 **{target.display_name}** 的 {item_name} x `{amount}`！ (剩餘：`{new_amount}` 件)"
-
-        await update_user_inventory(target.id, inventory)
-        await send_notice(interaction, msg)
-
-    # 5. 🧹 /clear_inventory 清空指定成員背包
+    # 4. 🧹 /clear_inventory 清空指定成員背包
     @app_commands.command(name="clear_inventory", description="【開發者專用】完全清空指定成員的背包庫存")
     @app_commands.describe(target="要清空背包的目標成員")
     @app_commands.default_permissions(administrator=True)
@@ -121,7 +69,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         await update_user_inventory(target.id, {})
         await send_notice(interaction, f"🧹 已成功清空 **{target.display_name}** 的背包，所有道具皆已歸零移除！")
 
-    # 6. ⚡ /add_stamina 調整體力
+    # 5. ⚡ /add_stamina 調整體力
     @app_commands.command(name="add_stamina", description="【開發者專用】增加或扣除指定成員的體力 (可超過自然回復上限 240)")
     @app_commands.describe(target="目標成員", amount="增加的體力 (負數為扣除，最多扣到 0)")
     @app_commands.default_permissions(administrator=True)

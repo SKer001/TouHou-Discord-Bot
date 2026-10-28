@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from Database.User_DB_Manager import get_or_create_user, update_user_inventory
+from Database.User_DB_Manager import get_or_create_user, update_user_inventory, adjust_item
 from Database.Item_DB_Manager import (
     get_all_items, get_item, add_item_db,
     update_item_db, delete_item_db, batch_import_db, CATEGORY_NAMES
@@ -156,6 +156,178 @@ class ItemEditView(discord.ui.LayoutView):
 
 
 # ---------------------------------------------------------
+# 🎁 道具管理 (給予 / 扣除)：分類 + 分頁 + 堆疊列表 ➔ 選道具 ➔ Modal 輸入數量
+# ---------------------------------------------------------
+MANAGE_PER_PAGE = 10
+OWNED_FILTER = "owned"   # 分類選單裡的「只看對方持有的」
+
+
+class ItemAmountModal(discord.ui.Modal):
+    """輸入數量：正數給予、負數扣除"""
+    def __init__(self, view_ref, item_id: str, item: dict, owned: int):
+        super().__init__(title=f"調整：{item['name']}"[:45])
+        self.view_ref = view_ref
+        self.item_id = item_id
+        self.item = item
+        self.amount_input = discord.ui.TextInput(
+            label=f"數量（目前持有 {owned}）正數給予、負數扣除"[:45],
+            placeholder="例如 5 或 -3",
+            required=True,
+            max_length=7,
+        )
+        self.add_item(self.amount_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = (self.amount_input.value or "").strip().replace("＋", "+").replace("－", "-")
+        try:
+            delta = int(raw)
+        except ValueError:
+            await self.view_ref.refresh(interaction, f"❌ `{raw}` 不是整數，請輸入例如 `5` 或 `-3`。")
+            return
+        if delta == 0:
+            await self.view_ref.refresh(interaction, "❌ 數量不能是 0。")
+            return
+
+        result = await adjust_item(self.view_ref.target.id, self.item_id, delta)
+        name = f"{self.item['emoji']} **{self.item['name']}**"
+        who = f"**{self.view_ref.target.display_name}**"
+        if not result["ok"]:
+            notice = f"❌ {who} 只有 {name} `×{result['before']}`，不能扣除 `{abs(delta)}` 個（扣完會小於 0）。"
+        elif result["after"] == 0:
+            notice = f"🗑️ 已扣除 {who} 的 {name} `×{abs(delta)}`，數量歸零，已從背包移除。"
+        elif delta > 0:
+            notice = f"🎁 已給予 {who} {name} `×{delta}`（`{result['before']}` ➔ `{result['after']}`）"
+        else:
+            notice = f"🔻 已扣除 {who} 的 {name} `×{abs(delta)}`（`{result['before']}` ➔ `{result['after']}`）"
+        await self.view_ref.refresh(interaction, notice)
+
+
+class ItemManageView(discord.ui.LayoutView):
+    """對指定成員給予 / 扣除道具；同一個道具疊成一列並顯示對方目前的持有數"""
+    def __init__(self, target, items: dict, inventory: dict):
+        super().__init__(timeout=300)
+        self.target = target
+        self.items = items
+        self.inventory = inventory
+        self.category = "all"
+        self.page = 1
+        self.notice = None
+        self.build()
+
+    def _rows(self) -> list[tuple[str, dict, int]]:
+        order = list(CATEGORY_NAMES)
+        rows = []
+        for iid, item in self.items.items():
+            owned = self.inventory.get(iid, 0)
+            if self.category == OWNED_FILTER and owned <= 0:
+                continue
+            if self.category not in ("all", OWNED_FILTER) and item["category"] != self.category:
+                continue
+            rows.append((iid, item, owned))
+        rows.sort(key=lambda r: (order.index(r[1]["category"]) if r[1]["category"] in order else 99, r[0]))
+        return rows
+
+    def _button(self, label, callback, disabled=False, style=discord.ButtonStyle.primary):
+        btn = discord.ui.Button(label=label, style=style, disabled=disabled)
+        if callback is not None:
+            btn.callback = callback
+        return btn
+
+    def build(self):
+        self.clear_items()
+        rows = self._rows()
+        total_pages = max(1, (len(rows) + MANAGE_PER_PAGE - 1) // MANAGE_PER_PAGE)
+        self.page = min(self.page, total_pages)
+        start = (self.page - 1) * MANAGE_PER_PAGE
+        page_rows = rows[start:start + MANAGE_PER_PAGE]
+
+        total_owned = sum(v for v in self.inventory.values() if v > 0)
+        container = discord.ui.Container(accent_color=discord.Color.gold())
+        container.add_item(discord.ui.TextDisplay(
+            f"## 🎁 道具管理：{self.target.display_name}\n"
+            f"🎒 對方背包共 `{total_owned}` 件道具\n"
+            f"-# 選擇道具後輸入數量：正數給予、負數扣除（扣完不能小於 0，剛好 0 會移除）"
+        ))
+        if self.notice:
+            container.add_item(discord.ui.TextDisplay(self.notice))
+        container.add_item(discord.ui.Separator())
+
+        if page_rows:
+            lines = [
+                f"**{i}.** {item['emoji']} **{item['name']}**　{'`×' + str(owned) + '`' if owned else '*未持有*'}\n"
+                f"-# {CATEGORY_NAMES.get(item['category'], '未知')} · `{iid}`"
+                for i, (iid, item, owned) in enumerate(page_rows, start=start + 1)
+            ]
+            container.add_item(discord.ui.TextDisplay("\n".join(lines)))
+        else:
+            container.add_item(discord.ui.TextDisplay("*（這個分類沒有任何道具）*"))
+        container.add_item(discord.ui.Separator())
+
+        category_select = discord.ui.Select(placeholder="📂 選擇分類...", options=[
+            discord.SelectOption(label=label, value=value, default=(value == self.category))
+            for value, label in [(k, v) for k, v in CATEGORY_NAMES.items()] + [(OWNED_FILTER, "🎒 只看對方持有的")]
+        ])
+        category_select.callback = self.category_callback
+        container.add_item(discord.ui.ActionRow(category_select))
+
+        if page_rows:
+            item_select = discord.ui.Select(placeholder="✏️ 選擇要調整的道具...", options=[
+                discord.SelectOption(
+                    label=f"{i}. {item['name']}"[:100],
+                    description=f"持有 {owned} · {iid}"[:100],
+                    value=iid,
+                    emoji=item["emoji"] or None,
+                )
+                for i, (iid, item, owned) in enumerate(page_rows, start=start + 1)
+            ])
+            item_select.callback = self.item_callback
+            container.add_item(discord.ui.ActionRow(item_select))
+
+        container.add_item(discord.ui.ActionRow(
+            self._button("◀️ 上一頁", self.prev_callback, disabled=(self.page <= 1)),
+            self._button(f"📄 {self.page} / {total_pages} 頁", None, disabled=True, style=discord.ButtonStyle.secondary),
+            self._button("下一頁 ▶️", self.next_callback, disabled=(self.page >= total_pages)),
+        ))
+        self.add_item(container)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not is_admin(interaction.user):
+            await send_notice(interaction, "❌ 無權限")
+            return False
+        return True
+
+    async def refresh(self, interaction: discord.Interaction, notice: str | None = None):
+        """重新讀取道具與對方背包後更新畫面"""
+        self.items = await get_all_items()
+        self.inventory = (await get_or_create_user(self.target.id))["inventory"]
+        self.notice = notice
+        self.build()
+        await interaction.response.edit_message(view=self)
+
+    async def category_callback(self, interaction: discord.Interaction):
+        self.category = interaction.data["values"][0]
+        self.page = 1
+        await self.refresh(interaction)
+
+    async def item_callback(self, interaction: discord.Interaction):
+        iid = interaction.data["values"][0]
+        item = self.items.get(iid)
+        if item is None:
+            await self.refresh(interaction, f"❌ 道具 `{iid}` 已不存在。")
+            return
+        owned = (await get_or_create_user(self.target.id))["inventory"].get(iid, 0)
+        await interaction.response.send_modal(ItemAmountModal(self, iid, item, owned))
+
+    async def prev_callback(self, interaction: discord.Interaction):
+        self.page = max(1, self.page - 1)
+        await self.refresh(interaction)
+
+    async def next_callback(self, interaction: discord.Interaction):
+        self.page += 1
+        await self.refresh(interaction)
+
+
+# ---------------------------------------------------------
 # 🤖 ItemAdmin Cog
 # ---------------------------------------------------------
 class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="【開發者專用】道具資料庫管理指令"):
@@ -231,54 +403,21 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
         view = ItemEditView(item_data)
         await interaction.response.send_message(view=view, ephemeral=True)
 
-    # 4. 🎁 /give_item 給予指定道具與數量
-    @app_commands.command(name="give_item", description="【開發者專用】給予指定成員特定道具與數量")
-    @app_commands.describe(
-        category="道具分類",
-        item_id="道具 ID / 名稱",
-        amount="給予數量 (預設為 1)",
-        target="目標成員 (留空則給予自己)"
-    )
-    @app_commands.choices(category=[
-        app_commands.Choice(name="🍵 消耗品", value="consumable"),
-        app_commands.Choice(name="🎴 收藏品", value="collectible"),
-        app_commands.Choice(name="🛠️ 裝備與特殊", value="special")
-    ])
-    @app_commands.autocomplete(item_id=item_autocomplete)
+    # 4. 🎁 /manage 給予 / 扣除道具 (分類 + 分頁 + 堆疊列表 ➔ Modal 輸入數量)
+    @app_commands.command(name="manage", description="【開發者專用】給予或扣除指定成員的道具 (正數給予、負數扣除)")
+    @app_commands.describe(target="目標成員 (留空則為自己)")
     @app_commands.default_permissions(administrator=True)
-    async def give_item_cmd(
-        self, 
-        interaction: discord.Interaction, 
-        category: app_commands.Choice[str], 
-        item_id: str, 
-        amount: int = 1, 
-        target: discord.User | discord.Member = None
-    ):
+    async def manage_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member = None):
         if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
-
-        if amount <= 0:
-            await send_notice(interaction, "❌ 給予數量必須大於 0！")
+        target = target or interaction.user
+        items = await get_all_items()
+        if not items:
+            await send_notice(interaction, "❌ 道具資料庫是空的，請先用 `/admin-item add_item` 新增道具。")
             return
-
-        item_info = await get_item(item_id)
-        if not item_info:
-            await send_notice(interaction, f"❌ 道具 ID `{item_id}` 不存在於資料庫中！")
-            return
-
-        target_user = target or interaction.user
-        user_data = await get_or_create_user(target_user.id)
-        
-        # 解析玩家 JSON 背包
-        raw_inv = user_data.get("inventory", "{}")
-        inventory = json.loads(raw_inv) if isinstance(raw_inv, str) else (raw_inv or {})
-
-        # 增加道具數量
-        inventory[item_id] = inventory.get(item_id, 0) + amount
-        await update_user_inventory(target_user.id, inventory)
-
-        await send_notice(interaction, f"🎁 成功向 **{target_user.display_name}** 發放 {item_info['emoji']} **{item_info['name']}** x `{amount}`！")
+        inventory = (await get_or_create_user(target.id))["inventory"]
+        await interaction.response.send_message(view=ItemManageView(target, items, inventory), ephemeral=True)
 
     # 5. 🎲 /give_items 隨機給予多件道具 (方案 A 獨立抽取)
     @app_commands.command(name="give_items", description="【開發者專用】隨機給予指定成員多件道具")

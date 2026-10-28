@@ -61,7 +61,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
   - `calc_stamina(stored, updated_at, now)` 純計算：每 6 分鐘 +1，自然回復只到 240（`STAMINA_MAX`），零頭保留；超過 240（道具）時不再自然回復；已滿時時鐘停在現在。回傳 `stamina / max / updated_at / next_in / full_in`。
   - `get_stamina`（唯讀）、`spend_stamina(user_id, n)`（不夠不扣，回傳 `ok=False`）、`add_stamina(user_id, n)`（可超過 240，扣到 0 為止），寫入都用 `BEGIN IMMEDIATE`。
   - 目前沒有任何功能**消耗**體力；回復靠道具：`use_stamina_item(user_id, item_id, restore)` 在同一個交易裡背包 -1、體力 +restore（可超過 240），背包沒有時 `ok=False` 什麼都不改，回傳含 `before` / `left`。
-- 背包：`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
+- 背包：`adjust_item(user_id, item_id, delta)`（管理員給予 / 扣除用：扣完小於 0 不寫入回 `ok=False`、剛好 0 移除，回傳 `before/after`）；`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
 - 合成 / 融合：`transform_cards(user_id, instance_ids, build_new_card, count_fusion=False)`
   - `BEGIN IMMEDIATE` 鎖定 → 讀取素材 → `build_new_card(consumed)` 驗證並產生新卡（條件不符丟 `ValueError`）→ 刪素材 → 寫新卡 → 融合時 `total_fusions + 1`，全部同一個交易。
   - 素材已不屬於玩家、重複 ID、驗證失敗都會回滾並丟 `ValueError`；連點或兩個確認畫面同時按只會成功一次。
@@ -128,8 +128,9 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - **inventory.py / general_components.py**：背包每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
 - **leaderboard.py**：`/leaderboard category`（賽錢、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
 - **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定（目前 2 位：`403895664666214400`、`414789026189672449`），一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
-  - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`take_item`、`clear_inventory`、`add_stamina`（可為負數）
-  - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`give_item`、`give_items`
+  - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）
+  - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`manage [target]`、`give_items`
+    - `manage`（取代舊的 `give_item` 與 `/admin-user take_item`）：`ItemManageView` 分類選單（全部 / 各分類 / 🎒 只看對方持有的）+ 每頁 10 個的堆疊列表（顯示對方持有數）→ 選道具 → `ItemAmountModal` 輸入數量：正數給予、負數扣除、0 或非整數擋下；寫入用 `adjust_item`（扣完小於 0 拒絕、剛好 0 移除），完成後重新讀取並在畫面上方顯示結果。
   - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；注意不會重載 `Components/` 子模組）、`sync`、`shutdown`
   - `/admin-gacha`（`Cogs/load-gacha/Admin-gacha.py`）：`view target`（用 `InventoryView` 檢視對方卡冊）、`give target pool character rarity [amount 1~20] [completeness]`（不算抽卡次數）、`remove target pool character`、`set_completeness target pool character value`、`clear target`（確認畫面）。
     - `remove` / `set_completeness` 共用 `CardPickerView`：每頁 20 張、可多選 → 確認 → 執行後重新讀取並回到列表。
@@ -155,6 +156,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 14. 新增 `tools/botcli.py`：不連 Discord 就能假裝打指令、點按鈕與選單、送出 Modal 來測試機器人（沙盒資料庫 `.botcli/`）。
 15. 新增實機工具：`botcli --live` 把畫面真的送到測試頻道讓 Discord 驗證、`tools/discord_peek.py` 讀頻道看實機結果（測試頻道沿用 log 頻道）。
 16. 道具改版：Item.db 加上 `effect` 欄位；刪除全部 83 個舊 demo 道具與所有玩家背包（備份在 `Database/backups/`），換成 4 個體力道具；簽到送 🍙；資料卡新增「⚡ 恢復體力」；`add_item` 改為原子操作；新增第二位管理員。
+17. `/admin-item give_item` 與 `/admin-user take_item` 合併成 `/admin-item manage`（分類 + 分頁 + 堆疊列表 → Modal 輸入數量，正數給予、負數扣除，不能扣到小於 0）。
 
 ## 7. 驗證方式
 - 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
@@ -174,7 +176,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 41、V2 通知 32、保底 21、體力 21、道具 21、botcli 17、卡池 14、排行榜 10，共 329 項）。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 41、V2 通知 32、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 349 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進：`Thumbnails.json` 只有 `fill`、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
 
 ## 8. 使用者的決定與工作習慣
@@ -182,7 +184,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id": "�
   - Claude Code 的自動權限檢查可能會擋下「提交 / 推送 Users.db」，此時請使用者自己執行 git 指令，不要繞過。
 - 直接推到 `main`（個人專案，不開 PR）。
 - 兩台電腦切換：離開前 `commit` + `push`，開始前 `pull`；**機器人同一時間只在一台上執行**（同一個 Token，且 Users.db 是二進位無法合併）。
-- 使用者會先在 Discord 實機測試再決定提交。
+- **完成並測試通過後直接 commit + push 到 `main`，不用先問**（2026-10-28 使用者指示）。只有重大事件才先問，例如要開分支、改寫 git 歷史、刪除大量資料等。`Database/Users.db`、`Item.db` 有變動時也一起推。
 
 ## 9. 給 Claude Code 的工作守則
 - 動資料前先備份；遷移類工作**不得刪除或改動舊檔**。

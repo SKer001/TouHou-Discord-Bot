@@ -41,8 +41,8 @@
 | 群組 | 指令 |
 |---|---|
 | `/admin-gacha` | `view` 檢視卡冊、`give` 發放卡牌、`remove` 刪除卡牌、`set_completeness` 修改完整度、`clear` 清空卡冊 |
-| `/admin-item` | `add_item`、`add_items_batch`、`edit_item`（編輯控制台）、`give_item`、`give_items` |
-| `/admin-user` | `reset_daily`、`add_money`、`add_exp`、`take_item`、`clear_inventory`、`add_stamina` |
+| `/admin-item` | `add_item`、`add_items_batch`、`edit_item`（編輯控制台）、`manage`（給予 / 扣除道具：分類 + 分頁列表，選道具後輸入數量，正數給予、負數扣除）、`give_items` |
+| `/admin-user` | `reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina` |
 | `/admin-sys` | `reload`（重載模組控制台）、`sync`、`shutdown` |
 
 ## 📦 安裝與執行

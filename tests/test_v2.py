@@ -101,9 +101,8 @@ async def main():
     check("no perm V2", is_v2(it.view) and "無權限" in texts(it.view))
     it = Interaction(); await cmds["give_items"].callback(item_cog, it, 5, None)
     check("give_items V2", is_v2(it.view) and "隨機道具發放完成" in texts(it.view))
-    iid2 = next(iter(await idm.get_all_items()))
-    it = Interaction(); await cmds["give_item"].callback(item_cog, it, None, iid2, 2, None)
-    check("give_item V2", is_v2(it.view) and "成功向" in texts(it.view))
+    it = Interaction(); await cmds["manage"].callback(item_cog, it, None)
+    check("manage V2", is_v2(it.view) and "道具管理" in texts(it.view) and it.response.sent[-1].get("ephemeral"))
 
     # 3. admin-sys reload
     sys_cog = bot.get_cog("SysAdmin")

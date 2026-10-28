@@ -386,7 +386,9 @@ class BotCLI:
                 return user
         # 新名字 ➔ 用名字產生固定的假 ID (每次執行都一樣，沙盒裡的資料才接得上)
         fake_id = 200000000000000000 + zlib.crc32(name.encode("utf-8"))
-        return self.get_user(fake_id, name)
+        user = self.get_user(fake_id, name)
+        user.name = user.display_name = user.global_name = name   # 沙盒裡已有這位玩家時，補回名字
+        return user
 
     async def load(self):
         async def fake_sync(*_args, **_kwargs):

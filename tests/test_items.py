@@ -111,6 +111,47 @@ async def main():
     it = Interaction(uid=11); await cmds["profile"].callback(cog, it, types.SimpleNamespace(id=10, display_name="t", display_avatar=avatar), None)
     check("no button on others", "⚡ 恢復體力" not in buttons(it.view))
 
+    # adjust_item：正數給予、負數扣除、不能小於 0、剛好 0 移除
+    r = await udm.adjust_item(20, "yuyuko_dango", 5); check("adjust +5", r == {"ok": True, "before": 0, "after": 5})
+    r = await udm.adjust_item(20, "yuyuko_dango", -2); check("adjust -2", r["ok"] and r["after"] == 3)
+    r = await udm.adjust_item(20, "yuyuko_dango", -10); check("adjust below 0 rejected", not r["ok"] and r["before"] == 3)
+    check("unchanged after reject", (await udm.get_or_create_user(20))["inventory"]["yuyuko_dango"] == 3)
+    r = await udm.adjust_item(20, "yuyuko_dango", -3); check("adjust to 0", r["ok"] and r["after"] == 0)
+    check("removed at 0", "yuyuko_dango" not in (await udm.get_or_create_user(20))["inventory"])
+    await udm.adjust_item(21, "reimu_onigiri", 3)
+    rs = await asyncio.gather(*[udm.adjust_item(21, "reimu_onigiri", -1) for _ in range(5)])
+    check("concurrent adjust", sum(x["ok"] for x in rs) == 3 and "reimu_onigiri" not in (await udm.get_or_create_user(21))["inventory"])
+
+    # /admin-item manage：分類 + 分頁 + 堆疊列表 ➔ Modal 輸入數量
+    await bot.load_extension("Cogs.load-general.Admin-item")
+    acog = bot.get_cog("ItemAdmin")
+    cmd_names = {c.name for c in acog.walk_app_commands()}
+    check("give_item replaced", "manage" in cmd_names and "give_item" not in cmd_names)
+    manage = next(c for c in acog.walk_app_commands() if c.name == "manage")
+    from Utils.config import ADMIN_IDS
+    if ADMIN_IDS:
+        target = types.SimpleNamespace(id=30, display_name="目標")
+        it = Interaction(uid=min(ADMIN_IDS)); await manage.callback(acog, it, target)
+        mv = it.view
+        check("manage view", "道具管理：目標" in texts(mv) and texts(mv).count("*未持有*") == 4)
+        modal_holder = {}
+        async def send_modal(m): modal_holder["m"] = m
+        i2 = Interaction(uid=min(ADMIN_IDS), data={"values": ["sakuya_scone_tea"]}); i2.response.send_modal = send_modal
+        await mv.item_callback(i2)
+        modal = modal_holder["m"]
+        check("modal opened", "目前持有 0" in str(modal.amount_input.label))
+        for raw, expect in [("7", "已給予"), ("-2", "已扣除"), ("-99", "不能扣除"), ("0", "不能是 0"), ("x", "不是整數"), ("-5", "已從背包移除")]:
+            modal.amount_input._value = raw
+            i3 = Interaction(uid=min(ADMIN_IDS)); await modal.on_submit(i3)
+            check(f"modal {raw}", expect in texts(mv))
+        check("final count 0", "sakuya_scone_tea" not in (await udm.get_or_create_user(30))["inventory"])
+        await udm.adjust_item(30, "reimu_onigiri", 2)
+        await mv.category_callback(Interaction(uid=min(ADMIN_IDS), data={"values": ["owned"]}))
+        check("owned filter", "陰陽梅干飯糰" in texts(mv) and "幽夢三色團子" not in texts(mv))
+        await mv.category_callback(Interaction(uid=min(ADMIN_IDS), data={"values": ["special"]}))
+        check("empty category", "沒有任何道具" in texts(mv))
+        check("non-admin blocked", await mv.interaction_check(Interaction(uid=1)) is False)
+
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")
 shutil.rmtree(tmp, ignore_errors=True)

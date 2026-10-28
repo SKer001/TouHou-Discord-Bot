@@ -331,6 +331,39 @@ async def add_item(user_id: int, item_id: str, amount: int = 1) -> dict:
     return inventory
 
 
+async def adjust_item(user_id: int, item_id: str, delta: int) -> dict:
+    """
+    調整玩家某個道具的數量 (正數給予、負數扣除)，同一個交易
+    - 扣完會小於 0 ➔ 不寫入，回傳 ok=False
+    - 剛好變成 0 ➔ 從背包移除這個道具
+    回傳 {"ok", "before", "after"}
+    """
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            async with db.execute("SELECT inventory FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                inventory = _load_inventory((await cursor.fetchone())["inventory"])
+            before = inventory.get(item_id, 0)
+            after = before + delta
+            if after < 0:
+                await db.rollback()
+                return {"ok": False, "before": before, "after": before}
+            if after == 0:
+                inventory.pop(item_id, None)
+            else:
+                inventory[item_id] = after
+            await db.execute(
+                "UPDATE users SET inventory = ? WHERE user_id = ?",
+                (json.dumps(inventory, ensure_ascii=False), user_id),
+            )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {"ok": True, "before": before, "after": after}
+
+
 async def clear_all_inventories() -> int:
     """清空所有玩家的背包，回傳受影響的玩家數"""
     async with connect() as db:
