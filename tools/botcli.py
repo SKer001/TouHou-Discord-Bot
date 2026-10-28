@@ -419,7 +419,11 @@ class BotCLI:
                     except Exception as e:
                         self.errors += 1
                         print(f"❌ 載入失敗 {ext}: {e}")
-        print(f"🤖 botcli 已載入 {len(loaded)} 個模組 · 沙盒資料庫 {os.path.relpath(SANDBOX_DIR, ROOT)} · 目前身分：{self.current.display_name} ({self.current.id})")
+        try:
+            sandbox_shown = os.path.relpath(SANDBOX_DIR, ROOT)
+        except ValueError:   # Windows 上沙盒與專案在不同磁碟機時無法算相對路徑
+            sandbox_shown = SANDBOX_DIR
+        print(f"🤖 botcli 已載入 {len(loaded)} 個模組 · 沙盒資料庫 {sandbox_shown} · 目前身分：{self.current.display_name} ({self.current.id})")
 
     # ---------------- 訊息顯示 ----------------
     def touched(self, msg: Message, action: str):
