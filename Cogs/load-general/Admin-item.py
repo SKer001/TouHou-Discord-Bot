@@ -9,9 +9,9 @@ from Database.Item_DB_Manager import (
     get_all_items, get_item, add_item_db,
     update_item_db, delete_item_db, batch_import_db, CATEGORY_NAMES
 )
+from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
 
-ADMIN_ID = 403895664666214400
 
 
 # ---------------------------------------------------------
@@ -126,7 +126,7 @@ class ItemEditView(discord.ui.LayoutView):
         await interaction.response.edit_message(view=self)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return False
         return True
@@ -180,7 +180,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     ])
     @app_commands.default_permissions(administrator=True)
     async def add_item_cmd(self, interaction: discord.Interaction, item_id: str, name: str, emoji: str, category: app_commands.Choice[str], desc: str):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
             
@@ -195,7 +195,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     @app_commands.describe(file="包含道具資料的 .json 檔案", overwrite="若道具已存在，是否要覆蓋舊資料？ (預設為 False)")
     @app_commands.default_permissions(administrator=True)
     async def add_items_batch_cmd(self, interaction: discord.Interaction, file: discord.Attachment, overwrite: bool = False):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
 
@@ -219,7 +219,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     @app_commands.autocomplete(item_id=item_autocomplete)
     @app_commands.default_permissions(administrator=True)
     async def edit_item_cmd(self, interaction: discord.Interaction, item_id: str):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
 
@@ -254,7 +254,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
         amount: int = 1, 
         target: discord.User | discord.Member = None
     ):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
 
@@ -288,7 +288,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     )
     @app_commands.default_permissions(administrator=True)
     async def give_items_cmd(self, interaction: discord.Interaction, number: int, target: discord.User | discord.Member = None):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
 

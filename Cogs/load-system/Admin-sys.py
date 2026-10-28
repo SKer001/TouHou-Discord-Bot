@@ -4,9 +4,9 @@ from discord import ui
 from discord import app_commands
 from discord.ext import commands
 
+from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
 
-ADMIN_ID = 403895664666214400
 
 
 # ---------------------------------------------------------
@@ -43,7 +43,7 @@ class ReloadCogView(ui.LayoutView):
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限操作此選單！")
             return False
         return True
@@ -82,7 +82,7 @@ class SysAdmin(commands.GroupCog, group_name="admin-sys", group_description="【
     @app_commands.command(name="reload", description="【開發者專用】動態重新載入 Cog 模組")
     @app_commands.default_permissions(administrator=True)
     async def reload_cmd(self, interaction: discord.Interaction):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
@@ -93,7 +93,7 @@ class SysAdmin(commands.GroupCog, group_name="admin-sys", group_description="【
     @app_commands.command(name="sync", description="【開發者專用】強制與 Discord API 同步斜線指令 (Slash Commands)")
     @app_commands.default_permissions(administrator=True)
     async def sync_cmd(self, interaction: discord.Interaction):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
@@ -108,7 +108,7 @@ class SysAdmin(commands.GroupCog, group_name="admin-sys", group_description="【
     @app_commands.command(name="shutdown", description="【開發者專用】安全儲存並關閉機器人")
     @app_commands.default_permissions(administrator=True)
     async def shutdown_cmd(self, interaction: discord.Interaction):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 

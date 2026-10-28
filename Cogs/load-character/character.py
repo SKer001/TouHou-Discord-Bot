@@ -10,6 +10,7 @@ from .Components.character_components import (
 )
 from Utils.components import send_notice
 from Utils.character_data import load_categories
+from Database.User_DB_Manager import get_user_cards
 
 # ---------------------------------------------------------
 # 💡 路徑設定
@@ -38,10 +39,11 @@ def load_thumbnails() -> dict:
 #   首頁 (只有分類選單) ➔ 分類頁 (角色選單 + 分類選單) ➔ 角色檔案頁 (同上)
 # ---------------------------------------------------------
 class CharacterBrowserView(ui.LayoutView):
-    def __init__(self, categories: dict, thumbnails: dict):
+    def __init__(self, categories: dict, thumbnails: dict, owned: dict | None = None):
         super().__init__(timeout=180)
         self.categories = categories
         self.thumbnails = thumbnails
+        self.owned = owned or {}   # 下指令的人自己的收藏 {"角色id": {"階級": 張數}}
         self.category_key = None
         self.char_id = None
         self.message = None  # 送出後由指令填入，供逾時時停用選單
@@ -55,13 +57,13 @@ class CharacterBrowserView(ui.LayoutView):
         self.char_select = None
 
         if self.category_key is None:
-            container = build_home_container(self.categories)
+            container = build_home_container(self.categories, self.owned)
         elif self.char_id is None:
-            container = build_category_container(self.categories[self.category_key])
+            container = build_category_container(self.categories[self.category_key], self.owned)
         else:
             char = self._get_char(self.category_key, self.char_id)
             container = build_character_container(
-                char, self.categories[self.category_key]["category_name"], self.thumbnails
+                char, self.categories[self.category_key]["category_name"], self.thumbnails, self.owned
             )
 
         container.add_item(ui.Separator())
@@ -158,7 +160,12 @@ class CharacterProfileCog(commands.Cog):
             await send_notice(interaction, "❌ 無法載入 `Characters/` 角色資料，請檢查資料夾與檔案格式。")
             return
 
-        view = CharacterBrowserView(categories, load_thumbnails())
+        owned = {}
+        for card in await get_user_cards(interaction.user.id):
+            per_char = owned.setdefault(card["character_key"], {})
+            per_char[card["rarity"]] = per_char.get(card["rarity"], 0) + 1
+
+        view = CharacterBrowserView(categories, load_thumbnails(), owned)
         await interaction.response.send_message(view=view)
         view.message = await interaction.original_response()
 

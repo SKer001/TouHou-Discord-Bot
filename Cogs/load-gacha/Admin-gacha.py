@@ -10,9 +10,9 @@ from Database.User_DB_Manager import (
     get_user_cards, add_gacha_cards, delete_gacha_cards,
     clear_gacha_cards, update_cards_completeness,
 )
+from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
 
-ADMIN_ID = 403895664666214400
 AUTOCOMPLETE_LIMIT = 25
 
 
@@ -55,7 +55,7 @@ class ClearConfirmView(ui.LayoutView):
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return False
         return True
@@ -205,7 +205,7 @@ class CardPickerView(ui.LayoutView):
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return False
         return True
@@ -274,7 +274,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
 
     async def _deny(self, interaction: discord.Interaction) -> bool:
         """不是管理員 ➔ 回覆無權限並回傳 True"""
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return True
         return False
@@ -369,7 +369,10 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
             await send_notice(interaction, f"🎒 **{target.display_name}** 的卡冊空空如也。")
             return
         # 操作者是管理員本人，畫面顯示的是目標成員的卡冊
-        view = gacha_mod().InventoryView(interaction.user.id, gacha_mod().sort_cards(cards), target.display_name, self.bot.get_cog("GachaCardSys"))
+        view = gacha_mod().InventoryView(
+            interaction.user.id, gacha_mod().sort_cards(cards), target.display_name,
+            self.bot.get_cog("GachaCardSys"), owner_id=target.id,
+        )
         await interaction.response.send_message(view=view, ephemeral=True)
 
     # 2. 🎁 /give 發放指定角色的卡牌

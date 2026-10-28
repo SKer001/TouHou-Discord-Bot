@@ -2,11 +2,11 @@ import json
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Database.User_DB_Manager import reset_daily, add_money, add_exp, get_or_create_user, update_user_inventory
+from Database.User_DB_Manager import reset_daily, add_money, add_exp, get_or_create_user, update_user_inventory, add_stamina
 from Database.Item_DB_Manager import get_all_items, get_item
+from Utils.config import is_admin
 from Utils.components import send_notice
 
-ADMIN_ID = 403895664666214400
 
 
 class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="【開發者專用】玩家數據與經濟管理指令"):
@@ -26,7 +26,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.describe(target="【可選】指定要重置的成員 (留空則重置自己)")
     @app_commands.default_permissions(administrator=True)
     async def reset_daily_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member = None):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
@@ -40,7 +40,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.describe(target="要調整賽錢的成員", amount="要調整的數額 (輸入負數則為扣除)")
     @app_commands.default_permissions(administrator=True)
     async def add_money_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, amount: int):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
@@ -53,7 +53,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.describe(target="要調整經驗值的成員", amount="要調整的經驗值數量 (輸入負數則為扣除)")
     @app_commands.default_permissions(administrator=True)
     async def add_exp_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, amount: int):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
@@ -78,7 +78,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.autocomplete(item_id=item_autocomplete)
     @app_commands.default_permissions(administrator=True)
     async def take_item_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, item_id: str, amount: int):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
 
@@ -115,11 +115,26 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
     @app_commands.describe(target="要清空背包的目標成員")
     @app_commands.default_permissions(administrator=True)
     async def clear_inventory_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member):
-        if interaction.user.id != ADMIN_ID:
+        if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
         await update_user_inventory(target.id, {})
         await send_notice(interaction, f"🧹 已成功清空 **{target.display_name}** 的背包，所有道具皆已歸零移除！")
+
+    # 6. ⚡ /add_stamina 調整體力
+    @app_commands.command(name="add_stamina", description="【開發者專用】增加或扣除指定成員的體力 (可超過自然回復上限 240)")
+    @app_commands.describe(target="目標成員", amount="增加的體力 (負數為扣除，最多扣到 0)")
+    @app_commands.default_permissions(administrator=True)
+    async def add_stamina_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member, amount: int):
+        if not is_admin(interaction.user):
+            await send_notice(interaction, "❌ 無權限")
+            return
+        info = await add_stamina(target.id, amount)
+        action = "增加" if amount >= 0 else "扣除"
+        await send_notice(
+            interaction,
+            f"⚡ 已{action} **{target.display_name}** 的體力 `{abs(amount)}` 點\n目前體力：`{info['stamina']} / {info['max']}`",
+        )
 
 
 async def setup(bot: commands.Bot):

@@ -7,7 +7,7 @@ from discord.ext import commands
 
 from Database.User_DB_Manager import (
     get_or_create_user, update_visibility, add_money, add_exp,
-    get_daily_status as db_get_daily_status, claim_daily,
+    get_daily_status as db_get_daily_status, claim_daily, calc_stamina,
 )
 from .Components.general_components import (
     get_avatar_dominant_color,
@@ -106,9 +106,10 @@ class ProfileView(ui.LayoutView):
                 button.callback = self.on_daily
         self.daily_button = button
 
+        stamina = calc_stamina(user_data.get("stamina"), user_data.get("stamina_updated_at"))
         container = build_profile_container(
             self.target_user, user_data, daily_status, self.dominant_color,
-            is_self=self.is_self, reward=self.reward, daily_button=button,
+            is_self=self.is_self, reward=self.reward, daily_button=button, stamina=stamina,
         )
         self.clear_items()
         self.add_item(container)

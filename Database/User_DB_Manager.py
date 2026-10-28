@@ -10,6 +10,7 @@
 """
 import os
 import json
+from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 
 import aiosqlite
@@ -35,7 +36,9 @@ SCHEMA_STATEMENTS = [
         fortune_level INTEGER DEFAULT NULL,
         inventory     TEXT    DEFAULT '{}',
         created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        is_public     INTEGER DEFAULT 1
+        is_public     INTEGER DEFAULT 1,
+        stamina       INTEGER DEFAULT 240,
+        stamina_updated_at TEXT DEFAULT NULL
     )
     """,
     """
@@ -59,12 +62,24 @@ SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_gacha_cards_user ON gacha_cards(user_id)",
+    """
+    CREATE TABLE IF NOT EXISTS gacha_pity (
+        user_id     INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        pool        TEXT    NOT NULL,
+        total_draws INTEGER NOT NULL DEFAULT 0,
+        since_ur    INTEGER NOT NULL DEFAULT 0,
+        last_ur_at  TEXT    DEFAULT NULL,
+        PRIMARY KEY (user_id, pool)
+    )
+    """,
 ]
 
 # 舊版 users 資料表可能缺少的欄位：(欄位名, 欄位定義)；init_db 會自動補上
 USERS_EXTRA_COLUMNS = [
     ("is_public", "INTEGER DEFAULT 1"),
     ("fortune_level", "INTEGER DEFAULT NULL"),
+    ("stamina", "INTEGER DEFAULT 240"),
+    ("stamina_updated_at", "TEXT DEFAULT NULL"),
 ]
 
 
@@ -311,14 +326,32 @@ async def update_user_inventory(user_id: int, inventory: dict):
 # ---------------------------------------------------------
 # 🏆 6. 排行榜與隱私 (Leaderboard & Visibility)
 # ---------------------------------------------------------
-async def get_top_money(limit: int = 10) -> list[tuple[int, int]]:
-    """取得賽錢排行榜前 N 名，傳回 [(user_id, money), ...]"""
+async def get_leaderboard_stats(user_ids: list[int]) -> list[dict]:
+    """
+    排行榜用：指定玩家的各項統計 (只會回傳資料庫裡有的玩家)
+    [{"user_id", "money", "level", "is_public", "total_draws", "total_fusions", "card_count", "char_count"}, ...]
+    """
+    if not user_ids:
+        return []
+    placeholders = ", ".join("?" for _ in user_ids)
     async with connect() as db:
         async with db.execute(
-            "SELECT user_id, money FROM users ORDER BY money DESC LIMIT ?", (limit,)
+            f"""
+            SELECT u.user_id, u.money, u.level, u.is_public,
+                   COALESCE(s.total_draws, 0)   AS total_draws,
+                   COALESCE(s.total_fusions, 0) AS total_fusions,
+                   COUNT(c.instance_id)            AS card_count,
+                   COUNT(DISTINCT c.character_key) AS char_count
+            FROM users u
+            LEFT JOIN gacha_stats s ON s.user_id = u.user_id
+            LEFT JOIN gacha_cards c ON c.user_id = u.user_id
+            WHERE u.user_id IN ({placeholders})
+            GROUP BY u.user_id
+            """,
+            tuple(user_ids),
         ) as cursor:
             rows = await cursor.fetchall()
-    return [(row["user_id"], row["money"]) for row in rows]
+    return [dict(row) for row in rows]
 
 
 async def update_visibility(user_id: int, is_public: bool):
@@ -361,37 +394,110 @@ async def get_gacha_stats(user_id: int) -> dict:
     return {"total_draws": row["total_draws"], "total_fusions": row["total_fusions"]}
 
 
+async def _insert_cards(db, user_id: int, cards: list[dict]):
+    """在既有連線 (交易) 中寫入卡牌"""
+    await db.executemany(
+        """
+        INSERT INTO gacha_cards
+            (instance_id, user_id, character_key, name, emoji, rarity, title, completeness, obtained_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                c["instance_id"], user_id, c["character_key"], c["name"], c.get("emoji"),
+                c["rarity"], c.get("title"), c["completeness"], c.get("obtained_at"),
+            )
+            for c in cards
+        ],
+    )
+
+
+async def _add_draws(db, user_id: int, draw_count: int):
+    """在既有連線 (交易) 中累加總抽卡次數"""
+    await db.execute(
+        """
+        INSERT INTO gacha_stats (user_id, total_draws) VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET total_draws = total_draws + excluded.total_draws
+        """,
+        (user_id, draw_count),
+    )
+
+
 async def add_gacha_cards(user_id: int, cards: list[dict], draw_count: int | None = None):
     """
-    一次寫入「這次抽到的所有卡牌」並累加抽卡次數。
-    全部在同一個交易裡：要嘛卡牌與統計都寫入，要嘛都不寫入。
+    直接寫入卡牌並累加抽卡次數 (同一個交易)；管理員發放用 draw_count=0。
+    一般祈願請用 draw_gacha (扣款、卡牌、統計、保底全部同一個交易)。
     draw_count 預設等於卡牌張數。
     """
     draw_count = len(cards) if draw_count is None else draw_count
     async with connect() as db:
         await _ensure_user(db, user_id)
-        await db.executemany(
-            """
-            INSERT INTO gacha_cards
-                (instance_id, user_id, character_key, name, emoji, rarity, title, completeness, obtained_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    c["instance_id"], user_id, c["character_key"], c["name"], c.get("emoji"),
-                    c["rarity"], c.get("title"), c["completeness"], c.get("obtained_at"),
-                )
-                for c in cards
-            ],
-        )
-        await db.execute(
-            """
-            INSERT INTO gacha_stats (user_id, total_draws) VALUES (?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET total_draws = total_draws + excluded.total_draws
-            """,
-            (user_id, draw_count),
-        )
+        await _insert_cards(db, user_id, cards)
+        await _add_draws(db, user_id, draw_count)
         await db.commit()
+
+
+class InsufficientFunds(Exception):
+    """賽錢不足；money 為玩家目前的賽錢"""
+    def __init__(self, money: int):
+        super().__init__(money)
+        self.money = money
+
+
+async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_cards) -> dict:
+    """
+    祈願：扣款 ➔ 依保底計數擲卡 ➔ 寫入卡牌 ➔ 累加統計與該卡池的保底，全部同一個交易
+    - roll_cards(since_ur) 回傳 (cards, new_since_ur, got_ur)；since_ur = 該卡池距離上次 UR 的抽數
+    - 賽錢不足丟出 InsufficientFunds (什麼都不會寫入)
+    回傳 {"cards", "money", "pool_draws", "since_ur"}
+    """
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            async with db.execute("SELECT money FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                money = (await cursor.fetchone())["money"]
+            if money < cost:
+                raise InsufficientFunds(money)
+
+            async with db.execute(
+                "SELECT total_draws, since_ur FROM gacha_pity WHERE user_id = ? AND pool = ?", (user_id, pool)
+            ) as cursor:
+                row = await cursor.fetchone()
+            pool_draws, since_ur = (row["total_draws"], row["since_ur"]) if row else (0, 0)
+
+            cards, since_ur, got_ur = roll_cards(since_ur)
+            pool_draws += draw_count
+
+            await db.execute("UPDATE users SET money = money - ? WHERE user_id = ?", (cost, user_id))
+            await _insert_cards(db, user_id, cards)
+            await _add_draws(db, user_id, draw_count)
+            last_ur_at = max(c["obtained_at"] for c in cards) if got_ur else None
+            await db.execute(
+                """
+                INSERT INTO gacha_pity (user_id, pool, total_draws, since_ur, last_ur_at) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, pool) DO UPDATE SET
+                    total_draws = excluded.total_draws,
+                    since_ur    = excluded.since_ur,
+                    last_ur_at  = COALESCE(excluded.last_ur_at, last_ur_at)
+                """,
+                (user_id, pool, pool_draws, since_ur, last_ur_at),
+            )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {"cards": cards, "money": money - cost, "pool_draws": pool_draws, "since_ur": since_ur}
+
+
+async def get_gacha_pity(user_id: int) -> dict:
+    """{"卡池": {"total_draws", "since_ur", "last_ur_at"}, ...}；沒抽過的卡池不會出現"""
+    async with connect() as db:
+        async with db.execute(
+            "SELECT pool, total_draws, since_ur, last_ur_at FROM gacha_pity WHERE user_id = ?", (user_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+    return {r["pool"]: {"total_draws": r["total_draws"], "since_ur": r["since_ur"], "last_ur_at": r["last_ur_at"]} for r in rows}
 
 
 async def transform_cards(user_id: int, instance_ids: list[str], build_new_card, count_fusion: bool = False) -> tuple[list[dict], dict]:
@@ -428,17 +534,7 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
                 f"DELETE FROM gacha_cards WHERE user_id = ? AND instance_id IN ({placeholders})",
                 (user_id, *instance_ids),
             )
-            await db.execute(
-                """
-                INSERT INTO gacha_cards
-                    (instance_id, user_id, character_key, name, emoji, rarity, title, completeness, obtained_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    new_card["instance_id"], user_id, new_card["character_key"], new_card["name"], new_card.get("emoji"),
-                    new_card["rarity"], new_card.get("title"), new_card["completeness"], new_card.get("obtained_at"),
-                ),
-            )
+            await _insert_cards(db, user_id, [new_card])
             if count_fusion:
                 await db.execute(
                     """
@@ -491,3 +587,88 @@ async def update_cards_completeness(user_id: int, instance_ids: list[str], compl
         )
         await db.commit()
         return cursor.rowcount
+
+
+# ---------------------------------------------------------
+# ⚡ 9. 體力 (Stamina)
+#   不用背景排程：每次「讀取 / 使用 / 回復」時才依經過時間結算
+#   自然回復：每 6 分鐘 +1，自然回復只回到 240 為止 (道具等可以超過 240，超過時不再自然回復)
+#   users.stamina_updated_at = 上次結算的時間點 (UTC ISO)；未滿時只推進「已結算的整數個 6 分鐘」，零頭保留
+# ---------------------------------------------------------
+STAMINA_MAX = 240
+STAMINA_INTERVAL_SECONDS = 6 * 60
+
+
+def calc_stamina(stored: int | None, updated_at: str | None, now: datetime | None = None) -> dict:
+    """
+    純計算 (不寫資料庫)：
+    {"stamina", "max", "updated_at" (新的結算時間 ISO), "next_in" (幾秒後 +1，已滿為 0), "full_in" (幾秒後回滿，已滿為 0)}
+    """
+    now = now or datetime.now(timezone.utc)
+    stamina = STAMINA_MAX if stored is None else stored
+    last = datetime.fromisoformat(updated_at) if updated_at else now
+
+    if stamina < STAMINA_MAX:
+        ticks = max(0, int((now - last).total_seconds() // STAMINA_INTERVAL_SECONDS))
+        stamina = min(STAMINA_MAX, stamina + ticks)
+        last = last + timedelta(seconds=ticks * STAMINA_INTERVAL_SECONDS)
+    if stamina >= STAMINA_MAX:
+        last = now   # 已滿：時鐘停在現在，等到被使用後才開始重新計時
+        return {"stamina": stamina, "max": STAMINA_MAX, "updated_at": last.isoformat(), "next_in": 0, "full_in": 0}
+
+    next_in = STAMINA_INTERVAL_SECONDS - int((now - last).total_seconds())
+    full_in = next_in + (STAMINA_MAX - stamina - 1) * STAMINA_INTERVAL_SECONDS
+    return {"stamina": stamina, "max": STAMINA_MAX, "updated_at": last.isoformat(), "next_in": next_in, "full_in": full_in}
+
+
+async def _change_stamina(user_id: int, delta: int, require_enough: bool) -> dict:
+    """結算後加減體力 (同一個交易)；require_enough 且不夠扣時不寫入，回傳 ok=False"""
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            async with db.execute(
+                "SELECT stamina, stamina_updated_at FROM users WHERE user_id = ?", (user_id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+            now = datetime.now(timezone.utc)
+            info = calc_stamina(row["stamina"], row["stamina_updated_at"], now)
+
+            if require_enough and info["stamina"] < -delta:
+                await db.rollback()
+                return {**info, "ok": False}
+
+            new_value = max(0, info["stamina"] + delta)
+            # 從滿 (或超過) 掉到未滿時，從現在開始計時；其餘沿用已結算的時間點
+            updated_at = now.isoformat() if info["stamina"] >= STAMINA_MAX else info["updated_at"]
+            await db.execute(
+                "UPDATE users SET stamina = ?, stamina_updated_at = ? WHERE user_id = ?",
+                (new_value, updated_at, user_id),
+            )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {**calc_stamina(new_value, updated_at, now), "ok": True}
+
+
+async def get_stamina(user_id: int) -> dict:
+    """查詢目前體力 (唯讀，不替對方建資料)"""
+    async with connect() as db:
+        async with db.execute(
+            "SELECT stamina, stamina_updated_at FROM users WHERE user_id = ?", (user_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+    if row is None:
+        return calc_stamina(None, None)
+    return calc_stamina(row["stamina"], row["stamina_updated_at"])
+
+
+async def spend_stamina(user_id: int, amount: int) -> dict:
+    """消耗體力；不夠時不扣並回傳 ok=False"""
+    return await _change_stamina(user_id, -abs(amount), require_enough=True)
+
+
+async def add_stamina(user_id: int, amount: int) -> dict:
+    """回復 / 扣除體力 (道具、管理員用)；可以超過 240，扣到 0 為止"""
+    return await _change_stamina(user_id, amount, require_enough=False)

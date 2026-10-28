@@ -88,6 +88,24 @@ def _daily_section_text(daily_status: dict, is_self: bool, reward: dict | None) 
     return text + "\n-# 每日 00:00 重置簽到與運勢"
 
 
+def _format_duration(seconds: int) -> str:
+    hours, rest = divmod(max(0, seconds), 3600)
+    minutes, secs = divmod(rest, 60)
+    if hours:
+        return f"{hours} 小時 {minutes} 分"
+    return f"{minutes} 分 {secs} 秒"
+
+
+def _stamina_text(stamina: dict | None) -> str:
+    """資料卡上的體力那一行 (含換行)；stamina 為 None 時不顯示"""
+    if stamina is None:
+        return ""
+    head = f"⚡ **體力**　`{stamina['stamina']} / {stamina['max']}`"
+    if stamina["stamina"] >= stamina["max"]:
+        return f"{head}　✅ 已回滿\n"
+    return f"{head}　-# 下次 +1：{_format_duration(stamina['next_in'])} · 回滿：{_format_duration(stamina['full_in'])}\n"
+
+
 def build_profile_container(
     user: discord.User | discord.Member,
     user_data: dict,
@@ -96,10 +114,12 @@ def build_profile_container(
     is_self: bool = False,
     reward: dict | None = None,
     daily_button: ui.Button | None = None,
+    stamina: dict | None = None,
 ) -> ui.Container:
     """
-    個人資料卡：頭像標題 / 賽錢・P點・背包 / 經驗值進度條 / 今日簽到與運勢。
+    個人資料卡：頭像標題 / 賽錢・P點・體力・背包 / 經驗值進度條 / 今日簽到與運勢。
     daily_button 不為 None 時，會放在「今日運勢」區塊的右側 (只有本人的卡片才會有)。
+    stamina = calc_stamina() 的結果；None 時不顯示體力。
     """
     money = user_data.get("money", 1000)
     current_level = user_data.get("level", 0)  # level 0~1000 (對應 0.0 P ~ 100.0 P)
@@ -126,6 +146,7 @@ def build_profile_container(
     container.add_item(ui.TextDisplay(
         f"💰 **賽錢**　`{money:,}` 兩\n"
         f"🔴 **P點**　`{p_power:.1f}` P\n"
+        f"{_stamina_text(stamina)}"
         f"🎒 **背包物品數**　`{total_items}` 件道具\n\n"
         f"✨ **經驗值 (EXP)**\n{exp_text}\n{exp_bar}"
     ))
@@ -257,4 +278,55 @@ def build_inventory_container(
         lines.append(line)
 
     container.add_item(ui.TextDisplay("\n\n".join(lines)))
+    return container
+
+
+# ---------------------------------------------------------
+# 🏆 排行榜 (Components V2)
+# ---------------------------------------------------------
+# 排行項目：key ➔ (顯示名稱, 統計欄位, 數值格式)
+LEADERBOARD_TYPES = {
+    "money":    ("💰 賽錢",     "money",         lambda v: f"{v:,} 兩"),
+    "level":    ("🔴 P點",      "level",         lambda v: f"{v / 10:.1f} P"),
+    "chars":    ("📚 收集角色", "char_count",    lambda v: f"{v} 位"),
+    "cards":    ("🎴 卡牌總數", "card_count",    lambda v: f"{v:,} 張"),
+    "draws":    ("🎰 祈願次數", "total_draws",   lambda v: f"{v:,} 抽"),
+    "fusions":  ("🔮 融合次數", "total_fusions", lambda v: f"{v:,} 次"),
+}
+TOP_N = 10
+MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+
+def build_leaderboard_container(guild: discord.Guild, type_key: str, rows: list[dict], viewer_id: int) -> ui.Container:
+    """
+    rows 已依該項目由高到低排序，每筆含 "member"。
+    私人資料卡的玩家仍會計入名次，但不顯示名字 (本人除外)。
+    """
+    title, field, fmt = LEADERBOARD_TYPES[type_key]
+    container = ui.Container(accent_color=discord.Color.gold())
+    container.add_item(ui.TextDisplay(
+        f"## 🏆 {guild.name} 排行榜：{title}\n"
+        f"-# 只比較本伺服器中有遊玩紀錄的 {len(rows)} 位居民 · 私人資料卡的玩家不顯示名字"
+    ))
+    container.add_item(ui.Separator())
+
+    def line(rank: int, row: dict) -> str:
+        is_viewer = row["user_id"] == viewer_id
+        name = row["member"].display_name if (row["is_public"] or is_viewer) else "🔒 私人玩家"
+        mark = "　⬅️ 你" if is_viewer else ""
+        return f"{MEDALS.get(rank, f'`#{rank}`')} **{name}**　`{fmt(row[field])}`{mark}"
+
+    if rows:
+        lines = [line(rank, row) for rank, row in enumerate(rows[:TOP_N], start=1)]
+        container.add_item(ui.TextDisplay("\n".join(lines)))
+    else:
+        container.add_item(ui.TextDisplay("*（這個伺服器還沒有人留下遊玩紀錄）*"))
+
+    # 自己不在前 N 名時，額外顯示自己的名次
+    my_rank = next((i for i, row in enumerate(rows, start=1) if row["user_id"] == viewer_id), None)
+    container.add_item(ui.Separator())
+    if my_rank is None:
+        container.add_item(ui.TextDisplay("-# 你還沒有遊玩紀錄，快去 `/daily` 或 `/card gacha` 吧！"))
+    elif my_rank > TOP_N:
+        container.add_item(ui.TextDisplay(line(my_rank, rows[my_rank - 1])))
     return container

@@ -8,12 +8,15 @@ import random
 import uuid
 from datetime import datetime
 
-from Database.User_DB_Manager import get_or_create_user, add_money, get_user_cards, add_gacha_cards, transform_cards
+from Database.User_DB_Manager import (
+    get_user_cards, transform_cards, draw_gacha, get_gacha_pity, get_gacha_stats, InsufficientFunds,
+)
 from .Components.gacha_components import (
     STACKS_PER_PAGE,
     STACK_CARDS_PER_PAGE,
     build_gacha_single_container,
     build_gacha_ten_container,
+    build_gacha_history_container,
     build_stack_list_container,
     build_stack_cards_container,
     build_card_detail_container,
@@ -83,6 +86,49 @@ def sort_cards(cards: list) -> list:
         c.get("completeness", 0.0),
         c.get("obtained_at", "")
     ))
+
+
+# ================= ⛩️ 祈願規則 =================
+DRAW_COST = 2000                 # 每抽賽錢
+RARITY_WEIGHTS = [75, 22, 3]     # 角色三個階級 (低 ➔ 高) 的權重
+PITY_THRESHOLD = 100             # 每個卡池連續 100 抽沒出 UR ➔ 第 100 抽必出 UR
+PITY_RARITY = "UR"
+PITY_RESET_RARITIES = {"UR", "LR"}   # 抽到這些階級就重置保底計數
+
+
+def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness) -> tuple[list, int, bool]:
+    """
+    依保底計數擲出 count 張卡：(cards, 新的 since_ur, 是否出了 UR 以上)
+    觸發保底的卡會帶 "pity": True (只用於顯示，不寫入資料庫)
+    """
+    char_keys = [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
+    pity_keys = [k for k in char_keys if PITY_RARITY in GACHA_POOL[k]["rarities"]]
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cards, got_ur = [], False
+
+    for _ in range(count):
+        since_ur += 1
+        char_key = random.choice(char_keys)
+        rarity = random.choices(GACHA_POOL[char_key]["rarities"], weights=RARITY_WEIGHTS, k=1)[0]
+        pity = False
+        if rarity not in PITY_RESET_RARITIES and since_ur >= PITY_THRESHOLD and pity_keys:
+            char_key, rarity, pity = random.choice(pity_keys), PITY_RARITY, True
+        if rarity in PITY_RESET_RARITIES:
+            since_ur, got_ur = 0, True
+
+        char_data = GACHA_POOL[char_key]
+        cards.append({
+            "instance_id": f"c_{char_data['uuid'][:4]}_{uuid.uuid4().hex[:12]}",
+            "character_key": char_key,
+            "name": char_data["name"],
+            "emoji": char_data["emoji"],
+            "rarity": rarity,
+            "title": char_data["titles"][rarity],
+            "completeness": make_completeness(),
+            "obtained_at": now,
+            "pity": pity,
+        })
+    return cards, since_ur, got_ur
 
 
 # ================= ⚗️ 合成 / 🔮 融合規則 =================
@@ -246,7 +292,23 @@ def build_stacks(cards: list) -> list[dict]:
         stack["cards"].sort(key=lambda c: c["completeness"], reverse=True)
         stack["best"] = stack["cards"][0]["completeness"]
         stack["latest"] = max(c.get("obtained_at") or "" for c in stack["cards"])
+        # 卡冊上的合成 / 融合提示 (與 find_synthesis_groups / find_fusion_groups 條件相同)
+        stack["can_synth"] = sum(1 for c in stack["cards"] if not is_perfect(c)) >= 2
+        stack["can_fuse"] = (
+            sum(1 for c in stack["cards"] if is_perfect(c)) >= FUSION_COUNT
+            and get_next_rarity(stack["cards"][0]) is not None
+        )
     return list(stacks.values())
+
+
+def collection_progress(cards: list) -> list[tuple[dict, int, int]]:
+    """各卡池的收集進度：[(卡池設定, 已擁有角色數, 卡池角色數), ...]"""
+    owned = {c["character_key"] for c in cards}
+    result = []
+    for key, pool in GACHA_POOLS.items():
+        members = [k for k, v in GACHA_POOL.items() if v["pool"] == key]
+        result.append((pool, sum(1 for k in members if k in owned), len(members)))
+    return result
 
 
 def sort_stacks(stacks: list, mode: str) -> list:
@@ -269,9 +331,10 @@ class InventoryView(ui.LayoutView):
     卡冊：同一個 View 依狀態切換三種畫面
       疊卡列表 (卡池 / 階級篩選 + 排序) ➔ 單一疊的卡牌列表 ➔ 單卡詳情
     """
-    def __init__(self, user_id: int, cards: list, user_name: str, gacha_cog):
+    def __init__(self, user_id: int, cards: list, user_name: str, gacha_cog, owner_id: int | None = None):
         super().__init__(timeout=180)
-        self.user_id = user_id
+        self.user_id = user_id                       # 操作畫面的人
+        self.owner_id = owner_id or user_id          # 卡冊的主人 (管理員檢視別人卡冊時不同)
         self.user_name = user_name
         self.gacha_cog = gacha_cog
         self.all_cards = cards
@@ -312,6 +375,11 @@ class InventoryView(ui.LayoutView):
         rarity = "全部階級" if self.rarity_filter == "ALL" else f"{self.rarity_filter} 階級"
         return f"篩選：{pool} · {rarity} · 排序：{INVENTORY_SORTS[self.sort_index][1]}"
 
+    def _progress_text(self) -> str:
+        return " · ".join(
+            f"{p['name']} `{owned}/{total}`" for p, owned, total in collection_progress(self.all_cards)
+        )
+
     # ---------------- 畫面 ----------------
     def build(self):
         self.clear_items()
@@ -337,7 +405,7 @@ class InventoryView(ui.LayoutView):
 
         container = build_stack_list_container(
             page_stacks, self.page, total_pages, len(stacks), self.all_cards,
-            self.user_name, THUMBNAILS, self._filter_desc(), start + 1,
+            self.user_name, THUMBNAILS, self._filter_desc(), start + 1, self._progress_text(),
         )
         container.add_item(ui.Separator())
 
@@ -414,6 +482,17 @@ class InventoryView(ui.LayoutView):
             self._button(f"📄 {self.stack_page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
             self._button("下一頁 ▶️", self.stack_next_callback, disabled=(self.stack_page >= total_pages)),
         ))
+
+        # 合成 / 融合捷徑：只有卡冊主人本人看得到 (管理員檢視別人卡冊時不顯示)
+        if self.user_id == self.owner_id and (stack["can_synth"] or stack["can_fuse"]):
+            shortcuts = []
+            if stack["can_synth"]:
+                shortcuts.append(self._button("⚗️ 合成這一疊", self.synth_shortcut_callback, discord.ButtonStyle.success))
+            if stack["can_fuse"]:
+                shortcuts.append(self._button(
+                    f"🔮 融合 ➔ {get_next_rarity(stack['cards'][0])}", self.fuse_shortcut_callback, discord.ButtonStyle.success
+                ))
+            container.add_item(ui.ActionRow(*shortcuts))
         self.add_item(container)
 
     def _build_card_detail(self):
@@ -493,6 +572,27 @@ class InventoryView(ui.LayoutView):
         self.selected_card = None
         self.selected_stack = None
         await self.refresh(interaction)
+
+    async def synth_shortcut_callback(self, interaction: discord.Interaction):
+        """從這一疊直接開啟合成選卡畫面 (重新讀取資料庫，避免用到已經用掉的卡)"""
+        stack = self.get_stack(self.selected_stack)
+        group = find_synthesis_groups(await get_user_cards(self.owner_id)).get((stack["character_key"], stack["rarity"]))
+        if not group:
+            await send_notice(interaction, "❌ 這一疊已經沒有可以合成的卡牌了，請重新開啟 `/card inventory`。")
+            return
+        self.stop()
+        view = SynthesisPickerView(self.owner_id, self.user_name, self.gacha_cog, stack["character_key"], group)
+        await interaction.response.edit_message(view=view)
+
+    async def fuse_shortcut_callback(self, interaction: discord.Interaction):
+        """從這一疊直接開啟融合確認畫面"""
+        stack = self.get_stack(self.selected_stack)
+        result = await self.gacha_cog.make_fusion_view(self.owner_id, self.user_name, stack["character_key"], stack["rarity"])
+        if isinstance(result, str):
+            await send_notice(interaction, result)
+            return
+        self.stop()
+        await interaction.response.edit_message(view=result)
 
 
 # ================= ✅ 合成 / 融合確認 View (Components V2) =================
@@ -715,57 +815,38 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     async def execute_gacha(self, interaction: discord.Interaction, draw_count: int, pool_key: str):
         await interaction.response.defer()
 
-        # 卡池沒有角色時直接中止，避免「賽錢已扣、卻抽不到卡」
-        char_keys = [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
-        if not char_keys:
+        # 卡池沒有角色時直接中止
+        if not any(v["pool"] == pool_key for v in GACHA_POOL.values()):
             await send_notice(interaction, "❌ 這個卡池目前沒有任何角色，暫時無法祈願，請聯絡管理員。")
             return
 
         user_id = interaction.user.id
-        total_cost = draw_count * 2000
+        total_cost = draw_count * DRAW_COST
 
-        user_db = await get_or_create_user(user_id)
-        current_money = user_db.get("money", 0)
-
-        if current_money < total_cost:
-            msg = f"❌ **賽錢不足！**\n祈願需要 `{total_cost:,}` 賽錢，但你的口袋裡只有 `{current_money:,}` 賽錢...\n*靈夢看了看空蕩蕩的賽錢箱，無奈地把你請出了神社。*"
+        # 扣款、擲卡 (含保底)、寫入卡牌與統計全部在同一個交易
+        try:
+            result = await draw_gacha(
+                user_id, pool_key, draw_count, total_cost,
+                lambda since_ur: roll_pool_cards(pool_key, draw_count, since_ur, self.generate_completeness),
+            )
+        except InsufficientFunds as e:
+            msg = f"❌ **賽錢不足！**\n祈願需要 `{total_cost:,}` 賽錢，但你的口袋裡只有 `{e.money:,}` 賽錢...\n*靈夢看了看空蕩蕩的賽錢箱，無奈地把你請出了神社。*"
             await send_notice(interaction, msg)
             return
 
-        await add_money(user_id, -total_cost)
-
-        results = []
-
-        for _ in range(draw_count):
-            char_key = random.choice(char_keys)
-            char_data = GACHA_POOL[char_key]
-            
-            rarity = random.choices(char_data["rarities"], weights=[75, 22, 3], k=1)[0]
-            title = char_data["titles"][rarity]
-            
-            new_card = {
-                "instance_id": f"c_{char_data['uuid'][:4]}_{uuid.uuid4().hex[:12]}",
-                "character_key": char_key,
-                "name": char_data["name"],
-                "emoji": char_data["emoji"],
-                "rarity": rarity,
-                "title": title,
-                "completeness": self.generate_completeness(),
-                "obtained_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            results.append(new_card)
-
-        # 卡牌與抽卡統計一起寫入 Users.db (同一個交易)
-        await add_gacha_cards(user_id, results, draw_count)
+        results = result["cards"]
+        pity_text = f"🎯 保底：`{result['since_ur']} / {PITY_THRESHOLD}` · 本池累計 `{result['pool_draws']:,}` 抽"
+        if any(c.get("pity") for c in results):
+            pity_text = f"🎯 **觸發保底！必定獲得 {PITY_RARITY}！**\n" + pity_text
 
         pool_name = GACHA_POOLS[pool_key]["name"]
         if draw_count == 1:
             container = build_gacha_single_container(
-                results[0], interaction.user.display_name, total_cost, THUMBNAILS, pool_name
+                results[0], interaction.user.display_name, total_cost, THUMBNAILS, pool_name, pity_text
             )
         else:
             container = build_gacha_ten_container(
-                results, interaction.user.display_name, total_cost, THUMBNAILS, pool_name
+                results, interaction.user.display_name, total_cost, THUMBNAILS, pool_name, pity_text
             )
 
         view = GachaResultView(user_id, interaction.user.display_name, self, container, pool_key)
@@ -786,6 +867,18 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     )
     async def gacha_card(self, interaction: discord.Interaction, pool: app_commands.Choice[str], pull_type: app_commands.Choice[int]):
         await self.execute_gacha(interaction, pull_type.value, pool.value)
+
+    @app_commands.command(name="history", description="📜 查看各卡池的祈願次數與保底進度")
+    async def history(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        pity = await get_gacha_pity(user_id)
+        stats = await get_gacha_stats(user_id)
+        container = build_gacha_history_container(
+            interaction.user.display_name, GACHA_POOLS, pity, stats, PITY_THRESHOLD, PITY_RARITY
+        )
+        view = ui.LayoutView()
+        view.add_item(container)
+        await interaction.response.send_message(view=view)
 
     @app_commands.command(name="inventory", description="🎒 查看個人的博麗神社卡冊與持有卡牌")
     async def view_inventory(self, interaction: discord.Interaction):
@@ -924,15 +1017,18 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     )
     @app_commands.autocomplete(pool=fusion_pool_autocomplete, character=fusion_character_autocomplete, rarity=fusion_rarity_autocomplete)
     async def fusion(self, interaction: discord.Interaction, pool: str, character: str, rarity: str):
-        user_id = interaction.user.id
-        user_name = interaction.user.display_name
-        char_key = character
-        group = find_fusion_groups(await get_user_cards(user_id)).get((char_key, rarity))
-
-        if not group or card_pool_key(group[0]) != pool:
-            await send_notice(interaction, f"❌ **無法融合！**\n融合需要 **{FUSION_COUNT}** 張「同角色」、「同階級」且完整度 `1.0000` 的卡牌，"
-                f"而且該角色必須還有更高的階級。")
+        result = await self.make_fusion_view(interaction.user.id, interaction.user.display_name, character, rarity, pool)
+        if isinstance(result, str):
+            await send_notice(interaction, result)
             return
+        await interaction.response.send_message(view=result)
+
+    async def make_fusion_view(self, user_id: int, user_name: str, char_key: str, rarity: str, pool: str | None = None):
+        """建立融合確認畫面；條件不符時回傳錯誤訊息 (str)。pool 有給時會一併檢查卡池"""
+        group = find_fusion_groups(await get_user_cards(user_id)).get((char_key, rarity))
+        if not group or (pool is not None and card_pool_key(group[0]) != pool):
+            return (f"❌ **無法融合！**\n融合需要 **{FUSION_COUNT}** 張「同角色」、「同階級」且完整度 `1.0000` 的卡牌，"
+                    f"而且該角色必須還有更高的階級。")
 
         materials = group[:FUSION_COUNT]   # 滿完整度的卡都一樣，取最早獲得的三張
         material_ids = [c["instance_id"] for c in materials]
@@ -969,8 +1065,7 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
                 return f"❌ **融合失敗**：{e}\n-# 卡牌沒有任何變動。"
             return build_fusion_result_container(new_card, rarity, user_name, THUMBNAILS)
 
-        view = CardActionConfirmView(user_id, user_name, self, container, on_confirm, "🔮 確認融合")
-        await interaction.response.send_message(view=view)
+        return CardActionConfirmView(user_id, user_name, self, container, on_confirm, "🔮 確認融合")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(GachaCardSys(bot))

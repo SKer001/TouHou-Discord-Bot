@@ -46,13 +46,17 @@ def _rarity_range(char: dict) -> str:
 # ---------------------------------------------------------
 # 🏠 1. 首頁：選擇分類
 # ---------------------------------------------------------
-def build_home_container(categories: dict) -> ui.Container:
+def build_home_container(categories: dict, owned: dict | None = None) -> ui.Container:
+    """owned = {"角色id": {"階級": 張數}}：檢視者自己的收藏"""
     total_chars = sum(len(c["characters"]) for c in categories.values())
+    owned = owned or {}
+    owned_chars = sum(1 for c in categories.values() for ch in c["characters"] if ch["id"] in owned)
 
     container = ui.Container(accent_color=discord.Color.purple())
     container.add_item(ui.TextDisplay(
         "## 🌸 東方 Project 角色圖鑑資料庫\n"
         "請先從下方下拉式選單選擇 **角色分類 / 作品章節**：\n"
+        f"📚 你已收集 `{owned_chars} / {total_chars}` 位角色\n"
         f"-# 共 {len(categories)} 個分類 · {total_chars} 位角色"
     ))
     return container
@@ -61,20 +65,24 @@ def build_home_container(categories: dict) -> ui.Container:
 # ---------------------------------------------------------
 # 📂 2. 分類頁：列出該分類的角色
 # ---------------------------------------------------------
-def build_category_container(category_data: dict) -> ui.Container:
+def build_category_container(category_data: dict, owned: dict | None = None) -> ui.Container:
     characters = category_data["characters"]
+    owned = owned or {}
+    owned_count = sum(1 for ch in characters if ch["id"] in owned)
 
     container = ui.Container(accent_color=discord.Color.blue())
     container.add_item(ui.TextDisplay(
         f"## 📂 {category_data['category_name']}\n"
         f"{category_data.get('description', '')}\n"
+        f"📚 已收集 `{owned_count} / {len(characters)}` 位 · ✅ = 已擁有\n"
         f"-# 共 {len(characters)} 位角色 · 請從下方選單選擇要檢視的角色"
     ))
 
     if characters:
         container.add_item(ui.Separator())
         lines = [
-            f"{ch.get('emoji', '👤')} **{ch['name']}**　`[{_rarity_range(ch)}]`\n-# {ch['profile'].get('title', '')}"
+            f"{'✅' if ch['id'] in owned else '▫️'} {ch.get('emoji', '👤')} **{ch['name']}**　`[{_rarity_range(ch)}]`\n"
+            f"-# {ch['profile'].get('title', '')}"
             for ch in characters
         ]
         container.add_item(ui.TextDisplay("\n".join(lines)))
@@ -84,7 +92,10 @@ def build_category_container(category_data: dict) -> ui.Container:
 # ---------------------------------------------------------
 # 👤 3. 角色檔案頁：文字 + 右側縮圖
 # ---------------------------------------------------------
-def build_character_container(char: dict, category_name: str, thumbnails: dict | None = None) -> ui.Container:
+def build_character_container(char: dict, category_name: str, thumbnails: dict | None = None,
+                              owned: dict | None = None) -> ui.Container:
+    """owned = {"角色id": {"階級": 張數}}：檢視者自己的收藏"""
+    my_cards = (owned or {}).get(char.get("id"), {})
     profile = char["profile"]
     gacha = char["gacha"]
     stats = char["base_stats"]
@@ -119,7 +130,10 @@ def build_character_container(char: dict, category_name: str, thumbnails: dict |
     # 卡池階級與稱號
     if rarities:
         pool_state = "🎴 可在 `/card gacha` 祈願中獲得" if gacha.get("enabled") else "🚫 目前不在卡池中"
-        title_lines = "\n".join(f"`[{r}]` {gacha.get('titles', {}).get(r, '')}" for r in rarities)
+        title_lines = "\n".join(
+            f"`[{r}]` {gacha.get('titles', {}).get(r, '')}　" + (f"✅ ×{my_cards[r]}" if my_cards.get(r) else "▫️ 未擁有")
+            for r in rarities
+        )
         container.add_item(ui.TextDisplay(f"### 🏷️ 卡牌階級\n{title_lines}\n-# {pool_state}"))
 
     # 個人能力 (SP)：依階級分 I / II / III

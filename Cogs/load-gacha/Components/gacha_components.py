@@ -67,13 +67,16 @@ def _card_block(text: str, char_key: str | None, thumbnails: dict | None):
 def _card_text(index: int, card: dict, id_first: bool = True) -> str:
     eval_str, _ = get_completeness_eval(card["completeness"])
     head = f"**{index}.** {card.get('emoji', '🎴')} `[{card['rarity']}]` **{card['name']}**"
+    if card.get("pity"):
+        head += "　🎯 保底"
     if id_first:
         return f"{head}\n├ *{card['title']}*\n└ ID: `{card['instance_id']}` · {eval_str}"
     return f"{head}\n├ *{card['title']}*\n└ {eval_str} | ID: `{card['instance_id']}`"
 
 
 # ================= 🎴 Container 建構 =================
-def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thumbnails: dict = None, pool_name: str = "") -> ui.Container:
+def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thumbnails: dict = None,
+                                 pool_name: str = "", pity_text: str = "") -> ui.Container:
     """單抽結果"""
     eval_str, color = get_completeness_eval(card_data["completeness"])
 
@@ -84,6 +87,7 @@ def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thu
         f"**角色**：{card_data.get('emoji', '🎴')} **{card_data['name']}**\n"
         f"**階級與稱號**：`[{card_data['rarity']}]` {card_data['title']}\n"
         f"**完整度品相**：{eval_str}\n\n"
+        f"{pity_text}\n"
         f"-# 卡牌編號: {card_data['instance_id']} | 擁有者: {user_name}"
     )
 
@@ -92,7 +96,8 @@ def build_gacha_single_container(card_data: dict, user_name: str, cost: int, thu
     return container
 
 
-def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: int, thumbnails: dict = None, pool_name: str = "") -> ui.Container:
+def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: int, thumbnails: dict = None,
+                              pool_name: str = "", pity_text: str = "") -> ui.Container:
     """十連結果：標題 + 分隔線 + 10 個『文字＋右側縮圖』的 Section"""
     best_card = max(results, key=lambda c: c["completeness"])
     _, color = get_completeness_eval(best_card["completeness"])
@@ -102,6 +107,7 @@ def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: i
         f"## ⛩️ {user_name} 的抽卡結果（十連模式）\n"
         f"🎰 卡池：{pool_name}\n"
         f"共抽到 **{len(results)}** 張卡片 · 消耗賽錢：`{total_cost:,}` 🪙\n"
+        f"{pity_text}\n"
         f"-# 卡牌已全數寫入個人卡庫"
     ))
     container.add_item(ui.Separator())
@@ -109,6 +115,37 @@ def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: i
     for idx, card in enumerate(results, start=1):
         container.add_item(_card_block(_card_text(idx, card, id_first=True), card.get("character_key"), thumbnails))
 
+    return container
+
+
+def build_gacha_history_container(user_name: str, pools: dict, pity: dict, stats: dict,
+                                  threshold: int, pity_rarity: str) -> ui.Container:
+    """
+    祈願紀錄：各卡池的累計抽數與保底進度
+    pools = GACHA_POOLS；pity = {"卡池": {"total_draws", "since_ur", "last_ur_at"}}；stats = get_gacha_stats()
+    """
+    container = ui.Container(accent_color=discord.Color.gold())
+    container.add_item(ui.TextDisplay(
+        f"## 📜 {user_name} 的祈願紀錄\n"
+        f"🎰 **總祈願次數**：`{stats.get('total_draws', 0):,}` 抽 · 🔮 **融合次數**：`{stats.get('total_fusions', 0):,}` 次\n"
+        f"-# 每個卡池連續 {threshold} 抽沒有出 {pity_rarity} 以上，第 {threshold} 抽必定獲得 {pity_rarity}"
+    ))
+    container.add_item(ui.Separator())
+
+    lines = []
+    for key, p in pools.items():
+        row = pity.get(key, {"total_draws": 0, "since_ur": 0, "last_ur_at": None})
+        since = row["since_ur"]
+        filled = min(10, since * 10 // threshold)
+        bar = "🟨" * filled + "⬛" * (10 - filled)
+        last = row["last_ur_at"] or "尚未獲得"
+        lines.append(
+            f"### {p['name']}\n"
+            f"累計 `{row['total_draws']:,}` 抽 · 保底 `{since} / {threshold}`（再 `{threshold - since}` 抽必出 {pity_rarity}）\n"
+            f"{bar}\n"
+            f"-# 上次獲得 {pity_rarity} 以上：{last}"
+        )
+    container.add_item(ui.TextDisplay("\n".join(lines)))
     return container
 
 
@@ -131,16 +168,19 @@ def build_stack_list_container(
     thumbnails: dict = None,
     filter_desc: str = "",
     start_index: int = 1,
+    progress_text: str = "",
 ) -> ui.Container:
     """
     個人卡冊 (疊卡模式)：同角色、同階級的卡疊成一列
-    stack = {"character_key", "rarity", "name", "emoji", "title", "cards": [...], "best": float}
+    stack = {"character_key", "rarity", "name", "emoji", "title", "cards": [...], "best": float, "can_synth", "can_fuse"}
+    progress_text：各卡池的收集進度 (一行)
     """
     header = (
         f"## 🎒 {user_name} 的博麗神社卡冊\n"
         f"📊 **持有總量**：`{len(all_cards)}` 張 · `{total_stacks}` 疊 (目前篩選)\n"
         f"🏷️ **階級統計**：{_rarity_stats(all_cards)}\n"
-        f"-# {filter_desc}"
+        f"📚 **收集進度**：{progress_text}\n"
+        f"-# {filter_desc} · ⚗️ 可合成 · 🔮 可融合"
     )
 
     if not stacks_page:
@@ -160,7 +200,8 @@ def build_stack_list_container(
     for idx, stack in enumerate(stacks_page, start=start_index):
         best_eval, _ = get_completeness_eval(stack["best"])
         text = (
-            f"**{idx}.** {stack.get('emoji', '🎴')} `[{stack['rarity']}]` **{stack['name']}**　×**{len(stack['cards'])}**\n"
+            f"**{idx}.** {stack.get('emoji', '🎴')} `[{stack['rarity']}]` **{stack['name']}**　×**{len(stack['cards'])}**"
+            f"{'　⚗️' if stack.get('can_synth') else ''}{'　🔮' if stack.get('can_fuse') else ''}\n"
             f"├ *{stack['title']}*\n"
             f"└ 最高完整度 {best_eval}"
         )
