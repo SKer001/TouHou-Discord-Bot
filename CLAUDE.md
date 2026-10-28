@@ -107,14 +107,18 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕原圖產生（含底部 TouHou / Project 小字）。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
-  - **進度（2026-10-28）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺（TH02）。**下一位：里香 rika（TH02）**，之後依 `Characters/` 分類順序：千百合 chiyuri → 夢美 yumemi（TH03）→ 艾莉 elly → 幻月 gengetsu → 夢月 mugetsu（TH04）→ 愛麗絲 alice → 露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
+  - **進度（2026-10-28）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）。**下一位：千百合 chiyuri（TH03）**，之後依 `Characters/` 分類順序：千百合 chiyuri → 夢美 yumemi（TH03）→ 艾莉 elly → 幻月 gengetsu → 夢月 mugetsu（TH04）→ 愛麗絲 alice → 露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
   - **每位角色的做法（使用者指定：一位一位處理）**：
     1. 在 `make_workflow.py` 加 `BASE`（外觀 Danbooru 標籤）、每個階級的 `SCENES`（依稱號、個性、故事；階級越高越強），需要時加 `EXTRA_NEGATIVE`（可用角色或 `(角色, 階級)` 當鍵）；在 `build_cards.py` 加 `EN_NAMES`。先用一兩句話跟使用者說明各階級的構想。
     2. 每個階級用兩個種子各生 2 張（共 4 張）：`make_workflow.py <角色> <階級> <種子> <out.json>` → ComfyUI MCP `run_workflow(wait=False)` → `job(action="wait")`。
     3. `python tools/card_art/candidates.py <角色> --out <暫存資料夾>` 做對照表（取最新 4 張，標 1～4），用 SendUserFile 傳給使用者，順便指出明顯的問題（多出的腳、翅膀、髮色錯誤等）。
     4. 使用者回覆例如「343」＝各階級依序選第 3、4、3 張 → 把 ComfyUI 輸出的那張複製成 `images/Original/Art/<角色>_<階級>.png` → `build_cards.py <角色>` → 跑測試 → commit + push（不用先問）。
-  - **使用者偏好與踩過的坑**：明亮、淡陰影、全身、貼近角色個性；字不能太粗（會糊）。魔理沙要加 `standing, holding broom` 負面提示不然會拿著掃帚；魅魔是幽靈尾巴但模型常畫出腳；玄爺照使用者給的官方形象（陸龜、白鬍子白眉、白毛尾巴，不是海龜、不要翅膀）；兩個角色同框時（玄爺 R 載著靈夢）外觀標籤會互相染色（靈夢變白髮），要在負面提示排除。使用者不滿意時會給參考圖或說明，照著改 prompt 重生。小瑕疵（例如掃帚柄沒對齊）可以用 PIL 剪貼 + ComfyUI 局部重繪 (VAEEncodeForInpaint) 修。
-  - **ComfyUI 環境（目前只裝在筆電）**：桌機要生圖得先安裝：
+  - **使用者偏好與踩過的坑**：明亮、淡陰影、全身、貼近角色個性；字不能太粗（會糊）。魔理沙要加 `standing, holding broom` 負面提示不然會拿著掃帚；魅魔是幽靈尾巴但模型常畫出腳；玄爺照使用者給的官方形象（陸龜、白鬍子白眉、白毛尾巴，不是海龜、不要翅膀）；里香（PC-98 角色、二創造型不統一）用自訂的工程師造型：棕短髮、護目鏡、白襯衫、綠吊帶褲、手套，使用者已接受；兩個角色同框時（玄爺 R 載著靈夢）外觀標籤會互相染色（靈夢變白髮），要在負面提示排除。使用者不滿意時會給參考圖或說明，照著改 prompt 重生。小瑕疵（例如掃帚柄沒對齊）可以用 PIL 剪貼 + ComfyUI 局部重繪 (VAEEncodeForInpaint) 修。
+  - **ComfyUI 環境（筆電與桌機都已安裝）**：
+    - **桌機（2026-10-28 安裝，RTX 3060 Ti 8GB）**：新版 comfy-cli（1.23）會在 `ComfyUI\.venv` 自建虛擬環境並把 PyTorch（cu130）裝在那裡，`~/Documents/comfy/venv` 只有 comfy-cli。啟動要用 `& '~\Documents\comfy\ComfyUI\.venv\Scripts\python.exe' '~\Documents\comfy\ComfyUI\main.py' --listen 127.0.0.1 --port 8188`。
+    - 桌機的 comfy MCP 尚未設定（改 `~/.claude.json` 被自動權限擋下）；改用 REST API 也能生圖：把 `make_workflow.py` 的輸出包成 `{"prompt": 工作流程}` POST 到 `http://127.0.0.1:8188/prompt`，用 `GET /queue` 等佇列清空。
+    - 桌機的 Ollama（gemma4:26b）與 Wallpaper Engine 會佔顯示記憶體，SDXL 只能動態搬權重，一個工作要 3～4 分鐘；大量生圖前請使用者先 `ollama stop gemma4:26b`（不要自己關使用者的程式）。
+    - 以下是筆電的安裝方式：
     - 獨立虛擬環境 `~/Documents/comfy/venv`（Python 3.11、PyTorch CUDA 版），裡面 `pip install comfy-cli`，`comfy --workspace ~/Documents/comfy/ComfyUI install` 安裝 ComfyUI（筆電是 v0.43.0，含 ComfyUI-Manager）。
     - 模型：`models/checkpoints/animagine-xl-4.0-opt.safetensors`（約 6.9GB，Hugging Face cagliostrolab/animagine-xl-4.0）。
     - 啟動：`& '<venv>\Scripts\python.exe' '<ComfyUI>\main.py' --listen 127.0.0.1 --port 8188`（用終端機分頁跑，約 1～3 分鐘）。
@@ -201,7 +205,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
 - 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 32、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 355 項）。V2 畫面細節仍以 Discord 實機為準。
-- 已知待改進：其餘 22 位角色的卡面、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
+- 已知待改進：其餘 19 位角色的卡面、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
 
 ## 8. 使用者的決定與工作習慣
 - **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。

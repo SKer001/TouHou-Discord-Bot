@@ -27,6 +27,11 @@ BASE = {
         "four legs, clawed feet, long white beard, bushy white eyebrows, half-closed eyes, sleepy eyes, "
         "long fluffy white tail, flowing white hair-like tail, wise, flying tortoise"
     ),
+    # 里香：PC-98 角色，二創造型不統一，先用通用的工程師造型 (待使用者確認)
+    "rika": (
+        "1girl, rika (touhou), touhou, brown hair, short hair, brown eyes, goggles on head, "
+        "white shirt, green overalls, work gloves, engineer, mechanic"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -104,6 +109,25 @@ SCENES = {
         "floating above a sea of clouds, chinese mountains, waterfall, mystical, sacred, "
         "light rays, bloom, sparkles, epic, majestic, dynamic angle"
     ),
+    # 里香 N「戰車技師」：在草地上修理自製的花樣戰車
+    ("rika", "N"): (
+        "holding wrench, kneeling next to a small tank, repairing tank, oil stain on cheek, cheerful smile, "
+        "toolbox, gears, bolts, flower decorations on the tank, "
+        "grassy field, wildflowers, blue sky, clouds, soft lighting, daylight, looking at viewer"
+    ),
+    # 里香 R「邪惡工程師」：坐在花樣戰車頂上指揮，砲口射出彈幕
+    ("rika", "R"): (
+        "sitting on top of a tank, riding tank, flower tank, tank covered in flowers, tank cannon firing, "
+        "danmaku, small glowing bullets, pointing forward, mischievous grin, smug, wind, petals flying, "
+        "meadow, blue sky, sunlight, dynamic angle, looking at viewer"
+    ),
+    # 里香 SR「花樣戰車大師」：邪眼 Evil Eye Σ，巨大機械眼與雷射、花形彈幕
+    ("rika", "SR"): (
+        "evil eye sigma, giant mechanical eye floating behind her, huge robotic eyeball, metal plating, "
+        "glowing red lens, laser beams, flower-shaped danmaku, many glowing bullets, "
+        "standing on a flower tank, arms spread, confident laugh, goggles glowing, "
+        "light rays, bloom, sparks, sky, clouds, epic, powerful, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -114,6 +138,7 @@ EXTRA_NEGATIVE = {
     ("genji", "N"): "1girl, human, humanization, anthropomorphic, girl",                   # 只畫烏龜
     ("genji", "R"): "humanization, anthropomorphic, turtle girl, multiple girls, white hair, grey hair, silver hair, animal ears, tail on girl",   # 白鬍子的標籤會染到靈夢
     ("genji", "SR"): "1girl, human, humanization, anthropomorphic, girl",
+    "rika": "military uniform, soldier, gun, rifle, mecha, robot girl",   # 戰車標籤容易畫成軍裝或機器人
 }
 
 

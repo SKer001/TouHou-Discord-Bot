@@ -25,6 +25,7 @@ EN_NAMES = {
     "marisa": "Kirisame Marisa",
     "mima": "Mima",
     "genji": "Genjii",
+    "rika": "Rika",
 }
 
 
