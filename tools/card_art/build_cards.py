@@ -3,6 +3,8 @@ python tools/card_art/build_cards.py [角色id ...] [--full 資料夾]
 
 - 原圖：images/Original/Art/<角色id>_<階級>.png (沒有加框的角色圖；沒有的階級略過)
 - 縮圖：images/Thumbnails/<角色id>_<階級>.png (460×640)
+- 動態卡：SSR / UR / LR 另外產生 images/Thumbnails/<角色id>_<階級>.gif (效果見 animate.RARITY_EFFECTS)，
+  Thumbnails.json 指向 GIF；--no-gif 只做靜態圖 (快)
 - Thumbnails.json：寫入 "<角色id>_<階級>": GitHub raw 連結 (要 push 之後 Discord 才抓得到)
 - --full：另外把 1748×2432 的完整卡面存到指定資料夾 (不放進 repo)
 - --stages [資料夾]：每一步都存圖 (預設 card_stages/，已加入 .gitignore，太大不放進 repo)
@@ -19,6 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from card import EMPTY, PROJECT_ROOT, RARITY_DIR, make_thumb, render_stages  # noqa: E402
+from animate import RARITY_EFFECTS, save_animation  # noqa: E402
 
 ART_DIR = os.path.join(PROJECT_ROOT, "images", "Original", "Art")
 THUMB_DIR = os.path.join(PROJECT_ROOT, "images", "Thumbnails")
@@ -63,6 +66,9 @@ def main():
         full_dir = args[i + 1]
         del args[i:i + 2]
         os.makedirs(full_dir, exist_ok=True)
+    make_gif = "--no-gif" not in args
+    if not make_gif:
+        args.remove("--no-gif")
     stages_dir = None
     if "--stages" in args:
         i = args.index("--stages")
@@ -105,8 +111,17 @@ def main():
             if full_dir:
                 card.save(os.path.join(full_dir, f"{key}.png"), optimize=True)
             thumbnails[key] = RAW_BASE + f"{key}.png"
+            gif_path = os.path.join(THUMB_DIR, f"{key}.gif")
+            if rarity in RARITY_EFFECTS and make_gif:
+                kb = save_animation(card, RARITY_EFFECTS[rarity], gif_path) / 1024
+                thumbnails[key] = RAW_BASE + f"{key}.gif"
+                print(f"✅ {key}  (GIF {kb:.0f} KB)")
+            elif rarity in RARITY_EFFECTS and os.path.exists(gif_path):
+                thumbnails[key] = RAW_BASE + f"{key}.gif"      # --no-gif 時沿用既有的 GIF
+                print(f"✅ {key}  (沿用 GIF)")
+            else:
+                print(f"✅ {key}")
             made += 1
-            print(f"✅ {key}")
 
     # fill 放最後，其餘依鍵排序
     ordered = {k: thumbnails[k] for k in sorted(thumbnails) if k != "fill"}

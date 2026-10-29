@@ -164,6 +164,7 @@ tools/card_art/               卡面產生工具 (不會被機器人載入)
 ```
 
 - 程式取縮圖的順序：`角色_階級` ➔ `角色` ➔ `fill` ➔ 都沒有就只顯示文字（`get_thumbnail_url`）。
+- SSR / UR / LR 的縮圖是動態 GIF（`<角色>_<階級>.gif`，`tools/card_art/animate.py`），Thumbnails.json 直接指向 GIF，程式端不分靜態 / 動態。
 - 卡面 = 原圖 ➔ 蓋卡框 `empty.png` ➔ 稱號與名字 ➔ 等級圖；`build_cards.py` 整批產生、`--stages` 輸出每一步（`card_stages/`，不進 git）。
 - 生圖流程與各角色 prompt 在 `tools/card_art/make_workflow.py`，細節與使用者偏好見 `CLAUDE.md` §4「卡面」。
 - **UR 與 LR 一律用分層合成**（2026-10-29 起）：背景 / 彈幕 / 人物分開做再合成（`tools/card_art/layered/`）。
