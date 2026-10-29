@@ -37,6 +37,12 @@ BASE = {
         "1girl, kitashirakawa chiyuri, touhou, touhou (pc-98), blonde hair, short hair, blue eyes, "
         "sailor hat, white sailor shirt, blue sailor collar, blue neckerchief, white sailor dress"
     ),
+    # 夢美：照官方 PC-98 立繪 (Touhou Wiki)；暗紅髮紅眼、暗紅披風 / 背心 / 長裙、白襯衫、紅領結
+    "yumemi": (
+        "1girl, okazaki yumemi, touhou, touhou (pc-98), dark red hair, medium hair, wavy hair, red eyes, "
+        "red cape, red vest, red long skirt, white frilled hem, white shirt, puffy sleeves, red bowtie, "
+        "red shoes, white socks"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -152,6 +158,26 @@ SCENES = {
         "warp tunnel, stars, nebula, light streaks, determined smile, hat ribbon flowing, "
         "light rays, bloom, epic, dynamic angle"
     ),
+    # 夢美 R「比較物理學教授」：在研究室黑板前自信地講課
+    ("yumemi", "R"): (
+        "holding pointer stick, pointing at chalkboard, chalkboard full of physics equations, lecturing, "
+        "confident smile, smug, hand on hip, university lecture hall, desks, books, large window, "
+        "soft lighting, daylight, looking at viewer"
+    ),
+    # 夢美 SR「夢幻的魔術教授」：在飛船艙內用科學儀器施展人造魔法
+    ("yumemi", "SR"): (
+        "casting artificial magic, glowing scientific instruments, floating mathematical symbols, "
+        "glowing equations in the air, magic circle made of formulas, holographic screens, "
+        "inside a futuristic ship laboratory, sci-fi machinery, cape fluttering, excited grin, "
+        "sparkles, dynamic angle, looking at viewer"
+    ),
+    # 夢美 SSR「時空空間之主宰」：可能性空間移動船上發射十字架光束兵器
+    ("yumemi", "SSR"): (
+        "standing on top of a giant futuristic flying ship, arms spread, maniacal laugh, glowing red eyes, "
+        "giant glowing cross-shaped laser beam behind her, cross beam weapon, massive energy cross, "
+        "space-time rift, cracked sky, swirling dimensional portal, stars, light rays, bloom, "
+        "cape billowing, hair flowing, epic, powerful, majestic, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -164,6 +190,7 @@ EXTRA_NEGATIVE = {
     ("genji", "SR"): "1girl, human, humanization, anthropomorphic, girl",
     "rika": "military uniform, soldier, gun, rifle, mecha, robot girl",   # 戰車標籤容易畫成軍裝或機器人
     "chiyuri": "school uniform, serafuku skirt, pleated skirt, navy",      # 水手服容易畫成學生制服
+    "yumemi": "blonde hair, black dress, purple, glasses, lab coat",          # 不要替換服裝 (金髮黑衣) 或一般科學家造型
 }
 
 

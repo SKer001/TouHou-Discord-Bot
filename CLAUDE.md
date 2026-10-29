@@ -107,7 +107,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框要重跑 `make_empty.py` 和 `build_cards.py`（不加參數＝全部角色）。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
-  - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合（TH03）。**下一位：夢美 yumemi（TH03）**，之後依 `Characters/` 分類順序：夢美 yumemi（TH03）→ 艾莉 elly → 幻月 gengetsu → 夢月 mugetsu（TH04）→ 愛麗絲 alice → 露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
+  - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合、夢美（TH03）。**下一位：艾莉 elly（TH04）**，之後依 `Characters/` 分類順序：艾莉 elly → 幻月 gengetsu → 夢月 mugetsu（TH04）→ 愛麗絲 alice → 露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
   - **每位角色的做法（使用者指定：一位一位處理）**：
     0. **先上網找參考圖**（使用者 2026-10-29 指定，從夢美開始）：搜尋該角色的官方立繪 / 設定圖（東方 Wiki、THBWiki、Danbooru 等），確認髮型髮色、服裝、配件、招牌道具，把找到的參考圖與重點特徵給使用者看，再依此寫 prompt。
     1. 在 `make_workflow.py` 加 `BASE`（外觀 Danbooru 標籤）、每個階級的 `SCENES`（依稱號、個性、故事；階級越高越強），需要時加 `EXTRA_NEGATIVE`（可用角色或 `(角色, 階級)` 當鍵）；在 `build_cards.py` 加 `EN_NAMES`。先用一兩句話跟使用者說明各階級的構想。
