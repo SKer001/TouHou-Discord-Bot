@@ -32,6 +32,7 @@ EN_NAMES = {
     "gengetsu": "Gengetsu",
     "mugetsu": "Mugetsu",
     "alice": "Alice",
+    "luize": "Luize",
 }
 
 

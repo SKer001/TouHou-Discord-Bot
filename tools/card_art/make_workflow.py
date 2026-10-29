@@ -70,6 +70,12 @@ BASE = {
         "1girl, alice (touhou pc-98), touhou, touhou (pc-98), blonde hair, short hair, yellow eyes, "
         "hair ribbon, blue ribbon, hairclip, pink dress, blue apron, puffy short sleeves, white socks, petite"
     ),
+    # 露易絲：照萌娘百科「露易茲(東方Project)」/ Touhou Wiki；金髮中分、兩頰細髮、後腦短辮、金瞳常眯眼、
+    # 白色寬簷遮陽帽 + 紫緞帶蝴蝶結、淡紫連衣長裙、紫領巾、身材很高；萌點：遮陽帽、真·路人
+    "luize": (
+        "1girl, luize (touhou), touhou, touhou (pc-98), blonde hair, parted bangs, sidelocks, short ponytail, yellow eyes, "
+        "squinting, white sun hat, wide-brimmed hat, purple ribbon on hat, hat bow, lavender long dress, purple neckerchief, tall"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -281,6 +287,25 @@ SCENES = {
         "giant magic circle behind her, floating grimoire, necromancer, ghostly blue flames, "
         "light rays, bloom, epic, powerful, majestic"
     ),
+    # 露易絲 N「魔界旅行者」：提著行李箱、壓著帽子、眨眼期待出發
+    ("luize", "N"): (
+        "holding suitcase, carrying luggage, hand on hat, one eye closed, wink, excited, eager smile, "
+        "walking, about to leave, demon world city gate, makai, strange towers, purple sky, "
+        "soft lighting, from side"
+    ),
+    # 露易絲 R「觀光的魔界人」：坐在行李箱上看地圖、悠哉曬太陽的路人感
+    ("luize", "R"): (
+        "sitting on suitcase, holding map, camera around neck, tourist, relaxed, closed eyes, content smile, "
+        "basking in sunlight, sightseeing, scenic overlook, flower field, distant town, blue sky, "
+        "soft lighting, daylight"
+    ),
+    # 露易絲 SR「邊境流浪魔導士」：魔界「旅人的彈幕」，邊境張手放出旋轉縮合的方形結界彈幕，第一次認真
+    ("luize", "SR"): (
+        "serious expression, eyes open, determined, arms spread, casting magic, "
+        "rotating square barriers, converging squares, geometric danmaku, purple and white bullets, "
+        "hat ribbon fluttering, dress fluttering in wind, standing at the border between worlds, "
+        "dimensional rift, half purple demon world sky and half blue sky, light rays, bloom, epic, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -298,6 +323,7 @@ EXTRA_NEGATIVE = {
     "gengetsu": "black wings, bat wings, demon horns, maid, maid headdress, mugetsu (touhou), multiple girls",   # 惡魔但長天使翅膀；不要畫成妹妹夢月 (女僕)
     "mugetsu": "wings, angel wings, gengetsu (touhou), multiple girls, long hair, smile",   # 夢月沒有翅膀；撲克臉
     "alice": "alice margatroid, capelet, blue dress, red hairband, hairband, mature female, long hair",   # 不要畫成新作愛麗絲 (藍裙披肩)
+    "luize": "blue hair, red eyes, witch hat, short dress, child",   # 不要畫成 4 面道中的藍髮版
 }
 
 
