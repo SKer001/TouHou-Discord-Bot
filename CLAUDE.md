@@ -37,7 +37,7 @@ Logger/Logger.py             日誌與錯誤回報（需要 .env 的 LOG_CHANNEL
 images/                      專案根目錄；Thumbnails.json = {"角色id_階級": URL, "角色id": URL, ..., "fill": 預設圖URL}
   Thumbnails/                Discord 用的縮圖 (460×640)：<角色id>_<階級>.png、fill.png
   Original/Art/              沒有加框的角色原圖 <角色id>_<階級>.png (ComfyUI 生成、使用者挑選)
-  Original/Thumbnails/       fill.png 原圖、empty_greenscreen.jpg (使用者給的綠幕卡框)、empty.png (去背後的空白卡框)
+  Original/Thumbnails/       fill.png 原圖、empty_greenscreen.jpg (使用者給的綠幕卡框，736×1024)、empty_greenscreen_hd.png (AI 放大版)、empty.png (去背後的空白卡框)
 ```
 - Main.py 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Components.x import ...`（命名空間套件）。
 - **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾或專案根的 `Utils/`。
@@ -104,7 +104,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - 縮圖規則：依序查 `images/Thumbnails.json` 的 `角色id_階級` → `角色id` → `"fill"`，連 URL 都沒有就只顯示文字。卡牌畫面用該卡的階級（融合預覽用升階後的階級）；圖鑑用檢視者擁有的最高階級，沒有收藏時用最低階級。
 - **卡面（`tools/card_art/`）**：
   - 流程：`make_workflow.py <角色> <階級> <種子> <out.json>` 產生 ComfyUI 工作流程（Animagine XL 4.0 Opt、896×1064、一次 2 張）→ 使用者挑圖 → 存成 `images/Original/Art/<角色>_<階級>.png` → `python tools/card_art/build_cards.py [角色…]` 產生 `images/Thumbnails/<角色>_<階級>.png` 並寫入 Thumbnails.json → **push 之後** Discord 才抓得到圖。
-  - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕原圖產生（含底部 TouHou / Project 小字）。
+  - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框要重跑 `make_empty.py` 和 `build_cards.py`（不加參數＝全部角色）。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
   - **進度（2026-10-28）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）。**下一位：千百合 chiyuri（TH03）**，之後依 `Characters/` 分類順序：千百合 chiyuri → 夢美 yumemi（TH03）→ 艾莉 elly → 幻月 gengetsu → 夢月 mugetsu（TH04）→ 愛麗絲 alice → 露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
@@ -120,7 +120,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
     - 桌機的 Ollama（gemma4:26b）與 Wallpaper Engine 會佔顯示記憶體，SDXL 只能動態搬權重，一個工作要 3～4 分鐘；大量生圖前請使用者先 `ollama stop gemma4:26b`（不要自己關使用者的程式）。
     - 以下是筆電的安裝方式：
     - 獨立虛擬環境 `~/Documents/comfy/venv`（Python 3.11、PyTorch CUDA 版），裡面 `pip install comfy-cli`，`comfy --workspace ~/Documents/comfy/ComfyUI install` 安裝 ComfyUI（筆電是 v0.43.0，含 ComfyUI-Manager）。
-    - 模型：`models/checkpoints/animagine-xl-4.0-opt.safetensors`（約 6.9GB，Hugging Face cagliostrolab/animagine-xl-4.0）。
+    - 模型：`models/checkpoints/animagine-xl-4.0-opt.safetensors`（約 6.9GB，Hugging Face cagliostrolab/animagine-xl-4.0）；放大模型 `models/upscale_models/4x-UltraSharp.pth`（約 67MB，Hugging Face Kim2091/UltraSharp，只有重新放大卡框時需要）。
     - 啟動：`& '<venv>\Scripts\python.exe' '<ComfyUI>\main.py' --listen 127.0.0.1 --port 8188`（用終端機分頁跑，約 1～3 分鐘）。
     - Claude 的 MCP：全域 Python `pip install comfy-mcp`，在 `~/.claude.json` 的 `mcpServers` 加 `comfyui`：command = 全域的 `comfy-mcp.exe`，env `COMFY_BIN` = venv 裡的 `comfy.exe`（`claude mcp add` 指令在這台不能用，直接改 json，改之前先備份）。
     - ComfyUI 輸出在 `~/Documents/comfy/ComfyUI/output/touhou_card/`（`candidates.py` 預設讀這裡，路徑不同時設環境變數 `COMFY_OUTPUT`）。

@@ -1,16 +1,20 @@
 """空白卡框 empty.png：綠幕卡框 (中間 0,255,0) 去背成透明畫窗，底部陰陽玉兩側加上 TouHou / Project
 python tools/card_art/make_empty.py
-讀 images/Original/Thumbnails/empty_greenscreen.jpg ➔ 寫 images/Original/Thumbnails/empty.png"""
+讀 images/Original/Thumbnails/empty_greenscreen_hd.png ➔ 寫 images/Original/Thumbnails/empty.png
+
+綠幕原圖 empty_greenscreen.jpg 只有 736×1024，直接放大會糊；empty_greenscreen_hd.png 是用 ComfyUI
+4x-UltraSharp (models/upscale_models/) 放大 4 倍後再縮成 1748×2432 的版本，沒有 hd 檔時才退回原圖"""
 import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 THUMB_DIR = os.path.join(os.path.dirname(os.path.dirname(HERE)), "images", "Original", "Thumbnails")
+SRC_HD = os.path.join(THUMB_DIR, "empty_greenscreen_hd.png")
 SRC = os.path.join(THUMB_DIR, "empty_greenscreen.jpg")
 OUT = os.path.join(THUMB_DIR, "empty.png")
 NAME_FONT = os.path.join(HERE, "fonts", "HarukazeSolid.ttf")
-SIZE = (1748, 2432)                       # 跟 fill.png 一樣 (綠幕原圖只有 736×1024，先放大)
+SIZE = (1748, 2432)                       # 跟 fill.png 一樣
 BOTTOM_LEFT = (230, 2118, 730, 2222)
 BOTTOM_RIGHT = (1012, 2118, 1512, 2222)
 TRACKING = 0.12                           # 字距 (字級的比例)
@@ -51,7 +55,8 @@ def draw_spaced(img, text, box, max_size, stroke_ratio, fill, stroke_fill, size=
 
 
 def main():
-    img = Image.open(SRC).convert("RGB").resize(SIZE, Image.LANCZOS)   # 先放大再去背，邊緣比較平滑
+    src = SRC_HD if os.path.exists(SRC_HD) else SRC
+    img = Image.open(src).convert("RGB").resize(SIZE, Image.LANCZOS)   # 先調成卡面尺寸再去背，邊緣比較平滑
     img = chroma_key(img)
     # Project 用 TouHou 的字級與基線，兩邊水平對齊
     size = draw_spaced(img, "TouHou", BOTTOM_LEFT, 300, 0.05, (245, 214, 140), (70, 12, 12))
