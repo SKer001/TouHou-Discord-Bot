@@ -32,6 +32,11 @@ BASE = {
         "1girl, rika (touhou), touhou, brown hair, short hair, brown eyes, goggles on head, "
         "white shirt, green overalls, work gloves, engineer, mechanic"
     ),
+    # 千百合：夢美教授的助手，水手服、水手帽 (PC-98 角色)
+    "chiyuri": (
+        "1girl, kitashirakawa chiyuri, touhou, touhou (pc-98), blonde hair, short hair, blue eyes, "
+        "sailor hat, white sailor shirt, blue sailor collar, blue neckerchief, white sailor dress"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -128,6 +133,25 @@ SCENES = {
         "standing on a flower tank, arms spread, confident laugh, goggles glowing, "
         "light rays, bloom, sparks, sky, clouds, epic, powerful, dynamic angle"
     ),
+    # 千百合 N「教授助手」：在研究室抱著一疊書和文件跑來跑去
+    ("chiyuri", "N"): (
+        "carrying a stack of books, papers flying, running, cheerful smile, open mouth, "
+        "laboratory, bookshelves, chalkboard with equations, flasks, large window, sunlight, "
+        "soft lighting, daylight, looking at viewer"
+    ),
+    # 千百合 R「水手服科學家」：在船的甲板上做實驗
+    ("chiyuri", "R"): (
+        "holding glowing flask, test tube, science experiment, colorful bubbling liquid, sparkles, smug smile, wink, "
+        "standing on a ship deck, railing, rope, ocean, seagulls, wind, blue sky, clouds, sunlight, "
+        "dynamic angle, looking at viewer"
+    ),
+    # 千百合 SR「時空船之助手」：駕駛可能性空間移動船穿越時空
+    ("chiyuri", "SR"): (
+        "piloting a futuristic flying ship, holding ship's wheel, probability space hypervessel, "
+        "glowing control panels, holographic screens, flying through a space-time portal, glowing rings, "
+        "warp tunnel, stars, nebula, light streaks, determined smile, hat ribbon flowing, "
+        "light rays, bloom, epic, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -139,6 +163,7 @@ EXTRA_NEGATIVE = {
     ("genji", "R"): "humanization, anthropomorphic, turtle girl, multiple girls, white hair, grey hair, silver hair, animal ears, tail on girl",   # 白鬍子的標籤會染到靈夢
     ("genji", "SR"): "1girl, human, humanization, anthropomorphic, girl",
     "rika": "military uniform, soldier, gun, rifle, mecha, robot girl",   # 戰車標籤容易畫成軍裝或機器人
+    "chiyuri": "school uniform, serafuku skirt, pleated skirt, navy",      # 水手服容易畫成學生制服
 }
 
 

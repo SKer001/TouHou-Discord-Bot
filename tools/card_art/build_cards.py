@@ -26,6 +26,7 @@ EN_NAMES = {
     "mima": "Mima",
     "genji": "Genjii",
     "rika": "Rika",
+    "chiyuri": "Kitashirakawa Chiyuri",
 }
 
 
