@@ -90,6 +90,11 @@ BASE = {
         "2girls, yuki (touhou), mai (touhou), touhou, touhou (pc-98), "
         "girl on the left: blonde hair, yellow eyes, black wide-brimmed hat with white ribbon, black and white dress, puffy sleeves, "
         "girl on the right: blue hair, blue eyes, white hair bow, white dress, small white wings"
+    ),    # 夢子：照萌娘百科 / Touhou Wiki (PC-98)；金色長捲髮、金瞳、白色女僕頭飾 + 髮夾 + 蝴蝶結、紅白女僕裝；
+    # 萌點：女僕、飛刀 (其實是劍)、忠犬、反差萌；神綺的最高傑作，咲夜的原型
+    "yumeko": (
+        "1girl, yumeko (touhou), touhou, touhou (pc-98), blonde hair, long hair, wavy hair, yellow eyes, "
+        "maid headdress, hair bow, hairclip, maid, red dress, white apron, red and white maid outfit, puffy sleeves"
     ),
 }
 
@@ -364,6 +369,25 @@ SCENES = {
         "fire and ice danmaku intertwining, symmetrical forbidden magic circle, black and white magic circle, "
         "light rays, bloom, epic, powerful, dynamic angle"
     ),
+    # 夢子 R「魔界的女長官」：萬魔殿裡端莊行禮，背後隱約一排劍；被誇獎時臉紅開心的忠犬反差萌
+    ("yumeko", "R"): (
+        "curtsey, bowing politely, hands on skirt, blushing, happy, embarrassed smile, proud, "
+        "row of swords standing behind her, grand palace hall, pandemonium, demon world castle, "
+        "red carpet, chandelier, warm lighting, from side"
+    ),
+    # 夢子 SR「飛刀之魔界女僕」：指間夾多把劍、旋身擲出，大量劍在空中排成陣列，冷靜幹練
+    ("yumeko", "SR"): (
+        "holding multiple swords between fingers, throwing swords, spinning, mid-throw, "
+        "many swords flying in formation, sword array, calm expression, cool, composed, sharp eyes, "
+        "skirt fluttering, hair flowing, palace corridor, motion blur on swords, sparkles, dynamic angle"
+    ),
+    # 夢子 SSR「神綺的終極刃舞」：劍技「魔界之刃」，擋在神綺王座前，數百把劍環狀放射排列
+    ("yumeko", "SSR"): (
+        "standing guard in front of a grand empty throne, protective stance, one arm outstretched, determined, fierce eyes, "
+        "hundreds of swords floating around her, swords arranged in giant rings, radial sword formation, "
+        "glowing blades, blade dance, red and gold light, petals of light, demon world throne room, "
+        "light rays, bloom, epic, powerful, majestic, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -385,6 +409,7 @@ EXTRA_NEGATIVE = {
     "shinki": "black wings, bat wings, demon horns, two wings, child, short hair",   # 六翼女神 (不是蝙蝠翼惡魔)
     ("shinki", "LR"): ("blurry effects, smeared light, light blob, lens flare, washed out, close-up, cowboy shot, upper body, "
                        "large figure, bullet (ammunition), cartridge, gun, shell casing, missile, rocket, sword, weapon"),   # bullet 標籤會畫成子彈
+    "yumeko": "izayoi sakuya, silver hair, short hair, knife, kitchen knife, blue dress",   # 不要畫成咲夜 (銀髮藍裙飛刀)
     "yuki_mai": "solo, 1girl, 3girls, kirisame marisa, witch hat with star, blue hat, white hat, black dress on blue-haired girl, blonde girl with wings",   # 兩人特徵不要互換
 }
 

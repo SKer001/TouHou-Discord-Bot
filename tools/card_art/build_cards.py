@@ -41,6 +41,7 @@ EN_NAMES = {
     "luize": "Luize",
     "shinki": "Shinki",
     "yuki_mai": "Yuki & Mai",
+    "yumeko": "Yumeko",
 }
 
 
