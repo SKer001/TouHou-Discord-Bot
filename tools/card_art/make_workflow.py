@@ -83,6 +83,14 @@ BASE = {
         "red hair tie, hair bobbles, white eyes, silver eyes, red dress, gothic dress, v-neck, red capelet, "
         "white high collar shirt, boots, six wings, multiple wings, large wings, mature female, goddess"
     ),
+    # 雪與舞 (雙人卡)：照萌娘百科「雪 / 舞(東方Project)」/ Touhou Wiki；兩人特徵分開寫，避免互相染色
+    # 雪：金髮金瞳、寬簷黑帽 + 白緞帶 + 紅球、黑白相間裙、背後大蝴蝶結、泡泡袖；元氣、火魔法、像魔理沙
+    # 舞：藍髮藍瞳、白色大蝴蝶結、白色連衣裙、背後小白翼 (有時變成巨大惡魔翼)；沉默、腹黑、冰魔法
+    "yuki_mai": (
+        "2girls, yuki (touhou), mai (touhou), touhou, touhou (pc-98), "
+        "girl on the left: blonde hair, yellow eyes, black wide-brimmed hat with white ribbon, black and white dress, puffy sleeves, "
+        "girl on the right: blue hair, blue eyes, white hair bow, white dress, small white wings"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -338,6 +346,24 @@ SCENES = {
         "rainbow colors, iridescent, prismatic, gold purple cyan magenta pink, "
         "galaxy, nebula, starry sky, cosmic background, ornate, dazzling, gorgeous, epic, godlike"
     ),
+    # 雪與舞 N「魔界魔法使二人組」：冰封世界並肩，雪元氣揮手、舞在旁邊安靜面無表情
+    ("yuki_mai", "N"): (
+        "side by side, blonde girl waving energetically, big grin, blue-haired girl standing quietly, expressionless, "
+        "frozen world, ice landscape, snow, icicles, demon world, makai, pale blue sky, soft lighting, daylight"
+    ),
+    # 雪與舞 R「極寒與狂舞之魔女」：雪放火焰、舞放冰晶，舞偷瞄雪帶腹黑壞笑
+    ("yuki_mai", "R"): (
+        "blonde girl casting fire magic, flames in hand, determined, "
+        "blue-haired girl casting ice magic, ice crystals, side glance at the blonde girl, sly smile, scheming, "
+        "frozen world, ice and fire, sparks and snowflakes, dynamic angle"
+    ),
+    # 雪與舞 SR「黑白交織之魔界禁忌」：雙魔「雪與舞的合奏」，背靠背，火紅與冰藍各半，舞的翅膀變成巨大惡魔翼
+    ("yuki_mai", "SR"): (
+        "back to back, blonde girl surrounded by red flames, blue-haired girl surrounded by blue ice, "
+        "blue-haired girl with huge white demon wings, split composition, half red half blue, "
+        "fire and ice danmaku intertwining, symmetrical forbidden magic circle, black and white magic circle, "
+        "light rays, bloom, epic, powerful, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -359,17 +385,22 @@ EXTRA_NEGATIVE = {
     "shinki": "black wings, bat wings, demon horns, two wings, child, short hair",   # 六翼女神 (不是蝙蝠翼惡魔)
     ("shinki", "LR"): ("blurry effects, smeared light, light blob, lens flare, washed out, close-up, cowboy shot, upper body, "
                        "large figure, bullet (ammunition), cartridge, gun, shell casing, missile, rocket, sword, weapon"),   # bullet 標籤會畫成子彈
+    "yuki_mai": "solo, 1girl, 3girls, kirisame marisa, witch hat with star, blue hat, white hat, black dress on blue-haired girl, blonde girl with wings",   # 兩人特徵不要互換
 }
 
 
-DUO = {("genji", "R")}
+DUO = {("genji", "R"), ("yuki_mai", "N"), ("yuki_mai", "R"), ("yuki_mai", "SR")}
+
+
+DUO_GIRLS = {"yuki_mai"}   # 兩個女孩同框的角色
 
 
 def build(char_id: str, rarity: str, seed: int, batch: int = 2) -> dict:
     solo = "" if (char_id, rarity) in DUO else "solo"   # 有其他角色同框的不加 solo
     positive = ", ".join(filter(None, [BASE[char_id], SCENES[(char_id, rarity)], solo, COMPOSITION, LIGHTING, QUALITY]))
     # 額外的負面提示：可依角色或「角色 + 階級」設定
-    negative = ", ".join(filter(None, [NEGATIVE, EXTRA_NEGATIVE.get(char_id), EXTRA_NEGATIVE.get((char_id, rarity))]))
+    base_negative = NEGATIVE.replace(", multiple girls", "") if char_id in DUO_GIRLS else NEGATIVE   # 雙人卡不能排除 multiple girls
+    negative = ", ".join(filter(None, [base_negative, EXTRA_NEGATIVE.get(char_id), EXTRA_NEGATIVE.get((char_id, rarity))]))
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "animagine-xl-4.0-opt.safetensors"}},
         "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1], "text": positive}},

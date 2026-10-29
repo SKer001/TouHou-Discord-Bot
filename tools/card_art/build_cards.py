@@ -40,6 +40,7 @@ EN_NAMES = {
     "alice": "Alice",
     "luize": "Luize",
     "shinki": "Shinki",
+    "yuki_mai": "Yuki & Mai",
 }
 
 
