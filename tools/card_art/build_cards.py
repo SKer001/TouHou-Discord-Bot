@@ -28,6 +28,7 @@ EN_NAMES = {
     "rika": "Rika",
     "chiyuri": "Kitashirakawa Chiyuri",
     "yumemi": "Okazaki Yumemi",
+    "elly": "Elly",
 }
 
 

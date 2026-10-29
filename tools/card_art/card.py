@@ -16,7 +16,8 @@ TITLE_FONT = os.path.join(HERE, "fonts", "kouzan-mouhitsu-gyosho.ttf")   # 衡�
 NAME_FONT = os.path.join(HERE, "fonts", "HarukazeSolid.ttf")             # demo 版限個人使用，不放上 git
 THUMB_SIZE = (460, 640)
 
-GLYPH_FALLBACK = {"吞": "呑", "絕": "絶"}   # 衡山毛筆缺的字 ➔ 異體字
+# 衡山毛筆缺的字 (畫成方框或空白) ➔ 日文異體字；render_card 會再檢查一次，有缺字直接報錯
+GLYPH_FALLBACK = {"吞": "呑", "絕": "絶", "鐮": "鎌", "黑": "黒", "綠": "緑"}
 
 WINDOW = (200, 425, 1560, 2050)       # 角色圖鋪的範圍 (比透明畫窗稍大，邊緣藏在卡框下)
 TITLE_BOX = (130, 92, 990, 204)       # 左上稱號
@@ -64,9 +65,25 @@ def paste_badge(img, rarity):
     img.alpha_composite(badge, (BADGE_BOX[0] + (w - badge.width) // 2, BADGE_BOX[1] + (h - badge.height) // 2))
 
 
+def missing_glyphs(text: str, path: str = TITLE_FONT) -> list[str]:
+    """字型畫不出來的字：沒有筆畫 (空白) 或只畫出缺字方框 (跟字型裡不存在的字長得一樣)"""
+    font = ImageFont.truetype(path, 80)
+
+    def ink(ch):
+        im = Image.new("L", (120, 120), 0)
+        ImageDraw.Draw(im).text((10, 10), ch, font=font, fill=255)
+        return im.getbbox(), im.tobytes()
+
+    tofu = ink("󰀀")   # 私用區的字，字型一定沒有 ➔ 缺字方框的樣子
+    return [ch for ch in dict.fromkeys(text) if not ch.isspace() and (ink(ch)[0] is None or ink(ch) == tofu)]
+
+
 def render_card(art_path: str, rarity: str, title: str, name: str) -> Image.Image:
     """回傳 1748×2432 的完整卡面 (RGB)"""
     title = "".join(GLYPH_FALLBACK.get(ch, ch) for ch in title)
+    missing = missing_glyphs(title)
+    if missing:
+        raise ValueError(f"稱號「{title}」有字型缺字：{''.join(missing)}，請在 GLYPH_FALLBACK 加上異體字")
 
     frame = Image.open(EMPTY).convert("RGBA")
     card = Image.new("RGBA", frame.size, (0, 0, 0, 255))

@@ -43,6 +43,13 @@ BASE = {
         "red cape, red vest, red long skirt, white frilled hem, white shirt, puffy sleeves, red bowtie, "
         "red shoes, white socks"
     ),
+    # 艾莉：照萌娘百科 / Touhou Wiki (PC-98)；金色雙螺旋捲髮、黃瞳、白色寬檐帽纏紅緞帶、深紅連衣裙白圍領、
+    # 外側開刃的紅柄大鐮刀扛在肩後；神主說形象照「死神」設計
+    "elly": (
+        "1girl, elly (touhou), touhou, touhou (pc-98), blonde hair, drill hair, twin drills, ringlets, yellow eyes, "
+        "white wide-brimmed hat, red ribbon on hat, crimson dress, long dress, white frilled collar, "
+        "holding scythe, giant scythe, red scythe handle, scythe over shoulder"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -178,6 +185,25 @@ SCENES = {
         "space-time rift, cracked sky, swirling dimensional portal, stars, light rays, bloom, "
         "cape billowing, hair flowing, epic, powerful, majestic, dynamic angle"
     ),
+    # 艾莉 N「館門守衛」：悠閒(浪費光陰)的門番，在夢幻館門前扛著鐮刀打呵欠
+    ("elly", "N"): (
+        "standing at the mansion gate, leaning on scythe, yawning, bored, sleepy, relaxed, "
+        "western mansion gate, iron gate, sunflower field, flowers, blue sky, clouds, "
+        "soft lighting, daylight, from side, looking away, looking into the distance"
+    ),
+    # 艾莉 R「大鐮的守衛」：揮鐮擋下闖入者，掀起的地磚當彈幕
+    ("elly", "R"): (
+        "swinging scythe, battle stance, blocking the way, slash effect, arc of light, "
+        "floor tiles flying, broken floor tiles floating, stone tiles as projectiles, determined expression, "
+        "in front of a western mansion, sunflowers, wind, dynamic angle, looking at viewer"
+    ),
+    # 艾莉 SR「夢幻館的最後防線」：死鐮「迴旋斬擊」，鐮刀像迴旋鏢高速迴旋飛出
+    ("elly", "SR"): (
+        "throwing scythe, spinning scythe, scythe flying like a boomerang, circular slash trails, "
+        "spinning energy rings, many floor tiles flying, high-speed danmaku, fierce grin, glowing eyes, "
+        "hat ribbon flowing, dress fluttering, giant mansion behind her, sunflowers swirling, "
+        "light rays, bloom, epic, powerful, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -191,6 +217,7 @@ EXTRA_NEGATIVE = {
     "rika": "military uniform, soldier, gun, rifle, mecha, robot girl",   # 戰車標籤容易畫成軍裝或機器人
     "chiyuri": "school uniform, serafuku skirt, pleated skirt, navy",      # 水手服容易畫成學生制服
     "yumemi": "blonde hair, black dress, purple, glasses, lab coat",          # 不要替換服裝 (金髮黑衣) 或一般科學家造型
+    "elly": "hood, cloak, skeleton, black robe, onozuka komachi, red hair",   # 鐮刀容易畫成死神斗篷或小町
 }
 
 

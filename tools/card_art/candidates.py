@@ -1,5 +1,5 @@
-"""候選對照表 (給使用者挑圖)：python tools/card_art/candidates.py <角色id> [階級 ...] [--out 資料夾]
-取 ComfyUI 輸出資料夾裡 <角色id>_<階級>_*.png 最新的 4 張，套上卡框並排 (上方標 1~4)，
+"""候選對照表 (給使用者挑圖)：python tools/card_art/candidates.py <角色id> [階級 ...] [--out 資料夾] [--n 張數]
+取 ComfyUI 輸出資料夾裡 <角色id>_<階級>_*.png 最新的 n 張 (預設 4)，套上卡框並排 (上方標 1~n，超過 4 張換行)，
 輸出 <out>/sheet_<角色id>_<階級>.png；ComfyUI 輸出資料夾可用環境變數 COMFY_OUTPUT 指定
 """
 import glob
@@ -18,6 +18,11 @@ GAP = 13
 def main():
     args = sys.argv[1:]
     out_dir = "."
+    count = 4
+    if "--n" in args:
+        i = args.index("--n")
+        count = int(args[i + 1])
+        del args[i:i + 2]
     if "--out" in args:
         i = args.index("--out")
         out_dir = args[i + 1]
@@ -31,17 +36,20 @@ def main():
         font = ImageFont.load_default()
 
     for rarity in rarities:
-        files = sorted(glob.glob(os.path.join(COMFY_OUTPUT, f"{char_id}_{rarity}_0*_.png")))[-4:]
+        files = sorted(glob.glob(os.path.join(COMFY_OUTPUT, f"{char_id}_{rarity}_0*_.png")))[-count:]
         if not files:
             print(f"⚠️ 找不到 {char_id}_{rarity} 的圖")
             continue
         w, h = 460, 640
-        sheet = Image.new("RGB", (len(files) * (w + GAP) - GAP, h + 60), "white")
+        cols = min(4, len(files))
+        rows = (len(files) + cols - 1) // cols
+        sheet = Image.new("RGB", (cols * (w + GAP) - GAP, rows * (h + 60)), "white")
         d = ImageDraw.Draw(sheet)
         for i, src in enumerate(files):
             card = render_card(src, rarity, char["gacha"]["titles"][rarity], EN_NAMES[char_id])
-            sheet.paste(make_thumb(card), (i * (w + GAP), 60))
-            d.text((i * (w + GAP) + w // 2 - 10, 8), str(i + 1), fill="black", font=font)
+            x, y = (i % cols) * (w + GAP), (i // cols) * (h + 60)
+            sheet.paste(make_thumb(card), (x, y + 60))
+            d.text((x + w // 2 - 10, y + 8), str(i + 1), fill="black", font=font)
         out = os.path.join(out_dir, f"sheet_{char_id}_{rarity}.png")
         sheet.save(out)
         print(out, [os.path.basename(f) for f in files])
