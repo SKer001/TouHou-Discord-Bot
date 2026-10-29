@@ -29,6 +29,7 @@ EN_NAMES = {
     "chiyuri": "Kitashirakawa Chiyuri",
     "yumemi": "Okazaki Yumemi",
     "elly": "Elly",
+    "gengetsu": "Gengetsu",
 }
 
 

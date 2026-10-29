@@ -50,6 +50,13 @@ BASE = {
         "white wide-brimmed hat, red ribbon on hat, crimson dress, long dress, white frilled collar, "
         "holding scythe, giant scythe, red scythe handle, scythe over shoulder"
     ),
+    # 幻月：照萌娘百科 / Touhou Wiki (PC-98)；過肩金色直髮、金瞳、頭頂紅蝴蝶結、淡粉紅長裙 + 棕紅小背心、
+    # 紅領結、背後天使般的白色羽翼 (不開心變暗、生氣帶紺色霧氣)；萌點：姊姊、翅膀、大蝴蝶結、雙子、鬼畜、天然呆
+    "gengetsu": (
+        "1girl, gengetsu (touhou), touhou, touhou (pc-98), blonde hair, medium hair, straight hair, yellow eyes, "
+        "red hair bow, big bow, pale pink long dress, brownish red vest, red bowtie, "
+        "white angel wings, feathered wings, large wings"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -204,6 +211,25 @@ SCENES = {
         "hat ribbon flowing, dress fluttering, giant mansion behind her, sunflowers swirling, "
         "light rays, bloom, epic, powerful, dynamic angle"
     ),
+    # 幻月 R「夢幻館的主人」：天然呆 ── 歪頭、手指抵下巴、困惑冒問號
+    ("gengetsu", "R"): (
+        "head tilt, finger to chin, puzzled, confused, airhead, question mark, blank stare, open mouth, "
+        "wings folded, sitting on a garden swing, dream world garden, floating islands, pastel sky, "
+        "pink clouds, flowers, soft lighting, daylight, from side"
+    ),
+    # 幻月 SR「金翼的夢幻魔王」：姊姊的得意氣場 ── 抱胸挑眉、翅膀張開、金色光羽
+    ("gengetsu", "SR"): (
+        "arms crossed, smug, raised eyebrow, proud, confident, looking down at viewer, "
+        "wings spread, golden light feathers, glowing feathers falling, flying in the dream sky, "
+        "beautiful danmaku, golden bullets, dreamlike clouds, sunset, light rays, bloom, dynamic angle"
+    ),
+    # 幻月 SSR「漆黑夢幻之支配者」：鬼畜 ── 從高處俯視狂笑，翅膀帶紺色霧氣，發狂發散彈幕 + 魔砲
+    ("gengetsu", "SSR"): (
+        "sadistic smile, crazy laugh, evil grin, shaded face, glowing eyes, looking down from above, from below, "
+        "wings spread wide, wings with dark blue aura, dark blue mist around wings, "
+        "massive danmaku, radial bullet pattern, spiraling bullets everywhere, huge magic beam, "
+        "dream world sky, swirling clouds, light rays, bloom, epic, powerful, menacing, majestic"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -218,6 +244,7 @@ EXTRA_NEGATIVE = {
     "chiyuri": "school uniform, serafuku skirt, pleated skirt, navy",      # 水手服容易畫成學生制服
     "yumemi": "blonde hair, black dress, purple, glasses, lab coat",          # 不要替換服裝 (金髮黑衣) 或一般科學家造型
     "elly": "hood, cloak, skeleton, black robe, onozuka komachi, red hair",   # 鐮刀容易畫成死神斗篷或小町
+    "gengetsu": "black wings, bat wings, demon horns, maid, maid headdress, mugetsu (touhou), multiple girls",   # 惡魔但長天使翅膀；不要畫成妹妹夢月 (女僕)
 }
 
 
