@@ -95,6 +95,11 @@ BASE = {
     "yumeko": (
         "1girl, yumeko (touhou), touhou, touhou (pc-98), blonde hair, long hair, wavy hair, yellow eyes, "
         "maid headdress, hair bow, hairclip, maid, red dress, white apron, red and white maid outfit, puffy sleeves"
+    ),    # 琪露諾：照萌娘百科 / Touhou Wiki (紅魔鄉)；藍短髮藍瞳、頭後大藍蝴蝶結、白襯衫 + 藍色背心裙 (裙邊白三角花紋)、
+    # 泡泡袖、紅領結、背後三對冰晶翅膀、光腳或白襪、小孩身高；萌點：笨蛋 ⑨、最強、好戰、凍青蛙
+    "cirno": (
+        "1girl, cirno, touhou, blue hair, short hair, blue eyes, blue hair bow, large bow, white shirt, puffy short sleeves, "
+        "red neck ribbon, blue dress, pinafore dress, ice wings, six ice wings, ice crystal wings, child, petite"
     ),
 }
 
@@ -388,6 +393,16 @@ SCENES = {
         "glowing blades, blade dance, red and gold light, petals of light, demon world throne room, "
         "light rays, bloom, epic, powerful, majestic, dynamic angle"
     ),
+    # 琪露諾 SR「冰之妖精」：霧之湖邊蹲著，得意舉起剛凍住的青蛙，調皮天真
+    ("cirno", "SR"): (
+        "squatting, holding up a frozen frog, frog in ice block, proud grin, mischievous, innocent, "
+        "lakeside, misty lake, morning fog, reeds, lily pads, soft lighting, daylight, from side"
+    ),
+    # 琪露諾 SSR「湖上的冰精女王」：冰山頂插腰大笑比勝利手勢，周圍冰塊冰柱彈幕
+    ("cirno", "SSR"): (
+        "standing on top of an iceberg, hand on hip, v sign, laughing, open mouth, confident, smug, "
+        "ice blocks flying, icicles, ice shards, snowflakes, frozen lake, blue sky, sparkles, wind, dynamic angle"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -409,6 +424,7 @@ EXTRA_NEGATIVE = {
     "shinki": "black wings, bat wings, demon horns, two wings, child, short hair",   # 六翼女神 (不是蝙蝠翼惡魔)
     ("shinki", "LR"): ("blurry effects, smeared light, light blob, lens flare, washed out, close-up, cowboy shot, upper body, "
                        "large figure, bullet (ammunition), cartridge, gun, shell casing, missile, rocket, sword, weapon"),   # bullet 標籤會畫成子彈
+    "cirno": "adult, mature female, tall, long hair, daiyousei, green hair, side ponytail, multiple girls",   # 小孩身高、不要畫成大妖精
     "yumeko": "izayoi sakuya, silver hair, short hair, knife, kitchen knife, blue dress",   # 不要畫成咲夜 (銀髮藍裙飛刀)
     "yuki_mai": "solo, 1girl, 3girls, kirisame marisa, witch hat with star, blue hat, white hat, black dress on blue-haired girl, blonde girl with wings",   # 兩人特徵不要互換
 }
