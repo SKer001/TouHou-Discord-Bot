@@ -3,6 +3,7 @@
 > 這份文件整理了先前對話中對本專案的所有理解與決策。放在專案根目錄命名為 `CLAUDE.md`，Claude Code 啟動時會自動載入。
 > 專案在**筆電與桌機兩台電腦**上各有一份 clone，靠 GitHub 同步；對話紀錄與 Claude 記憶不會跨電腦，**重要的背景與決策都要寫進這份文件**。
 > 使用者慣用**繁體中文**溝通；回覆請簡潔、用繁體中文，不要貼一堆網址。
+> **程式架構與寫法規則（Cog 怎麼分、畫面 / 資料層怎麼寫、新增功能檢查清單）在 `ARCHITECTURE.md`，新增功能前先讀。**
 
 ## 1. 專案概觀
 - 繁體中文的「東方 Project」主題 Discord 機器人，使用 `discord.py`（**需要 >= 2.6**，因為用了 Components V2；目前用 2.7.1）、`aiosqlite`、`python-dotenv`、`Pillow`。Python 3.11。
@@ -13,6 +14,7 @@
 ```
 Main.py                      入口；setup_hook 先 init_db() 再 init_item_db()，並自動載入 Cogs/load-*/ 下所有 .py
 README.md                    給人看的專案說明 (功能、指令、安裝、新增角色)
+ARCHITECTURE.md              程式架構與寫法規則 (分層、Cog / View / 資料層慣例、新增功能檢查清單)
 requirements.txt             套件清單：pip install -r requirements.txt
 tests/                       測試 (python tests/run_all.py)，見第 7 節
 tools/botcli.py              指令列測試工具：假裝打指令、點按鈕、選選單；--live 會把畫面真的送到測試頻道，見第 7 節
@@ -107,6 +109,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，2026-10-29 換成使用者給的新綠幕版 `rarity_greenscreen.jpg`，用 `make_rarity.py` 去背切成 6 張；`card.py` 的 `BADGE_SCALE = 1.25` 放大 1.25 倍）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框或等級圖要重跑 `make_empty.py` / `make_rarity.py` 和 `build_cards.py`（不加參數＝全部角色）。
   - **分階段輸出**（使用者指定）：`build_cards.py --stages` 會在 `card_stages/`（已加入 .gitignore，太大不進 repo）存每一步的圖：`_base/frame.png`、`_base/rarity/*.png`（基礎元素）；`<角色>_<階級>/0_pic.png`（原圖）→ `1_art`（人物）→ `2_frame`（人物＋框）→ `3_text`（＋名字與稱號）→ `4_card`（＋等級，完成）。程式在 `card.render_stages()`。
   - **分層合成**（神綺 LR）：模型畫不出清楚的大量彈幕（會變成子彈彈殼或糊成一團），所以改成「AI 宇宙背景＋程式畫的彈幕＋AI 單獨生成再去背的人物」：`tools/card_art/layered/cutout.py`（BiRefNet 去背，用 comfy venv 的 python -I 執行）、`compose_lr.py`（光球環、螺旋米粒彈、星彈；人物縮小、斜角 −12°、背後柔光）。人物要用正方形畫布、提示「翅膀完整入鏡」，不然翅膀會被切。之後的 LR / 大招卡可以沿用。
+  - **UR 與 LR 一律用分層合成**（使用者 2026-10-29 指定，從 TH06 開始）：背景 / 彈幕（程式畫）/ 人物（單獨生成、正方形畫布、去背）分開做再合成，見下面「分層合成」。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
   - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合、夢美（TH03）、艾莉、幻月、夢月（TH04）、愛麗絲（舊作外觀）、露易絲、神綺（LR 為分層合成）、雪與舞、夢子（TH05，舊作全部完成）。**下一位：TH06 紅魔鄉**，依 `Characters/TH06/` 順序：琪露諾 cirno → 大妖精 daiyousei → 芙蘭朵露 flandre（SSR/UR/LR）→ 小惡魔 koakuma → 紅美鈴 meiling → 帕秋莉 patchouli → 蕾米莉亞 remilia（SSR/UR/LR）→ 露米婭 rumia → 十六夜咲夜 sakuya。新作角色查萌娘百科一般條目即可。其餘尚未做的角色顯示 fill。
