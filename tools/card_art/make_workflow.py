@@ -15,7 +15,7 @@ NEGATIVE = (
     "low quality, low score, bad score, average score, signature, watermark, username, blurry, "
     "dark, heavy shadows, chiaroscuro, night, monochrome, gloomy, "
     "cropped, close-up, portrait, upper body, cut off feet, frame, border, multiple girls, "
-    "upskirt, panties, pantyshot, underwear, nsfw"
+    "nsfw, nude, nipples, topless, bottomless, exposed breasts"   # 使用者：些微裙底可以，但絕對不能露點
 )
 
 # 角色外觀 (Danbooru 標籤)
@@ -75,6 +75,13 @@ BASE = {
     "luize": (
         "1girl, luize (touhou), touhou, touhou (pc-98), blonde hair, parted bangs, sidelocks, short ponytail, yellow eyes, "
         "squinting, white sun hat, wide-brimmed hat, purple ribbon on hat, hat bow, lavender long dress, purple neckerchief, tall"
+    ),
+    # 神綺：照萌娘百科 / Touhou Wiki (PC-98)；披肩銀髮、偏左紅髮帶紮的側單馬尾 (呆毛) + 兩顆球形飾品、銀白瞳、
+    # 哥德風鮮紅連衣裙大 V 領 + 披肩、高領白襯衫、皮靴、背後六片巨大翅膀 (白 ➔ 紫)；萌點：女神、媽媽、呆毛
+    "shinki": (
+        "1girl, shinki (touhou), touhou, touhou (pc-98), silver hair, long hair, side ponytail, one side up, "
+        "red hair tie, hair bobbles, white eyes, silver eyes, red dress, gothic dress, v-neck, red capelet, "
+        "white high collar shirt, boots, six wings, multiple wings, large wings, mature female, goddess"
     ),
 }
 
@@ -306,6 +313,31 @@ SCENES = {
         "hat ribbon fluttering, dress fluttering in wind, standing at the border between worlds, "
         "dimensional rift, half purple demon world sky and half blue sky, light rays, bloom, epic, dynamic angle"
     ),
+    # 神綺 SSR「魔界之神」：坐在魔界王座上溫柔的媽媽微笑托腮，翅膀收起，呆毛翹起 (天然呆)
+    ("shinki", "SSR"): (
+        "sitting on throne, chin rest, head on hand, gentle smile, motherly, kind eyes, relaxed, "
+        "white wings folded, ahoge, grand throne room, demon world castle, makai, stained glass, "
+        "red carpet, chandelier, warm lighting"
+    ),
+    # 神綺 UR「創造萬物之母」：白色六翼張開，雙手捧出生命光球，剛被創造的魔界生物與小人偶飛舞
+    ("shinki", "UR"): (
+        "six white wings spread, holding glowing orb of light in both hands, creating life, "
+        "small glowing creatures, tiny winged demons, little dolls flying around her, sparkles, "
+        "serene smile, eyes half closed, divine, holy light, floating above the demon world, "
+        "makai landscape below, light rays, bloom, epic, majestic"
+    ),
+    # 神綺 LR「魔界宇宙之創世主」：魔界神「創世之光」；使用者指定構圖：斜角 (左下腳、右上頭)、微俯視、人物縮小，
+    # 背景是大量清楚分明的彈幕 (不要糊成一團的光)，炫彩華麗
+    ("shinki", "LR"): (
+        "dutch angle, tilted frame, diagonal composition, from above, very wide shot, tiny figure, "
+        "distant view, small character in the middle of a huge space, lots of empty space filled with danmaku, "
+        "six purple wings fully spread, floating in space, pointing forward, defiant pout, glowing eyes, hair flowing, "
+        "touhou danmaku, bullet hell pattern, hundreds of small glowing energy orbs, glowing star shapes, "
+        "glowing rice-grain shaped magic shots, concentric rings of glowing orbs, spiral patterns of light dots, "
+        "symmetrical radial danmaku, layered danmaku curtains, each orb clearly separated, sharp crisp glowing dots, "
+        "rainbow colors, iridescent, prismatic, gold purple cyan magenta pink, "
+        "galaxy, nebula, starry sky, cosmic background, ornate, dazzling, gorgeous, epic, godlike"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -324,6 +356,9 @@ EXTRA_NEGATIVE = {
     "mugetsu": "wings, angel wings, gengetsu (touhou), multiple girls, long hair, smile",   # 夢月沒有翅膀；撲克臉
     "alice": "alice margatroid, capelet, blue dress, red hairband, hairband, mature female, long hair",   # 不要畫成新作愛麗絲 (藍裙披肩)
     "luize": "blue hair, red eyes, witch hat, short dress, child",   # 不要畫成 4 面道中的藍髮版
+    "shinki": "black wings, bat wings, demon horns, two wings, child, short hair",   # 六翼女神 (不是蝙蝠翼惡魔)
+    ("shinki", "LR"): ("blurry effects, smeared light, light blob, lens flare, washed out, close-up, cowboy shot, upper body, "
+                       "large figure, bullet (ammunition), cartridge, gun, shell casing, missile, rocket, sword, weapon"),   # bullet 標籤會畫成子彈
 }
 
 

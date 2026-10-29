@@ -21,7 +21,8 @@ GLYPH_FALLBACK = {"吞": "呑", "絕": "絶", "鐮": "鎌", "黑": "黒", "綠":
 
 WINDOW = (200, 425, 1560, 2050)       # 角色圖鋪的範圍 (比透明畫窗稍大，邊緣藏在卡框下)
 TITLE_BOX = (130, 92, 990, 204)       # 左上稱號
-BADGE_BOX = (1120, 30, 1710, 250)     # 右上等級圖
+BADGE_BOX = (1120, 30, 1710, 250)     # 右上等級圖的基準範圍 (中心點)
+BADGE_SCALE = 1.25                    # 等級圖在基準範圍上再放大 (使用者：1.2~1.3 倍，可超出範圍)
 NAME_BOX = (200, 226, 1550, 384)      # 名牌名字 (可稍微超出名牌)
 TITLE_TRACKING = 0.08                 # 稱號字距 (字級的比例)
 NAME_TRACKING = 0.06
@@ -60,9 +61,12 @@ def draw_spaced(img, text, box, path, max_size, stroke_ratio, tracking, fill, st
 def paste_badge(img, rarity):
     badge = Image.open(os.path.join(RARITY_DIR, f"{rarity}.png")).convert("RGBA")
     w, h = BADGE_BOX[2] - BADGE_BOX[0], BADGE_BOX[3] - BADGE_BOX[1]
-    scale = min(w / badge.width, h / badge.height)
+    scale = min(w / badge.width, h / badge.height) * BADGE_SCALE
     badge = badge.resize((int(badge.width * scale), int(badge.height * scale)), Image.LANCZOS)
-    img.alpha_composite(badge, (BADGE_BOX[0] + (w - badge.width) // 2, BADGE_BOX[1] + (h - badge.height) // 2))
+    x = BADGE_BOX[0] + (w - badge.width) // 2
+    y = max(0, BADGE_BOX[1] + (h - badge.height) // 2)                  # 放大後不要超出卡片上緣
+    x = min(x, img.width - badge.width)                                  # 也不要超出右緣
+    img.alpha_composite(badge, (x, y))
 
 
 def missing_glyphs(text: str, path: str = TITLE_FONT) -> list[str]:
@@ -78,24 +82,35 @@ def missing_glyphs(text: str, path: str = TITLE_FONT) -> list[str]:
     return [ch for ch in dict.fromkeys(text) if not ch.isspace() and (ink(ch)[0] is None or ink(ch) == tofu)]
 
 
-def render_card(art_path: str, rarity: str, title: str, name: str) -> Image.Image:
-    """回傳 1748×2432 的完整卡面 (RGB)"""
+def render_stages(art_path: str, rarity: str, title: str, name: str) -> dict:
+    """依步驟產生卡面，回傳每一步的圖 (都是 1748×2432 RGB)：
+    1_art 人物 (鋪進畫窗位置) ➔ 2_frame 人物 + 卡框 ➔ 3_text + 稱號與名字 ➔ 4_card + 等級圖 (完成)"""
     title = "".join(GLYPH_FALLBACK.get(ch, ch) for ch in title)
     missing = missing_glyphs(title)
     if missing:
         raise ValueError(f"稱號「{title}」有字型缺字：{''.join(missing)}，請在 GLYPH_FALLBACK 加上異體字")
 
+    stages = {}
     frame = Image.open(EMPTY).convert("RGBA")
     card = Image.new("RGBA", frame.size, (0, 0, 0, 255))
     l, t, r, b = WINDOW
     art = ImageOps.fit(Image.open(art_path).convert("RGBA"), (r - l, b - t), method=Image.LANCZOS, centering=(0.5, 0.45))
     card.alpha_composite(art, (l, t))
+    stages["1_art"] = card.convert("RGB")
     card.alpha_composite(frame)
+    stages["2_frame"] = card.convert("RGB")
 
     draw_spaced(card, title, TITLE_BOX, TITLE_FONT, 104, 0.06, TITLE_TRACKING, (25, 15, 12), (250, 244, 230), bold_ratio=TITLE_BOLD)
-    paste_badge(card, rarity)
     draw_spaced(card, name, NAME_BOX, NAME_FONT, 360, 0, NAME_TRACKING, (30, 20, 20), None)
-    return card.convert("RGB")
+    stages["3_text"] = card.convert("RGB")
+    paste_badge(card, rarity)
+    stages["4_card"] = card.convert("RGB")
+    return stages
+
+
+def render_card(art_path: str, rarity: str, title: str, name: str) -> Image.Image:
+    """回傳 1748×2432 的完整卡面 (RGB)"""
+    return render_stages(art_path, rarity, title, name)["4_card"]
 
 
 def make_thumb(card: Image.Image) -> Image.Image:

@@ -8,3 +8,4 @@ __pycache__/
 /.botcli/
 /Database/backups/
 /tools/card_art/fonts/HarukazeSolid.ttf
+/card_stages/

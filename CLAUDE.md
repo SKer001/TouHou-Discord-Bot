@@ -104,17 +104,19 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - 縮圖規則：依序查 `images/Thumbnails.json` 的 `角色id_階級` → `角色id` → `"fill"`，連 URL 都沒有就只顯示文字。卡牌畫面用該卡的階級（融合預覽用升階後的階級）；圖鑑用檢視者擁有的最高階級，沒有收藏時用最低階級。
 - **卡面（`tools/card_art/`）**：
   - 流程：`make_workflow.py <角色> <階級> <種子> <out.json>` 產生 ComfyUI 工作流程（Animagine XL 4.0 Opt、896×1064、一次 2 張）→ 使用者挑圖 → 存成 `images/Original/Art/<角色>_<階級>.png` → `python tools/card_art/build_cards.py [角色…]` 產生 `images/Thumbnails/<角色>_<階級>.png` 並寫入 Thumbnails.json → **push 之後** Discord 才抓得到圖。
-  - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框要重跑 `make_empty.py` 和 `build_cards.py`（不加參數＝全部角色）。
+  - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，2026-10-29 換成使用者給的新綠幕版 `rarity_greenscreen.jpg`，用 `make_rarity.py` 去背切成 6 張；`card.py` 的 `BADGE_SCALE = 1.25` 放大 1.25 倍）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框或等級圖要重跑 `make_empty.py` / `make_rarity.py` 和 `build_cards.py`（不加參數＝全部角色）。
+  - **分階段輸出**（使用者指定）：`build_cards.py --stages` 會在 `card_stages/`（已加入 .gitignore，太大不進 repo）存每一步的圖：`_base/frame.png`、`_base/rarity/*.png`（基礎元素）；`<角色>_<階級>/0_pic.png`（原圖）→ `1_art`（人物）→ `2_frame`（人物＋框）→ `3_text`（＋名字與稱號）→ `4_card`（＋等級，完成）。程式在 `card.render_stages()`。
+  - **分層合成**（神綺 LR）：模型畫不出清楚的大量彈幕（會變成子彈彈殼或糊成一團），所以改成「AI 宇宙背景＋程式畫的彈幕＋AI 單獨生成再去背的人物」：`tools/card_art/layered/cutout.py`（BiRefNet 去背，用 comfy venv 的 python -I 執行）、`compose_lr.py`（光球環、螺旋米粒彈、星彈；人物縮小、斜角 −12°、背後柔光）。人物要用正方形畫布、提示「翅膀完整入鏡」，不然翅膀會被切。之後的 LR / 大招卡可以沿用。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
-  - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合、夢美（TH03）、艾莉、幻月、夢月（TH04）、愛麗絲（舊作外觀）、露易絲（TH05）。**下一位：神綺 shinki（TH05）**，之後依 `Characters/` 分類順序：神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
+  - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合、夢美（TH03）、艾莉、幻月、夢月（TH04）、愛麗絲（舊作外觀）、露易絲、神綺（TH05，LR 為分層合成）。**下一位：雪與舞 yuki_mai（TH05）**，之後依 `Characters/` 分類順序：雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
   - **每位角色的做法（使用者指定：一位一位處理）**：
     0. **先上網找參考圖**（使用者 2026-10-29 指定，從夢美開始）：**優先查萌娘百科**（使用者指定，東方資料最詳細，例如 `https://zh.moegirl.org.cn/艾丽(东方Project)`，有外貌、萌點、性格、設定 neta），舊作角色要查「(東方Project舊作)」條目（例如 `愛麗絲(東方Project舊作)`，跟新作同名角色是不同頁）；立繪圖檔可從 Touhou Wiki（en.touhouwiki.net 的 `/wiki/<作品>/Characters` 頁，例如 `Mystic_Square/Characters` 有 TH05 全員頭像）取得；THBWiki 有 Cloudflare 驗證、Danbooru 內建瀏覽器打不開。確認髮型髮色、服裝、配件、招牌道具，把參考圖與重點特徵給使用者看，再依此寫 prompt。
     1. 在 `make_workflow.py` 加 `BASE`（外觀 Danbooru 標籤）、每個階級的 `SCENES`（依稱號、個性、故事；階級越高越強），需要時加 `EXTRA_NEGATIVE`（可用角色或 `(角色, 階級)` 當鍵）；在 `build_cards.py` 加 `EN_NAMES`。先用一兩句話跟使用者說明各階級的構想。
     2. 每個階級用兩個種子各生 2 張（共 4 張）：`make_workflow.py <角色> <階級> <種子> <out.json>` → ComfyUI MCP `run_workflow(wait=False)` → `job(action="wait")`。
     3. `python tools/card_art/candidates.py <角色> --out <暫存資料夾>` 做對照表（取最新 4 張，標 1～4），用 SendUserFile 傳給使用者，順便指出明顯的問題（多出的腳、翅膀、髮色錯誤等）。
     4. 使用者回覆例如「343」＝各階級依序選第 3、4、3 張 → 把 ComfyUI 輸出的那張複製成 `images/Original/Art/<角色>_<階級>.png` → `build_cards.py <角色>` → 跑測試 → commit + push（不用先問）。
-  - **使用者偏好與踩過的坑**：明亮、淡陰影、全身、貼近角色個性；字不能太粗（會糊）；**構圖不一定要正面**（側身、回頭、看遠方都可以，不要每張都 `looking at viewer`）。**不要用 `from below` 仰角**（裙裝角色會拍到裙底，NEGATIVE 已排除 upskirt / panties），俯視感用 `looking down at viewer` 就好。**要有角色個性，不要只有微笑**：從萌娘百科的「萌點」「性格」挑幾個元素放進表情、動作、道具（例如幻月：天然呆歪頭、姊姊的得意、鬼畜狂笑），三個等級分配不同的面向。魔理沙要加 `standing, holding broom` 負面提示不然會拿著掃帚；魅魔是幽靈尾巴但模型常畫出腳；玄爺照使用者給的官方形象（陸龜、白鬍子白眉、白毛尾巴，不是海龜、不要翅膀）；里香（PC-98 角色、二創造型不統一）用自訂的工程師造型：棕短髮、護目鏡、白襯衫、綠吊帶褲、手套，使用者已接受；兩個角色同框時（玄爺 R 載著靈夢）外觀標籤會互相染色（靈夢變白髮），要在負面提示排除。使用者不滿意時會給參考圖或說明，照著改 prompt 重生。小瑕疵（例如魔理沙 UR 掃帚柄沒對齊、幻月 SSR 少一隻腳）可以用 PIL 剪貼 + ComfyUI 局部重繪 (VAEEncodeForInpaint，遮罩只蓋問題區域、一次出 4 版讓使用者挑) 修，修好的檔名 `fix_<角色>_<階級>_*.png`。
+  - **使用者偏好與踩過的坑**：明亮、淡陰影、全身、貼近角色個性；字不能太粗（會糊）；**構圖不一定要正面**（側身、回頭、看遠方都可以，不要每張都 `looking at viewer`）。**仰角可以用、些微裙底可以接受，但絕對不能露點**（2026-10-29 使用者修正；NEGATIVE 排除 nsfw / nude / nipples 等）。**要有角色個性，不要只有微笑**：從萌娘百科的「萌點」「性格」挑幾個元素放進表情、動作、道具（例如幻月：天然呆歪頭、姊姊的得意、鬼畜狂笑），三個等級分配不同的面向。魔理沙要加 `standing, holding broom` 負面提示不然會拿著掃帚；魅魔是幽靈尾巴但模型常畫出腳；玄爺照使用者給的官方形象（陸龜、白鬍子白眉、白毛尾巴，不是海龜、不要翅膀）；里香（PC-98 角色、二創造型不統一）用自訂的工程師造型：棕短髮、護目鏡、白襯衫、綠吊帶褲、手套，使用者已接受；兩個角色同框時（玄爺 R 載著靈夢）外觀標籤會互相染色（靈夢變白髮），要在負面提示排除。使用者不滿意時會給參考圖或說明，照著改 prompt 重生。小瑕疵（例如魔理沙 UR 掃帚柄沒對齊、幻月 SSR 少一隻腳）可以用 PIL 剪貼 + ComfyUI 局部重繪 (VAEEncodeForInpaint，遮罩只蓋問題區域、一次出 4 版讓使用者挑) 修，修好的檔名 `fix_<角色>_<階級>_*.png`。
   - **ComfyUI 環境（筆電與桌機都已安裝）**：
     - **桌機（2026-10-28 安裝，RTX 3060 Ti 8GB）**：新版 comfy-cli（1.23）會在 `ComfyUI\.venv` 自建虛擬環境並把 PyTorch（cu130）裝在那裡，`~/Documents/comfy/venv` 只有 comfy-cli。啟動要用 `& '~\Documents\comfy\ComfyUI\.venv\Scripts\python.exe' '~\Documents\comfy\ComfyUI\main.py' --listen 127.0.0.1 --port 8188`。
     - 桌機的 comfy MCP 尚未設定（改 `~/.claude.json` 被自動權限擋下）；改用 REST API 也能生圖：把 `make_workflow.py` 的輸出包成 `{"prompt": 工作流程}` POST 到 `http://127.0.0.1:8188/prompt`，用 `GET /queue` 等佇列清空。
@@ -206,7 +208,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
 - 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 32、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 355 項）。V2 畫面細節仍以 Discord 實機為準。
-- 已知待改進：其餘 19 位角色的卡面、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
+- 已知待改進：其餘 11 位角色的卡面、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
 
 ## 8. 使用者的決定與工作習慣
 - **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。

@@ -5,14 +5,20 @@ python tools/card_art/build_cards.py [角色id ...] [--full 資料夾]
 - 縮圖：images/Thumbnails/<角色id>_<階級>.png (460×640)
 - Thumbnails.json：寫入 "<角色id>_<階級>": GitHub raw 連結 (要 push 之後 Discord 才抓得到)
 - --full：另外把 1748×2432 的完整卡面存到指定資料夾 (不放進 repo)
+- --stages [資料夾]：每一步都存圖 (預設 card_stages/，已加入 .gitignore，太大不放進 repo)
+    _base/frame.png、_base/rarity/<階級>.png             基礎元素 (卡框、等級圖)
+    <角色>_<階級>/0_pic.png                              角色原圖
+    <角色>_<階級>/1_art.png → 2_frame.png → 3_text.png → 4_card.png
+                                                         人物 → 人物 + 框 → + 名字與稱號 → + 等級 (完成)
 """
 import glob
 import json
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from card import PROJECT_ROOT, make_thumb, render_card  # noqa: E402
+from card import EMPTY, PROJECT_ROOT, RARITY_DIR, make_thumb, render_stages  # noqa: E402
 
 ART_DIR = os.path.join(PROJECT_ROOT, "images", "Original", "Art")
 THUMB_DIR = os.path.join(PROJECT_ROOT, "images", "Thumbnails")
@@ -33,6 +39,7 @@ EN_NAMES = {
     "mugetsu": "Mugetsu",
     "alice": "Alice",
     "luize": "Luize",
+    "shinki": "Shinki",
 }
 
 
@@ -53,6 +60,16 @@ def main():
         full_dir = args[i + 1]
         del args[i:i + 2]
         os.makedirs(full_dir, exist_ok=True)
+    stages_dir = None
+    if "--stages" in args:
+        i = args.index("--stages")
+        has_path = i + 1 < len(args) and not args[i + 1].startswith("-") and args[i + 1] not in load_characters()
+        stages_dir = args[i + 1] if has_path else os.path.join(PROJECT_ROOT, "card_stages")
+        del args[i:i + (2 if has_path else 1)]
+        os.makedirs(os.path.join(stages_dir, "_base", "rarity"), exist_ok=True)
+        shutil.copy(EMPTY, os.path.join(stages_dir, "_base", "frame.png"))
+        for f in glob.glob(os.path.join(RARITY_DIR, "*.png")):
+            shutil.copy(f, os.path.join(stages_dir, "_base", "rarity"))
 
     chars = load_characters()
     targets = args or sorted(chars)
@@ -72,8 +89,15 @@ def main():
             if char_id not in EN_NAMES:
                 print(f"⚠️ {char_id} 沒有英文名字 (EN_NAMES)，略過")
                 break
-            card = render_card(art, rarity, char["gacha"]["titles"][rarity], EN_NAMES[char_id])
+            stages = render_stages(art, rarity, char["gacha"]["titles"][rarity], EN_NAMES[char_id])
+            card = stages["4_card"]
             key = f"{char_id}_{rarity}"
+            if stages_dir:
+                d = os.path.join(stages_dir, key)
+                os.makedirs(d, exist_ok=True)
+                shutil.copy(art, os.path.join(d, "0_pic.png"))
+                for name, im in stages.items():
+                    im.save(os.path.join(d, f"{name}.png"))
             make_thumb(card).save(os.path.join(THUMB_DIR, f"{key}.png"), optimize=True)
             if full_dir:
                 card.save(os.path.join(full_dir, f"{key}.png"), optimize=True)
