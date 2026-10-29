@@ -64,6 +64,12 @@ BASE = {
         "1girl, mugetsu (touhou), touhou, touhou (pc-98), blonde hair, short hair, bob cut, yellow eyes, "
         "pink maid headdress, maid, pink and blue maid dress, blue dress, white apron, large red bowtie"
     ),
+    # 愛麗絲 (舊作，怪綺談)：照萌娘百科「愛麗絲(東方Project舊作)」/ Touhou Wiki；齊頸金色短髮、金瞳、
+    # 藍緞帶髮卡、粉紅連衣裙 + 藍色圍裙、泡泡袖、白襪；萌點：蘿莉、魔法少女、魔導書、總受
+    "alice": (
+        "1girl, alice (touhou pc-98), touhou, touhou (pc-98), blonde hair, short hair, yellow eyes, "
+        "hair ribbon, blue ribbon, hairclip, pink dress, blue apron, puffy short sleeves, white socks, petite"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -256,6 +262,25 @@ SCENES = {
         "white and blue bullets, spiraling patterns, nightmare, dream world distorting, cracked sky, "
         "light rays, bloom, epic, powerful, menacing"
     ),
+    # 愛麗絲 SR「魔界的人形使」：抱著小人偶、倔強不服氣地瞪著闖入者
+    ("alice", "SR"): (
+        "hugging a small doll, holding doll tightly, pouting, glaring, determined, stubborn, frown, "
+        "demon world town, makai, strange buildings, purple sky, floating lanterns, "
+        "soft lighting, from side"
+    ),
+    # 愛麗絲 SSR「死之少女」：捧著究極魔導書 Grimoire of Alice 邊讀邊出招，「這次一定贏」的得意
+    ("alice", "SSR"): (
+        "holding open book, reading grimoire, glowing book, glowing pages flying around, magic runes, "
+        "smug, confident grin, one finger raised, casting spell, magic circle under feet, "
+        "sparkles, blue magic, wind, hair ribbon fluttering, dynamic angle"
+    ),
+    # 愛麗絲 UR「魔法之國的死靈法師」：人形 Little Legion，人偶軍團列陣、站在中央指揮
+    ("alice", "UR"): (
+        "commanding an army of dolls, many dolls, doll army, dolls holding lances and shields, marching dolls, "
+        "puppeteer, glowing strings from fingers, arms raised, commanding pose, serious expression, glowing eyes, "
+        "giant magic circle behind her, floating grimoire, necromancer, ghostly blue flames, "
+        "light rays, bloom, epic, powerful, majestic"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -272,6 +297,7 @@ EXTRA_NEGATIVE = {
     "elly": "hood, cloak, skeleton, black robe, onozuka komachi, red hair",   # 鐮刀容易畫成死神斗篷或小町
     "gengetsu": "black wings, bat wings, demon horns, maid, maid headdress, mugetsu (touhou), multiple girls",   # 惡魔但長天使翅膀；不要畫成妹妹夢月 (女僕)
     "mugetsu": "wings, angel wings, gengetsu (touhou), multiple girls, long hair, smile",   # 夢月沒有翅膀；撲克臉
+    "alice": "alice margatroid, capelet, blue dress, red hairband, hairband, mature female, long hair",   # 不要畫成新作愛麗絲 (藍裙披肩)
 }
 
 

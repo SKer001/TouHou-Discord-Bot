@@ -107,9 +107,9 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，使用者給的圖，AI 去背）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框要重跑 `make_empty.py` 和 `build_cards.py`（不加參數＝全部角色）。
   - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
   - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
-  - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合、夢美（TH03）、艾莉、幻月、夢月（TH04）。**下一位：愛麗絲 alice（TH05）**，之後依 `Characters/` 分類順序：愛麗絲 alice → 露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
+  - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合、夢美（TH03）、艾莉、幻月、夢月（TH04）、愛麗絲（TH05，舊作外觀）。**下一位：露易絲 luize（TH05）**，之後依 `Characters/` 分類順序：露易絲 luize → 神綺 shinki → 雪與舞 yuki_mai → 夢子 yumeko（TH05）→ TH06 九位。其餘尚未做的角色顯示 fill。
   - **每位角色的做法（使用者指定：一位一位處理）**：
-    0. **先上網找參考圖**（使用者 2026-10-29 指定，從夢美開始）：**優先查萌娘百科**（使用者指定，東方資料最詳細，例如 `https://zh.moegirl.org.cn/艾丽(东方Project)`，有外貌、萌點、性格、設定 neta），立繪圖檔可從 Touhou Wiki（en.touhouwiki.net 的 `/wiki/<作品>/Characters` 頁）取得；THBWiki 有 Cloudflare 驗證、Danbooru 內建瀏覽器打不開。確認髮型髮色、服裝、配件、招牌道具，把參考圖與重點特徵給使用者看，再依此寫 prompt。
+    0. **先上網找參考圖**（使用者 2026-10-29 指定，從夢美開始）：**優先查萌娘百科**（使用者指定，東方資料最詳細，例如 `https://zh.moegirl.org.cn/艾丽(东方Project)`，有外貌、萌點、性格、設定 neta），舊作角色要查「(東方Project舊作)」條目（例如 `愛麗絲(東方Project舊作)`，跟新作同名角色是不同頁）；立繪圖檔可從 Touhou Wiki（en.touhouwiki.net 的 `/wiki/<作品>/Characters` 頁，例如 `Mystic_Square/Characters` 有 TH05 全員頭像）取得；THBWiki 有 Cloudflare 驗證、Danbooru 內建瀏覽器打不開。確認髮型髮色、服裝、配件、招牌道具，把參考圖與重點特徵給使用者看，再依此寫 prompt。
     1. 在 `make_workflow.py` 加 `BASE`（外觀 Danbooru 標籤）、每個階級的 `SCENES`（依稱號、個性、故事；階級越高越強），需要時加 `EXTRA_NEGATIVE`（可用角色或 `(角色, 階級)` 當鍵）；在 `build_cards.py` 加 `EN_NAMES`。先用一兩句話跟使用者說明各階級的構想。
     2. 每個階級用兩個種子各生 2 張（共 4 張）：`make_workflow.py <角色> <階級> <種子> <out.json>` → ComfyUI MCP `run_workflow(wait=False)` → `job(action="wait")`。
     3. `python tools/card_art/candidates.py <角色> --out <暫存資料夾>` 做對照表（取最新 4 張，標 1～4），用 SendUserFile 傳給使用者，順便指出明顯的問題（多出的腳、翅膀、髮色錯誤等）。
