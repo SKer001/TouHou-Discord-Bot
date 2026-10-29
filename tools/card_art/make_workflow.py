@@ -14,7 +14,8 @@ NEGATIVE = (
     "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, fewer digits, worst quality, "
     "low quality, low score, bad score, average score, signature, watermark, username, blurry, "
     "dark, heavy shadows, chiaroscuro, night, monochrome, gloomy, "
-    "cropped, close-up, portrait, upper body, cut off feet, frame, border, multiple girls"
+    "cropped, close-up, portrait, upper body, cut off feet, frame, border, multiple girls, "
+    "upskirt, panties, pantyshot, underwear, nsfw"
 )
 
 # 角色外觀 (Danbooru 標籤)
@@ -56,6 +57,12 @@ BASE = {
         "1girl, gengetsu (touhou), touhou, touhou (pc-98), blonde hair, medium hair, straight hair, yellow eyes, "
         "red hair bow, big bow, pale pink long dress, brownish red vest, red bowtie, "
         "white angel wings, feathered wings, large wings"
+    ),
+    # 夢月：照萌娘百科 / Touhou Wiki (PC-98)；齊頸中短金直髮、金瞳、淡粉紅女僕髮卡、粉藍相間女僕裝、大紅蝴蝶結；
+    # 沒有翅膀；萌點：妹妹、女僕裝、撲克臉、高冷、傲嬌 (對姊姊)；攻擊前身上閃乳白色光芒
+    "mugetsu": (
+        "1girl, mugetsu (touhou), touhou, touhou (pc-98), blonde hair, short hair, bob cut, yellow eyes, "
+        "pink maid headdress, maid, pink and blue maid dress, blue dress, white apron, large red bowtie"
     ),
 }
 
@@ -225,10 +232,29 @@ SCENES = {
     ),
     # 幻月 SSR「漆黑夢幻之支配者」：鬼畜 ── 從高處俯視狂笑，翅膀帶紺色霧氣，發狂發散彈幕 + 魔砲
     ("gengetsu", "SSR"): (
-        "sadistic smile, crazy laugh, evil grin, shaded face, glowing eyes, looking down from above, from below, "
+        "sadistic smile, crazy laugh, evil grin, shaded face, glowing eyes, looking down from above, "
         "wings spread wide, wings with dark blue aura, dark blue mist around wings, "
         "massive danmaku, radial bullet pattern, spiraling bullets everywhere, huge magic beam, "
         "dream world sky, swirling clouds, light rays, bloom, epic, powerful, menacing, majestic"
+    ),
+    # 夢月 N「夢幻館的女僕」：撲克臉端出冰淇淋甜點 (主題曲 Icemilk Magic)
+    ("mugetsu", "N"): (
+        "expressionless, poker face, half-closed eyes, holding a silver tray, ice cream sundae, parfait, desserts, "
+        "serving, elegant pose, western mansion interior, dining room, tea set, window, "
+        "soft lighting, daylight, from side"
+    ),
+    # 夢月 R「夢幻的仙境女僕」：傲嬌 ── 抱胸撇頭、臉紅，夢境中飄浮的茶具與甜點
+    ("mugetsu", "R"): (
+        "tsundere, arms crossed, looking away, turning head, pout, blush, annoyed, "
+        "floating teacups, floating teapot, floating cakes and sweets, dream world, pastel sky, "
+        "fluffy clouds, floating islands, sparkles, daylight"
+    ),
+    # 夢月 SR「惡夢之女補佐」：惡夢侵蝕 ── 面無表情放出鬼畜彈幕，乳白色光芒包身，冷冽俯視
+    ("mugetsu", "SR"): (
+        "expressionless, cold eyes, glowing eyes, looking down at viewer, one hand raised, "
+        "milky white aura, white glowing light around body, massive danmaku, dense bullet curtain, "
+        "white and blue bullets, spiraling patterns, nightmare, dream world distorting, cracked sky, "
+        "light rays, bloom, epic, powerful, menacing"
     ),
 }
 
@@ -245,6 +271,7 @@ EXTRA_NEGATIVE = {
     "yumemi": "blonde hair, black dress, purple, glasses, lab coat",          # 不要替換服裝 (金髮黑衣) 或一般科學家造型
     "elly": "hood, cloak, skeleton, black robe, onozuka komachi, red hair",   # 鐮刀容易畫成死神斗篷或小町
     "gengetsu": "black wings, bat wings, demon horns, maid, maid headdress, mugetsu (touhou), multiple girls",   # 惡魔但長天使翅膀；不要畫成妹妹夢月 (女僕)
+    "mugetsu": "wings, angel wings, gengetsu (touhou), multiple girls, long hair, smile",   # 夢月沒有翅膀；撲克臉
 }
 
 
