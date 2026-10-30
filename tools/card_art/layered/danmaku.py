@@ -10,11 +10,13 @@ from PIL import Image, ImageDraw, ImageFilter
 BASE_W = 1344
 
 
-def draw_danmaku(size, seed=1, style="rainbow", scale=None):
-    """scale：彈幕大小的倍率 (預設 = 寬 / 1344)；畫滿整張卡時傳畫窗的倍率，彈幕大小才會跟畫窗版一樣"""
+def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
+    """scale：彈幕大小的倍率 (預設 = 寬 / 1344)；畫滿整張卡時傳畫窗的倍率，彈幕大小才會跟畫窗版一樣
+    density：彈幕留下的比例 (0~1)；隨機略過，排列的圖樣不變"""
     W, H = size
     s = scale or W / BASE_W                            # 放大倍率 (所有尺寸、距離都乘上)
     rnd = random.Random(seed)
+    keep = random.Random(seed + 99)                    # 決定哪些彈要略過 (另外一組亂數，不影響排列)
     frozen = 0.8 if style == "freeze" else 0.0         # freeze：8 成彈幕凍成白色冰晶
 
     def hue(h, sat=0.85, v=1.0):
@@ -28,11 +30,15 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None):
     gd, cd = ImageDraw.Draw(glow), ImageDraw.Draw(core)
 
     def orb(x, y, r, color):
+        if keep.random() > density:
+            return
         gd.ellipse((x - r * 2.2, y - r * 2.2, x + r * 2.2, y + r * 2.2), fill=color)
         cd.ellipse((x - r, y - r, x + r, y + r), fill=color + (255,), outline=(255, 255, 255, 255), width=max(1, int(r * 0.25)))
         cd.ellipse((x - r * 0.45, y - r * 0.45, x + r * 0.45, y + r * 0.45), fill=(255, 255, 255, 255))
 
     def rice(x, y, ang, L, color):
+        if keep.random() > density:
+            return
         pts = []
         for t in range(24):
             a = 2 * math.pi * t / 24
@@ -43,6 +49,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None):
         cd.polygon([(x + (px - x) * 0.45, y + (py - y) * 0.45) for px, py in pts], fill=(255, 255, 255, 255))
 
     def star(x, y, r, rot, color):
+        if keep.random() > density:
+            return
         pts = []
         for k in range(10):
             rr = r if k % 2 == 0 else r * 0.45
@@ -52,6 +60,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None):
         cd.polygon(pts, fill=color + (255,), outline=(255, 255, 255, 255), width=max(1, int(s)))
 
     def crystal(x, y, r, rot, color):
+        if keep.random() > density:
+            return
         for k in range(6):
             a = rot + math.pi * k / 3
             ex, ey = x + r * math.cos(a), y + r * math.sin(a)

@@ -1,4 +1,4 @@
-"""高清分層卡面流程 (使用者 2026-10-30 指定，UR / LR 用)：每一步的產出與修改後的圖都保留，方便之後微調
+"""高清分層卡面流程 (使用者 2026-10-30 指定，UR 與 LR 步驟完全一樣，只差最後的動態特效)：每一步的產出與修改後的圖都保留，方便之後微調
 步驟檔放在 images/Original/<分類>/<角色>/<階級>/ (分類 = Characters/ 的資料夾，例如 TH05)：
 
   背景  01_bg_base.png     SDXL 生成 (跟卡面同比例 864×1200)
@@ -78,9 +78,23 @@ LAYERS = {
         "glow": 0.6,       # 彈幕光暈強度 (太高會變成一片霧)
         "tilt": -12,       # 人物傾斜角度 (負 = 順時針：頭往右上、腳往左下)
         "char_scale": 1.0, # 人物大小 = 剛好完整放進畫窗的幾倍
-        "offset": (-0.03, -0.05),
+        "offset": (-0.03, -0.05),   # 人物位置微調 (畫窗寬高的比例；使用者：往左上一點，靠近中心，左側翅膀切掉一點沒關係)
         # 打光 (relight.py)：背景是大量彈幕 ➔ 背光 + 輪廓光，翅膀紋路與眼睛發光；眼睛座標是 10_char.png 上的位置
-        "light": {"eyes": [(619, 635), (653, 640)]},   # 人物位置微調 (畫窗寬高的比例；使用者：往左上一點，靠近中心，左側翅膀切掉一點沒關係)
+        "light": {"eyes": [(619, 635), (653, 640)]},
+    },
+    # 琪露諾 UR「絕對零度之最強⑨」凍符「Perfect Freeze」：冰封湖面 + 極光 + 少量凍結彈幕；人物放大、冰晶翅膀展開、得意大笑
+    ("cirno", "UR"): {
+        "bg": ("no humans, scenery, completely frozen lake, ice field, giant ice crystals, frost patterns, snowflakes, "
+               "diamond dust, aurora in the sky, pale blue and white, cold light, sparkling, crisp, bright, beautiful, "
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, dark, night",
+        "char": ("dynamic pose, arms spread wide, casting ice magic, six ice crystal wings fully spread, "
+                 "laughing, open mouth, smug, confident grin, v-shaped eyebrows, hair fluttering, dress fluttering, "
+                 "frost particles around hands, slightly from below"),
+        "style": "freeze",
+        "density": 0.45,   # 上一版彈幕太多、人物被淹沒 (使用者 2026-10-30)
+        "dim": 0.5,
+        "glow": 0.3,
     },
 }
 
@@ -207,7 +221,8 @@ def make_bg(char_id, rarity):
     bg = ImageEnhance.Brightness(bg).enhance(spec.get("dim", 0.62))
     # 彈幕畫滿整張卡 (沒有框的完整原圖也有彈幕)，大小以畫窗為基準
     l, t, r, b = window_box()
-    glow, core = draw_danmaku(bg.size, seed=1, style=spec.get("style", "rainbow"), scale=(r - l) * HD / BASE_W)
+    glow, core = draw_danmaku(bg.size, seed=1, style=spec.get("style", "rainbow"), scale=(r - l) * HD / BASE_W,
+                              density=spec.get("density", 1.0))
     bg = ImageChops.add(bg, ImageEnhance.Brightness(glow).enhance(spec.get("glow", 0.6))).convert("RGBA")
     bg.alpha_composite(core)
     bg = bg.convert("RGB")
