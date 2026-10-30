@@ -11,6 +11,7 @@
         08_char_hd.png     放大成畫窗 16 倍像素 (5316×6384)
         09_char_cut_hd.png 去背 (BiRefNet)
         10_char.png        裁掉空白、傾斜 (tilt)、縮到剛好完整放進畫窗 (× char_scale)，放到畫窗大小的畫布 (offset 微調，超出切掉) ★
+        10b_char_lit.png   打光 (relight.py：背光、輪廓光、翅膀紋路與眼睛發光；LAYERS 有 light 才做) ★ 有這張就用這張
   疊層  11_art.png         背景 + 人物 (沒有框的完整原圖，也複製到 Original/Art/<角色>_<階級>.png；
                            10_char.png 另外複製成 Art/<角色>_<階級>_char.png)
         12_bg_frame.png    背景 + 卡框
@@ -27,6 +28,7 @@
   python hd_card.py collect <角色> <階級> bg|char <種子>            把 ComfyUI 的輸出複製成 01~03 / 06~08
   python hd_card.py bg <角色> <階級>                                 04、05
   python hd_card.py char <角色> <階級>                               09、10 (去背用 comfy venv 的 python)
+  python hd_card.py light <角色> <階級>                              10b (打光，LAYERS 的 light)
   python hd_card.py compose <角色> <階級>                            11~16
 """
 import glob
@@ -43,6 +45,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from card import PROJECT_ROOT, render_layered_stages, window_box  # noqa: E402
 from danmaku import BASE_W, draw_danmaku  # noqa: E402
+from relight import relight  # noqa: E402
 from make_workflow import BASE, NEGATIVE, QUALITY, EXTRA_NEGATIVE  # noqa: E402
 
 Image.MAX_IMAGE_PIXELS = None                      # 高清背景 6992×9728 超過 PIL 預設上限
@@ -74,7 +77,9 @@ LAYERS = {
         "glow": 0.6,       # 彈幕光暈強度 (太高會變成一片霧)
         "tilt": -12,       # 人物傾斜角度 (負 = 順時針：頭往右上、腳往左下)
         "char_scale": 1.0, # 人物大小 = 剛好完整放進畫窗的幾倍
-        "offset": (-0.03, -0.05),   # 人物位置微調 (畫窗寬高的比例；使用者：往左上一點，靠近中心，左側翅膀切掉一點沒關係)
+        "offset": (-0.03, -0.05),
+        # 打光 (relight.py)：背景是大量彈幕 ➔ 背光 + 輪廓光，翅膀紋路與眼睛發光；眼睛座標是 10_char.png 上的位置
+        "light": {"eyes": [(619, 635), (653, 640)]},   # 人物位置微調 (畫窗寬高的比例；使用者：往左上一點，靠近中心，左側翅膀切掉一點沒關係)
     },
 }
 
@@ -233,6 +238,25 @@ def make_char(char_id, rarity):
                                 round((canvas.height - ch.height) / 2 + dy * canvas.height)))   # 超出部分 PIL 會自動裁掉
     canvas.save(os.path.join(d, "10_char.png"))
     print("✅ 10_char")
+    if spec.get("light") is not None:
+        make_light(char_id, rarity)
+
+
+def make_light(char_id, rarity):
+    d = stage_dir(char_id, rarity)
+    opts = LAYERS[(char_id, rarity)].get("light")
+    if opts is None:
+        raise SystemExit("LAYERS 沒有 light 設定")
+    l, t, r, b = window_box()
+    win = Image.open(os.path.join(d, "05_bg.png")).convert("RGB").crop((l, t, r, b))
+    relight(Image.open(os.path.join(d, "10_char.png")), win, opts).save(os.path.join(d, "10b_char_lit.png"))
+    print("✅ 10b_char_lit")
+
+
+def char_layer(d):
+    """疊層用的人物：有打光版就用打光版"""
+    lit = os.path.join(d, "10b_char_lit.png")
+    return lit if os.path.exists(lit) else os.path.join(d, "10_char.png")
 
 
 def layered_paths(char_id, rarity):
@@ -241,7 +265,7 @@ def layered_paths(char_id, rarity):
         d = os.path.join(PROJECT_ROOT, "images", "Original", category_of(char_id), char_id, rarity)
     except SystemExit:
         return None
-    bg, ch = os.path.join(d, "05_bg.png"), os.path.join(d, "10_char.png")
+    bg, ch = os.path.join(d, "05_bg.png"), char_layer(d)
     return (bg, ch) if os.path.exists(bg) and os.path.exists(ch) else None
 
 
@@ -250,14 +274,14 @@ def compose(char_id, rarity):
     from build_cards import ART_DIR, EN_NAMES, load_characters
     d = stage_dir(char_id, rarity)
     char = load_characters()[char_id]
-    stages = render_layered_stages(os.path.join(d, "05_bg.png"), os.path.join(d, "10_char.png"), rarity,
+    stages = render_layered_stages(os.path.join(d, "05_bg.png"), char_layer(d), rarity,
                                    char["gacha"]["titles"][rarity], EN_NAMES[char_id])
     names = {"art": "11_art", "bg_frame": "12_bg_frame", "frame_char": "13_frame_char", "text": "14_text", "card": "15_card"}
     for key, name in names.items():
         stages[key].save(os.path.join(d, name + ".png"))
         print("✅", name)
     shutil.copy(os.path.join(d, "11_art.png"), os.path.join(ART_DIR, f"{char_id}_{rarity}.png"))
-    shutil.copy(os.path.join(d, "10_char.png"), os.path.join(ART_DIR, f"{char_id}_{rarity}_char.png"))   # 沒有背景的人物 (使用者：UR / LR 都要留)
+    shutil.copy(char_layer(d), os.path.join(ART_DIR, f"{char_id}_{rarity}_char.png"))   # 沒有背景的人物 (使用者：UR / LR 都要留)
     print(f"✅ Art/{char_id}_{rarity}.png、{char_id}_{rarity}_char.png")
     if rarity in RARITY_EFFECTS:
         kb = save_animation(stages["card"], RARITY_EFFECTS[rarity], os.path.join(d, "16_card.gif")) / 1024
@@ -287,6 +311,8 @@ def main():
         make_bg(char_id, rarity)
     elif cmd == "char":
         make_char(char_id, rarity)
+    elif cmd == "light":
+        make_light(char_id, rarity)
     elif cmd == "compose":
         compose(char_id, rarity)
     else:
