@@ -12,6 +12,8 @@
         09_char_cut_hd.png 去背 (BiRefNet)
         10_char.png        裁掉空白、傾斜 (tilt)、縮到剛好完整放進畫窗 (× char_scale)，放到畫窗大小的畫布 (offset 微調，超出切掉) ★
         10b_char_lit.png   打光 (relight.py：背光、輪廓光、翅膀紋路與眼睛發光；LAYERS 有 light 才做) ★ 有這張就用這張
+  翅膀  W1_crystal_X.png     單獨生成的水晶 (不要人物、白底) → W2_crystal_X_hd.png 放大 → W3_crystal_X_cut.png 去背 (只留最大一塊)
+        W4_wings.png       依 LAYERS 的 wings 排在人物背後 (左右對稱) → W5_wings_lit.png 打光 → 10d_char_wings.png 疊在人物下面 ★
         10c_char_photocraft.png  PhotoCraft 手修 (例如 pc_shinki_LR_tips.py) ★ 有這張就優先用；10b 重做後要記得重修
   疊層  11_art.png         背景 + 人物 (沒有框的完整原圖，也複製到 Original/Art/<角色>_<階級>.png；
                            10_char.png 另外複製成 Art/<角色>_<階級>_char.png)
@@ -30,6 +32,7 @@
   python hd_card.py bg <角色> <階級>                                 04、05
   python hd_card.py char <角色> <階級>                               09、10 (去背用 comfy venv 的 python)
   python hd_card.py light <角色> <階級>                              10b (打光，LAYERS 的 light)
+  python hd_card.py wings <角色> <階級>                              W3~W5、10d (翅膀層，LAYERS 的 wings；W2 要先放好)
   python hd_card.py compose <角色> <階級>                            11~16
 """
 import glob
@@ -39,7 +42,8 @@ import shutil
 import subprocess
 import sys
 
-from PIL import Image, ImageChops, ImageEnhance
+import numpy as np
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -47,6 +51,7 @@ sys.path.insert(0, HERE)
 from card import PROJECT_ROOT, render_layered_stages, window_box  # noqa: E402
 from danmaku import BASE_W, draw_danmaku  # noqa: E402
 from relight import relight  # noqa: E402
+from wings import arrange, clean_crystal  # noqa: E402
 from make_workflow import BASE, NEGATIVE, QUALITY, EXTRA_NEGATIVE  # noqa: E402
 
 Image.MAX_IMAGE_PIXELS = None                      # 高清背景 6992×9728 超過 PIL 預設上限
@@ -84,19 +89,38 @@ LAYERS = {
     },
     # 琪露諾 UR「絕對零度之最強⑨」凍符「Perfect Freeze」：冰封湖面 + 極光 + 少量凍結彈幕；人物放大、冰晶翅膀展開、得意大笑
     ("cirno", "UR"): {
-        "bg": ("no humans, scenery, completely frozen lake, ice field, giant ice crystals, frost patterns, snowflakes, "
-               "diamond dust, aurora in the sky, pale blue and white, cold light, sparkling, crisp, bright, beautiful, "
-               "highly detailed, intricate details"),
-        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, dark, night",
+        # 深藍色夜晚 + 極光：白色冰彈幕和背光的人物才看得清楚 (亮白雪地會讓彈幕糊成一片)
+        "bg": ("no humans, scenery, frozen lake at night, vast ice field, giant ice crystals, frost patterns, "
+               "brilliant aurora borealis, starry sky, deep blue and teal, cold glowing light, diamond dust, sparkling, "
+               "crisp, beautiful, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, white sky, overexposed",
         "char": ("dynamic pose, arms spread wide, casting ice magic, six ice crystal wings fully spread, "
                  "laughing, open mouth, smug, confident grin, v-shaped eyebrows, hair fluttering, dress fluttering, "
                  "frost particles around hands, slightly from below"),
         "style": "freeze",
         "density": 0.75,   # 使用者：UR 也要大量彈幕，比 LR 少一點
-        "dim": 0.5,
+        "dim": 0.8,        # 夜景本來就暗，不用壓太多
         "glow": 0.3,
-        "char_scale": 0.8, # 使用者：人物整體比例比較小 (跟 LR 一樣，彈幕當主角)
-        "light": {},       # 背光；眼睛座標、冰晶翅膀發光等選好人物再補
+        "char_scale": 0.6, # 人物 (不含翅膀) 的大小；加上翅膀後整體比例偏小 (跟 LR 一樣，彈幕當主角)
+        # 人物不畫翅膀 (06h：使用者選的 1 號用手描身體輪廓把翅膀塗白)；背光 + 冰藍色眼睛，座標是 10_char.png 上的位置
+        "light": {
+            "dark": 0.4,   # 背景很亮，背光要壓暗多一點才看得出來
+            "eyes": [(706, 500), (754, 524)], "eye_color": (150, 220, 255),
+        },
+        # 翅膀層 (wings.py)：單顆水晶 W1 生成 → W2 放大 → W3 去背 → W4 排在背後 → W5 打光，疊在人物下面
+        "wings": {
+            "crystals": {"D": "W1_crystal_D.png", "H": "W1_crystal_H.png"},   # 使用者選 D (細長雙尖) + H (寬短赫基蒙)
+            "anchor": (545, 405),   # 背後 (兩肩之間) 的位置，06 基本圖座標
+            # angle：從正上方順時針 (右側，左側自動鏡射)；length / r0：畫窗高度的比例；先寫的在下面
+            "items": [
+                {"crystal": "H", "angle": 112, "length": 0.2, "r0": 0.03, "width": 0.65},   # width：粗細 (水晶原圖偏胖)
+                {"crystal": "D", "angle": 72, "length": 0.32, "r0": 0.03, "width": 0.6},
+                {"crystal": "D", "angle": 38, "length": 0.38, "r0": 0.03, "width": 0.6},
+            ],
+            # 使用者：亮到接近白色但還是藍色系、淡淡的彩虹稜鏡 (像水晶散射彩虹光)
+            "light": {"dark": 0.0, "rim": 0.5, "halo": 0.5,
+                      "emissive": [{"mask": "alpha", "color": (170, 222, 255), "strength": 1.0, "body": 0.75, "prism": 0.45}]},
+        },
     },
 }
 
@@ -242,22 +266,92 @@ def make_char(char_id, rarity):
     print("✅ 09_char_cut_hd")
     spec = LAYERS[(char_id, rarity)]
     ch = Image.open(os.path.join(d, "09_char_cut_hd.png")).convert("RGBA")
-    ch = ch.crop(ch.split()[3].point(lambda v: 255 if v > 8 else 0).getbbox())   # 去掉四周空白
-    if spec.get("tilt"):
-        ch = ch.rotate(spec["tilt"], resample=Image.BICUBIC, expand=True)
-        ch = ch.crop(ch.getbbox())
+    if spec.get("wing_mask"):   # 去背模型會把半透明的水晶翅膀當背景切掉：翅膀遮罩範圍內一律保留
+        wm = Image.open(os.path.join(d, spec["wing_mask"])).convert("L").resize(ch.size, Image.BILINEAR)
+        wm = wm.filter(ImageFilter.GaussianBlur(2))
+        alpha = ImageChops.lighter(ch.split()[3], wm)
+        orig = Image.open(src).convert("RGB")                       # 去背結果被切掉的地方是黑色，顏色要從原圖拿
+        ch = Image.composite(orig, ch.convert("RGB"), wm).convert("RGBA")
+        ch.putalpha(alpha)
+    box = ch.split()[3].point(lambda v: 255 if v > 8 else 0).getbbox()            # 去掉四周空白
+
+    def place(img, resample):
+        """跟人物一樣：裁空白 → 傾斜 → 縮到放進畫窗 (× char_scale) → 放到畫窗大小的畫布 (offset，超出切掉)"""
+        img = img.crop(box)
+        if spec.get("tilt"):
+            img = img.rotate(spec["tilt"], resample=Image.BICUBIC, expand=True)
+            img = img.crop(rot_box)
+        img = img.resize(size, resample)
+        canvas = Image.new(img.mode, (r - l, b - t), 0)
+        canvas.paste(img, (round((canvas.width - img.width) / 2 + dx * canvas.width),
+                           round((canvas.height - img.height) / 2 + dy * canvas.height)))   # 超出部分 PIL 會自動裁掉
+        return canvas
+
+    rot = ch.crop(box).rotate(spec["tilt"], expand=True) if spec.get("tilt") else ch.crop(box)
+    rot_box = rot.getbbox()
+    rot = rot.crop(rot_box)
     l, t, r, b = window_box()
-    scale = min((r - l) / ch.width, (b - t) / ch.height) * spec.get("char_scale", 1.0)   # 完整放進畫窗
-    ch = ch.resize((round(ch.width * scale), round(ch.height * scale)), Image.LANCZOS)
-    # 放到畫窗大小的透明畫布：預設置中，offset (畫窗寬高的比例) 微調位置，超出畫窗的部分切掉
+    scale = min((r - l) / rot.width, (b - t) / rot.height) * spec.get("char_scale", 1.0)   # 完整放進畫窗
+    size = (round(rot.width * scale), round(rot.height * scale))
     dx, dy = spec.get("offset", (0, 0))
-    canvas = Image.new("RGBA", (r - l, b - t), (0, 0, 0, 0))
-    canvas.alpha_composite(ch, (round((canvas.width - ch.width) / 2 + dx * canvas.width),
-                                round((canvas.height - ch.height) / 2 + dy * canvas.height)))   # 超出部分 PIL 會自動裁掉
-    canvas.save(os.path.join(d, "10_char.png"))
+    place(ch, Image.LANCZOS).save(os.path.join(d, "10_char.png"))
     print("✅ 10_char")
+    # 手描的翅膀遮罩 (06 基本圖座標) 跟著放大、裁切、縮放，打光用 (relight 的 emissive "mask")
+    if spec.get("wing_mask"):
+        m = Image.open(os.path.join(d, spec["wing_mask"])).convert("L").resize(ch.size, Image.BILINEAR)
+        place(m, Image.BILINEAR).save(os.path.join(d, "10w_char_wingmask.png"))
+        print("✅ 10w_char_wingmask")
+    # 翅膀層的錨點 (06 基本圖座標) 也跟著人物換算到 10_char.png 上
+    if spec.get("wings"):
+        base_w, base_h = Image.open(os.path.join(d, "06_char_base.png")).size
+        ax, ay = spec["wings"]["anchor"]
+        dot = Image.new("L", ch.size, 0)
+        sx, sy = ch.width / base_w, ch.height / base_h
+        ImageDraw.Draw(dot).ellipse((ax * sx - 12 * sx, ay * sy - 12 * sy, ax * sx + 12 * sx, ay * sy + 12 * sy), fill=255)
+        ys, xs = np.nonzero(np.asarray(place(dot, Image.BILINEAR)) > 127)
+        with open(os.path.join(d, "10_anchor.json"), "w", encoding="utf-8") as f:
+            json.dump({"anchor": [float(xs.mean()), float(ys.mean())]}, f)
+        print("✅ 10_anchor.json")
     if spec.get("light") is not None:
         make_light(char_id, rarity)
+    if spec.get("wings") and all(os.path.exists(os.path.join(d, f"W3_crystal_{k}_cut.png")) for k in spec["wings"]["crystals"]):
+        make_wings(char_id, rarity)
+
+
+def make_wings(char_id, rarity):
+    """翅膀層：W2 (放大) → W3 去背 → W4 排列 → W5 打光 → 10d 疊在人物下面"""
+    d = stage_dir(char_id, rarity)
+    ws = LAYERS[(char_id, rarity)]["wings"]
+    crystals = {}
+    for key in ws["crystals"]:
+        cut = os.path.join(d, f"W3_crystal_{key}_cut.png")
+        if not os.path.exists(cut):
+            hd = os.path.join(d, f"W2_crystal_{key}_hd.png")
+            subprocess.run([COMFY_PY, "-I", os.path.join(HERE, "cutout.py"), hd, d], check=True)
+            clean_crystal(Image.open(os.path.join(d, f"W2_crystal_{key}_hd_cut.png")).convert("RGBA")).save(cut)
+            os.remove(os.path.join(d, f"W2_crystal_{key}_hd_cut.png"))
+            print(f"✅ W3_crystal_{key}_cut")
+        crystals[key] = Image.open(cut).convert("RGBA")
+    l, t, r, b = window_box()
+    H = b - t
+    with open(os.path.join(d, "10_anchor.json"), encoding="utf-8") as f:
+        anchor = json.load(f)["anchor"]
+    items = [dict(it, length=it["length"] * H, r0=it.get("r0", 0) * H) for it in ws["items"]]
+    layer = arrange((r - l, b - t), anchor, items, crystals)
+    layer.save(os.path.join(d, "W4_wings.png"))
+    print("✅ W4_wings")
+    win = Image.open(os.path.join(d, "05_bg.png")).convert("RGB").crop((l, t, r, b))
+    opts = dict(ws.get("light", {}))
+    alpha = np.asarray(layer.split()[3], dtype=np.float32) / 255
+    opts["emissive"] = [dict(em, mask=alpha) if em.get("mask") == "alpha" else em for em in opts.get("emissive", [])]
+    lit = relight(layer, win, opts)
+    lit.save(os.path.join(d, "W5_wings_lit.png"))
+    print("✅ W5_wings_lit")
+    body = os.path.join(d, "10b_char_lit.png")
+    body = body if os.path.exists(body) else os.path.join(d, "10_char.png")
+    lit.alpha_composite(Image.open(body).convert("RGBA"))              # 人物蓋在翅膀上
+    lit.save(os.path.join(d, "10d_char_wings.png"))
+    print("✅ 10d_char_wings")
 
 
 def make_light(char_id, rarity):
@@ -267,13 +361,16 @@ def make_light(char_id, rarity):
         raise SystemExit("LAYERS 沒有 light 設定")
     l, t, r, b = window_box()
     win = Image.open(os.path.join(d, "05_bg.png")).convert("RGB").crop((l, t, r, b))
+    opts = dict(opts)
+    opts["emissive"] = [dict(em, mask=np.asarray(Image.open(os.path.join(d, em["mask"])).convert("L"), dtype=np.float32) / 255)
+                        if isinstance(em.get("mask"), str) else em for em in opts.get("emissive", [])]   # 遮罩檔名 ➔ 陣列
     relight(Image.open(os.path.join(d, "10_char.png")), win, opts).save(os.path.join(d, "10b_char_lit.png"))
     print("✅ 10b_char_lit")
 
 
 def char_layer(d):
-    """疊層用的人物：PhotoCraft 手修版 (10c) > 打光版 (10b) > 10"""
-    for name in ("10c_char_photocraft.png", "10b_char_lit.png", "10_char.png"):
+    """疊層用的人物：PhotoCraft 手修版 (10c) > 加上翅膀層 (10d) > 打光版 (10b) > 10"""
+    for name in ("10c_char_photocraft.png", "10d_char_wings.png", "10b_char_lit.png", "10_char.png"):
         if os.path.exists(os.path.join(d, name)):
             return os.path.join(d, name)
 
@@ -332,6 +429,8 @@ def main():
         make_char(char_id, rarity)
     elif cmd == "light":
         make_light(char_id, rarity)
+    elif cmd == "wings":
+        make_wings(char_id, rarity)
     elif cmd == "compose":
         compose(char_id, rarity)
     else:

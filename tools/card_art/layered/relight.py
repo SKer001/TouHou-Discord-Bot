@@ -10,6 +10,7 @@ opts (都可省略)：
   glow_red    翅膀上細紅紋路的發光強度 (只抓細線，衣服大片紅色不會發光)
   wing_dark   翅膀本體 (紫色 / 黑色部分) 再壓暗的程度
   eyes        眼睛中心座標 [(x, y), ...] (10_char.png 的座標)；eye 強度、eye_color、eye_size
+  emissive    依顏色指定的發光部位清單 [{hue: (lo, hi), sat: (lo, hi), val: (lo,), color, strength, exclude: [多邊形]}]
 """
 import colorsys
 
@@ -71,6 +72,46 @@ def relight(char: Image.Image, bg: Image.Image, opts: dict) -> Image.Image:
     out = out + hot[..., None] * np.array([0.0, 0.35, 0.3]) * g
     bloom = (_blur(pattern, w / 260) * 1.2 + _blur(pattern, w / 90) * 0.5)[..., None] * np.array([1.0, 0.2, 0.35]) * g
     out = 1 - (1 - out) * (1 - np.clip(bloom, 0, 1) * wing[..., None])   # 紋路的光只暈在翅膀上，不會染到衣服
+
+    # 3b. 依顏色指定的發光部位 (例如琪露諾的冰晶翅膀)：hue / sat / val 範圍內、扣掉 exclude 多邊形 (頭髮等同色系部位)
+    for em in opts.get("emissive", []):
+        if "mask" in em:   # 手描的遮罩最準 (顏色選取會跟同色系的頭髮、衣服混在一起)
+            sel = (np.asarray(em["mask"]) > 0.5) & (a > 0.5)
+        else:
+            sel = (a > 0.5) & (sat >= em["sat"][0]) & (sat <= em["sat"][1]) & (val >= em["val"][0])
+            lo, hi = em["hue"]
+            sel &= (hue_ >= lo) & (hue_ <= hi)
+        if em.get("fill"):   # 補起區域內沒選到的灰色小塊 (冰晶內部的陰影)
+            sel = ndimage.binary_closing(sel, structure=np.ones((5, 5)), iterations=2)
+            sel = ndimage.binary_fill_holes(ndimage.binary_dilation(sel, iterations=4)) & (a > 0.5)   # 往外擴一點，邊緣灰條也包進來
+        sel = sel.astype(np.float32)
+        if em.get("exclude"):
+            ex = Image.new("L", (w, h), 0)
+            for poly in em["exclude"]:
+                ImageDraw.Draw(ex).polygon([tuple(p) for p in poly], fill=255)
+            sel *= 1 - np.asarray(ex, dtype=np.float32) / 255
+        m = _blur(sel, 0.8)
+        col = np.array(em.get("color", (120, 215, 255)), dtype=np.float32) / 255
+        s_ = em.get("strength", 1.0)
+        # 本體：保留顏色、往發光色偏 (body 越大越亮，用濾色提亮才不會變成灰白一片)
+        tinted = np.clip(out * np.array([0.8, 1.0, 1.12]), 0, 1)
+        lit = 1 - (1 - tinted) * (1 - col * em.get("body", 0.12) * s_)
+        if em.get("prism"):
+            # 稜鏡彩虹：色相隨位置與晶面明暗變化 (不同晶面散射不同顏色)，低飽和濾色疊上去
+            yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+            hue_map = (xx / w * 1.3 + yy / h * 0.9 + _blur(val, 2) * 1.8) % 1.0
+            hsv_p = np.stack([hue_map, np.full_like(hue_map, em.get("prism_sat", 0.45)), np.ones_like(hue_map)], axis=-1)
+            rainbow = np.asarray(Image.fromarray((hsv_p * 255).astype(np.uint8), "HSV").convert("RGB"), dtype=np.float32) / 255
+            p = em["prism"]
+            lit = lit * (1 - p) + lit * rainbow * p                       # 乘上去才看得出顏色 (濾色在近白色上幾乎沒效果)
+        out = out * (1 - m[..., None]) + lit * m[..., None]
+        # 邊緣：背光透過冰晶的亮邊
+        ke = max(3, w // 300) | 1
+        edge = _blur(np.clip(m - _morph(m, ke, ImageFilter.MinFilter), 0, 1), 1.0)
+        out = 1 - (1 - out) * (1 - np.clip(edge * s_, 0, 1)[..., None] * col)
+        bloom_e = (_blur(edge, w / 250) * 1.0 + _blur(m, w / 70) * 0.35)[..., None] * col * s_
+        out = 1 - (1 - out) * (1 - np.clip(bloom_e, 0, 1) * m[..., None] * 0.4)
+        bloom = bloom + bloom_e                                           # 光也溢到人物外 (第 5 步)
 
     # 4. 眼睛發光：小光點 + 柔光
     eye_layer = Image.new("RGB", (w, h), 0)
