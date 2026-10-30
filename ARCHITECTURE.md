@@ -168,6 +168,7 @@ tools/card_art/               卡面產生工具 (不會被機器人載入)
 - 卡面 = 原圖 ➔ 蓋卡框 `empty.png` ➔ 稱號與名字 ➔ 等級圖；`build_cards.py` 整批產生、`--stages` 輸出每一步（`card_stages/`，不進 git）。
 - 生圖流程與各角色 prompt 在 `tools/card_art/make_workflow.py`，細節與使用者偏好見 `CLAUDE.md` §4「卡面」。
 - **UR 與 LR 一律用分層合成**（2026-10-29 起）：背景 / 彈幕 / 人物分開做再合成（`tools/card_art/layered/`）。
+- **高清分層流程**（2026-10-30 起，`layered/hd_card.py`）：背景與人物各自生成 → 重繪 → 放大 16 倍 → 修改 → 壓縮，每一步存在 `images/Original/<分類>/<角色>/<階級>/`（`*_hd.png` 不進 git）；疊層順序 背景 ➔ 卡框 ➔ 人物 (蓋在卡框上) ➔ 文字 ➔ 等級 ➔ 特效。`build_cards.py` 看到該資料夾有 `05_bg.png` + `10_char.png` 就改用分層合成。
 
 ---
 

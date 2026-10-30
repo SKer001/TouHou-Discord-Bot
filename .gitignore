@@ -9,3 +9,8 @@ __pycache__/
 /Database/backups/
 /tools/card_art/fonts/HarukazeSolid.ttf
 /card_stages/
+
+# 高清分層卡面的 16 倍原圖太大 (每張數十 MB)，只留在本機
+/images/Original/**/*_hd.png
+# 分層卡面重做前的舊版步驟 (只留在本機)
+/images/Original/**/_old_*/

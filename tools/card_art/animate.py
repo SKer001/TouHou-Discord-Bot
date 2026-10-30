@@ -22,10 +22,10 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from card import EMPTY, render_card  # noqa: E402
 
-FRAMES = 18
-HOLO_STRENGTH = 1.0    # 雷射塗層整體強度 (0~1)
+FRAMES = 32            # 32 格 × 90ms ≈ 2.9 秒一輪 (使用者 2026-10-30：慢一點、頭尾銜接)
+HOLO_STRENGTH = 0.85   # 雷射塗層整體強度 (0~1；使用者 2026-10-30：減少一點點)
 HOLO_WINDOW = 0.75     # 畫窗 (人物) 上的雷射強度 = 外框的幾倍
-DURATION = 70          # 每格毫秒
+DURATION = 90          # 每格毫秒
 
 
 def hue(h, s=0.6, v=1.0):
@@ -114,15 +114,15 @@ def holo_layer(size, frame_mask, t, strength=1.0, seed=3):
     w, h = size
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
     x, y = xx / w, yy / h
-    # 掃光位置：t 0~0.7 從左上掃到右下，之後回到淡淡的底光
+    # 掃光位置：t 0~0.7 從左上掃到右下，之後回到淡淡的底光 (起點、終點都在卡外，循環時不會跳)
     p = t / 0.7
     diag = x * 0.75 + y * 0.45                                   # 斜向座標 0~1.2
-    center = -0.25 + 1.7 * min(p, 1.0)
+    center = -0.55 + 2.3 * min(p, 1.0)
     band = np.exp(-((diag - center) ** 2) / (2 * 0.16 ** 2)) if p <= 1 else np.zeros_like(diag)
     base = 0.3 + 0.1 * math.sin(2 * math.pi * t)                # 不掃光時框上也有淡淡彩虹 (像傾斜卡片)
     intensity = np.clip(base + band, 0, 1)
     # 彩虹：色相隨位置與「角度」(t) 變化
-    hue_map = (diag * 2.2 + y * 0.6 - t * 1.5) % 1.0
+    hue_map = (diag * 2.2 + y * 0.6 - t) % 1.0                  # 一輪剛好轉一圈色相，頭尾銜接
     hsv = np.stack([hue_map, np.full_like(hue_map, 0.65), np.ones_like(hue_map)], axis=-1)
     rgb = np.asarray(Image.fromarray((hsv * 255).astype(np.uint8), "HSV").convert("RGB"), dtype=np.float32) / 255
     # 金屬紋理：細斜紋 + 固定亮片
@@ -172,7 +172,13 @@ def save_animation(card: Image.Image, effects: list[str], out: str, size_w: int 
             frame = Image.fromarray((np.clip(mixed, 0, 1) * 255).astype(np.uint8))
         if "shine" in effects:
             frame = ImageChops.add(frame, shine_layer(size, t))
-        frames.append(frame.convert("P", palette=Image.ADAPTIVE, colors=255, dither=Image.FLOYDSTEINBERG))
+        frames.append(frame)
+    # 所有格共用一組調色盤，避免每格顏色各自量化造成閃爍
+    sheet = Image.new("RGB", (size[0], size[1] * 4))
+    for i, f in enumerate(frames[::max(1, len(frames) // 4)][:4]):
+        sheet.paste(f, (0, size[1] * i))
+    palette = sheet.quantize(colors=255, method=Image.MEDIANCUT)
+    frames = [f.quantize(palette=palette, dither=Image.FLOYDSTEINBERG) for f in frames]
     frames[0].save(out, save_all=True, append_images=frames[1:], duration=DURATION, loop=0, optimize=True, disposal=1)
     return os.path.getsize(out)
 

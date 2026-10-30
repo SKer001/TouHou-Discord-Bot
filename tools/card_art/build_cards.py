@@ -20,7 +20,8 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from card import EMPTY, PROJECT_ROOT, RARITY_DIR, make_thumb, render_stages  # noqa: E402
+from card import EMPTY, PROJECT_ROOT, RARITY_DIR, make_thumb, render_layered_stages, render_stages  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "layered"))
 from animate import RARITY_EFFECTS, save_animation  # noqa: E402
 
 ART_DIR = os.path.join(PROJECT_ROOT, "images", "Original", "Art")
@@ -98,7 +99,13 @@ def main():
             if char_id not in EN_NAMES:
                 print(f"⚠️ {char_id} 沒有英文名字 (EN_NAMES)，略過")
                 break
-            stages = render_stages(art, rarity, char["gacha"]["titles"][rarity], EN_NAMES[char_id])
+            from hd_card import layered_paths   # 放這裡避免和 hd_card 互相 import
+            layered = layered_paths(char_id, rarity)
+            if layered:   # 高清分層卡：images/Original/<分類>/<角色>/<階級>/ 的 05_bg + 10_char
+                stages = render_layered_stages(*layered, rarity, char["gacha"]["titles"][rarity], EN_NAMES[char_id])
+                stages = {"1_art": stages["art"], "2_frame": stages["bg_frame"], "3_text": stages["text"], "4_card": stages["card"]}
+            else:
+                stages = render_stages(art, rarity, char["gacha"]["titles"][rarity], EN_NAMES[char_id])
             card = stages["4_card"]
             key = f"{char_id}_{rarity}"
             if stages_dir:

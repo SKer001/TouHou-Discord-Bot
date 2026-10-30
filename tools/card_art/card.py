@@ -82,14 +82,54 @@ def missing_glyphs(text: str, path: str = TITLE_FONT) -> list[str]:
     return [ch for ch in dict.fromkeys(text) if not ch.isspace() and (ink(ch)[0] is None or ink(ch) == tofu)]
 
 
-def render_stages(art_path: str, rarity: str, title: str, name: str) -> dict:
-    """依步驟產生卡面，回傳每一步的圖 (都是 1748×2432 RGB)：
-    1_art 人物 (鋪進畫窗位置) ➔ 2_frame 人物 + 卡框 ➔ 3_text + 稱號與名字 ➔ 4_card + 等級圖 (完成)"""
+def check_title(title: str) -> str:
+    """缺字換成異體字；還有缺字就報錯"""
     title = "".join(GLYPH_FALLBACK.get(ch, ch) for ch in title)
     missing = missing_glyphs(title)
     if missing:
         raise ValueError(f"稱號「{title}」有字型缺字：{''.join(missing)}，請在 GLYPH_FALLBACK 加上異體字")
+    return title
 
+
+def draw_texts(card: Image.Image, title: str, name: str):
+    draw_spaced(card, title, TITLE_BOX, TITLE_FONT, 104, 0.06, TITLE_TRACKING, (25, 15, 12), (250, 244, 230), bold_ratio=TITLE_BOLD)
+    draw_spaced(card, name, NAME_BOX, NAME_FONT, 360, 0, NAME_TRACKING, (30, 20, 20), None)
+
+
+def window_box() -> tuple[int, int, int, int]:
+    """卡框透明畫窗的範圍 (左, 上, 右, 下)"""
+    return Image.open(EMPTY).split()[3].point(lambda v: 255 if v < 128 else 0).getbbox()
+
+
+def render_layered_stages(bg_path: str, char_path: str, rarity: str, title: str, name: str) -> dict:
+    """分層卡面 (高清分層流程)：背景 (整張卡大小) ➔ 卡框 ➔ 去背人物 (置中於畫窗，蓋在卡框上) ➔ 文字 ➔ 等級圖
+    回傳 art (背景 + 人物，沒有框)、bg_frame、frame_char、text、card (都是 1748×2432 RGB)"""
+    title = check_title(title)
+    frame = Image.open(EMPTY).convert("RGBA")
+    bg = Image.open(bg_path).convert("RGBA").resize(frame.size, Image.LANCZOS)
+    char = Image.open(char_path).convert("RGBA")
+    l, t, r, b = window_box()
+    pos = ((l + r - char.width) // 2, (t + b - char.height) // 2)   # 人物放在畫窗正中央 (尺寸在 hd_card 決定)
+    stages = {}
+    art = bg.copy()
+    art.alpha_composite(char, pos)
+    stages["art"] = art.convert("RGB")
+    card = bg.copy()
+    card.alpha_composite(frame)
+    stages["bg_frame"] = card.convert("RGB")
+    card.alpha_composite(char, pos)
+    stages["frame_char"] = card.convert("RGB")
+    draw_texts(card, title, name)
+    stages["text"] = card.convert("RGB")
+    paste_badge(card, rarity)
+    stages["card"] = card.convert("RGB")
+    return stages
+
+
+def render_stages(art_path: str, rarity: str, title: str, name: str) -> dict:
+    """依步驟產生卡面，回傳每一步的圖 (都是 1748×2432 RGB)：
+    1_art 人物 (鋪進畫窗位置) ➔ 2_frame 人物 + 卡框 ➔ 3_text + 稱號與名字 ➔ 4_card + 等級圖 (完成)"""
+    title = check_title(title)
     stages = {}
     frame = Image.open(EMPTY).convert("RGBA")
     card = Image.new("RGBA", frame.size, (0, 0, 0, 255))
@@ -100,8 +140,7 @@ def render_stages(art_path: str, rarity: str, title: str, name: str) -> dict:
     card.alpha_composite(frame)
     stages["2_frame"] = card.convert("RGB")
 
-    draw_spaced(card, title, TITLE_BOX, TITLE_FONT, 104, 0.06, TITLE_TRACKING, (25, 15, 12), (250, 244, 230), bold_ratio=TITLE_BOLD)
-    draw_spaced(card, name, NAME_BOX, NAME_FONT, 360, 0, NAME_TRACKING, (30, 20, 20), None)
+    draw_texts(card, title, name)
     stages["3_text"] = card.convert("RGB")
     paste_badge(card, rarity)
     stages["4_card"] = card.convert("RGB")
