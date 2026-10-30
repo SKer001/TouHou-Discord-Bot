@@ -2,7 +2,7 @@
 python tools/card_art/build_cards.py [角色id ...] [--full 資料夾]
 
 - 原圖：images/Original/Art/<角色id>_<階級>.png (沒有加框的角色圖；沒有的階級略過)
-- 縮圖：images/Thumbnails/<角色id>_<階級>.png (460×640)
+- 縮圖：images/Thumbnails/<角色id>_<階級>.png (460×640；SSR / UR / LR 只留 GIF)
 - 動態卡：SSR / UR / LR 另外產生 images/Thumbnails/<角色id>_<階級>.gif (效果見 animate.RARITY_EFFECTS)，
   Thumbnails.json 指向 GIF；--no-gif 只做靜態圖 (快)
 - Thumbnails.json：寫入 "<角色id>_<階級>": GitHub raw 連結 (要 push 之後 Discord 才抓得到)
@@ -114,20 +114,23 @@ def main():
                 shutil.copy(art, os.path.join(d, "0_pic.png"))
                 for name, im in stages.items():
                     im.save(os.path.join(d, f"{name}.png"))
-            make_thumb(card).save(os.path.join(THUMB_DIR, f"{key}.png"), optimize=True)
             if full_dir:
                 card.save(os.path.join(full_dir, f"{key}.png"), optimize=True)
-            thumbnails[key] = RAW_BASE + f"{key}.png"
+            png_path = os.path.join(THUMB_DIR, f"{key}.png")
             gif_path = os.path.join(THUMB_DIR, f"{key}.gif")
             if rarity in RARITY_EFFECTS and make_gif:
                 kb = save_animation(card, RARITY_EFFECTS[rarity], gif_path) / 1024
-                thumbnails[key] = RAW_BASE + f"{key}.gif"
                 print(f"✅ {key}  (GIF {kb:.0f} KB)")
             elif rarity in RARITY_EFFECTS and os.path.exists(gif_path):
-                thumbnails[key] = RAW_BASE + f"{key}.gif"      # --no-gif 時沿用既有的 GIF
-                print(f"✅ {key}  (沿用 GIF)")
+                print(f"✅ {key}  (沿用 GIF)")                  # --no-gif 時沿用既有的 GIF
             else:
+                make_thumb(card).save(png_path, optimize=True)
+                thumbnails[key] = RAW_BASE + f"{key}.png"
                 print(f"✅ {key}")
+            if rarity in RARITY_EFFECTS and os.path.exists(gif_path):
+                thumbnails[key] = RAW_BASE + f"{key}.gif"
+                if os.path.exists(png_path):
+                    os.remove(png_path)                         # 動態卡只需要 GIF，靜態縮圖機器人用不到
             made += 1
 
     # fill 放最後，其餘依鍵排序
