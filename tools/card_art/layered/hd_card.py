@@ -92,9 +92,11 @@ LAYERS = {
                  "laughing, open mouth, smug, confident grin, v-shaped eyebrows, hair fluttering, dress fluttering, "
                  "frost particles around hands, slightly from below"),
         "style": "freeze",
-        "density": 0.45,   # 上一版彈幕太多、人物被淹沒 (使用者 2026-10-30)
+        "density": 0.75,   # 使用者：UR 也要大量彈幕，比 LR 少一點
         "dim": 0.5,
         "glow": 0.3,
+        "char_scale": 0.8, # 使用者：人物整體比例比較小 (跟 LR 一樣，彈幕當主角)
+        "light": {},       # 背光；眼睛座標、冰晶翅膀發光等選好人物再補
     },
 }
 
