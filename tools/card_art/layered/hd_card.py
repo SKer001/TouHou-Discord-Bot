@@ -12,6 +12,7 @@
         09_char_cut_hd.png 去背 (BiRefNet)
         10_char.png        裁掉空白、傾斜 (tilt)、縮到剛好完整放進畫窗 (× char_scale)，放到畫窗大小的畫布 (offset 微調，超出切掉) ★
         10b_char_lit.png   打光 (relight.py：背光、輪廓光、翅膀紋路與眼睛發光；LAYERS 有 light 才做) ★ 有這張就用這張
+        10c_char_photocraft.png  PhotoCraft 手修 (例如 pc_shinki_LR_tips.py) ★ 有這張就優先用；10b 重做後要記得重修
   疊層  11_art.png         背景 + 人物 (沒有框的完整原圖，也複製到 Original/Art/<角色>_<階級>.png；
                            10_char.png 另外複製成 Art/<角色>_<階級>_char.png)
         12_bg_frame.png    背景 + 卡框
@@ -254,9 +255,10 @@ def make_light(char_id, rarity):
 
 
 def char_layer(d):
-    """疊層用的人物：有打光版就用打光版"""
-    lit = os.path.join(d, "10b_char_lit.png")
-    return lit if os.path.exists(lit) else os.path.join(d, "10_char.png")
+    """疊層用的人物：PhotoCraft 手修版 (10c) > 打光版 (10b) > 10"""
+    for name in ("10c_char_photocraft.png", "10b_char_lit.png", "10_char.png"):
+        if os.path.exists(os.path.join(d, name)):
+            return os.path.join(d, name)
 
 
 def layered_paths(char_id, rarity):
