@@ -14,3 +14,6 @@ __pycache__/
 /images/Original/**/*_hd.png
 # 分層卡面重做前的舊版步驟 (只留在本機)
 /images/Original/**/_old_*/
+
+# MCP 設定含本機路徑 (PhotoCraft 等)，每台電腦各自建立
+/.mcp.json
