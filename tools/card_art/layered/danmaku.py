@@ -1,4 +1,4 @@
-"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶)
+"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用)
 draw_danmaku(size, seed, style) 回傳 (glow 光暈 RGB, core 清楚彈體 RGBA)；
 座標以 1344 寬的畫窗為基準，依 size 等比放大，所以可以直接畫在 4 倍高清的畫布上。"""
 import colorsys
@@ -88,7 +88,10 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
                 a = off + 2 * math.pi * k / n
                 x, y = cx + rad * math.cos(a), cy + rad * math.sin(a)
                 if inside(x, y):
-                    orb(x, y, r, hue(base_h + k / n))
+                    if style == "stars":   # 魔理沙：環狀彈也是星彈
+                        star(x, y, r * 1.7, a, hue(base_h + k / n))
+                    else:
+                        orb(x, y, r, hue(base_h + k / n))
     # 螺旋米粒彈
     for arm in range(7):
         cx, cy = W * 0.6, H * 0.4
@@ -97,12 +100,15 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
             a = arm * 2 * math.pi / 7 + t * 0.09
             x, y = cx + rad * math.cos(a), cy + rad * math.sin(a)
             if inside(x, y):
-                rice(x, y, a + 0.35, 17 * s, hue(arm / 7 + t / 90, 0.7))
+                if style == "stars":
+                    star(x, y, 15 * s, a, hue(arm / 7 + t / 90, 0.7))
+                else:
+                    rice(x, y, a + 0.35, 17 * s, hue(arm / 7 + t / 90, 0.7))
     if style == "freeze":
         for _ in range(140):
             crystal(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(10, 26) * s, rnd.random() * 6, (215, 240, 255))
     # 星形彈與散落小玉
-    for _ in range(110):
+    for _ in range(260 if style == "stars" else 110):
         star(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 17) * s, rnd.random() * 6, hue(rnd.random(), 0.6))
     for _ in range(260):
         orb(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(3, 6) * s, hue(rnd.random(), 0.5))

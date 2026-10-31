@@ -14,6 +14,7 @@
         10b_char_lit.png   打光 (relight.py：背光、輪廓光、翅膀紋路與眼睛發光；LAYERS 有 light 才做) ★ 有這張就用這張
   翅膀  W1_crystal_X.png     單獨生成的水晶 (不要人物、白底) → W2_crystal_X_hd.png 放大 → W3_crystal_X_cut.png 去背 (只留最大一塊)
         W4_wings.png       依 LAYERS 的 wings 排在人物背後 (左右對稱) → W5_wings_lit.png 打光 → 10d_char_wings.png 疊在人物下面 ★
+  尾流  T1_trail.png        trail.py 畫的掃帚尾流 (光帶 + 星星，LAYERS 的 trail，錨點 = 掃帚尾端的 06 座標) → 10e_char_trail.png 疊在人物下面 ★
         10c_char_photocraft.png  PhotoCraft 手修 (例如 pc_shinki_LR_tips.py) ★ 有這張就優先用；10b 重做後要記得重修
   疊層  11_art.png         背景 + 人物 (沒有框的完整原圖，也複製到 Original/Art/<角色>_<階級>.png；
                            10_char.png 另外複製成 Art/<角色>_<階級>_char.png)
@@ -32,6 +33,7 @@
   python hd_card.py bg <角色> <階級>                                 04、05
   python hd_card.py char <角色> <階級>                               09、10 (去背用 comfy venv 的 python)
   python hd_card.py light <角色> <階級>                              10b (打光，LAYERS 的 light)
+  python hd_card.py trail <角色> <階級>                              T1、10e (掃帚尾流，LAYERS 的 trail)
   python hd_card.py wings <角色> <階級>                              W3~W5、10d (翅膀層，LAYERS 的 wings；W2 要先放好)
   python hd_card.py compose <角色> <階級>                            11~16
 """
@@ -52,6 +54,7 @@ from card import PROJECT_ROOT, render_layered_stages, window_box  # noqa: E402
 from danmaku import BASE_W, draw_danmaku  # noqa: E402
 from relight import relight  # noqa: E402
 from wings import arrange, clean_crystal  # noqa: E402
+from trail import draw_trail  # noqa: E402
 from make_workflow import BASE, NEGATIVE, QUALITY, EXTRA_NEGATIVE  # noqa: E402
 
 Image.MAX_IMAGE_PIXELS = None                      # 高清背景 6992×9728 超過 PIL 預設上限
@@ -62,10 +65,11 @@ SIZES = {   # 生成尺寸、重繪倍率
     "bg": {"base": (864, 1200), "hires": (1728, 2400)},
     "char": {"base": (936, 1128), "hires": (1400, 1688)},
 }
-CHAR_COMPOSITION = ("solo, full body, entire body visible, head to toe, wings fully visible, wingtips inside frame, "
-                    "very wide shot, zoomed out, small figure in the center, lots of empty white space around the wings, "   # 不加的話翅膀、靴子會被切掉
+# 共用構圖不提翅膀 (會讓沒有翅膀的角色長出翅膀)；有翅膀的角色寫在 LAYERS 的 "char"，或改用翅膀分層
+CHAR_COMPOSITION = ("solo, full body, entire body visible, head to toe, "
+                    "very wide shot, zoomed out, small figure in the center, lots of empty white space around, "   # 不加的話腳會被切掉
                     "simple background, white background, plain background")
-CHAR_NEGATIVE = ("background scenery, danmaku, effects, cropped, cut off wings, wings out of frame, cut off feet, "
+CHAR_NEGATIVE = ("background scenery, danmaku, effects, cropped, cut off feet, "
                  "black border, letterbox, frame, close-up, large figure")
 
 # 每張分層卡的提示詞：bg = 背景 (不要人物)、char = 人物動作表情、style = 彈幕風格 (danmaku.py)、dim = 背景亮度
@@ -86,6 +90,30 @@ LAYERS = {
         "offset": (-0.03, -0.05),   # 人物位置微調 (畫窗寬高的比例；使用者：往左上一點，靠近中心，左側翅膀切掉一點沒關係)
         # 打光 (relight.py)：背景是大量彈幕 ➔ 背光 + 輪廓光，翅膀紋路與眼睛發光；眼睛座標是 10_char.png 上的位置
         "light": {"eyes": [(619, 635), (653, 640)]},
+    },
+    # 魔理沙 UR「極光之魔彈專家」戀符「Master Spark」：雲海上的夜空 + 極光 + 星彈；騎掃帚，掃帚尾流做成獨立圖層 (trail)
+    ("marisa", "UR"): {
+        "bg": ("no humans, scenery, night sky above the sea of clouds, brilliant aurora, milky way, galaxy, "
+               "countless stars, shooting stars, deep blue and purple, glowing horizon, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, broom, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("riding a single broom, sitting sideways on the broom handle, broom bristles behind her, flying fast to the right, "
+                 "whole broom visible, one hand holding the broom, other hand holding mini-hakkero forward, "
+                 "intense grin, confident, hair and hat ribbon fluttering, dress fluttering"),
+        "extra_negative": "standing, walking, broom on shoulder",   # 魔理沙共用的「不要拿著掃帚」會跟騎掃帚打架
+        "char_negative": ("wings, angel wings, feathered wings, magic effects, light trail, motion lines, sparkles, stars, laser, "
+                          "multiple brooms, two brooms, bristles on both ends, extra hat, floating hat"),
+        "style": "stars",
+        "density": 0.75,   # UR：大量彈幕，比 LR 少一點
+        "dim": 0.75,
+        "glow": 0.55,
+        "char_scale": 0.75,   # 使用者：人物放大一點
+        "tilt": -12,               # 原圖掃帚往右上斜 (像往左下俯衝)；使用者：比 -20 再逆時針轉一點，掃帚尾端翹向右上留空間給尾流
+        "offset": (-0.14, 0.06),     # 往左挪，右邊留給尾流
+        "light": {"dark": 0.35, "eyes": [(452, 803), (482, 807)], "eye_color": (255, 215, 120)},   # 背光 + 金色眼睛 (10_char.png 座標)
+        # 掃帚尾流 (trail.py)：anchor = 掃帚尾端 (06 基本圖座標)；angle 是疊層後的方向 (從正上方順時針)
+        # length 是畫窗高度的比例、width / wave 是畫窗寬度的比例
+        "trail": {"anchor": (885, 572), "angle": 87, "length": 0.75, "width": 0.07, "wave": 0.035,
+                  "spread": 34, "ribbons": 6, "stars": 50, "hue0": 0.12, "core": 1.2},
     },
     # 琪露諾 UR「絕對零度之最強⑨」凍符「Perfect Freeze」：冰封湖面 + 極光 + 少量凍結彈幕；人物放大、冰晶翅膀展開、得意大笑
     ("cirno", "UR"): {
@@ -145,7 +173,7 @@ def workflow(char_id: str, rarity: str, layer: str, seed: int) -> dict:
         denoise, hd = 0.4, (1748 * HD, 2432 * HD)
     else:
         positive = ", ".join([BASE[char_id], spec["char"], CHAR_COMPOSITION, QUALITY])
-        negative = ", ".join(filter(None, [NEGATIVE, EXTRA_NEGATIVE.get(char_id), CHAR_NEGATIVE]))
+        negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, spec.get("char_negative")]))
         l, t, r, b = window_box()
         denoise, hd = 0.35, ((r - l) * HD, (b - t) * HD)
     (bw, bh), (hw, hh) = SIZES[layer]["base"], SIZES[layer]["hires"]
@@ -182,7 +210,7 @@ def outpaint_workflow(char_id: str, rarity: str, src: str, seed: int, pads=(240,
     src 要先複製到 ComfyUI/input/"""
     spec = LAYERS[(char_id, rarity)]
     positive = ", ".join([BASE[char_id], spec["char"], CHAR_COMPOSITION, QUALITY])
-    negative = ", ".join(filter(None, [NEGATIVE, EXTRA_NEGATIVE.get(char_id), CHAR_NEGATIVE]))
+    negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, spec.get("char_negative")]))
     l, t, r, b = pads
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "animagine-xl-4.0-opt.safetensors"}},
@@ -205,7 +233,7 @@ def upscale_workflow(char_id: str, rarity: str, src: str, seed: int) -> dict:
     輸出跟 workflow() 同名，collect 可以直接收"""
     spec = LAYERS[(char_id, rarity)]
     positive = ", ".join([BASE[char_id], spec["char"], CHAR_COMPOSITION, QUALITY])
-    negative = ", ".join(filter(None, [NEGATIVE, EXTRA_NEGATIVE.get(char_id), CHAR_NEGATIVE]))
+    negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, spec.get("char_negative")]))
     w, h = Image.open(os.path.join(COMFY_OUT, "..", "input", src)).size
     hw, hh = int(w * 1.5) // 8 * 8, int(h * 1.5) // 8 * 8
     prefix = f"touhou_card/hd/{char_id}_{rarity}_char_s{seed}"
@@ -301,21 +329,52 @@ def make_char(char_id, rarity):
         m = Image.open(os.path.join(d, spec["wing_mask"])).convert("L").resize(ch.size, Image.BILINEAR)
         place(m, Image.BILINEAR).save(os.path.join(d, "10w_char_wingmask.png"))
         print("✅ 10w_char_wingmask")
-    # 翅膀層的錨點 (06 基本圖座標) 也跟著人物換算到 10_char.png 上
-    if spec.get("wings"):
-        base_w, base_h = Image.open(os.path.join(d, "06_char_base.png")).size
-        ax, ay = spec["wings"]["anchor"]
+    # 翅膀 / 尾流層的錨點 (06 基本圖座標) 也跟著人物換算到 10_char.png 上
+    anchors = {}
+    base_w, base_h = Image.open(os.path.join(d, "06_char_base.png")).size
+    for layer in ("wings", "trail"):
+        if not spec.get(layer):
+            continue
+        ax, ay = spec[layer]["anchor"]
         dot = Image.new("L", ch.size, 0)
         sx, sy = ch.width / base_w, ch.height / base_h
         ImageDraw.Draw(dot).ellipse((ax * sx - 12 * sx, ay * sy - 12 * sy, ax * sx + 12 * sx, ay * sy + 12 * sy), fill=255)
         ys, xs = np.nonzero(np.asarray(place(dot, Image.BILINEAR)) > 127)
+        anchors[layer] = [float(xs.mean()), float(ys.mean())]
+    if anchors:
+        anchors["anchor"] = anchors.get("wings")                       # 舊格式 (翅膀) 相容
         with open(os.path.join(d, "10_anchor.json"), "w", encoding="utf-8") as f:
-            json.dump({"anchor": [float(xs.mean()), float(ys.mean())]}, f)
+            json.dump(anchors, f)
         print("✅ 10_anchor.json")
     if spec.get("light") is not None:
         make_light(char_id, rarity)
     if spec.get("wings") and all(os.path.exists(os.path.join(d, f"W3_crystal_{k}_cut.png")) for k in spec["wings"]["crystals"]):
         make_wings(char_id, rarity)
+    if spec.get("trail"):
+        make_trail(char_id, rarity)
+
+
+def make_trail(char_id, rarity):
+    """掃帚尾流層 (trail.py)：T1 尾流 → 10e 疊在人物 (含翅膀) 下面"""
+    d = stage_dir(char_id, rarity)
+    ts = dict(LAYERS[(char_id, rarity)]["trail"])
+    l, t, r, b = window_box()
+    W, H = r - l, b - t
+    with open(os.path.join(d, "10_anchor.json"), encoding="utf-8") as f:
+        anchor = json.load(f)["trail"]
+    ts["length"] = ts.get("length", 0.5) * H                          # 比例 ➔ px
+    ts["width"] = ts.get("width", 0.03) * W
+    ts["wave"] = ts.get("wave", 0.02) * W
+    layer = draw_trail((W, H), anchor, ts)
+    layer.save(os.path.join(d, "T1_trail.png"))
+    print("✅ T1_trail")
+    for name in ("10d_char_wings.png", "10b_char_lit.png", "10_char.png"):
+        body = os.path.join(d, name)
+        if os.path.exists(body):
+            break
+    layer.alpha_composite(Image.open(body).convert("RGBA"))           # 人物蓋在尾流上
+    layer.save(os.path.join(d, "10e_char_trail.png"))
+    print("✅ 10e_char_trail")
 
 
 def make_wings(char_id, rarity):
@@ -369,8 +428,8 @@ def make_light(char_id, rarity):
 
 
 def char_layer(d):
-    """疊層用的人物：PhotoCraft 手修版 (10c) > 加上翅膀層 (10d) > 打光版 (10b) > 10"""
-    for name in ("10c_char_photocraft.png", "10d_char_wings.png", "10b_char_lit.png", "10_char.png"):
+    """疊層用的人物：PhotoCraft 手修版 (10c) > 加上尾流 (10e) > 加上翅膀層 (10d) > 打光版 (10b) > 10"""
+    for name in ("10c_char_photocraft.png", "10e_char_trail.png", "10d_char_wings.png", "10b_char_lit.png", "10_char.png"):
         if os.path.exists(os.path.join(d, name)):
             return os.path.join(d, name)
 
@@ -431,6 +490,8 @@ def main():
         make_light(char_id, rarity)
     elif cmd == "wings":
         make_wings(char_id, rarity)
+    elif cmd == "trail":
+        make_trail(char_id, rarity)
     elif cmd == "compose":
         compose(char_id, rarity)
     else:
