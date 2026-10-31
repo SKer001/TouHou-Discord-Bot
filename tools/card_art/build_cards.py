@@ -5,7 +5,7 @@ python tools/card_art/build_cards.py [角色id ...] [--full 資料夾]
 - 縮圖：images/Thumbnails/<角色id>_<階級>.png (460×640；SSR / UR / LR 只留 GIF)
 - 動態卡：SSR / UR / LR 另外產生 images/Thumbnails/<角色id>_<階級>.gif (效果見 animate.RARITY_EFFECTS)，
   Thumbnails.json 指向 GIF；--no-gif 只做靜態圖 (快)
-- Thumbnails.json：寫入 "<角色id>_<階級>": GitHub raw 連結 (要 push 之後 Discord 才抓得到)
+- Thumbnails.json：寫入 "<角色id>_<階級>": GitHub raw 連結 + ?v=版本號 (檔案雜湊，卡面改了 Discord 才不會用快取的舊圖；要 push 之後 Discord 才抓得到)
 - --full：另外把 1748×2432 的完整卡面存到指定資料夾 (不放進 repo)
 - --stages [資料夾]：每一步都存圖 (預設 card_stages/，已加入 .gitignore，太大不放進 repo)
     _base/frame.png、_base/rarity/<階級>.png             基礎元素 (卡框、等級圖)
@@ -14,6 +14,7 @@ python tools/card_art/build_cards.py [角色id ...] [--full 資料夾]
                                                          人物 → 人物 + 框 → + 名字與稱號 → + 等級 (完成)
 """
 import glob
+import hashlib
 import json
 import os
 import shutil
@@ -48,6 +49,14 @@ EN_NAMES = {
     "yumeko": "Yumeko",
     "cirno": "Cirno",
 }
+
+
+def thumb_url(path: str) -> str:
+    """GitHub raw 連結 + 版本號 (檔案內容雜湊)：Discord 會依網址快取圖片，卡面改了檔名不變的話會一直顯示舊圖，
+    網址帶 ?v= 版本號就會重新抓 (GitHub 忽略這段參數)"""
+    with open(path, "rb") as f:
+        ver = hashlib.sha1(f.read()).hexdigest()[:8]
+    return RAW_BASE + f"{os.path.basename(path)}?v={ver}"
 
 
 def load_characters() -> dict:
@@ -125,10 +134,10 @@ def main():
                 print(f"✅ {key}  (沿用 GIF)")                  # --no-gif 時沿用既有的 GIF
             else:
                 make_thumb(card).save(png_path, optimize=True)
-                thumbnails[key] = RAW_BASE + f"{key}.png"
+                thumbnails[key] = thumb_url(png_path)
                 print(f"✅ {key}")
             if rarity in RARITY_EFFECTS and os.path.exists(gif_path):
-                thumbnails[key] = RAW_BASE + f"{key}.gif"
+                thumbnails[key] = thumb_url(gif_path)
                 if os.path.exists(png_path):
                     os.remove(png_path)                         # 動態卡只需要 GIF，靜態縮圖機器人用不到
             made += 1
