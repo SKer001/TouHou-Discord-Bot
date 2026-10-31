@@ -103,7 +103,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - 使用 `ui.LayoutView`、`ui.Container(accent_color=…)`、`ui.Section(TextDisplay, accessory=Thumbnail|Button)`、`ui.Separator`、`ui.ActionRow`。
 - **單則訊息最多 40 個元件**；V2 訊息不能帶 `content`/`embeds`，且一旦是 V2 之後只能以 V2 編輯。
 - 互動回呼寫成 `button.callback = self.xxx` 並在 `build()` 內重組畫面（`clear_items()` 後重新 `add_item`）；多種狀態（例如編輯 / 刪除確認 / 已刪除）放在同一個 View 用 `build(mode=...)` 切換。
-- 縮圖規則：依序查 `images/Thumbnails.json` 的 `角色id_階級` → `角色id` → `"fill"`，連 URL 都沒有就只顯示文字。卡牌畫面用該卡的階級（融合預覽用升階後的階級）；圖鑑角色頁用 `ui.MediaGallery` 並排顯示**全部階級**的卡面（低 ➔ 高，說明寫稱號與擁有數；`build_card_gallery()`），角色一張專屬卡面都沒有時才照舊在右側放一張縮圖（fill）。
+- 縮圖規則：依序查 `images/Thumbnails.json` 的 `角色id_階級` → `角色id` → `"fill"`，連 URL 都沒有就只顯示文字。卡牌畫面用該卡的階級（融合預覽用升階後的階級）；圖鑑角色頁在「🏷️ 卡牌階級」**每個階級一行、右側各放該階級的卡面縮圖**（`ui.Section` + `Thumbnail`；該階級沒有專屬卡面時退回角色圖 / fill），標題右側不放縮圖；角色一張專屬卡面都沒有時才照舊只在標題右側放一張（fill）。
 - **卡面（`tools/card_art/`）**：
   - 流程：`make_workflow.py <角色> <階級> <種子> <out.json>` 產生 ComfyUI 工作流程（Animagine XL 4.0 Opt、896×1064、一次 2 張）→ 使用者挑圖 → 存成 `images/Original/Art/<角色>_<階級>.png` → `python tools/card_art/build_cards.py [角色…]` 產生 `images/Thumbnails/<角色>_<階級>.png` 並寫入 Thumbnails.json → **push 之後** Discord 才抓得到圖。
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，2026-10-29 換成使用者給的新綠幕版 `rarity_greenscreen.jpg`，用 `make_rarity.py` 去背切成 6 張；`card.py` 的 `BADGE_SCALE = 1.25` 放大 1.25 倍）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框或等級圖要重跑 `make_empty.py` / `make_rarity.py` 和 `build_cards.py`（不加參數＝全部角色）。
@@ -183,7 +183,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
     - `remove` / `set_completeness` 共用 `CardPickerView`：每頁 20 張、可多選 → 確認 → 執行後重新讀取並回到列表。
     - 每個指令開頭用 `_deny()` 檢查管理員（不要用 Cog 層級的 `interaction_check`，失敗會被 Logger 當成指令錯誤通報）。
     - 用 `gacha_mod()`（`importlib.import_module`）在呼叫時取得抽卡模組，`/admin-sys reload` 抽卡模組後會拿到新的卡池。
-- **character.py**：`/character` 每次執行都用 `load_categories()` 重新讀 `Characters/`（改角色檔不必重開）；角色頁顯示稱號、種族、能力、基礎數值、卡牌階級與稱號、SP 三個等級，色條依最高階級上色；簡介下方用圖庫並排三個等級的卡面（2026-10-31 使用者指定）。
+- **character.py**：`/character` 每次執行都用 `load_categories()` 重新讀 `Characters/`（改角色檔不必重開）；角色頁顯示稱號、種族、能力、基礎數值、卡牌階級與稱號、SP 三個等級，色條依最高階級上色；「卡牌階級」每個等級旁邊放該等級的卡面縮圖（2026-10-31 使用者指定）。
 - **Logger.py**：記錄指令/元件互動到 `Logger/Logs/`，重大事件（開機、斷線、重連、指令錯誤）用 `send_alert_log()` 以 V2 送到 `LOG_CHANNEL_ID`，時間用 Discord 時間戳記 `<t:…:F>`。
 
 ## 6. 重構歷程（時間順序）

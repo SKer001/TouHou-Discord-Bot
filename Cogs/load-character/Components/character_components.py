@@ -38,19 +38,9 @@ def get_thumbnail_url(char_id: str | None, thumbnails: dict | None, rarity: str 
     return (thumbnails.get(f"{char_id}_{rarity}") if rarity else None) or thumbnails.get(char_id) or thumbnails.get("fill")
 
 
-def build_card_gallery(char: dict, thumbnails: dict | None, my_cards: dict | None = None) -> ui.MediaGallery | None:
-    """角色所有階級的卡面並排 (低 ➔ 高)；一張專屬卡面都沒有時回傳 None"""
-    rarities = char["gacha"].get("rarities", [])
-    char_id = char.get("id")
-    if not thumbnails or not any(thumbnails.get(f"{char_id}_{r}") for r in rarities):
-        return None
-    titles = char["gacha"].get("titles", {})
-    items = []
-    for r in rarities:
-        owned = f"✅ ×{my_cards[r]}" if (my_cards or {}).get(r) else "▫️ 未擁有"
-        items.append(discord.MediaGalleryItem(get_thumbnail_url(char_id, thumbnails, r),
-                                              description=f"[{r}] {titles.get(r, '')}　{owned}"))
-    return ui.MediaGallery(*items)
+def has_card_art(char: dict, thumbnails: dict | None) -> bool:
+    """角色至少有一個階級的專屬卡面"""
+    return bool(thumbnails) and any(thumbnails.get(f"{char.get('id')}_{r}") for r in char["gacha"].get("rarities", []))
 
 
 def _rarity_range(char: dict) -> str:
@@ -105,7 +95,7 @@ def build_category_container(category_data: dict, owned: dict | None = None) -> 
 
 
 # ---------------------------------------------------------
-# 👤 3. 角色檔案頁：文字 + 全部階級的卡面圖庫
+# 👤 3. 角色檔案頁：文字 + 每個階級旁邊的卡面縮圖
 # ---------------------------------------------------------
 def build_character_container(char: dict, category_name: str, thumbnails: dict | None = None,
                               owned: dict | None = None) -> ui.Container:
@@ -120,22 +110,19 @@ def build_character_container(char: dict, category_name: str, thumbnails: dict |
     top_rarity = rarities[-1] if rarities else None
     container = ui.Container(accent_color=RARITY_COLORS.get(top_rarity, discord.Color.blurple()))
 
-    # 標題區：稱號 + 名字 + 簡介 (右側放角色縮圖)
+    # 標題區：稱號 + 名字 + 簡介
     header_text = (
         f"## 【{profile.get('title', '')}】{char.get('emoji', '')} {char['name']}\n"
         f"-# {category_name}\n"
         f"{profile.get('description', '')}"
     )
-    # 卡面：有任何階級的專屬卡面時，用圖庫並排顯示全部階級 (缺的階級退回角色圖 / fill)；
-    # 一張專屬卡面都沒有就照舊在右側放一張縮圖 (fill)
-    gallery = build_card_gallery(char, thumbnails, my_cards)
-    url = None if gallery else get_thumbnail_url(char.get("id"), thumbnails, rarities[0] if rarities else None)
+    # 卡面：有專屬卡面時放在下面「卡牌階級」每一行的右側；一張都沒有才在標題右側放一張縮圖 (fill)
+    card_art = has_card_art(char, thumbnails)
+    url = None if card_art else get_thumbnail_url(char.get("id"), thumbnails, rarities[0] if rarities else None)
     if url:
         container.add_item(ui.Section(ui.TextDisplay(header_text), accessory=ui.Thumbnail(url)))
     else:
         container.add_item(ui.TextDisplay(header_text))
-    if gallery:
-        container.add_item(gallery)
 
     container.add_item(ui.Separator())
 
@@ -150,11 +137,19 @@ def build_character_container(char: dict, category_name: str, thumbnails: dict |
     # 卡池階級與稱號
     if rarities:
         pool_state = "🎴 可在 `/card gacha` 祈願中獲得" if gacha.get("enabled") else "🚫 目前不在卡池中"
-        title_lines = "\n".join(
-            f"`[{r}]` {gacha.get('titles', {}).get(r, '')}　" + (f"✅ ×{my_cards[r]}" if my_cards.get(r) else "▫️ 未擁有")
+        lines = {
+            r: f"`[{r}]` {gacha.get('titles', {}).get(r, '')}　" + (f"✅ ×{my_cards[r]}" if my_cards.get(r) else "▫️ 未擁有")
             for r in rarities
-        )
-        container.add_item(ui.TextDisplay(f"### 🏷️ 卡牌階級\n{title_lines}\n-# {pool_state}"))
+        }
+        if card_art:
+            # 每個階級一行，右側放該階級的卡面縮圖 (沒有專屬卡面的階級退回角色圖 / fill)
+            container.add_item(ui.TextDisplay("### 🏷️ 卡牌階級"))
+            for r in rarities:
+                container.add_item(ui.Section(ui.TextDisplay(lines[r]),
+                                              accessory=ui.Thumbnail(get_thumbnail_url(char.get("id"), thumbnails, r))))
+            container.add_item(ui.TextDisplay(f"-# {pool_state}"))
+        else:
+            container.add_item(ui.TextDisplay(f"### 🏷️ 卡牌階級\n" + "\n".join(lines.values()) + f"\n-# {pool_state}"))
 
     # 個人能力 (SP)：依階級分 I / II / III
     levels = sp.get("levels", {})
