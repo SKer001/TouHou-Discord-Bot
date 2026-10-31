@@ -38,6 +38,21 @@ def get_thumbnail_url(char_id: str | None, thumbnails: dict | None, rarity: str 
     return (thumbnails.get(f"{char_id}_{rarity}") if rarity else None) or thumbnails.get(char_id) or thumbnails.get("fill")
 
 
+def build_card_gallery(char: dict, thumbnails: dict | None, my_cards: dict | None = None) -> ui.MediaGallery | None:
+    """角色所有階級的卡面並排 (低 ➔ 高)；一張專屬卡面都沒有時回傳 None"""
+    rarities = char["gacha"].get("rarities", [])
+    char_id = char.get("id")
+    if not thumbnails or not any(thumbnails.get(f"{char_id}_{r}") for r in rarities):
+        return None
+    titles = char["gacha"].get("titles", {})
+    items = []
+    for r in rarities:
+        owned = f"✅ ×{my_cards[r]}" if (my_cards or {}).get(r) else "▫️ 未擁有"
+        items.append(discord.MediaGalleryItem(get_thumbnail_url(char_id, thumbnails, r),
+                                              description=f"[{r}] {titles.get(r, '')}　{owned}"))
+    return ui.MediaGallery(*items)
+
+
 def _rarity_range(char: dict) -> str:
     rarities = char["gacha"].get("rarities", [])
     return f"{rarities[0]} ~ {rarities[-1]}" if rarities else "—"
@@ -90,7 +105,7 @@ def build_category_container(category_data: dict, owned: dict | None = None) -> 
 
 
 # ---------------------------------------------------------
-# 👤 3. 角色檔案頁：文字 + 右側縮圖
+# 👤 3. 角色檔案頁：文字 + 全部階級的卡面圖庫
 # ---------------------------------------------------------
 def build_character_container(char: dict, category_name: str, thumbnails: dict | None = None,
                               owned: dict | None = None) -> ui.Container:
@@ -111,14 +126,16 @@ def build_character_container(char: dict, category_name: str, thumbnails: dict |
         f"-# {category_name}\n"
         f"{profile.get('description', '')}"
     )
-    # 卡面：檢視者擁有的最高階級，沒有收藏時用最低階級
-    owned_rarities = [r for r in rarities if my_cards.get(r)]
-    thumb_rarity = owned_rarities[-1] if owned_rarities else (rarities[0] if rarities else None)
-    url = get_thumbnail_url(char.get("id"), thumbnails, thumb_rarity)
+    # 卡面：有任何階級的專屬卡面時，用圖庫並排顯示全部階級 (缺的階級退回角色圖 / fill)；
+    # 一張專屬卡面都沒有就照舊在右側放一張縮圖 (fill)
+    gallery = build_card_gallery(char, thumbnails, my_cards)
+    url = None if gallery else get_thumbnail_url(char.get("id"), thumbnails, rarities[0] if rarities else None)
     if url:
         container.add_item(ui.Section(ui.TextDisplay(header_text), accessory=ui.Thumbnail(url)))
     else:
         container.add_item(ui.TextDisplay(header_text))
+    if gallery:
+        container.add_item(gallery)
 
     container.add_item(ui.Separator())
 

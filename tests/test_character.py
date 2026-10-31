@@ -29,6 +29,8 @@ class Interaction:
 def texts(v): return "\n".join(i.content for i in v.walk_children() if isinstance(i, discord.ui.TextDisplay))
 def count(v): return sum(1 for _ in v.walk_children())
 def thumbs(v): return [i.media.url for i in v.walk_children() if isinstance(i, discord.ui.Thumbnail)]
+def gallery(v): return [it.media.url for i in v.walk_children() if isinstance(i, discord.ui.MediaGallery) for it in i.items]
+def gallery_desc(v): return [it.description for i in v.walk_children() if isinstance(i, discord.ui.MediaGallery) for it in i.items]
 
 async def main():
     await udm.init_db()
@@ -49,10 +51,13 @@ async def main():
     check("home", "角色圖鑑資料庫" in texts(view) and "24 位角色" in texts(view) and "`1 / 24`" in texts(view))
     real_thumbs = json.load(open("images/Thumbnails.json", encoding="utf-8"))
     fill = real_thumbs["fill"]
-    # 測試玩家只有 3 張靈夢 SR：每頁的卡面 = 該角色擁有的最高階級，沒有就最低階級，沒有圖就 fill
-    def expect_thumb(ch):
-        rarity = "SR" if ch["id"] == "reimu" else ch["gacha"]["rarities"][0]
-        return real_thumbs.get(f"{ch['id']}_{rarity}") or real_thumbs.get(ch["id"]) or fill
+    # 每頁的卡面：有任何階級的專屬卡面 ➔ 圖庫並排全部階級 (缺的退回角色圖 / fill)，右側不再放縮圖；
+    # 一張都沒有 ➔ 右側縮圖 (最低階級 ➔ 角色圖 ➔ fill)
+    def expect_art(ch):
+        rs = ch["gacha"]["rarities"]
+        if any(real_thumbs.get(f"{ch['id']}_{r}") for r in rs):
+            return [], [real_thumbs.get(f"{ch['id']}_{r}") or real_thumbs.get(ch["id"]) or fill for r in rs]
+        return [real_thumbs.get(f"{ch['id']}_{rs[0]}") or real_thumbs.get(ch["id"]) or fill], []
     max_count = 0
     for key, cat in cats.items():
         i2 = Interaction(data={"values": [key]}); await view.on_category(i2)
@@ -63,7 +68,7 @@ async def main():
             t = texts(i3.view)
             ok_page = (ch["name"] in t and ch["special_powers"]["name"] in t
                        and all(lv["name"] in t for lv in ch["special_powers"]["levels"].values())
-                       and "HP `0`" in t and "B 點 `0`" in t and "威力" not in t and thumbs(i3.view) == [expect_thumb(ch)]
+                       and "HP `0`" in t and "B 點 `0`" in t and "威力" not in t and (thumbs(i3.view), gallery(i3.view)) == expect_art(ch)
                        and ch["special_powers"]["name"] != ch["profile"]["ability"]
                        and all(set(lv) == {"id", "name", "type", "spent", "cooldown", "desc"}
                                and lv["name"].endswith("・" + ch["special_powers"]["name"])
@@ -85,14 +90,16 @@ async def main():
     v3 = mod.CharacterBrowserView(cats, {}); v3.category_key, v3.char_id = "Main", "reimu"; v3.build()
     check("no thumbnail", thumbs(v3) == [] and "博麗靈夢" in texts(v3))
 
-    # 依階級的卡面：有收藏用擁有的最高階級、沒有收藏用最低階級、該階級沒圖退回角色圖 / fill
+    # 依階級的卡面：圖庫並排全部階級 (SR ➔ SSR ➔ UR)，沒圖的階級退回角色圖 / fill，說明寫稱號與擁有數
     by_rarity = {"reimu_SR": "https://x/reimu_SR.png", "reimu_UR": "https://x/reimu_UR.png", "fill": fill}
     v4 = mod.CharacterBrowserView(cats, by_rarity, {"reimu": {"SR": 2, "UR": 1}}); v4.category_key, v4.char_id = "Main", "reimu"; v4.build()
-    check("thumbnail top owned rarity", thumbs(v4) == ["https://x/reimu_UR.png"])
+    check("gallery all rarities", gallery(v4) == ["https://x/reimu_SR.png", fill, "https://x/reimu_UR.png"] and thumbs(v4) == [])
+    d4 = gallery_desc(v4)
+    check(f"gallery desc {d4}", d4[0].startswith("[SR]") and "✅ ×2" in d4[0] and "▫️ 未擁有" in d4[1] and "✅ ×1" in d4[2])
     v5 = mod.CharacterBrowserView(cats, by_rarity, {}); v5.category_key, v5.char_id = "Main", "reimu"; v5.build()
-    check("thumbnail lowest rarity", thumbs(v5) == ["https://x/reimu_SR.png"])
-    v6 = mod.CharacterBrowserView(cats, by_rarity, {"reimu": {"SSR": 1}}); v6.category_key, v6.char_id = "Main", "reimu"; v6.build()
-    check("thumbnail rarity fallback", thumbs(v6) == [fill])
+    check("gallery without cards", gallery(v5) == gallery(v4) and all("未擁有" in d for d in gallery_desc(v5)))
+    v6 = mod.CharacterBrowserView(cats, {"fill": fill}, {}); v6.category_key, v6.char_id = "Main", "reimu"; v6.build()
+    check("no art ➔ single fill thumbnail", thumbs(v6) == [fill] and gallery(v6) == [])
 
     gc = importlib.import_module("Cogs.load-gacha.Components.gacha_components")
     check("card thumbnail by rarity", gc.get_thumbnail_url("reimu", by_rarity, "UR") == "https://x/reimu_UR.png")
