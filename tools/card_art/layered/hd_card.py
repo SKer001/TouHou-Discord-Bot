@@ -15,6 +15,8 @@
   翅膀  W1_crystal_X.png     單獨生成的水晶 (不要人物、白底) → W2_crystal_X_hd.png 放大 → W3_crystal_X_cut.png 去背 (只留最大一塊)
         W4_wings.png       依 LAYERS 的 wings 排在人物背後 (左右對稱) → W5_wings_lit.png 打光 → 10d_char_wings.png 疊在人物下面 ★
   尾流  T1_trail.png        trail.py 畫的掃帚尾流 (光帶 + 星星，LAYERS 的 trail，錨點 = 掃帚尾端的 06 座標) → 10e_char_trail.png 疊在人物下面 ★
+  環繞  O1_orb.png          單獨生成的物件 (例如陰陽玉) → O3_orb_cut.png 去背 → O4_orbs_back / front.png (orbs.py 排成斜橢圓，後半在人物後、前半在人物前)
+                           → 10f_char_orbs.png ★
         10c_char_photocraft.png  PhotoCraft 手修 (例如 pc_shinki_LR_tips.py) ★ 有這張就優先用；10b 重做後要記得重修
   疊層  11_art.png         背景 + 人物 (沒有框的完整原圖，也複製到 Original/Art/<角色>_<階級>.png；
                            10_char.png 另外複製成 Art/<角色>_<階級>_char.png)
@@ -33,6 +35,7 @@
   python hd_card.py bg <角色> <階級>                                 04、05
   python hd_card.py char <角色> <階級>                               09、10 (去背用 comfy venv 的 python)
   python hd_card.py light <角色> <階級>                              10b (打光，LAYERS 的 light)
+  python hd_card.py orbs <角色> <階級>                               O3、O4、10f (環繞物件圈，LAYERS 的 orbs；O1 要先放好)
   python hd_card.py trail <角色> <階級>                              T1、10e (掃帚尾流，LAYERS 的 trail)
   python hd_card.py wings <角色> <階級>                              W3~W5、10d (翅膀層，LAYERS 的 wings；W2 要先放好)
   python hd_card.py compose <角色> <階級>                            11~16
@@ -55,6 +58,7 @@ from danmaku import BASE_W, draw_danmaku  # noqa: E402
 from relight import relight  # noqa: E402
 from wings import arrange, clean_crystal  # noqa: E402
 from trail import draw_trail  # noqa: E402
+from orbs import ring  # noqa: E402
 from make_workflow import BASE, NEGATIVE, QUALITY, EXTRA_NEGATIVE  # noqa: E402
 
 Image.MAX_IMAGE_PIXELS = None                      # 高清背景 6992×9728 超過 PIL 預設上限
@@ -90,6 +94,27 @@ LAYERS = {
         "offset": (-0.03, -0.05),   # 人物位置微調 (畫窗寬高的比例；使用者：往左上一點，靠近中心，左側翅膀切掉一點沒關係)
         # 打光 (relight.py)：背景是大量彈幕 ➔ 背光 + 輪廓光，翅膀紋路與眼睛發光；眼睛座標是 10_char.png 上的位置
         "light": {"eyes": [(619, 635), (653, 640)]},
+    },
+    # 靈夢 UR「博麗大結界之守護者」夢想天生：幻想鄉夜空 + 發光的博麗大結界 + 封印風格彈幕 (七彩大光球、符札、小陰陽玉)；
+    # 使用者：正面、由上往下看著鏡頭 (仰拍)、淡淡微笑、強者感；陰陽玉做成獨立圖層繞一圈 (orbs)
+    ("reimu", "UR"): {
+        "bg": ("no humans, scenery, night sky high above gensokyo, huge translucent glowing barrier dome in the sky, "
+               "hexagonal barrier pattern, shimmering light curtain, starry sky, moon, sea of clouds, distant mountains and torii far below, "
+               "deep blue and violet, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("floating in the air, facing viewer, looking down at viewer, from below, half-closed eyes, faint smile, calm, "
+                 "confident, overwhelming presence, holding gohei raised, detached sleeves fluttering, hair ribbon fluttering, "
+                 "skirt fluttering"),
+        "char_negative": "magic effects, orbs, yin yang orb, light, sparkles, ofuda, wings, multiple girls",
+        "style": "seal",
+        "density": 0.75,
+        "dim": 0.75,
+        "glow": 0.55,
+        "char_scale": 0.75,
+        "light": {"dark": 0.35},   # 背光；眼睛座標選好人物再補
+        # 陰陽玉環 (orbs.py)：anchor = 腰部 (06 基本圖座標)；rx / size 是畫窗寬度比例、ry 是畫窗高度比例
+        "orbs": {"anchor": (525, 610), "crop_square": True, "count": 6, "rx": 0.42, "ry": 0.07, "tilt": -8, "size": 0.085,
+                 "depth": 0.35, "phase": 30, "spin": 37, "link": 0.55, "link_color": (255, 120, 140)},
     },
     # 魔理沙 UR「極光之魔彈專家」戀符「Master Spark」：雲海上的夜空 + 極光 + 星彈；騎掃帚，掃帚尾流做成獨立圖層 (trail)
     ("marisa", "UR"): {
@@ -332,7 +357,7 @@ def make_char(char_id, rarity):
     # 翅膀 / 尾流層的錨點 (06 基本圖座標) 也跟著人物換算到 10_char.png 上
     anchors = {}
     base_w, base_h = Image.open(os.path.join(d, "06_char_base.png")).size
-    for layer in ("wings", "trail"):
+    for layer in ("wings", "trail", "orbs"):
         if not spec.get(layer):
             continue
         ax, ay = spec[layer]["anchor"]
@@ -352,6 +377,42 @@ def make_char(char_id, rarity):
         make_wings(char_id, rarity)
     if spec.get("trail"):
         make_trail(char_id, rarity)
+    if spec.get("orbs") and os.path.exists(os.path.join(d, "O1_orb.png")):
+        make_orbs(char_id, rarity)
+
+
+def make_orbs(char_id, rarity):
+    """環繞的物件圈 (orbs.py，靈夢的陰陽玉)：O1 單顆 → O3 去背 → O4 後 / 前兩層 → 10f = 後層 + 人物 + 前層"""
+    d = stage_dir(char_id, rarity)
+    os_ = dict(LAYERS[(char_id, rarity)]["orbs"])
+    cut = os.path.join(d, "O3_orb_cut.png")
+    if not os.path.exists(cut):
+        subprocess.run([COMFY_PY, "-I", os.path.join(HERE, "cutout.py"), os.path.join(d, "O1_orb.png"), d], check=True)
+        clean_crystal(Image.open(os.path.join(d, "O1_orb_cut.png")).convert("RGBA")).save(cut)
+        os.remove(os.path.join(d, "O1_orb_cut.png"))
+        print("✅ O3_orb_cut")
+    l, t, r, b = window_box()
+    W, H = r - l, b - t
+    with open(os.path.join(d, "10_anchor.json"), encoding="utf-8") as f:
+        anchor = json.load(f)["orbs"]
+    for k in ("rx", "size"):
+        os_[k] = os_[k] * W                                             # 比例 ➔ px
+    os_["ry"] = os_["ry"] * H
+    orb = Image.open(cut).convert("RGBA")
+    if os_.get("crop_square"):   # 圓球下面連著倒影：只留上方正方形 (球本身)
+        orb = orb.crop((0, 0, orb.width, min(orb.height, orb.width)))
+    back, front = ring((W, H), anchor, orb, os_)
+    back.save(os.path.join(d, "O4_orbs_back.png"))
+    front.save(os.path.join(d, "O4_orbs_front.png"))
+    print("✅ O4_orbs_back / front")
+    for name in ("10e_char_trail.png", "10d_char_wings.png", "10b_char_lit.png", "10_char.png"):
+        body = os.path.join(d, name)
+        if os.path.exists(body):
+            break
+    back.alpha_composite(Image.open(body).convert("RGBA"))
+    back.alpha_composite(front)
+    back.save(os.path.join(d, "10f_char_orbs.png"))
+    print("✅ 10f_char_orbs")
 
 
 def make_trail(char_id, rarity):
@@ -428,8 +489,8 @@ def make_light(char_id, rarity):
 
 
 def char_layer(d):
-    """疊層用的人物：PhotoCraft 手修版 (10c) > 加上尾流 (10e) > 加上翅膀層 (10d) > 打光版 (10b) > 10"""
-    for name in ("10c_char_photocraft.png", "10e_char_trail.png", "10d_char_wings.png", "10b_char_lit.png", "10_char.png"):
+    """疊層用的人物：PhotoCraft 手修版 (10c) > 加上環繞物件 (10f) > 加上尾流 (10e) > 加上翅膀層 (10d) > 打光版 (10b) > 10"""
+    for name in ("10c_char_photocraft.png", "10f_char_orbs.png", "10e_char_trail.png", "10d_char_wings.png", "10b_char_lit.png", "10_char.png"):
         if os.path.exists(os.path.join(d, name)):
             return os.path.join(d, name)
 
@@ -492,6 +553,8 @@ def main():
         make_wings(char_id, rarity)
     elif cmd == "trail":
         make_trail(char_id, rarity)
+    elif cmd == "orbs":
+        make_orbs(char_id, rarity)
     elif cmd == "compose":
         compose(char_id, rarity)
     else:

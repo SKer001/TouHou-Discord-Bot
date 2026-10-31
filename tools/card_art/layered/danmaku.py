@@ -1,4 +1,4 @@
-"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用)
+"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用)
 draw_danmaku(size, seed, style) 回傳 (glow 光暈 RGB, core 清楚彈體 RGBA)；
 座標以 1344 寬的畫窗為基準，依 size 等比放大，所以可以直接畫在 4 倍高清的畫布上。"""
 import colorsys
@@ -73,6 +73,32 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
                 cd.line((mx, my, mx + r * 0.35 * math.cos(b), my + r * 0.35 * math.sin(b)), fill=color + (255,), width=max(1, int(r * 0.12)))
         cd.ellipse((x - r * 0.2, y - r * 0.2, x + r * 0.2, y + r * 0.2), fill=(255, 255, 255, 255))
 
+    def ofuda(x, y, ang, L, color):
+        """符札彈：紅白長方形，沿行進方向"""
+        if keep.random() > density:
+            return
+        hw, hh = L * 0.28, L * 0.5
+        ca, sa = math.cos(ang), math.sin(ang)
+        def rect(k):
+            return [(x + px * ca - py * sa, y + px * sa + py * ca) for px, py in ((-hh * k, -hw * k), (hh * k, -hw * k), (hh * k, hw * k), (-hh * k, hw * k))]
+        gd.polygon(rect(1.7), fill=color)
+        cd.polygon(rect(1.0), fill=(255, 250, 245, 255), outline=color + (255,), width=max(1, int(L * 0.12)))
+        cd.polygon(rect(0.35), fill=color + (255,))
+
+    def yinyang(x, y, r, rot):
+        """小陰陽玉"""
+        if keep.random() > density:
+            return
+        gd.ellipse((x - r * 1.8, y - r * 1.8, x + r * 1.8, y + r * 1.8), fill=(200, 60, 70))
+        deg = math.degrees(rot)
+        cd.ellipse((x - r, y - r, x + r, y + r), fill=(250, 250, 250, 255), outline=(255, 255, 255, 255))
+        cd.pieslice((x - r, y - r, x + r, y + r), deg, deg + 180, fill=(200, 30, 40, 255))
+        for side, colr in ((1, (250, 250, 250, 255)), (-1, (200, 30, 40, 255))):
+            cx2, cy2 = x + side * r / 2 * math.cos(rot), y + side * r / 2 * math.sin(rot)
+            cd.ellipse((cx2 - r / 2, cy2 - r / 2, cx2 + r / 2, cy2 + r / 2), fill=colr)
+            dot = (200, 30, 40, 255) if side == 1 else (250, 250, 250, 255)
+            cd.ellipse((cx2 - r / 7, cy2 - r / 7, cx2 + r / 7, cy2 + r / 7), fill=dot)
+
     def inside(x, y):
         return -40 * s < x < W + 40 * s and -40 * s < y < H + 40 * s
 
@@ -90,6 +116,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
                 if inside(x, y):
                     if style == "stars":   # 魔理沙：環狀彈也是星彈
                         star(x, y, r * 1.7, a, hue(base_h + k / n))
+                    elif style == "seal":  # 靈夢：夢想封印的七彩大光球
+                        orb(x, y, r * 1.6, hue(base_h + k / n, 0.7))
                     else:
                         orb(x, y, r, hue(base_h + k / n))
     # 螺旋米粒彈
@@ -102,8 +130,13 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
             if inside(x, y):
                 if style == "stars":
                     star(x, y, 15 * s, a, hue(arm / 7 + t / 90, 0.7))
+                elif style == "seal":   # 靈夢：紅白符札
+                    ofuda(x, y, a + 0.35, 22 * s, (215, 35, 45))
                 else:
                     rice(x, y, a + 0.35, 17 * s, hue(arm / 7 + t / 90, 0.7))
+    if style == "seal":
+        for _ in range(60):
+            yinyang(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 16) * s, rnd.random() * math.tau)
     if style == "freeze":
         for _ in range(140):
             crystal(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(10, 26) * s, rnd.random() * 6, (215, 240, 255))
