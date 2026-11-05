@@ -14,6 +14,7 @@
 ```
 Main.py                      入口；setup_hook 先 init_db() 再 init_item_db()，並自動載入 Cogs/load-*/ 下所有 .py
 README.md                    給人看的專案說明 (功能、指令、安裝、新增角色)
+TODO.md                      待做清單：UR/LR 重做、未做卡面的角色、TH07 之後的角色、經濟系統計畫
 ARCHITECTURE.md              程式架構與寫法規則 (分層、Cog / View / 資料層慣例、新增功能檢查清單)
 requirements.txt             套件清單：pip install -r requirements.txt
 tests/                       測試 (python tests/run_all.py)，見第 7 節
@@ -48,7 +49,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - 專案換行符為 **LF**（Windows 上 `core.autocrlf=true`，工作目錄可能是 CRLF，git 內部仍是 LF）。
 - Windows 主控台是 cp950，印 emoji 會 `UnicodeEncodeError`：執行 Python 時設 `PYTHONIOENCODING=utf-8`（例如 PowerShell：`$env:PYTHONIOENCODING = 'utf-8'; python Main.py`）。
 
-- **CodeGraph（2026-11-05 筆電已安裝）**：colbymchenry/codegraph（MIT），幫 Claude Code 建程式碼索引的 MCP（`codegraph_explore` 等工具，一次查到符號原始碼與呼叫關係）。安裝：Node.js LTS（`winget install OpenJS.NodeJS.LTS`）→ `npm i -g @colbymchenry/codegraph` → `codegraph install --target claude --location global --yes`（會改 `~/.claude.json`、`~/.claude/settings.json` 的自動允許、`~/.claude/CLAUDE.md`）→ 專案根目錄 `codegraph init -y` 建索引（`.codegraph/` 已加入 `.gitignore`，每台電腦各自建）→ 重開 Claude Code。會收匿名使用統計，`codegraph telemetry off` 可關。桌機還沒裝。
+- **CodeGraph（2026-11-05 筆電已安裝）**：colbymchenry/codegraph（MIT），幫 Claude Code 建程式碼索引的 MCP（`codegraph_explore` 等工具，一次查到符號原始碼與呼叫關係）。安裝：Node.js LTS（`winget install OpenJS.NodeJS.LTS`）→ `npm i -g @colbymchenry/codegraph` → `codegraph install --target claude --location global --yes`（會改 `~/.claude.json`、`~/.claude/settings.json` 的自動允許、`~/.claude/CLAUDE.md`）→ 專案根目錄 `codegraph init -y` 建索引（`.codegraph/` 已加入 `.gitignore`，每台電腦各自建）→ 重開 Claude Code。會收匿名使用統計，`codegraph telemetry off` 可關（筆電已關）。桌機還沒裝。
 
 ## 3. 資料庫設計
 ### Users.db（`User_DB_Manager.py`）
@@ -230,7 +231,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
 - 最近一次：11 個測試檔全數通過（合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 32、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 355 項）。V2 畫面細節仍以 Discord 實機為準。
-- 已知待改進：TH06 其餘 8 位角色的卡面、autocomplete 每次都讀整本卡冊、卡牌存了名稱 / 稱號副本、分解卡牌（等浮動市值設計）、交易（等賽錢來源設計）、收集完成獎勵（等經濟系統）。
+- 已知待改進與之後的計畫（卡面重做、未做的角色、TH07 之後的角色、經濟系統：探索 / 分解 / 浮動市值 / 市場 / 交易）統一記在根目錄 `TODO.md`。
 
 ## 8. 使用者的決定與工作習慣
 - **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。
