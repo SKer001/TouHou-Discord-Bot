@@ -28,14 +28,17 @@ Characters/                  角色資料，一角色一檔：Main/ (主要主�
 Database/
   User_DB_Manager.py         玩家資料庫（Users.db）所有存取
   Item_DB_Manager.py         道具資料庫（Item.db）所有存取
-  Economy_DB_Manager.py      經濟系統（神社、浮動市值、分解、市場、轉帳），資料也在 Users.db；所有數值常數都在檔案開頭
+  Economy_DB_Manager.py      經濟系統（神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳），資料也在 Users.db；所有數值常數都在檔案開頭
+  shrine_data.py             神社的遊戲資料：素材、料理配方、採集地點與事件、雜貨店價格、參拜客 (最愛、提示、台詞)
+  events.py                  讀 Events/*.json，把進行中的活動跟 shrine_data 合併成當下規則 (game_rules)
+Events/                      活動資料檔，一個活動一檔 (th06_scarlet_mist.json = 紅霧異變)
   Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 8 節）
   item.new.json              道具批次匯入用資料
 Cogs/
   load-character/  character.py, Components/character_components.py   # 圖鑑
   load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理
   load-market/     market.py, Admin-market.py, Components/market_components.py   # 市值 / 分解 / 市場
-  load-general/    profile.py, shrine.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py
+  load-general/    profile.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
@@ -85,7 +88,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 ### Item.db（`Item_DB_Manager.py`）
 - `get_all_items`、`get_item`、`add_item_db`、`update_item_db`、`delete_item_db`、`batch_import_db`、`replace_all_items(items)`、`CATEGORY_NAMES`、`DEFAULT_ITEMS`、`DAILY_REWARD_ITEM`；`init_item_db()` 在 Item.db 缺少時會警告，**資料表空白時會寫入 `DEFAULT_ITEMS`**（所以預設清單要跟實際想要的道具一致）。
 - `item_templates(item_id PK, name, emoji, category, description, effect TEXT DEFAULT '{}')`；`effect` 是 JSON（目前支援 `{"stamina": N}`），讀出來是 dict；舊資料表缺 `effect` 會自動補。`update_item_db`（Modal 編輯）不會改動 effect。
-- 道具分類：`consumable`（消耗品）、`cuisine`（招待料理）、`collectible`（收藏品）、`special`（裝備與特殊）。
+- 道具分類：`consumable`（消耗品）、`cuisine`（招待料理）、`material`（素材）、`collectible`（收藏品）、`special`（裝備與特殊）。
 - **目前道具（2026-10-28 使用者指定，舊的 demo 道具與所有玩家背包已清空）**：全部是 `consumable` 體力道具。
   | ID | 名稱 | 體力 |
   |---|---|---|
@@ -185,7 +188,15 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
     - 新卡完整度與祈願相同（`generate_completeness`），`total_fusions + 1`。
   - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
 - **經濟系統（v0.23.000，2026-11-05 使用者指定的數值，見 `TODO.md` 第 5 節）**：`Database/Economy_DB_Manager.py`
-  - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +1000 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**招待（每份 1000 × 心情²，每位至少 1 份、最多 3 類共 5 份）要等餐點 / 素材 / 素材副本，按鈕目前停用。**
+  - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +1000 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**v0.27.000 起招待開放**（見下面「神社廚房」）。
+  - **神社廚房（v0.27.000，使用者 2026-11-05 指定）**：神社畫面同一則訊息切換 `main / serve_pick / serve / explore / cook / shop`；指令 `/shrine explore`、`/shrine cook`、`/shrine shop` 直接打開對應畫面。
+    - 採集：`explore(user, 地點, times)`，每趟 `EXPLORE_STAMINA = 20` 體力、3～5 個素材（`roll_explore`），`SPECIAL_CHANCE = 5%` 事件好壞各半（effect：add / lose / half / empty）；連續 5 次時體力不夠就做到用完。
+    - 料理：`cook(user, 料理, times)`，一鍋 `COOK_YIELD = 2` 份。雜貨店 `shop_buy`：只賣人里 5 種素材（`SHOP_PRICES` 600～900，一定比做成料理的收入低）。素材不能上市場。
+    - 點餐：客人生成時就決定（`make_order`：1～3 個不同種類，每類一道；活動期間每道 `order_event_chance` 機率是活動料理）。招待 `serve_guest(user, guest_id, extra)`：點的每道扣 1 份（要齊），額外招待可再選 1 份任意料理；報酬 `calc_serve_reward` = 份數 × `SERVING_REWARD = 2000` × 心情² × 1.2^(活動料理份數) × 1.5（額外那份 == 客人 favorite），加成都乘在過完心情之後；招待完客人離開。
+    - 客人資料 `shrine_data.GUESTS`（10 種 + 活動客人）：emoji、favorite、hint（灰字提示）、lines（high ≥70 / mid 40～60 / low ≤30，`{order}` 換成料理名）。頭像 `images/Thumbnails.json` 的 `guest_<種類>`（`tools/card_art/guest_workflow.py` 生成 ➔ `images/Original/Guests/<種類>.png` ➔ `build_guests.py`）。
+    - 舊資料相容：`sanitize_guests` 把中文名稱的 kind 換成 key、補 id / 點餐、已結束活動的客人離開、點了不存在料理的重新點餐。
+  - **活動系統（v0.27.000）**：`Events/<id>.json`（`auto_start`、`duration_days`、`order_event_chance`、`event_dish_bonus`、`location`、`items`、`recipes`、`guests`）；狀態存 `economy_meta` 的 `event:<id>`（沒有紀錄 + auto_start = 進行中；過了 `ends_at` 在下次讀取時自動結束）。結束時 `_clear_event_items` 清空所有玩家的活動道具（effect 帶 `event`）。`/event` 查看、`/admin-event start [days] / end`（結束有確認畫面）。目前只有 🔴 紅霧異變（TH06，測試中沒有結束時間）。
+  - 道具：`Item_DB_Manager.managed_items()` 把 `shrine_data` 的素材 / 新料理與活動檔的道具在開機時 `INSERT OR IGNORE` 進 Item.db（分類 `material` 🧺 素材）。
   - **市值**：`market_prices`（完整度 0.5 的價格，起始 = 官方價 `OFFICIAL_PRICES`，永遠不低於官方價）、`price_history`、`daily_draws`（`draw_gacha` 寫入全服每日抽數）、`daily_sales`（市場成交 + 分解）、`economy_meta.last_settled_day`。`settle_prices(probabilities)` 在每個 `/market` 指令開頭補結算到昨天（台灣時間；第一次只記錄起點）：期望 = 當天該卡池抽數 × 抽中機率（至少 1），持平 = 期望 × 50%；賣出比持平少時從 +2%（沒人賣）線性降到 0%，比持平多時往下跌、3 倍時 −10%（v0.24.000 改成連續曲線：一天最多漲 2%、最多跌 10%）。抽中機率由 `market.card_probabilities()` 依 `GACHA_POOL` 與 `RARITY_WEIGHTS` 算（不含保底）。
   - **完整度倍率** `completeness_multiplier`：0.5 以上 `1 + 0.2·((c−0.5)/0.5)²`、以下 `0.2 + 0.8·(c/0.5)²`；卡價值 = 市值 × 倍率（分解拿這個數）。
   - **市場**（`Cogs/load-market/market.py`，`/market price / decompose / sell / browse / mine`）：上架時卡從 `gacha_cards` 移到 `market_listings` 託管（所以不能合成 / 融合 / 分解），不限價格，買家付 `ceil(售價 × 1.05)`、賣家拿售價，7 天沒賣出 `expire_listings` 退回；買賣、下架都在單一交易。
@@ -249,7 +260,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：13 個測試檔全數通過，共 447 項（主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：14 個測試檔全數通過，共 504 項（神社廚房 55、（主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進與之後的計畫（卡面重做、未做的角色、TH07 之後的角色、經濟系統：探索 / 分解 / 浮動市值 / 市場 / 交易）統一記在根目錄 `TODO.md`。
 
 ## 8. 使用者的決定與工作習慣

@@ -1,0 +1,63 @@
+{
+    "id": "th06_scarlet_mist",
+    "name": "紅霧異變",
+    "emoji": "🔴",
+    "series": "TH06 東方紅魔鄉",
+    "description": "紅色的霧籠罩了幻想鄉，湖畔的洋館裡飄出陣陣西式料理的香味。趁著異變，紅魔館的廚房意外地對外開放了——女僕長說「只是食材買太多」。",
+    "duration_days": 14,
+    "auto_start": true,
+    "order_event_chance": 0.5,
+    "event_dish_bonus": 1.2,
+    "location": {
+        "id": "scarlet_kitchen",
+        "name": "紅魔館廚房",
+        "emoji": "🏰",
+        "desc": "紅魔館的大廚房，妖精女僕們忙進忙出，偶爾能「借」到一些西洋食材。",
+        "drops": ["evt_strawberry", "evt_egg", "evt_butter", "evt_tomato", "evt_darjeeling"],
+        "good": {"text": "女僕長剛好在整理食材庫，說這些「放到時間停止也會壞」，全部塞給了你。", "effect": {"add": {"evt_strawberry": 2, "evt_egg": 2}}},
+        "bad": {"text": "被門口的門番發現了——她醒著的時候還挺盡責的……", "effect": {"lose": 2}}
+    },
+    "items": [
+        {"id": "evt_strawberry", "name": "草莓", "emoji": "🍓", "category": "material",
+         "desc": "紅魔館溫室種的草莓，紅得跟那片霧一樣。妹妹大人很喜歡，所以每顆都有被數過。"},
+        {"id": "evt_egg", "name": "雞蛋", "emoji": "🥚", "category": "material",
+         "desc": "紅魔館廚房的雞蛋，來源是個謎。女僕長說「不要問比較好」。"},
+        {"id": "evt_butter", "name": "奶油", "emoji": "🧈", "category": "material",
+         "desc": "濃郁的西洋奶油，在幻想鄉很少見。圖書館的魔女說它對身體不好，但還是每天吃。"},
+        {"id": "evt_tomato", "name": "番茄", "emoji": "🍅", "category": "material",
+         "desc": "又紅又多汁的番茄。大小姐規定館內的番茄一定要比血還紅，園丁妖精壓力很大。"},
+        {"id": "evt_darjeeling", "name": "大吉嶺茶葉", "emoji": "🫖", "category": "material",
+         "desc": "女僕長珍藏的大吉嶺茶葉。據說是在時間停止的時候從外面世界「買」回來的。"},
+        {"id": "evt_napolitan", "name": "女僕長的番茄義大利麵", "emoji": "🍝", "category": "cuisine",
+         "desc": "完美女僕在 0.1 秒內煮好的番茄義大利麵（體感時間 30 分鐘）。醬汁紅得很可疑，但保證是番茄。", "effect": {"serve": "food"}},
+        {"id": "evt_darjeeling_tea", "name": "紅魔館大吉嶺紅茶", "emoji": "☕", "category": "cuisine",
+         "desc": "紅魔館午茶時間的大吉嶺紅茶，香氣高雅。大小姐每天都說要加一點「特別的東西」，女僕長每天都假裝沒聽到。", "effect": {"serve": "drink"}},
+        {"id": "evt_strawberry_cake", "name": "草莓鮮奶油蛋糕", "emoji": "🍰", "category": "cuisine",
+         "desc": "鋪滿草莓的鮮奶油蛋糕，是妹妹大人的生日蛋糕試作品。上一個試作品被她一不小心「破壞」了。", "effect": {"serve": "dessert"}}
+    ],
+    "recipes": {
+        "evt_napolitan": {"evt_tomato": 1, "mat_flour": 1, "mat_seasoning": 1},
+        "evt_darjeeling_tea": {"evt_darjeeling": 1},
+        "evt_strawberry_cake": {"evt_strawberry": 1, "evt_egg": 1, "evt_butter": 1, "mat_flour": 1}
+    },
+    "guests": {
+        "fairy_maid": {
+            "name": "妖精女僕", "emoji": "🧹", "favorite": "evt_strawberry_cake",
+            "hint": "她偷偷說，女僕長從來不讓她們吃蛋糕……",
+            "lines": {
+                "high": "今天放假！我要點{order}～不要告訴女僕長我來這裡喔！",
+                "mid": "那個……{order}。我等一下還要回去打掃……",
+                "low": "{order}……完了完了，再不回去會被女僕長丟飛刀的……"
+            }
+        },
+        "familiar_bat": {
+            "name": "蝙蝠使魔", "emoji": "🦇", "favorite": "evt_darjeeling_tea",
+            "hint": "牠說主人每天下午都要喝某種高級的紅茶……",
+            "lines": {
+                "high": "吱吱！主人派我來的，要{order}！要最高級的！",
+                "mid": "吱……{order}。太陽好大，快一點……",
+                "low": "{order}！吱！再曬下去我要變成烤蝙蝠了！"
+            }
+        }
+    }
+}

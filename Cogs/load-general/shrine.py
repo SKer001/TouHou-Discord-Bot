@@ -3,17 +3,33 @@
 數值與結算規則在 Database/Economy_DB_Manager.py
 """
 import json
+import os
 
 import discord
 from discord import app_commands, ui
 from discord.ext import commands
 
 from Database import Economy_DB_Manager as econ
-from Database.User_DB_Manager import get_or_create_user
+from Database.User_DB_Manager import get_or_create_user, get_stamina
+from Database import shrine_data
 from Database.Item_DB_Manager import get_all_items
 from Utils.components import send_notice
-from .Components.shrine_components import build_shrine_container
+from .Components.shrine_components import (
+    build_shrine_container, build_serve_container, build_explore_container, build_cook_container, build_shop_container,
+)
 from .Components.general_components import get_inventory_view_data, build_inventory_container
+
+
+THUMBNAILS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "images", "Thumbnails.json")
+
+
+def guest_image_url(kind: str) -> str | None:
+    """客人頭像：images/Thumbnails.json 的 "guest_<種類>" (沒有就不放圖)"""
+    try:
+        with open(THUMBNAILS_FILE, encoding="utf-8") as f:
+            return json.load(f).get(f"guest_{kind}")
+    except (OSError, ValueError):
+        return None
 
 
 # =========================================================
@@ -150,61 +166,345 @@ class InventoryView(ui.LayoutView):
 
 
 class ShrineView(ui.LayoutView):
-    """神社主畫面：回收賽錢箱 / 清掃 / 治退妖怪 / 招待 (未開放) / 重新整理"""
+    """
+    神社主畫面 (同一則訊息切換 mode)：
+    main 神社 ➔ serve_pick 選客人 ➔ serve 招待；explore 採集；cook 料理；shop 雜貨店
+    """
 
     def __init__(self, user: discord.abc.User, result: dict, notice: str | None = None):
-        super().__init__(timeout=300)
+        super().__init__(timeout=600)
         self.user = user
-        self.build(result, notice)
+        self.summary = result["summary"]
+        self.notice = notice
+        self.mode = "main"
+        self.items, self.inventory, self.rules = {}, {}, None
+        self.guest_id, self.extra = None, None
+        self.explore_loc, self.explore_result, self.stamina = None, None, None
+        self.cook_sel, self.shop_sel, self.money = None, None, 0
 
-    def build(self, result: dict, notice: str | None = None):
-        s = result["summary"]
+    @classmethod
+    async def create(cls, user, result: dict, notice: str | None = None, mode: str = "main") -> "ShrineView":
+        view = cls(user, result, notice)
+        view.mode = mode
+        await view.reload()
+        view.build()
+        return view
+
+    async def reload(self, result: dict | None = None):
+        """重新讀取畫面需要的資料 (道具名稱、倉庫、規則、體力、賽錢)"""
+        if result:
+            self.summary = result["summary"]
+        self.items = await get_all_items()
+        self.inventory = await econ.get_inventory(self.user.id)
+        self.rules = await econ.get_rules()
+        self.stamina = await get_stamina(self.user.id)
+        self.money = (await get_or_create_user(self.user.id))["money"]
+
+    # ---------------- 畫面 ----------------
+    def build(self):
         self.clear_items()
-        container = build_shrine_container(self.user.display_name, s, notice)
-        container.add_item(ui.Separator())
+        getattr(self, f"_build_{self.mode}")()
 
-        collect = ui.Button(label=f"💰 回收賽錢箱 ({s['box']:,})", style=discord.ButtonStyle.success, disabled=s["box"] < 1)
-        collect.callback = self.on_collect
-        clean = ui.Button(label="🧹 清掃", style=discord.ButtonStyle.primary, disabled=s["dirt"] == 0)
-        clean.callback = self.on_clean
-        defeat = ui.Button(label=f"⚔️ 治退妖怪 ({s['youkai']})", style=discord.ButtonStyle.danger, disabled=s["youkai"] == 0)
-        defeat.callback = self.on_defeat
-        serve = ui.Button(label="🍵 招待", style=discord.ButtonStyle.secondary, disabled=True)
-        refresh = ui.Button(label="🔄", style=discord.ButtonStyle.secondary)
-        refresh.callback = self.on_refresh
-        container.add_item(ui.ActionRow(collect, clean, defeat, serve, refresh))
+    def _btn(self, label, style, callback, disabled=False):
+        b = ui.Button(label=label, style=style, disabled=disabled)
+        b.callback = callback
+        return b
+
+    def _home(self):
+        return self._btn("🏠 返回神社", discord.ButtonStyle.secondary, self.on_home)
+
+    def _build_main(self):
+        s = self.summary
+        container = build_shrine_container(self.user.display_name, s, self.notice, self.items)
+        container.add_item(ui.Separator())
+        container.add_item(ui.ActionRow(
+            self._btn(f"💰 回收 ({s['box']:,})", discord.ButtonStyle.success, self.on_collect, s["box"] < 1),
+            self._btn("🧹 清掃", discord.ButtonStyle.primary, self.on_clean, s["dirt"] == 0),
+            self._btn(f"⚔️ 治退妖怪 ({s['youkai']})", discord.ButtonStyle.danger, self.on_defeat, s["youkai"] == 0),
+            self._btn(f"🍵 招待 ({len(s['guests'])})", discord.ButtonStyle.success, self.on_serve_open, not s["guests"]),
+            self._btn("🔄", discord.ButtonStyle.secondary, self.on_refresh),
+        ))
+        container.add_item(ui.ActionRow(
+            self._btn("🗺️ 採集", discord.ButtonStyle.secondary, self.on_explore_open),
+            self._btn("🍳 料理", discord.ButtonStyle.secondary, self.on_cook_open),
+            self._btn("🏪 雜貨店", discord.ButtonStyle.secondary, self.on_shop_open),
+        ))
         self.add_item(container)
 
+    def _guest(self):
+        return next((g for g in self.summary["guests"] if g["id"] == self.guest_id), None)
+
+    def _build_serve_pick(self):
+        container = ui.Container(accent_color=discord.Color.from_rgb(232, 120, 150))
+        text = "## 🍵 招待參拜客\n選一位客人："
+        if self.notice:
+            text = f"{self.notice}\n\n{text}"
+        container.add_item(ui.TextDisplay(text))
+        select = ui.Select(placeholder="選擇要招待的客人…", options=[
+            discord.SelectOption(
+                label=f"{g['name']}　心情 {g['mood']}%"[:100], value=g["id"], emoji=g["emoji"],
+                description=("點了：" + "、".join(self.items.get(d, {}).get("name", d) for d in g["order"]))[:100])
+            for g in self.summary["guests"]
+        ])
+        select.callback = self.on_pick_guest
+        container.add_item(ui.ActionRow(select))
+        container.add_item(ui.ActionRow(self._home()))
+        self.add_item(container)
+
+    def _build_serve(self):
+        g = self._guest()
+        if g is None:
+            self.mode, self.notice = "main", "⚠️ 這位客人已經離開了。"
+            return self._build_main()
+        preview = econ.calc_serve_reward(g["mood"], g["order"], self.extra, self.rules, None)
+        container = build_serve_container(g, self.items, self.inventory, self.extra, preview,
+                                          guest_image_url(g["kind"]), self.rules["event_dish_bonus"])
+        if self.notice:
+            container.add_item(ui.TextDisplay(self.notice))
+        dishes = sorted((d for d, n in self.inventory.items() if n > 0 and d in self.rules["dish_types"]),
+                        key=lambda d: (("food", "drink", "dessert").index(self.rules["dish_types"][d]), d))
+        options = [discord.SelectOption(label="不額外招待", value="__none__", emoji="➖", default=self.extra is None)]
+        options += [discord.SelectOption(
+            label=f"{self.items.get(d, {}).get('name', d)}　×{self.inventory[d]}"[:100], value=d,
+            emoji=self.items.get(d, {}).get("emoji"), default=d == self.extra) for d in dishes[:24]]
+        select = ui.Select(placeholder="🎁 額外招待（可選一份）…", options=options)
+        select.callback = self.on_pick_extra
+        container.add_item(ui.ActionRow(select))
+        need = {}
+        for d in g["order"] + ([self.extra] if self.extra else []):
+            need[d] = need.get(d, 0) + 1
+        ready = all(self.inventory.get(d, 0) >= k for d, k in need.items())
+        buttons = [self._btn("🍵 端上桌", discord.ButtonStyle.success, self.on_serve, not ready)]
+        if len(self.summary["guests"]) > 1:
+            buttons.append(self._btn("👥 換客人", discord.ButtonStyle.secondary, self.on_serve_open))
+        buttons.append(self._home())
+        container.add_item(ui.ActionRow(*buttons))
+        self.add_item(container)
+
+    def _build_explore(self):
+        container = build_explore_container(self.rules["locations"], self.stamina, shrine_data.EXPLORE_STAMINA,
+                                            self.explore_result, self.items)
+        if self.notice:
+            container.add_item(ui.TextDisplay(self.notice))
+        select = ui.Select(placeholder="選擇採集地點…", options=[
+            discord.SelectOption(label=loc["name"], value=key, emoji=loc["emoji"], default=key == self.explore_loc,
+                                 description=loc["desc"][:100])
+            for key, loc in self.rules["locations"].items()
+        ][:25])
+        select.callback = self.on_pick_location
+        container.add_item(ui.ActionRow(select))
+        cost = shrine_data.EXPLORE_STAMINA
+        container.add_item(ui.ActionRow(
+            self._btn(f"🗺️ 採集 1 次 (-{cost})", discord.ButtonStyle.primary, self.on_explore_1,
+                      not self.explore_loc or self.stamina["stamina"] < cost),
+            self._btn(f"🗺️ 連續 5 次 (-{cost * 5})", discord.ButtonStyle.primary, self.on_explore_5,
+                      not self.explore_loc or self.stamina["stamina"] < cost),
+            self._home(),
+        ))
+        self.add_item(container)
+
+    def _build_cook(self):
+        container = build_cook_container(self.rules["recipes"], self.rules["dish_types"], self.items, self.inventory,
+                                         self.cook_sel, shrine_data.COOK_YIELD, self.notice)
+        type_label = {"food": "食物", "drink": "茶水", "dessert": "點心"}
+        dishes = sorted(self.rules["recipes"], key=lambda d: (("food", "drink", "dessert").index(self.rules["dish_types"][d]), d))
+        options = []
+        for d in dishes[:25]:
+            r = self.rules["recipes"][d]
+            can = min(self.inventory.get(m, 0) // k for m, k in r.items())
+            need = " + ".join(f"{self.items.get(m, {}).get('name', m)}×{k}" for m, k in r.items())
+            options.append(discord.SelectOption(
+                label=f"[{type_label[self.rules['dish_types'][d]]}] {self.items.get(d, {}).get('name', d)}"[:100],
+                value=d, emoji=self.items.get(d, {}).get("emoji"), default=d == self.cook_sel,
+                description=f"{'✅ 可做 ' + str(can) + ' 鍋' if can else '❌'} · {need}"[:100]))
+        select = ui.Select(placeholder="選擇料理…", options=options)
+        select.callback = self.on_pick_dish
+        container.add_item(ui.ActionRow(select))
+        can = 0
+        if self.cook_sel:
+            r = self.rules["recipes"][self.cook_sel]
+            can = min(self.inventory.get(m, 0) // k for m, k in r.items())
+        container.add_item(ui.ActionRow(
+            self._btn("🍳 做 1 鍋", discord.ButtonStyle.success, self.on_cook_1, can < 1),
+            self._btn("🍳 做 5 鍋", discord.ButtonStyle.success, self.on_cook_5, can < 5),
+            self._btn(f"🍳 全部 ({can})", discord.ButtonStyle.primary, self.on_cook_all, can < 1),
+            self._home(),
+        ))
+        self.add_item(container)
+
+    def _build_shop(self):
+        prices = shrine_data.SHOP_PRICES
+        container = build_shop_container(prices, self.items, self.inventory, self.money, self.shop_sel, self.notice)
+        select = ui.Select(placeholder="選擇要買的素材…", options=[
+            discord.SelectOption(label=f"{self.items.get(m, {}).get('name', m)}　{p:,} 賽錢", value=m,
+                                 emoji=self.items.get(m, {}).get("emoji"), default=m == self.shop_sel)
+            for m, p in prices.items()
+        ])
+        select.callback = self.on_pick_shop
+        container.add_item(ui.ActionRow(select))
+        price = prices.get(self.shop_sel, 0)
+        container.add_item(ui.ActionRow(*[
+            self._btn(f"買 {n} 個 ({price * n:,})" if self.shop_sel else f"買 {n} 個", discord.ButtonStyle.primary,
+                      getattr(self, f"on_buy_{n}"), not self.shop_sel or self.money < price * n)
+            for n in (1, 5, 10)
+        ], self._home()))
+        self.add_item(container)
+
+    # ---------------- 共用 ----------------
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user.id:
             await send_notice(interaction, "❌ 這不是你的神社！用 `/shrine manage` 打開自己的神社吧。")
             return False
         return True
 
-    async def _update(self, interaction: discord.Interaction, result: dict, notice: str | None):
-        self.build(result, notice)
+    async def _show(self, interaction: discord.Interaction, mode: str | None = None, notice: str | None = None,
+                    result: dict | None = None):
+        if mode:
+            self.mode = mode
+        self.notice = notice
+        await self.reload(result)
+        self.build()
         await interaction.response.edit_message(view=self)
 
-    async def on_collect(self, interaction: discord.Interaction):
+    async def on_home(self, interaction):
+        await self._show(interaction, "main", result=await econ.get_shrine(self.user.id))
+
+    async def on_refresh(self, interaction):
+        await self._show(interaction, "main", result=await econ.get_shrine(self.user.id))
+
+    # ---------------- 神社 ----------------
+    async def on_collect(self, interaction):
         r = await econ.shrine_collect(self.user.id)
         notice = f"💰 回收了 `{r['collected']:,}` 賽錢！目前持有 `{r['money']:,}` 賽錢。" if r["collected"] else "⚠️ 賽錢箱裡還沒有錢。"
-        await self._update(interaction, r, notice)
+        await self._show(interaction, "main", notice, r)
 
-    async def on_clean(self, interaction: discord.Interaction):
+    async def on_clean(self, interaction):
         r = await econ.shrine_clean(self.user.id)
-        notice = "✨ 神社打掃得一塵不染！" if r["before"] else "✨ 神社本來就很乾淨。"
-        await self._update(interaction, r, notice)
+        await self._show(interaction, "main", "✨ 神社打掃得一塵不染！" if r["before"] else "✨ 神社本來就很乾淨。", r)
 
-    async def on_defeat(self, interaction: discord.Interaction):
+    async def on_defeat(self, interaction):
         r = await econ.shrine_defeat(self.user.id)
-        if r["ok"]:
-            notice = f"⚔️ 打退了一隻妖怪！獲得 `{r['reward']:,}` 賽錢。\n-# 妖怪留下了晦氣，清潔度掉了一階…"
-        else:
-            notice = "⚠️ 現在沒有妖怪在作亂。"
-        await self._update(interaction, r, notice)
+        notice = (f"⚔️ 打退了一隻妖怪！獲得 `{r['reward']:,}` 賽錢。\n-# 妖怪留下了晦氣，清潔度掉了一階…"
+                  if r["ok"] else "⚠️ 現在沒有妖怪在作亂。")
+        await self._show(interaction, "main", notice, r)
 
-    async def on_refresh(self, interaction: discord.Interaction):
-        await self._update(interaction, await econ.get_shrine(self.user.id), None)
+    # ---------------- 招待 ----------------
+    async def on_serve_open(self, interaction):
+        r = await econ.get_shrine(self.user.id)
+        self.extra = None
+        guests = r["summary"]["guests"]
+        if len(guests) == 1:
+            self.guest_id = guests[0]["id"]
+            await self._show(interaction, "serve", result=r)
+        elif guests:
+            await self._show(interaction, "serve_pick", result=r)
+        else:
+            await self._show(interaction, "main", "⚠️ 現在沒有客人。", r)
+
+    async def on_pick_guest(self, interaction):
+        self.guest_id, self.extra = interaction.data["values"][0], None
+        await self._show(interaction, "serve", result=await econ.get_shrine(self.user.id))
+
+    async def on_pick_extra(self, interaction):
+        value = interaction.data["values"][0]
+        self.extra = None if value == "__none__" else value
+        await self._show(interaction, "serve")
+
+    async def on_serve(self, interaction):
+        r = await econ.serve_guest(self.user.id, self.guest_id, self.extra)
+        if not r["ok"]:
+            msg = {"not_found": "⚠️ 這位客人已經離開了。",
+                   "missing": "❌ 料理不夠：" + "、".join(f"{self.items.get(d, {}).get('name', d)} 還差 {k} 份" for d, k in r.get("missing", {}).items())
+                   }.get(r["reason"], f"❌ 招待失敗（{r['reason']}）")
+            await self._show(interaction, "serve" if r["reason"] == "missing" else "main", msg, r if "summary" in r else None)
+            return
+        rw, g = r["reward"], r["guest"]
+        name = shrine_data.GUESTS.get(g["kind"], {}).get("name") or self.rules["guests"].get(g["kind"], {}).get("name", "客人")
+        extras = []
+        if rw["favorite_hit"]:
+            extras.append("✨ 正中最愛 ×1.5")
+        if rw["event_count"]:
+            extras.append(f"🎪 活動料理 ×{self.rules['event_dish_bonus']:g}^{rw['event_count']}")
+        notice = (f"🍵 **{name}** 吃得心滿意足地離開了！獲得 `{rw['total']:,}` 賽錢"
+                  + (f"（{'、'.join(extras)}）" if extras else "") + f"\n-# 目前持有 `{r['money']:,}` 賽錢")
+        self.guest_id, self.extra = None, None
+        await self._show(interaction, "main", notice, r)
+
+    # ---------------- 採集 ----------------
+    async def on_explore_open(self, interaction):
+        self.explore_result = None
+        await self._show(interaction, "explore")
+
+    async def on_pick_location(self, interaction):
+        self.explore_loc = interaction.data["values"][0]
+        await self._show(interaction, "explore")
+
+    async def _explore(self, interaction, times):
+        r = await econ.explore(self.user.id, self.explore_loc, times)
+        if not r["ok"]:
+            msg = {"no_stamina": "❌ 體力不夠了！可以在資料卡用道具恢復體力。", "not_found": "❌ 這個地點現在去不了（活動可能結束了）。"}
+            self.explore_result = None
+            await self._show(interaction, "explore", msg.get(r["reason"], "❌ 採集失敗"))
+            return
+        self.explore_result = r
+        await self._show(interaction, "explore")
+
+    async def on_explore_1(self, interaction):
+        await self._explore(interaction, 1)
+
+    async def on_explore_5(self, interaction):
+        await self._explore(interaction, 5)
+
+    # ---------------- 料理 ----------------
+    async def on_cook_open(self, interaction):
+        await self._show(interaction, "cook")
+
+    async def on_pick_dish(self, interaction):
+        self.cook_sel = interaction.data["values"][0]
+        await self._show(interaction, "cook")
+
+    async def _cook(self, interaction, times):
+        r = await econ.cook(self.user.id, self.cook_sel, times)
+        name = self.items.get(self.cook_sel, {}).get("name", self.cook_sel)
+        if r["ok"]:
+            notice = f"🍳 做好了 **{name}** ×{r['made']} 份！倉庫裡現在有 `{r['have']}` 份。"
+        else:
+            notice = "❌ 素材不夠：" + "、".join(f"{self.items.get(m, {}).get('name', m)} 還差 {k}" for m, k in r.get("missing", {}).items())
+        await self._show(interaction, "cook", notice)
+
+    async def on_cook_1(self, interaction):
+        await self._cook(interaction, 1)
+
+    async def on_cook_5(self, interaction):
+        await self._cook(interaction, 5)
+
+    async def on_cook_all(self, interaction):
+        r = self.rules["recipes"][self.cook_sel]
+        await self._cook(interaction, max(1, min(self.inventory.get(m, 0) // k for m, k in r.items())))
+
+    # ---------------- 雜貨店 ----------------
+    async def on_shop_open(self, interaction):
+        await self._show(interaction, "shop")
+
+    async def on_pick_shop(self, interaction):
+        self.shop_sel = interaction.data["values"][0]
+        await self._show(interaction, "shop")
+
+    async def _buy(self, interaction, n):
+        r = await econ.shop_buy(self.user.id, self.shop_sel, n)
+        name = self.items.get(self.shop_sel, {}).get("name", self.shop_sel)
+        notice = (f"🛒 買了 **{name}** ×{n}，花了 `{r['cost']:,}` 賽錢。" if r["ok"]
+                  else f"❌ 賽錢不足！需要 `{r.get('cost', 0):,}`，你只有 `{r.get('money', 0):,}`。")
+        await self._show(interaction, "shop", notice)
+
+    async def on_buy_1(self, interaction):
+        await self._buy(interaction, 1)
+
+    async def on_buy_5(self, interaction):
+        await self._buy(interaction, 5)
+
+    async def on_buy_10(self, interaction):
+        await self._buy(interaction, 10)
 
 
 class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩️ 神社經營與神社倉庫"):
@@ -213,14 +513,31 @@ class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩�
 
     @app_commands.command(name="manage", description="⛩️ 打開自己的神社：賽錢箱、清掃、治退妖怪、參拜客")
     async def manage(self, interaction: discord.Interaction):
-        result = await econ.get_shrine(interaction.user.id)
-        await interaction.response.send_message(view=ShrineView(interaction.user, result), ephemeral=True)
+        await self._open(interaction, "main")
+
+    async def _open(self, interaction: discord.Interaction, mode: str, notice: str | None = None, result: dict | None = None):
+        await interaction.response.defer(ephemeral=True)
+        result = result or await econ.get_shrine(interaction.user.id)
+        view = await ShrineView.create(interaction.user, result, notice, mode)
+        await interaction.followup.send(view=view, ephemeral=True)
+
+    @app_commands.command(name="explore", description="🗺️ 到幻想鄉各地採集料理素材 (消耗體力)")
+    async def explore(self, interaction: discord.Interaction):
+        await self._open(interaction, "explore")
+
+    @app_commands.command(name="cook", description="🍳 用素材做招待料理 (一鍋 2 份)")
+    async def cook(self, interaction: discord.Interaction):
+        await self._open(interaction, "cook")
+
+    @app_commands.command(name="shop", description="🏪 人間之里雜貨店：買基本食材")
+    async def shop(self, interaction: discord.Interaction):
+        await self._open(interaction, "shop")
 
     @app_commands.command(name="collect", description="💰 回收神社賽錢箱裡的賽錢")
     async def collect(self, interaction: discord.Interaction):
         r = await econ.shrine_collect(interaction.user.id)
         notice = f"💰 回收了 `{r['collected']:,}` 賽錢！目前持有 `{r['money']:,}` 賽錢。" if r["collected"] else "⚠️ 賽錢箱裡還沒有錢。"
-        await interaction.response.send_message(view=ShrineView(interaction.user, r, notice), ephemeral=True)
+        await self._open(interaction, "main", notice, r)
 
 
     @app_commands.command(name="storage", description="📦 檢視自己或他人的神社倉庫 (道具)")

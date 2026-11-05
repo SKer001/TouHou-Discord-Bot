@@ -76,7 +76,7 @@ async def main():
     check("mood", econ.guest_mood(g, T0 + 2 * H) == 100 and econ.guest_mood(g, T0 + 6 * H) == 90 and econ.guest_mood(g, T0 + 42 * H) == 0)
     s = econ.advance_shrine(s, T0 + 50 * H, NEVER)
     check("guest leaves at 0", s["guests"] == [])
-    check("serving reward", econ.serving_reward(100) == 1000 and econ.serving_reward(50) == 250 and econ.serving_reward(10, 2) == 20)
+    check("serving reward", econ.serving_reward(100) == 2000 and econ.serving_reward(50) == 500 and econ.serving_reward(10, 2) == 40)
     check("efficiency floor", abs(econ.shrine_efficiency(4, 5) - 0.2) < 1e-9)
     # 很久沒來：只模擬最後 14 天，不會卡住
     s = econ.advance_shrine(st, T0 + timedelta(days=400), Rng(last=0.5))

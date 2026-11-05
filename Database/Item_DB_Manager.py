@@ -7,6 +7,10 @@
 effect 是 JSON 字串，目前支援：
   {"stamina": 120}   使用後回復 120 體力 (可超過自然回復上限 240)
   {"serve": "food"}  招待參拜客用的料理，種類 food 食物 / drink 茶水 / dessert 點心 (SERVE_TYPES)
+  {"material": true} 料理用的素材 (category = material)
+  {"event": "<活動 ID>"} 活動限定道具，活動結束時會從所有玩家的倉庫清除
+
+素材、新料理、活動道具由 Database/shrine_data.py 與 Events/*.json 定義，開機時缺少的會自動補進來 (managed_items)
 """
 import os
 import json
@@ -21,6 +25,7 @@ CATEGORY_NAMES = {
     "collectible": "🎴 收藏品",
     "special": "🛠️ 裝備與特殊",
     "cuisine": "🍱 招待料理",
+    "material": "🧺 素材",
 }
 
 # 招待料理的種類 (effect.serve)：每位參拜客至少要 1 份，最多 3 種共 5 份
@@ -74,6 +79,22 @@ DEFAULT_ITEMS = [
 ]
 
 
+def managed_items() -> list[tuple]:
+    """遊戲資料裡定義的道具 (素材、新料理、活動道具)，格式同 DEFAULT_ITEMS"""
+    from Database import shrine_data
+    from Database.events import load_events
+    items = [(i, n, e, "material", d, {"material": True}) for i, n, e, d in shrine_data.MATERIAL_ITEMS]
+    items += [(i, n, e, "cuisine", d, {"serve": t}) for i, n, e, t, d in shrine_data.DISH_ITEMS]
+    for ev in load_events().values():
+        for it in ev.get("items", []):
+            effect = dict(it.get("effect") or {})
+            if it.get("category") == "material":
+                effect["material"] = True
+            effect["event"] = ev["id"]
+            items.append((it["id"], it["name"], it["emoji"], it["category"], it["desc"], effect))
+    return items
+
+
 def _parse_effect(raw) -> dict:
     if isinstance(raw, dict):
         return raw
@@ -114,6 +135,11 @@ async def init_item_db():
                     "INSERT INTO item_templates (item_id, name, emoji, category, description, effect) VALUES (?, ?, ?, ?, ?, ?)",
                     [(i, n, e, c, d, json.dumps(fx, ensure_ascii=False)) for i, n, e, c, d, fx in DEFAULT_ITEMS]
                 )
+        # 遊戲資料定義的素材 / 料理 / 活動道具：缺少的補上 (已存在的不覆蓋，管理員改過的名稱會保留)
+        await db.executemany(
+            "INSERT OR IGNORE INTO item_templates (item_id, name, emoji, category, description, effect) VALUES (?, ?, ?, ?, ?, ?)",
+            [(i, n, e, c, d, json.dumps(fx, ensure_ascii=False)) for i, n, e, c, d, fx in managed_items()]
+        )
         await db.commit()
 
 async def get_all_items() -> dict:

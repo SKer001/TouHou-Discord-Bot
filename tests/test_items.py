@@ -40,11 +40,11 @@ def buttons(v): return {i.label: i for i in v.walk_children() if isinstance(i, d
 
 async def main():
     await udm.init_db()
-    # 預設道具 = 4 個體力道具 + 9 個招待料理 (食物 / 茶水 / 點心各 3)
+    # 預設道具 = 4 個體力道具 + 15 道招待料理 + 15 種素材 + 紅霧異變活動 8 個 (素材 5 + 料理 3)
     items = await idm.get_all_items()
-    check(f"default items {list(items)}", {"yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri"} <= set(items) and len(items) == 13)
+    check(f"default items {list(items)}", {"yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri"} <= set(items) and len(items) == 42)
     serve = [v["effect"].get("serve") for v in items.values() if v["category"] == "cuisine"]
-    check("cuisine 3 each", sorted(serve) == sorted(["food", "drink", "dessert"] * 3))
+    check("cuisine 6 each (5 + event 1)", sorted(serve) == sorted(["food", "drink", "dessert"] * 6))
     check("effects", [items[k]["effect"]["stamina"] for k in ("yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri")] == [120, 120, 67, 60])
     check("daily reward item exists", idm.DAILY_REWARD_ITEM[0] in items)
 

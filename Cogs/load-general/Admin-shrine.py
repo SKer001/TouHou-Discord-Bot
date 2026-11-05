@@ -8,6 +8,7 @@ from discord import app_commands, ui
 from discord.ext import commands
 
 from Database import Economy_DB_Manager as econ
+from Database.Item_DB_Manager import get_all_items
 from Utils.config import is_admin
 from Utils.components import send_notice
 
@@ -28,7 +29,7 @@ class ShrineAdmin(commands.GroupCog, group_name="admin-shrine", group_descriptio
 
     async def _show(self, interaction: discord.Interaction, target: discord.abc.User, result: dict, notice: str):
         view = ui.LayoutView()
-        view.add_item(shrine_components().build_shrine_container(target.display_name, result["summary"], notice))
+        view.add_item(shrine_components().build_shrine_container(target.display_name, result["summary"], notice, await get_all_items()))
         await interaction.response.send_message(view=view, ephemeral=True)
 
     @app_commands.command(name="view", description="【開發者專用】查看指定玩家的神社")
