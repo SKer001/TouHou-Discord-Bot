@@ -54,8 +54,8 @@ Discord ─▶ Main.py (TouHouBot)
 | 資料夾 | 檔案 | 指令 |
 |---|---|---|
 | `load-character/` | `character.py` | `/character` 圖鑑 |
-| `load-gacha/` | `gacha.py`、`Admin-gacha.py` | `/card …`（祈願、卡冊、合成、融合、history）、`/admin-gacha …` |
-| `load-general/` | `profile.py`、`inventory.py`、`leaderboard.py`、`Admin-item.py`、`Admin-user.py` | `/profile`、`/daily`、`/inventory`、`/leaderboard`、`/admin-item …`、`/admin-user …` |
+| `load-gacha/` | `gacha.py`、`market.py`、`Admin-gacha.py` | `/card …`（祈願、卡冊、合成、融合、history）、`/market …`（市值、分解、上架、購買）、`/trade`、`/admin-gacha …` |
+| `load-general/` | `profile.py`、`inventory.py`、`shrine.py`、`leaderboard.py`、`Admin-item.py`、`Admin-user.py` | `/profile`、`/daily`、`/inventory`（神社倉庫）、`/shrine …`、`/leaderboard`、`/admin-item …`、`/admin-user …` |
 | `load-system/` | `Admin-sys.py` | `/admin-sys reload / sync / shutdown` |
 
 ⚠️ **載入器會載入 `Cogs/load-*/` 第一層的每一個 `.py`**（`Main.py` 的 `setup_hook`）。所以：
@@ -126,7 +126,8 @@ async def setup(bot):
 
 ### 4.1 Database Manager 的規則
 
-- 所有 SQL 都在 `Database/User_DB_Manager.py`、`Item_DB_Manager.py`，Cog 只呼叫函式。
+- 所有 SQL 都在 `Database/User_DB_Manager.py`、`Item_DB_Manager.py`、`Economy_DB_Manager.py`（神社、市值、市場、轉帳；同一個 Users.db，資料表定義也放在 `User_DB_Manager.SCHEMA_STATEMENTS`），Cog 只呼叫函式。
+- 跟時間有關的系統（體力、神社）**不用背景排程**：每次讀取 / 操作時才依經過時間結算，結算函式要能傳入 `now`（與 `rng`）方便測試。每日結算（市值）也是第一次有人用到時補算前幾天。
 - 連線用 `connect()`（`aiosqlite`、`row_factory=Row`、`foreign_keys=ON`）。
 - **會改到多個表或「先讀再寫」的操作，整個放在一個 `BEGIN IMMEDIATE` 交易裡**（例：`draw_gacha` 扣錢 + 寫卡 + 更新保底；`transform_cards` 刪素材 + 寫新卡）。這樣連點、兩個視窗同時按也只會成功一次。
 - 每日領取類用原子 `UPDATE … WHERE last_daily != today`，看 `rowcount` 判斷有沒有成功。

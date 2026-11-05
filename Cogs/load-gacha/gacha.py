@@ -229,9 +229,9 @@ class GachaResultView(ui.LayoutView):
         self.gacha_cog = gacha_cog
         self.pool_key = pool_key   # 「繼續祈願」沿用同一個卡池
 
-        single_btn = ui.Button(label="🌸 繼續單抽 (2,000)", style=discord.ButtonStyle.primary)
+        single_btn = ui.Button(label=f"🌸 繼續單抽 ({DRAW_COST:,})", style=discord.ButtonStyle.primary)
         single_btn.callback = self.draw_single_again
-        ten_btn = ui.Button(label="⛩️ 繼續十連 (20,000)", style=discord.ButtonStyle.success)
+        ten_btn = ui.Button(label=f"⛩️ 繼續十連 ({DRAW_COST * 10:,})", style=discord.ButtonStyle.success)
         ten_btn.callback = self.draw_ten_again
         inv_btn = ui.Button(label="🎒 查看卡庫", style=discord.ButtonStyle.secondary)
         inv_btn.callback = self.view_inventory
@@ -861,8 +861,8 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     @app_commands.choices(
         pool=[app_commands.Choice(name=f"{p['name']} ({p['desc']})", value=key) for key, p in GACHA_POOLS.items()],
         pull_type=[
-            app_commands.Choice(name="單次祈願 (2,000 賽錢)", value=1),
-            app_commands.Choice(name="十連祈願 (20,000 賽錢)", value=10),
+            app_commands.Choice(name=f"單次祈願 ({DRAW_COST:,} 賽錢)", value=1),
+            app_commands.Choice(name=f"十連祈願 ({DRAW_COST * 10:,} 賽錢)", value=10),
         ],
     )
     async def gacha_card(self, interaction: discord.Interaction, pool: app_commands.Choice[str], pull_type: app_commands.Choice[int]):

@@ -38,7 +38,8 @@ SCHEMA_STATEMENTS = [
         created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         is_public     INTEGER DEFAULT 1,
         stamina       INTEGER DEFAULT 240,
-        stamina_updated_at TEXT DEFAULT NULL
+        stamina_updated_at TEXT DEFAULT NULL,
+        daily_count   INTEGER DEFAULT 0
     )
     """,
     """
@@ -72,6 +73,95 @@ SCHEMA_STATEMENTS = [
         PRIMARY KEY (user_id, pool)
     )
     """,
+    # ---- 💹 經濟系統 (Economy_DB_Manager.py) ----
+    # 每天 (台灣時間) 各卡池的全服抽卡數：浮動市值的基準
+    """
+    CREATE TABLE IF NOT EXISTS daily_draws (
+        day   TEXT NOT NULL,
+        pool  TEXT NOT NULL,
+        draws INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, pool)
+    )
+    """,
+    # 每天各卡 (角色 × 階級) 的賣出張數 (市場成交 + 分解)
+    """
+    CREATE TABLE IF NOT EXISTS daily_sales (
+        day           TEXT NOT NULL,
+        character_key TEXT NOT NULL,
+        rarity        TEXT NOT NULL,
+        sold          INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, character_key, rarity)
+    )
+    """,
+    # 目前市值 (完整度 0.5 的價格) 與每日結算後的歷史
+    """
+    CREATE TABLE IF NOT EXISTS market_prices (
+        character_key TEXT NOT NULL,
+        rarity        TEXT NOT NULL,
+        price         REAL NOT NULL,
+        PRIMARY KEY (character_key, rarity)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS price_history (
+        day           TEXT NOT NULL,
+        character_key TEXT NOT NULL,
+        rarity        TEXT NOT NULL,
+        price         REAL NOT NULL,
+        change        REAL NOT NULL,
+        PRIMARY KEY (day, character_key, rarity)
+    )
+    """,
+    "CREATE TABLE IF NOT EXISTS economy_meta (key TEXT PRIMARY KEY, value TEXT)",
+    # 市場上架中的卡 (上架時卡牌從 gacha_cards 移到這裡託管，賣出或下架再移回)
+    """
+    CREATE TABLE IF NOT EXISTS market_listings (
+        listing_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        seller_id     INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        instance_id   TEXT NOT NULL UNIQUE,
+        character_key TEXT NOT NULL,
+        name          TEXT NOT NULL,
+        emoji         TEXT,
+        rarity        TEXT NOT NULL,
+        title         TEXT,
+        completeness  REAL NOT NULL,
+        obtained_at   TEXT,
+        price         INTEGER NOT NULL,
+        listed_at     TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_listings_char ON market_listings(character_key, rarity)",
+    # 成交 / 分解 / 轉帳紀錄
+    """
+    CREATE TABLE IF NOT EXISTS market_trades (
+        trade_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind          TEXT NOT NULL,
+        seller_id     INTEGER,
+        buyer_id      INTEGER,
+        instance_id   TEXT,
+        character_key TEXT,
+        rarity        TEXT,
+        price         INTEGER NOT NULL,
+        fee           INTEGER NOT NULL DEFAULT 0,
+        day           TEXT NOT NULL,
+        created_at    TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_trades_day ON market_trades(kind, seller_id, day)",
+    # 神社：狀態 + 參拜客 (JSON)
+    """
+    CREATE TABLE IF NOT EXISTS shrines (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL,
+        tick        INTEGER NOT NULL DEFAULT 0,
+        box         REAL NOT NULL DEFAULT 0,
+        clean_at    TEXT NOT NULL,
+        dirt_extra  INTEGER NOT NULL DEFAULT 0,
+        youkai      INTEGER NOT NULL DEFAULT 0,
+        guests      TEXT NOT NULL DEFAULT '[]'
+    )
+    """,
 ]
 
 # 舊版 users 資料表可能缺少的欄位：(欄位名, 欄位定義)；init_db 會自動補上
@@ -80,7 +170,10 @@ USERS_EXTRA_COLUMNS = [
     ("fortune_level", "INTEGER DEFAULT NULL"),
     ("stamina", "INTEGER DEFAULT 240"),
     ("stamina_updated_at", "TEXT DEFAULT NULL"),
+    ("daily_count", "INTEGER DEFAULT 0"),   # 累積簽到天數 (滿 7 天開放市場與轉帳)
 ]
+# 欄位剛補上時，現有玩家要填的值 (使用者 2026-11-05：現有玩家直接開通交易)
+USERS_BACKFILL = {"daily_count": "7"}
 
 
 @asynccontextmanager
@@ -120,6 +213,8 @@ async def init_db():
         for column, definition in USERS_EXTRA_COLUMNS:
             if column not in columns:
                 await db.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
+                if column in USERS_BACKFILL:
+                    await db.execute(f"UPDATE users SET {column} = {USERS_BACKFILL[column]}")
                 print(f"🔧 [Database] 已自動為 users 資料表補上 `{column}` 欄位！")
 
         await db.commit()
@@ -267,7 +362,7 @@ async def claim_daily(user_id: int, today: str, fortune_level: int) -> bool:
         cursor = await db.execute(
             """
             UPDATE users
-            SET last_daily = ?, fortune_level = ?
+            SET last_daily = ?, fortune_level = ?, daily_count = COALESCE(daily_count, 0) + 1
             WHERE user_id = ? AND (last_daily IS NULL OR last_daily != ?)
             """,
             (today, fortune_level, user_id, today),
@@ -496,6 +591,14 @@ async def add_gacha_cards(user_id: int, cards: list[dict], draw_count: int | Non
         await db.commit()
 
 
+TW = timezone(timedelta(hours=8))
+
+
+def tw_day(now: datetime | None = None) -> str:
+    """台灣時間 (UTC+8) 的日期 YYYY-MM-DD；每日結算、轉帳額度都用這個"""
+    return (now or datetime.now(timezone.utc)).astimezone(TW).strftime("%Y-%m-%d")
+
+
 class InsufficientFunds(Exception):
     """賽錢不足；money 為玩家目前的賽錢"""
     def __init__(self, money: int):
@@ -531,6 +634,13 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
             await db.execute("UPDATE users SET money = money - ? WHERE user_id = ?", (cost, user_id))
             await _insert_cards(db, user_id, cards)
             await _add_draws(db, user_id, draw_count)
+            await db.execute(   # 全服每日抽卡數 (浮動市值的基準)
+                """
+                INSERT INTO daily_draws (day, pool, draws) VALUES (?, ?, ?)
+                ON CONFLICT(day, pool) DO UPDATE SET draws = draws + excluded.draws
+                """,
+                (tw_day(), pool, draw_count),
+            )
             last_ur_at = max(c["obtained_at"] for c in cards) if got_ur else None
             await db.execute(
                 """
