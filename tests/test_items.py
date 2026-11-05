@@ -40,9 +40,11 @@ def buttons(v): return {i.label: i for i in v.walk_children() if isinstance(i, d
 
 async def main():
     await udm.init_db()
-    # 預設道具 = 4 個體力道具
+    # 預設道具 = 4 個體力道具 + 9 個招待料理 (食物 / 茶水 / 點心各 3)
     items = await idm.get_all_items()
-    check(f"default items {list(items)}", set(items) == {"yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri"})
+    check(f"default items {list(items)}", {"yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri"} <= set(items) and len(items) == 13)
+    serve = [v["effect"].get("serve") for v in items.values() if v["category"] == "cuisine"]
+    check("cuisine 3 each", sorted(serve) == sorted(["food", "drink", "dessert"] * 3))
     check("effects", [items[k]["effect"]["stamina"] for k in ("yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri")] == [120, 120, 67, 60])
     check("daily reward item exists", idm.DAILY_REWARD_ITEM[0] in items)
 
@@ -133,7 +135,7 @@ async def main():
         target = types.SimpleNamespace(id=30, display_name="目標")
         it = Interaction(uid=min(ADMIN_IDS)); await manage.callback(acog, it, target)
         mv = it.view
-        check("manage view", "道具管理：目標" in texts(mv) and texts(mv).count("*未持有*") == 4)
+        check("manage view", "道具管理：目標" in texts(mv) and texts(mv).count("*未持有*") == 10)
         modal_holder = {}
         async def send_modal(m): modal_holder["m"] = m
         i2 = Interaction(uid=min(ADMIN_IDS), data={"values": ["sakuya_scone_tea"]}); i2.response.send_modal = send_modal

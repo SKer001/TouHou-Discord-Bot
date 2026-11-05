@@ -56,7 +56,7 @@ Discord ─▶ Main.py (TouHouBot)
 | `load-character/` | `character.py` | `/character` 圖鑑 |
 | `load-gacha/` | `gacha.py`、`Admin-gacha.py` | `/card …`（祈願、卡冊、合成、融合、history）、`/admin-gacha …` |
 | `load-market/` | `market.py`、`Admin-market.py` | `/market …`（市值、分解、上架、購買、我的上架）、`/admin-market …` |
-| `load-general/` | `profile.py`、`inventory.py`、`shrine.py`、`trade.py`、`leaderboard.py`、`Admin-item.py`、`Admin-user.py`、`Admin-shrine.py`、`Admin-trade.py` | `/profile`、`/daily`、`/inventory`（神社倉庫）、`/shrine …`、`/trade`、`/leaderboard`、`/admin-item …`、`/admin-user …`、`/admin-shrine …`、`/admin-trade …` |
+| `load-general/` | `profile.py`、`shrine.py`、`trade.py`、`leaderboard.py`、`Admin-item.py`、`Admin-user.py`、`Admin-shrine.py`、`Admin-trade.py` | `/profile`、`/daily`、`/shrine …`（含 `storage` 神社倉庫）、`/trade`、`/leaderboard`、`/admin-item …`、`/admin-user …`、`/admin-shrine …`、`/admin-trade …` |
 | `load-system/` | `Admin-sys.py` | `/admin-sys reload / sync / shutdown` |
 
 ⚠️ **載入器會載入 `Cogs/load-*/` 第一層的每一個 `.py`**（`Main.py` 的 `setup_hook`）。所以：

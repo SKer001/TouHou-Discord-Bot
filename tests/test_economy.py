@@ -187,6 +187,14 @@ async def main():
     check("cancel", (await econ.cancel_listing(2, r["listing"]["listing_id"]))["ok"] and len(await udm.get_user_cards(2)) == 1)
     check("listings empty", await econ.get_listings() == [])
 
+    # ---------------- 資產總值 (卡牌市值，含上架中的卡) ----------------
+    await udm.add_gacha_cards(4, [card("c_v1", comp=1.0)], draw_count=0)
+    sql("INSERT INTO market_listings (seller_id, instance_id, character_key, name, rarity, completeness, price, listed_at) VALUES (4, 'c_v2', 'cirno', 'x', 'UR', 0.5, 1, '2026-11-05')")
+    pr = await econ.get_market_prices()
+    vals = await econ.get_card_values([4, 999])
+    check(f"card values {vals}", vals[4] == econ.card_value(econ.price_of(pr, "cirno", "SR"), 1.0) + econ.card_value(econ.price_of(pr, "cirno", "UR"), 0.5) and vals[999] == 0)
+    sql("DELETE FROM market_listings WHERE instance_id = 'c_v2'")
+
     # ---------------- 轉帳 ----------------
     sql("UPDATE users SET money = 1000000 WHERE user_id = 1")
     await udm.get_or_create_user(3)

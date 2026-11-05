@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from Database.User_DB_Manager import get_leaderboard_stats
+from Database.Economy_DB_Manager import get_card_values
 from Utils.components import send_notice
 from .Components.general_components import LEADERBOARD_TYPES, build_leaderboard_container
 
@@ -24,6 +25,10 @@ class LeaderboardCog(commands.Cog):
 
         members = {m.id: m for m in guild.members if not m.bot}
         stats = await get_leaderboard_stats(list(members))
+        if category.value == "assets":   # 資產總值 = 賽錢 + 卡牌市值 (含上架中的卡)
+            values = await get_card_values([r["user_id"] for r in stats])
+            for r in stats:
+                r["assets"] = r["money"] + values.get(r["user_id"], 0)
         _, field, _ = LEADERBOARD_TYPES[category.value]
         rows = sorted(stats, key=lambda r: (-r[field], r["user_id"]))
         for row in rows:

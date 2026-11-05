@@ -34,5 +34,86 @@
         "effect": {
             "stamina": 60
         }
+    },
+    "mystia_lamprey": {
+        "name": "夜雀烤八目鰻",
+        "emoji": "🍢",
+        "category": "cuisine",
+        "desc": "米斯蒂婭屋台的招牌，炭火烤得焦香油亮的八目鰻。據說吃了夜盲症就會好，妖怪客人一聞到香味就會不自覺地湊過來。",
+        "effect": {
+            "serve": "food"
+        }
+    },
+    "ran_inari": {
+        "name": "八雲特製豆皮壽司",
+        "emoji": "🍣",
+        "category": "cuisine",
+        "desc": "油豆腐炸得金黃再浸滿甜鹹醬汁，裡面塞著醋飯。九尾狐式神的拿手料理，只要端出來，狐狸系的客人心情一定會變好。",
+        "effect": {
+            "serve": "food"
+        }
+    },
+    "nitori_cucumber": {
+        "name": "河童冰鎮小黃瓜",
+        "emoji": "🥒",
+        "category": "cuisine",
+        "desc": "在玄武之澤的冷泉裡冰得清脆的小黃瓜，沾上一點味噌。河童們最愛的零嘴，簡單卻讓人一根接一根停不下來。",
+        "effect": {
+            "serve": "food"
+        }
+    },
+    "reimu_bancha": {
+        "name": "博麗神社粗茶",
+        "emoji": "🍵",
+        "category": "cuisine",
+        "desc": "博麗神社招待客人的標準茶水，茶葉已經回沖了好幾次，顏色淡得有點可疑。不過巫女說，心意才是最重要的。",
+        "effect": {
+            "serve": "drink"
+        }
+    },
+    "eirin_herbal_tea": {
+        "name": "永遠亭藥草茶",
+        "emoji": "🌿",
+        "category": "cuisine",
+        "desc": "月之頭腦親手調配的藥草茶，入口微苦、後韻回甘，據說能調理妖怪紊亂的靈力。只是喝完偶爾會看到兔子在眼前晃來晃去。",
+        "effect": {
+            "serve": "drink"
+        }
+    },
+    "suika_amazake": {
+        "name": "伊吹甘酒",
+        "emoji": "🍶",
+        "category": "cuisine",
+        "desc": "從鬼之瓢裡倒出來的米麴甘酒，甜而不醉（大概）。鬼族豪爽的招待方式，連天狗都會賞臉多喝兩杯。",
+        "effect": {
+            "serve": "drink"
+        }
+    },
+    "eientei_tsukimi_dango": {
+        "name": "月見糰子",
+        "emoji": "🌕",
+        "category": "cuisine",
+        "desc": "永遠亭的月兔們用杵臼一下一下搗出來的糰子，堆成小山供在月下。軟糯滑口，咬下去彷彿嚐到了月亮的味道。",
+        "effect": {
+            "serve": "dessert"
+        }
+    },
+    "cirno_kakigori": {
+        "name": "琪露諾特製刨冰",
+        "emoji": "🍧",
+        "category": "cuisine",
+        "desc": "最強的冰精用冰符現場削出來的刨冰，淋上滿滿的草莓糖漿。「這是永遠不會融化的冰！」——至少本人是這麼宣稱的。",
+        "effect": {
+            "serve": "dessert"
+        }
+    },
+    "alice_cookie": {
+        "name": "人偶師的手工餅乾",
+        "emoji": "🍪",
+        "category": "cuisine",
+        "desc": "七色的人偶師一邊操縱上海人偶、一邊精準烘焙的奶油餅乾，每一片的形狀和烤色都完美一致。配上茶水剛剛好。",
+        "effect": {
+            "serve": "dessert"
+        }
     }
 }

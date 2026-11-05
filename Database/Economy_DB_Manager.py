@@ -389,6 +389,22 @@ async def admin_set_price(character_key: str, rarity: str, price: float | None):
         await db.commit()
 
 
+async def get_card_values(user_ids: list[int]) -> dict:
+    """排行榜用：每位玩家持有的卡 (含上架中的) 照目前市值 × 完整度倍率算出的總價值 {user_id: 價值}"""
+    if not user_ids:
+        return {}
+    marks = ", ".join("?" for _ in user_ids)
+    totals = {uid: 0 for uid in user_ids}
+    async with connect() as db:
+        prices = await _prices(db)
+        for sql in (f"SELECT user_id AS uid, character_key, rarity, completeness FROM gacha_cards WHERE user_id IN ({marks})",
+                    f"SELECT seller_id AS uid, character_key, rarity, completeness FROM market_listings WHERE seller_id IN ({marks})"):
+            async with db.execute(sql, tuple(user_ids)) as cursor:
+                for r in await cursor.fetchall():
+                    totals[r["uid"]] += card_value(_price_of(prices, r["character_key"], r["rarity"]), r["completeness"])
+    return totals
+
+
 async def get_market_prices() -> dict:
     """{(角色, 階級): 市值}；沒有紀錄的卡 = 官方價 (用 price_of 查)"""
     async with connect() as db:

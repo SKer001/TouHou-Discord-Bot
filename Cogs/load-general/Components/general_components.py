@@ -4,6 +4,7 @@ from discord import ui
 from PIL import Image
 from Database.User_DB_Manager import get_required_exp_for_level
 from Database.Item_DB_Manager import CATEGORY_NAMES
+from Database.Economy_DB_Manager import TRADE_UNLOCK_DAILY
 
 
 # ---------------------------------------------------------
@@ -154,6 +155,14 @@ def build_stamina_item_container(
     return container
 
 
+def _daily_count_text(count: int) -> str:
+    """累積簽到天數；滿 TRADE_UNLOCK_DAILY 天開通市場與轉帳"""
+    need = TRADE_UNLOCK_DAILY
+    if count >= need:
+        return f"📅 **累積簽到**　`{count}` 天　🔓 已開通市場與轉帳"
+    return f"📅 **累積簽到**　`{count} / {need}` 天\n-# 再簽到 {need - count} 天就能使用市場與轉帳"
+
+
 def build_profile_container(
     user: discord.User | discord.Member,
     user_data: dict,
@@ -195,7 +204,8 @@ def build_profile_container(
         f"💰 **賽錢**　`{money:,}` 兩\n"
         f"🔴 **P點**　`{p_power:.1f}` P\n"
         f"{_stamina_text(stamina)}"
-        f"⛩️ **神社倉庫**　`{total_items}` 件道具\n\n"
+        f"⛩️ **神社倉庫**　`{total_items}` 件道具\n"
+        f"{_daily_count_text(user_data.get('daily_count') or 0)}\n\n"
         f"✨ **經驗值 (EXP)**\n{exp_text}\n{exp_bar}"
     ))
     container.add_item(ui.Separator())
@@ -252,7 +262,18 @@ def build_power_up_container(user: discord.User | discord.Member, result: dict) 
 ITEMS_PER_PAGE = 10
 
 # 「全部道具」時的排序：依分類分組，同分類內再依道具 ID A-Z
-CATEGORY_ORDER = {"consumable": 0, "collectible": 1, "special": 2}
+CATEGORY_ORDER = {"consumable": 0, "cuisine": 1, "collectible": 2, "special": 3}
+SERVE_LABELS = {"food": "🍚 食物", "drink": "🍵 茶水", "dessert": "🍮 點心"}
+
+
+def item_effect_tag(info: dict) -> str:
+    """道具效果的小標籤：體力道具「⚡ 體力 +120」、招待料理「🍽️ 招待用 · 🍚 食物」"""
+    effect = info.get("effect") or {}
+    if effect.get("stamina"):
+        return f"⚡ 體力 +{effect['stamina']}"
+    if effect.get("serve"):
+        return f"🍽️ 招待用 · {SERVE_LABELS.get(effect['serve'], effect['serve'])}"
+    return ""
 UNKNOWN_ITEM = {"name": "未知道具", "emoji": "❓", "category": "special", "desc": "未知的物品。"}
 
 
@@ -262,7 +283,7 @@ def get_inventory_view_data(inventory: dict, item_templates: dict, category: str
     避免 View 為了取得總頁數而重複計算兩次。
     """
     entries = []                                   # [(item_id, amount, info), ...]
-    category_counts = {"all": 0, "consumable": 0, "collectible": 0, "special": 0}
+    category_counts = {"all": 0, "consumable": 0, "cuisine": 0, "collectible": 0, "special": 0}
 
     for item_id, amount in inventory.items():
         if not isinstance(amount, int) or amount <= 0:
@@ -320,6 +341,9 @@ def build_inventory_container(
     lines = []
     for _item_id, amount, info in data["items"]:
         line = f"{info.get('emoji', '❓')} **{info.get('name', '未知道具')}** ×`{amount:,}`"
+        tag = item_effect_tag(info)
+        if tag:
+            line += f"　{tag}"
         desc = info.get("desc")
         if desc:
             line += f"\n-# {desc}"
@@ -335,6 +359,7 @@ def build_inventory_container(
 # 排行項目：key ➔ (顯示名稱, 統計欄位, 數值格式)
 LEADERBOARD_TYPES = {
     "money":    ("💰 賽錢",     "money",         lambda v: f"{v:,} 兩"),
+    "assets":   ("💎 資產總值", "assets",        lambda v: f"{v:,} 兩"),
     "level":    ("🔴 P點",      "level",         lambda v: f"{v / 10:.1f} P"),
     "chars":    ("📚 收集角色", "char_count",    lambda v: f"{v} 位"),
     "cards":    ("🎴 卡牌總數", "card_count",    lambda v: f"{v:,} 張"),

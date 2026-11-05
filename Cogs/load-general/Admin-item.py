@@ -56,6 +56,7 @@ CATEGORY_OPTIONS = [
     ("🍵 消耗品", "consumable"),
     ("🎴 收藏品", "collectible"),
     ("🛠️ 裝備與特殊", "special"),
+    ("🍱 招待料理", "cuisine"),
 ]
 
 
@@ -348,7 +349,8 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
     @app_commands.choices(category=[
         app_commands.Choice(name="🍵 消耗品", value="consumable"),
         app_commands.Choice(name="🎴 收藏品", value="collectible"),
-        app_commands.Choice(name="🛠️ 裝備與特殊", value="special")
+        app_commands.Choice(name="🛠️ 裝備與特殊", value="special"),
+        app_commands.Choice(name="🍱 招待料理", value="cuisine"),
     ])
     @app_commands.default_permissions(administrator=True)
     async def add_item_cmd(self, interaction: discord.Interaction, item_id: str, name: str, emoji: str, category: app_commands.Choice[str], desc: str):
