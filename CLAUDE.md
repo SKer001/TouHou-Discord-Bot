@@ -33,12 +33,15 @@ Database/
   item.new.json              道具批次匯入用資料
 Cogs/
   load-character/  character.py, Components/character_components.py   # 圖鑑
-  load-gacha/      gacha.py, market.py, Admin-gacha.py, Admin-market.py, Admin-trade.py, Components/gacha_components.py, market_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 市場與轉帳 / 卡冊管理
-  load-general/    profile.py, inventory.py, shrine.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Components/general_components.py, shrine_components.py
+  load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理
+  load-market/     market.py, Admin-market.py, Components/market_components.py   # 市值 / 分解 / 市場
+  load-general/    profile.py, inventory.py, shrine.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
 Utils/config.py              .env 設定：ADMIN_IDS 與 is_admin(user)
+Utils/reloader.py            模組重載 (/admin-sys reload 與主控台共用)
+Utils/console.py             主控台指令：機器人執行中可在終端機輸入 help / status / reload / sync / money / stamina / shutdown
 Logger/Logger.py             日誌與錯誤回報（需要 .env 的 LOG_CHANNEL_ID）
 images/                      專案根目錄；Thumbnails.json = {"角色id_階級": URL, "角色id": URL, ..., "fill": 預設圖URL}
   Thumbnails/                Discord 用的縮圖 (460×640)：<角色id>_<階級>.png、fill.png
@@ -184,8 +187,8 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +1000 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**招待（每份 1000 × 心情²，每位至少 1 份、最多 3 類共 5 份）要等餐點 / 素材 / 素材副本，按鈕目前停用。**
   - **市值**：`market_prices`（完整度 0.5 的價格，起始 = 官方價 `OFFICIAL_PRICES`，永遠不低於官方價）、`price_history`、`daily_draws`（`draw_gacha` 寫入全服每日抽數）、`daily_sales`（市場成交 + 分解）、`economy_meta.last_settled_day`。`settle_prices(probabilities)` 在每個 `/market` 指令開頭補結算到昨天（台灣時間；第一次只記錄起點）：期望 = 當天該卡池抽數 × 抽中機率（至少 1），持平 = 期望 × 50%；賣出比持平少時從 +2%（沒人賣）線性降到 0%，比持平多時往下跌、3 倍時 −10%（v0.24.000 改成連續曲線：一天最多漲 2%、最多跌 10%）。抽中機率由 `market.card_probabilities()` 依 `GACHA_POOL` 與 `RARITY_WEIGHTS` 算（不含保底）。
   - **完整度倍率** `completeness_multiplier`：0.5 以上 `1 + 0.2·((c−0.5)/0.5)²`、以下 `0.2 + 0.8·(c/0.5)²`；卡價值 = 市值 × 倍率（分解拿這個數）。
-  - **市場**（`market.py`，`/market price / decompose / sell / browse / mine`）：上架時卡從 `gacha_cards` 移到 `market_listings` 託管（所以不能合成 / 融合 / 分解），不限價格，買家付 `ceil(售價 × 1.05)`、賣家拿售價，7 天沒賣出 `expire_listings` 退回；買賣、下架都在單一交易。
-  - **轉帳 `/trade target amount`**：手續費 `ceil(5%)` 從金額扣，每人每天（台灣時間）最多轉出 500K，紀錄在 `market_trades(kind='transfer')`。
+  - **市場**（`Cogs/load-market/market.py`，`/market price / decompose / sell / browse / mine`）：上架時卡從 `gacha_cards` 移到 `market_listings` 託管（所以不能合成 / 融合 / 分解），不限價格，買家付 `ceil(售價 × 1.05)`、賣家拿售價，7 天沒賣出 `expire_listings` 退回；買賣、下架都在單一交易。
+  - **轉帳 `/trade target amount`**（`Cogs/load-general/trade.py`）：手續費 `ceil(5%)` 從金額扣，每人每天（台灣時間）最多轉出 500K，紀錄在 `market_trades(kind='transfer')`。
   - **開通交易**：`users.daily_count`（`claim_daily` 每次成功 +1）≥ 7 才能用市場與轉帳（雙方都要），分解不限；欄位第一次補上時現有玩家直接填 7（`USERS_BACKFILL`，使用者指定）。
   - 抽卡單抽 5000、十連 50000。
   - **私人 / 公開（v0.24.000 使用者指定）**：`/shrine`、`/market` 全部 ephemeral；上架成功另外用 followup 在頻道發公開公告；`/trade` 確認與結果 ephemeral，收款人收到私訊（`send_transfer_dm`，私訊失敗不影響轉帳）。
@@ -198,7 +201,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）
   - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`manage [target]`、`give_items`
     - `manage`（取代舊的 `give_item` 與 `/admin-user take_item`）：`ItemManageView` 分類選單（全部 / 各分類 / 🎒 只看對方持有的）+ 每頁 10 個的堆疊列表（顯示對方持有數）→ 選道具 → `ItemAmountModal` 輸入數量：正數給予、負數扣除、0 或非整數擋下；寫入用 `adjust_item`（扣完小於 0 拒絕、剛好 0 移除），完成後重新讀取並在畫面上方顯示結果。
-  - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；注意不會重載 `Components/` 子模組）、`sync`、`shutdown`
+  - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；v0.25.000 起：單一模組會一起重載它資料夾的 `Components/`；「🔁 全部重載」先重載 `Database/`、`Utils/`、全部 Components（保留 `DB_PATH`）再重載全部 Cog、載入新檔案、卸載已不存在的模組。**改了 Database / Utils 一定要用全部重載**，單獨重載會讓沒重載的 Cog 拿到新舊混用的類別（例如 `InsufficientFunds` 接不到）、`sync`、`shutdown`
   - `/admin-gacha`（`Cogs/load-gacha/Admin-gacha.py`）：`view target`（用 `InventoryView` 檢視對方卡冊）、`give target pool character rarity [amount 1~20] [completeness]`（不算抽卡次數）、`remove target pool character`、`set_completeness target pool character value`、`clear target`（確認畫面）。
     - `remove` / `set_completeness` 共用 `CardPickerView`：每頁 20 張、可多選 → 確認 → 執行後重新讀取並回到列表。
     - 每個指令開頭用 `_deny()` 檢查管理員（不要用 Cog 層級的 `interaction_check`，失敗會被 Logger 當成指令錯誤通報）。
@@ -245,7 +248,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：12 個測試檔全數通過，共 431 項（經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：13 個測試檔全數通過，共 446 項（主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進與之後的計畫（卡面重做、未做的角色、TH07 之後的角色、經濟系統：探索 / 分解 / 浮動市值 / 市場 / 交易）統一記在根目錄 `TODO.md`。
 
 ## 8. 使用者的決定與工作習慣

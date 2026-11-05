@@ -115,7 +115,7 @@ async def main():
     it2 = Interaction(data={"values": ["Cogs.load-gacha.gacha"]}); await v.select_callback(it2)
     check("reload success", "重新載入成功" in texts(it2.view) and "模組重載控制台" in texts(it2.view))
     it3 = Interaction(data={"values": ["Cogs.nope"]}); await v.select_callback(it3)
-    check("reload fail", "重新載入失敗" in texts(it3.view))
+    check("reload fail", "有錯誤" in texts(it3.view))
     check("reload non-admin", await v.interaction_check(Interaction(uid=1)) is False)
     it = Interaction(); await scmds["sync"].callback(sys_cog, it)
     check("sync V2", is_v2(it.view) and "成功同步" in texts(it.view))

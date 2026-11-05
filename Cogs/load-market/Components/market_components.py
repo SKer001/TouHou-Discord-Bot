@@ -4,7 +4,13 @@
 import discord
 from discord import ui
 
-from .gacha_components import get_thumbnail_url
+
+
+def get_thumbnail_url(char_key: str | None, thumbnails: dict | None, rarity: str | None = None) -> str | None:
+    """依 "角色_階級" ➔ 角色 ID ➔ "fill" 查 images/Thumbnails.json (跟其他畫面同一套規則)"""
+    if not thumbnails:
+        return None
+    return (thumbnails.get(f"{char_key}_{rarity}") if rarity else None) or thumbnails.get(char_key) or thumbnails.get("fill")
 
 
 def card_label(card: dict) -> str:
@@ -71,14 +77,3 @@ def build_listing_announce(user_name: str, listing: dict, buyer_total: int, expi
     container.add_item(ui.Section(ui.TextDisplay(text), accessory=ui.Thumbnail(url)) if url else ui.TextDisplay(text))
     return container
 
-
-def build_transfer_dm(sender_name: str, guild_name: str | None, amount: int, fee: int, test: bool = False) -> ui.Container:
-    """轉帳收款人收到的私訊"""
-    where = f"（來自伺服器 **{guild_name}**）" if guild_name else ""
-    text = (
-        f"## 💸 你收到一筆轉帳\n**{sender_name}** 轉給你 `{amount:,}` 賽錢{where}\n"
-        f"扣掉 5% 手續費 `{fee:,}`，實收 **`{amount - fee:,}`** 賽錢"
-    )
-    if test:
-        text += "\n-# 🧪 這是管理員發送的測試訊息，賽錢沒有實際變動"
-    return simple_container(text, discord.Color.green())

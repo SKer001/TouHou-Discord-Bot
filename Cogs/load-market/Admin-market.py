@@ -15,7 +15,7 @@ AUTOCOMPLETE_LIMIT = 25
 
 
 def market_mod():
-    return importlib.import_module("Cogs.load-gacha.market")
+    return importlib.import_module("Cogs.load-market.market")
 
 
 class MarketAdmin(commands.GroupCog, group_name="admin-market", group_description="【開發者專用】市值管理"):

@@ -1,4 +1,3 @@
-import os
 import discord
 from discord import ui
 from discord import app_commands
@@ -6,7 +5,30 @@ from discord.ext import commands
 
 from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
+from Utils import reloader
 
+RELOAD_ALL = "__all__"
+SELF_EXT = __name__   # 這個檔案本身 (Cogs.load-system.Admin-sys)：全部重載時跳過，正在執行中
+
+
+def reload_report(selected: str, r: dict, synced: int | None, sync_error: str | None = None) -> ui.Container:
+    lines = [f"🧩 畫面 / 資料層：重載 `{len(r['support'])}` 個模組"]
+    if selected == RELOAD_ALL:
+        lines.append(f"🔄 重載 `{len(r['reloaded'])}` 個指令模組")
+        if r["loaded"]:
+            lines.append("🆕 新載入：" + "、".join(f"`{e}`" for e in r["loaded"]))
+        if r["unloaded"]:
+            lines.append("📤 已卸載 (檔案不在了)：" + "、".join(f"`{e}`" for e in r["unloaded"]))
+        lines.append(f"-# `{SELF_EXT}` (這個控制台) 不會跟著全部重載，要的話從選單單獨選它")
+    elif r["reloaded"]:
+        lines.append(f"🔄 已重新載入 `{selected}`")
+    failed = list(r["failed"]) + ([f"tree.sync: {sync_error}"] if sync_error else [])
+    if synced is not None:
+        lines.append(f"⚡ 同步了 `{synced}` 個斜線指令（新指令可能要等一下或重開 Discord 才看得到）")
+    if failed:
+        lines.append("```py\n" + "\n".join(failed)[:1500] + "\n```")
+    title = "### ⚠️ 重載完成，但有錯誤" if failed else "### ✅ 模組重新載入成功"
+    return notice_container(title + "\n" + "\n".join(lines))
 
 
 # ---------------------------------------------------------
@@ -24,22 +46,24 @@ class ReloadCogView(ui.LayoutView):
         if result:
             self.add_item(result)
 
-        options = [
-            discord.SelectOption(label=ext, description=f"重新載入 {ext} 模組", emoji="🔄", value=ext)
-            for ext in list(self.bot.extensions.keys())
-        ][:25] or [discord.SelectOption(label="無可用的 Cog 模組", value="none")]
-
-        select = ui.Select(placeholder="請選擇要重新載入 (Reload) 的 Cog 模組...", min_values=1, max_values=1, options=options)
+        options = [discord.SelectOption(
+            label="全部重載", value=RELOAD_ALL, emoji="🔁",
+            description="資料層、畫面、所有指令一起重載，並載入新增的模組")]
+        options += [
+            discord.SelectOption(label=ext, description=f"重新載入 {ext}（含它的畫面）", emoji="🔄", value=ext)
+            for ext in sorted(self.bot.extensions.keys())
+        ]
+        select = ui.Select(placeholder="請選擇要重新載入 (Reload) 的模組...", min_values=1, max_values=1, options=options[:25])
         select.callback = self.select_callback
 
         container = ui.Container(accent_color=discord.Color.blue())
         container.add_item(ui.TextDisplay(
             "## 🛠️ TouHouBot 模組重載控制台\n"
-            "請從下方的下拉選單中選擇您想要重新載入 (Reload) 的 Cog 模組："
+            "只改了某個功能的指令或畫面 ➔ 選那個模組；改了 Database / Utils、新增或搬移檔案 ➔ 選「🔁 全部重載」。"
         ))
         container.add_item(ui.ActionRow(select))
         container.add_item(ui.Separator())
-        container.add_item(ui.TextDisplay("-# TouHouBot SysAdmin • 選單將於 60 秒後自動失效"))
+        container.add_item(ui.TextDisplay("-# TouHouBot SysAdmin • 選單將於 60 秒後自動失效 · 主控台也可以輸入 `reload`"))
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -49,25 +73,18 @@ class ReloadCogView(ui.LayoutView):
         return True
 
     async def select_callback(self, interaction: discord.Interaction):
-        selected_cog = interaction.data["values"][0]
-        if selected_cog == "none":
-            await send_notice(interaction, "❌ 目前沒有可重新載入的模組！")
-            return
-
+        selected = interaction.data["values"][0]
         await interaction.response.defer()
-
+        if selected == RELOAD_ALL:
+            r = await reloader.reload_all(self.bot, skip={SELF_EXT})
+        else:
+            r = await reloader.reload_one(self.bot, selected)
+        synced, sync_error = None, None
         try:
-            await self.bot.reload_extension(selected_cog)
-            await self.bot.tree.sync()
-            result = notice_container(
-                f"### ✅ 模組重新載入成功\n已成功重新載入模組：`{selected_cog}`\n並且完成了指令同步 (`tree.sync`)！"
-            )
+            synced = len(await self.bot.tree.sync())
         except Exception as e:
-            result = notice_container(
-                f"### ❌ 模組重新載入失敗\n載入 `{selected_cog}` 時發生錯誤：\n```py\n{e}\n```"
-            )
-
-        self.build(result)
+            sync_error = str(e)
+        self.build(reload_report(selected, r, synced, sync_error))
         await interaction.edit_original_response(view=self)
 
 

@@ -13,6 +13,16 @@
 
 ---
 
+## 0.25.000 — 2026-11-05：重載控制台修好、市場與轉帳搬家
+- **`/admin-sys reload` 常常「沒用」的原因**：`reload_extension` 只重載指令檔本身，`Components/` (畫面)、`Database/`、`Utils/` 還是舊的；改畫面 (例如 0.24.001 的對齊在 `shrine_components.py`) 重載 shrine 也看不到。新增的檔案也不會被載入。
+  - 解法 (`Utils/reloader.py`)：重載單一模組時，一起重載它資料夾的 `Components/`；新增「🔁 全部重載」：Database、Utils、全部 Components 先重載，再重載全部指令模組、載入新檔案、卸載檔案已經不存在的模組 (例如搬家後的舊路徑)。控制台自己 (`Admin-sys`) 不在全部重載裡，要單獨選。
+  - 問題：一開始單一重載也重載了 Database，測試抓到「賽錢不足」的錯誤接不到 — `importlib.reload` 是原地重跑模組，沒被重載的抽卡模組還拿著舊的 `InsufficientFunds` 類別，資料層卻丟新的。解法：Database / Utils 只在「全部重載」時重載 (所有 Cog 一起換新)。
+  - 問題：重載資料層會把 `DB_PATH` 改回真的資料庫，botcli / 測試用沙盒時會寫到真的 Users.db。解法：重載時保留原本的 `DB_PATH`。
+- **主控台指令** (`Utils/console.py`，使用者指定)：機器人跑著的終端機可以直接輸入 `help`、`status`、`version`、`modules`、`reload all` / `reload <名稱>`、`sync`、`money <ID> <數量>`、`stamina <ID> <數量>`、`shutdown`。讀鍵盤用 daemon 執行緒，不會卡住關機；沒有互動式終端機 (背景執行) 時不啟動。
+- 新增 `tests/test_console.py` (14 項)。
+- 搬家：`/market` (與 `/admin-market`) 移到自己的 `Cogs/load-market/`；`/trade` 從 market.py 拆成 `Cogs/load-general/trade.py` (`/admin-trade` 也搬到 load-general)。
+  - ⚠️ 正在跑的機器人用一次「🔁 全部重載」就會卸載舊路徑、載入新路徑；或直接重開。
+
 ## 0.24.001 — 2026-11-05：神社參拜客列表對齊
 - 問題：妖怪名字長度不同 (河童 / 白狼天狗)，後面的心情、報酬欄位對不齊。解法：名字用全形空白補到一樣長，數字放在等寬字型裡靠右對齊。
 

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from Database.User_DB_Manager import init_db
 from Database.Item_DB_Manager import init_item_db
 from Utils.version import VERSION
+from Utils.console import start_console
 
 # 讀取 .env 檔案
 load_dotenv()
@@ -126,6 +127,9 @@ class TouHouBot(commands.Bot):
             print(f"✨ 成功同步 {len(synced)} 個斜線指令！")
         except Exception as e:
             print(f"\n❌ 同步斜線指令失敗: {e}")
+
+        # 4. 主控台指令 (終端機可以直接輸入 reload / sync / status…)
+        start_console(self)
 
     async def on_ready(self):
         print(f"🤖 {self.user} 已成功登入並上線！(v{VERSION})")

@@ -12,8 +12,8 @@ from Utils.config import is_admin
 from Utils.components import send_notice
 
 
-def market_mod():
-    return importlib.import_module("Cogs.load-gacha.market")
+def trade_mod():
+    return importlib.import_module("Cogs.load-general.trade")
 
 
 class TradeAdmin(commands.GroupCog, group_name="admin-trade", group_description="【開發者專用】轉帳測試"):
@@ -29,7 +29,7 @@ class TradeAdmin(commands.GroupCog, group_name="admin-trade", group_description=
         if target.bot:
             await send_notice(interaction, "❌ 不能私訊機器人。")
             return
-        ok = await market_mod().send_transfer_dm(
+        ok = await trade_mod().send_transfer_dm(
             target, interaction.user.display_name, interaction.guild.name if interaction.guild else None,
             amount, econ.transfer_fee(amount), test=True,
         )

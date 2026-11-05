@@ -37,7 +37,7 @@ code, out = run(
     extra=("--fresh",),
 )
 check(f"flow exit code {code}", code == 0)
-check("loaded modules", "已載入 14 個模組" in out)
+check("loaded modules", "已載入 15 個模組" in out)
 check("give", "已發放" in out and "×`2`" in out)
 check("synthesis confirm", "卡牌合成確認" in out and "合成成功" in out)
 check("gacha ten + redraw", out.count("十連模式") == 2)

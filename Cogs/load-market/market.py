@@ -1,5 +1,5 @@
 """
-💹 /market (市值、分解、上架、購買、我的上架) 與 /trade (轉帳)
+💹 /market (市值、分解、上架、購買、我的上架)；轉帳 /trade 在 Cogs/load-general/trade.py
 規則與數值在 Database/Economy_DB_Manager.py；卡池資料用 importlib 從抽卡模組取 (reload 後拿到新版)
 """
 import importlib
@@ -15,7 +15,7 @@ from Database.User_DB_Manager import get_user_cards
 from Utils.components import send_notice
 from .Components.market_components import (
     build_price_container, build_listing_lines, card_label, short_id, simple_container,
-    build_listing_announce, build_transfer_dm,
+    build_listing_announce,
 )
 
 AUTOCOMPLETE_LIMIT = 25
@@ -390,56 +390,6 @@ class ListingsView(OwnerView):
 
 
 # =========================================================
-# 💸 轉帳確認
-# =========================================================
-async def send_transfer_dm(target: discord.abc.User, sender_name: str, guild_name: str | None, amount: int, fee: int, test: bool = False) -> bool:
-    """私訊收款人；對方關閉私訊時回傳 False (轉帳照樣成功)"""
-    view = ui.LayoutView()
-    view.add_item(build_transfer_dm(sender_name, guild_name, amount, fee, test))
-    try:
-        await target.send(view=view)
-        return True
-    except (discord.Forbidden, discord.HTTPException, AttributeError):
-        return False
-
-
-class TransferView(OwnerView):
-    def __init__(self, user_id: int, target: discord.abc.User, amount: int, sent_today: int):
-        super().__init__(user_id, timeout=120)
-        self.target, self.amount, self.done = target, amount, False
-        fee = econ.transfer_fee(amount)
-        container = simple_container(
-            f"## 💸 確認轉帳\n給 **{target.display_name}** `{amount:,}` 賽錢\n"
-            f"手續費 5%：`{fee:,}` ➔ 對方實收 `{amount - fee:,}`\n"
-            f"-# 今天已轉出 `{sent_today:,} / {econ.TRANSFER_DAILY_LIMIT:,}`", discord.Color.orange())
-        ok = ui.Button(label="💸 確認轉帳", style=discord.ButtonStyle.success)
-        ok.callback = self.on_confirm
-        cancel = ui.Button(label="✖️ 取消", style=discord.ButtonStyle.secondary)
-        cancel.callback = self.on_cancel
-        container.add_item(ui.ActionRow(ok, cancel))
-        self.add_item(container)
-
-    async def on_confirm(self, interaction):
-        r = await econ.transfer_money(self.user_id, self.target.id, self.amount)
-        if not r["ok"]:
-            await send_notice(interaction, reason_text({**r, "amount": self.amount}, await econ.get_trade_status(self.user_id)))
-            return
-        dm_ok = await send_transfer_dm(self.target, interaction.user.display_name,
-                                        interaction.guild.name if interaction.guild else None, self.amount, r["fee"])
-        self.clear_items()
-        self.add_item(simple_container(
-            f"✅ 已轉給 **{self.target.display_name}** `{self.amount:,}` 賽錢（對方實收 `{r['received']:,}`，手續費 `{r['fee']:,}`）\n"
-            f"你剩下 `{r['money']:,}` 賽錢 · 今天還能轉 `{r['left_today']:,}`" +
-            ("\n-# 📨 已私訊通知對方" if dm_ok else "\n-# ⚠️ 對方關閉了私訊，沒有收到通知"), discord.Color.green()))
-        await interaction.response.edit_message(view=self)
-
-    async def on_cancel(self, interaction):
-        self.clear_items()
-        self.add_item(simple_container("✖️ 已取消轉帳。", discord.Color.light_grey()))
-        await interaction.response.edit_message(view=self)
-
-
-# =========================================================
 # 💹 Cog
 # =========================================================
 class MarketCog(commands.GroupCog, group_name="market", group_description="💹 市值、分解卡牌、玩家市場"):
@@ -576,30 +526,5 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
         await interaction.response.send_message(view=ListingsView(interaction.user.id, listings, "mine", "📋 我上架中的卡"), ephemeral=True)
 
 
-class TradeCog(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-
-    @app_commands.command(name="trade", description="💸 轉賽錢給其他玩家 (手續費 5%，每天最多轉出 500,000)")
-    @app_commands.describe(target="收款的玩家", amount="轉出金額 (手續費從這裡扣)")
-    async def trade(self, interaction: discord.Interaction, target: discord.User, amount: app_commands.Range[int, 1]):
-        if target.bot:
-            await send_notice(interaction, "❌ 不能轉給機器人。")
-            return
-        if target.id == interaction.user.id:
-            await send_notice(interaction, "❌ 不能轉給自己。")
-            return
-        if amount > econ.TRANSFER_DAILY_LIMIT:
-            await send_notice(interaction, f"❌ 每天最多轉出 `{econ.TRANSFER_DAILY_LIMIT:,}` 賽錢。")
-            return
-        status = await econ.get_trade_status(interaction.user.id)
-        if not status["unlocked"]:
-            await send_notice(interaction, reason_text({"reason": "locked"}, status))
-            return
-        sent = await econ.get_transfer_today(interaction.user.id)
-        await interaction.response.send_message(view=TransferView(interaction.user.id, target, amount, sent), ephemeral=True)
-
-
 async def setup(bot: commands.Bot):
     await bot.add_cog(MarketCog(bot))
-    await bot.add_cog(TradeCog(bot))

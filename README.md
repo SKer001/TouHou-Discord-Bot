@@ -167,6 +167,9 @@ python tools/discord_peek.py -n 5 --bot-only
 
 用機器人的 Token 讀測試頻道最新的訊息，把實機的 V2 畫面印成文字（ephemeral 訊息讀不到）。
 
+## 💻 主控台指令
+機器人執行中，可以直接在終端機輸入指令（輸入 `help` 看全部）：`status`、`version`、`modules`、`reload all` / `reload <名稱>`（名稱可以只打一部分，例如 `reload shrine`）、`sync`、`money <玩家ID> <數量>`、`stamina <玩家ID> <數量>`、`shutdown`。
+
 ## 🔧 開發備註
 - 新增模組：在 `Cogs/load-*/` 放入 `.py` 檔，並提供 `async def setup(bot)`。資料夾第一層的每個 `.py` 都會被當成模組載入，不要在那裡放非模組檔案。
 - 單則 Components V2 訊息最多 40 個元件，新增畫面時要注意。
