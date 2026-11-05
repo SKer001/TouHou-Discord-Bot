@@ -17,3 +17,6 @@ __pycache__/
 
 # MCP 設定含本機路徑 (PhotoCraft 等)，每台電腦各自建立
 /.mcp.json
+
+# CodeGraph 程式碼索引 (每台電腦各自 codegraph init)
+/.codegraph/
