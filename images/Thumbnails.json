@@ -47,5 +47,17 @@
     "yumemi_R": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/yumemi_R.png?v=7c6c99b2",
     "yumemi_SR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/yumemi_SR.png?v=b5959dc7",
     "yumemi_SSR": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/yumemi_SSR.gif?v=51d42178",
-    "fill": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/fill.png"
+    "fill": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/fill.png",
+    "guest_bakeneko": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_bakeneko.png?v=878be3aa",
+    "guest_crow_tengu": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_crow_tengu.png?v=9e25cce4",
+    "guest_fairy": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_fairy.png?v=2193bafc",
+    "guest_fairy_maid": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_fairy_maid.png?v=8728e183",
+    "guest_familiar_bat": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_familiar_bat.png?v=42f7e9a5",
+    "guest_fox": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_fox.png?v=2c068992",
+    "guest_kappa": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_kappa.png?v=9a6960a1",
+    "guest_kasa_obake": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_kasa_obake.png?v=cab17fa9",
+    "guest_night_sparrow": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_night_sparrow.png?v=6757e36e",
+    "guest_oni": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_oni.png?v=a797d2b6",
+    "guest_tsukumogami": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_tsukumogami.png?v=75326990",
+    "guest_wolf_tengu": "https://raw.githubusercontent.com/SKer001/TouHou-Discord-Bot/refs/heads/main/images/Thumbnails/guest_wolf_tengu.png?v=498d7d3a"
 }
