@@ -1,6 +1,6 @@
 # ⛩️ TouHou-Discord-Bot
 
-以「東方 Project」為主題的繁體中文 Discord 機器人：祈願抽卡、卡冊收集、卡牌合成與融合、角色圖鑑、道具背包、個人資料卡與每日簽到。
+以「東方 Project」為主題的繁體中文 Discord 機器人：祈願抽卡、卡冊收集、卡牌合成與融合、角色圖鑑、神社倉庫 (道具)、個人資料卡與每日簽到。
 所有畫面都使用 Discord **Components V2**。
 
 ## ✨ 功能
@@ -31,7 +31,7 @@
 |---|---|
 | `/profile` | 個人資料卡，可以設定公開 / 私人，包含體力、今日簽到狀態與運勢 |
 | `/daily` | 每日簽到：抽今日運勢，獲得賽錢與經驗值（台灣時間每天 00:00 重置） |
-| `/inventory` | 道具背包，有分類與分頁 |
+| `/inventory` | ⛩️ 神社倉庫 (道具)，有分類與分頁 |
 | `/leaderboard category` | 本伺服器排行榜：賽錢、P點、收集角色、卡牌總數、祈願次數、融合次數 |
 
 - **體力**：上限 240，每 6 分鐘自然回復 1 點（自然回復最多到 240）。在自己的 `/profile` 按「⚡ 恢復體力」可以使用體力道具，道具可以讓體力超過上限。
@@ -82,7 +82,7 @@ Characters/              角色資料 (一個角色一個 JSON)
 Cogs/
   load-gacha/            抽卡、卡冊、合成、融合 (gacha.py)、卡冊管理 (Admin-gacha.py)
   load-character/        角色圖鑑
-  load-general/          個人資料卡、簽到、道具背包、道具與玩家管理
+  load-general/          個人資料卡、簽到、神社倉庫、道具與玩家管理
   load-system/           系統維護指令
   */Components/          各模組的 Components V2 畫面產生器
 Database/

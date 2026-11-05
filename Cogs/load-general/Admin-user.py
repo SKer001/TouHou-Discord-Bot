@@ -59,15 +59,15 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         await send_notice(interaction, msg)
 
     # 4. 🧹 /clear_inventory 清空指定成員背包
-    @app_commands.command(name="clear_inventory", description="【開發者專用】完全清空指定成員的背包庫存")
-    @app_commands.describe(target="要清空背包的目標成員")
+    @app_commands.command(name="clear_inventory", description="【開發者專用】完全清空指定成員的神社倉庫")
+    @app_commands.describe(target="要清空神社倉庫的目標成員")
     @app_commands.default_permissions(administrator=True)
     async def clear_inventory_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member):
         if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
         await update_user_inventory(target.id, {})
-        await send_notice(interaction, f"🧹 已成功清空 **{target.display_name}** 的背包，所有道具皆已歸零移除！")
+        await send_notice(interaction, f"🧹 已成功清空 **{target.display_name}** 的神社倉庫，所有道具皆已歸零移除！")
 
     # 5. ⚡ /add_stamina 調整體力
     @app_commands.command(name="add_stamina", description="【開發者專用】增加或扣除指定成員的體力 (可超過自然回復上限 240)")

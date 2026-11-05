@@ -9,7 +9,7 @@ from Utils.components import send_notice
 
 # 分類選單：(value, 名稱, emoji, 說明)
 CATEGORY_OPTIONS = [
-    ("all", "全部道具", "🌸", "顯示背包內所有道具"),
+    ("all", "全部道具", "🌸", "顯示倉庫內所有道具"),
     ("consumable", "消耗品 / 食物", "🍵", "可以使用的日常消耗品"),
     ("collectible", "符卡 / 收藏品", "🎴", "具有特殊意義的收藏"),
     ("special", "特殊 / 裝備", "🛠️", "關鍵道具或強化裝備"),
@@ -19,7 +19,7 @@ CATEGORY_OPTIONS = [
 # ---------------------------------------------------------
 # 🪟 跳轉頁數彈窗 (Modal)
 # ---------------------------------------------------------
-class PageJumpModal(ui.Modal, title='跳轉背包頁面'):
+class PageJumpModal(ui.Modal, title='跳轉倉庫頁面'):
     def __init__(self, view_ref: "InventoryView"):
         super().__init__()
         self.view_ref = view_ref
@@ -141,7 +141,7 @@ class InventoryCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="inventory", description="檢視自己或他人的背包道具")
+    @app_commands.command(name="inventory", description="⛩️ 檢視自己或他人的神社倉庫")
     @app_commands.describe(target="要檢視的成員 (留空則檢視自己)")
     async def inventory_cmd(self, interaction: discord.Interaction, target: discord.User = None):
         await interaction.response.defer()
@@ -151,7 +151,7 @@ class InventoryCog(commands.Cog):
 
         is_public = bool(user_data.get("is_public", 1))
         if target and not is_public and target.id != interaction.user.id:
-            await send_notice(interaction, f"🔒 **{target_user.display_name}** 已設定個人卡片為私密，無法檢視其背包！")
+            await send_notice(interaction, f"🔒 **{target_user.display_name}** 已設定個人卡片為私密，無法檢視其神社倉庫！")
             return
 
         # 讀取 JSON 背包

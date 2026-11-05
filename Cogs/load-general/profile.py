@@ -151,7 +151,7 @@ class StaminaItemView(ui.LayoutView):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user.id:
-            await send_notice(interaction, "❌ 這不是你的背包！")
+            await send_notice(interaction, "❌ 這不是你的神社倉庫！")
             return False
         return True
 
@@ -185,7 +185,7 @@ class StaminaItemView(ui.LayoutView):
                         f"體力 `{result['before']}` ➔ `{result['stamina']}`（剩下 `{result['left']}` 個）"
                     )
                 else:
-                    self.notice = "❌ 背包裡已經沒有這個道具了。"
+                    self.notice = "❌ 倉庫裡已經沒有這個道具了。"
             await self.refresh_data()
             self.build()
             await interaction.response.edit_message(view=self)

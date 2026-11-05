@@ -14,6 +14,8 @@
 ```
 Main.py                      入口；setup_hook 先 init_db() 再 init_item_db()，並自動載入 Cogs/load-*/ 下所有 .py
 README.md                    給人看的專案說明 (功能、指令、安裝、新增角色)
+CHANGELOG.md                 開發紀錄：版本號規則 + 每個版本做了什麼、遇到的問題與解法
+Utils/version.py             目前版本號 VERSION (開機時印在主控台與 log 頻道)
 TODO.md                      待做清單：UR/LR 重做、未做卡面的角色、TH07 之後的角色、經濟系統計畫
 ARCHITECTURE.md              程式架構與寫法規則 (分層、Cog / View / 資料層慣例、新增功能檢查清單)
 requirements.txt             套件清單：pip install -r requirements.txt
@@ -163,7 +165,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **gacha.py**（指令群組 `/card`）：
   - **卡池分代數**：`GACHA_POOLS` = `classic`（📜 舊作卡池：Main + TH01～TH05，15 位）、`th06`（🔴 紅魔鄉卡池，9 位），每個卡池列出包含的 `Characters/` 資料夾。`GACHA_POOL = load_gacha_pool()` 在載入模組時從 `Characters/` 讀取 `gacha.enabled` 的角色（每筆含 `pool`），改角色檔後要 `/admin-sys reload` 抽卡模組。`card_pool_key(card)` 取卡牌所屬卡池，角色不在卡池時為 `"other"`。
   - 每個角色有三個階級 `rarities`（例如 `["SR","SSR","UR"]`）與各階級稱號 `titles`。
-  - 祈願 `/card gacha pool pull_type`：每抽 `DRAW_COST = 2000` 賽錢；稀有度權重 `RARITY_WEIGHTS = [75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；擲卡在 `roll_pool_cards()`，寫入走 `draw_gacha`（單一交易）。結果畫面顯示卡池名稱與保底進度，可繼續單抽/十連（沿用同卡池）/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。
+  - 祈願 `/card gacha pool pull_type`：每抽 `DRAW_COST = 5000` 賽錢（十連 50,000 沒有折扣，2026-11-05 使用者指定）；稀有度權重 `RARITY_WEIGHTS = [75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；擲卡在 `roll_pool_cards()`，寫入走 `draw_gacha`（單一交易）。結果畫面顯示卡池名稱與保底進度，可繼續單抽/十連（沿用同卡池）/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。
   - **保底**：每個卡池各自計數，連續 `PITY_THRESHOLD = 100` 抽沒有 UR 以上（`PITY_RESET_RARITIES = {UR, LR}`）時，第 100 抽強制換成卡池中有 UR 的角色的 UR；觸發的卡帶 `"pity": True`（只用於顯示「🎯 保底」）。十連會逐抽計算。
   - **`/card history`**：各卡池累計抽數、保底 `since_ur / 100` 與進度條、上次 UR 時間，加上總祈願與融合次數。
   - **卡冊 `/card inventory`**（`InventoryView`）：疊卡列表（同角色同階級一疊，每頁 `STACKS_PER_PAGE = 7`）→ 單一疊（依完整度高到低，每頁 `STACK_CARDS_PER_PAGE = 8`）→ 單卡詳情；卡池篩選（含「其他」）、階級篩選、排序按鈕循環切換 `INVENTORY_SORTS`（階級 / 完整度 / 最新 / 數量）。
@@ -178,7 +180,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
     - 新卡完整度與祈願相同（`generate_completeness`），`total_fusions + 1`。
   - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
 - **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。簽到成功會多送 `DAILY_REWARD_ITEM`（顯示在獎勵那行）。本人的資料卡底部有「⚡ 恢復體力」按鈕 ➔ `StaminaItemView`：列出背包裡有 `effect.stamina` 的道具 ➔ 選擇後顯示說明與「使用後體力」➔ 「🍽️ 使用 1 個」（連點保護）➔ 可繼續使用或「🔙 返回資料卡」。
-- **inventory.py / general_components.py**：背包每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
+- **inventory.py / general_components.py**：玩家道具背包已改名為「⛩️ 神社倉庫」（2026-11-05，為神社經營做準備；指令暫時還是 `/inventory`，程式內部仍叫 inventory）；每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
 - **leaderboard.py**：`/leaderboard category`（賽錢、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
 - **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定（目前 2 位：`403895664666214400`、`414789026189672449`），一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
   - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）
@@ -237,6 +239,8 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。
   - Claude Code 的自動權限檢查可能會擋下「提交 / 推送 Users.db」，此時請使用者自己執行 git 指令，不要繞過。
 - 直接推到 `main`（個人專案，不開 PR）。
+- **版本號與開發紀錄（2026-11-05 使用者指定）**：版本格式 `X.XX.XXX`（大版本：新功能 / 新活動，開發階段為 0；第二段：功能改動、新 UI；最後三碼：瑣碎 commit）。**每次 commit 都要更新 `Utils/version.py` 並在 `CHANGELOG.md` 最上面補一筆**（做了什麼、遇到的問題與解法）。
+- **經濟系統的數值：使用者沒給的一定要先問，不要自己決定**（2026-11-05）。規格與待確認項目在 `TODO.md` 第 5 節。
 - 兩台電腦切換：離開前 `commit` + `push`，開始前 `pull`；**機器人同一時間只在一台上執行**（同一個 Token，且 Users.db 是二進位無法合併）。
 - **完成並測試通過後直接 commit + push 到 `main`，不用先問**（2026-10-28 使用者指示）。只有重大事件才先問，例如要開分支、改寫 git 歷史、刪除大量資料等。`Database/Users.db`、`Item.db` 有變動時也一起推。
 - **卡面：一個角色（或一張卡）定案後才 commit + push**（2026-10-30 使用者指示，避免 git 歷史塞滿試作圖）。試作、調參數、使用者還在挑圖或要求調整時都只留在本機；使用者說「定案」「推送」或明確表示這版 OK 才推。程式碼改動也跟著那次定案一起推。

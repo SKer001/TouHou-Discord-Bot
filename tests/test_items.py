@@ -140,7 +140,7 @@ async def main():
         await mv.item_callback(i2)
         modal = modal_holder["m"]
         check("modal opened", "目前持有 0" in str(modal.amount_input.label))
-        for raw, expect in [("7", "已給予"), ("-2", "已扣除"), ("-99", "不能扣除"), ("0", "不能是 0"), ("x", "不是整數"), ("-5", "已從背包移除")]:
+        for raw, expect in [("7", "已給予"), ("-2", "已扣除"), ("-99", "不能扣除"), ("0", "不能是 0"), ("x", "不是整數"), ("-5", "已從神社倉庫移除")]:
             modal.amount_input._value = raw
             i3 = Interaction(uid=min(ADMIN_IDS)); await modal.on_submit(i3)
             check(f"modal {raw}", expect in texts(mv))

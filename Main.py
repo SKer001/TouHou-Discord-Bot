@@ -6,6 +6,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from Database.User_DB_Manager import init_db
 from Database.Item_DB_Manager import init_item_db
+from Utils.version import VERSION
 
 # 讀取 .env 檔案
 load_dotenv()
@@ -127,7 +128,7 @@ class TouHouBot(commands.Bot):
             print(f"\n❌ 同步斜線指令失敗: {e}")
 
     async def on_ready(self):
-        print(f"🤖 {self.user} 已成功登入並上線！")
+        print(f"🤖 {self.user} 已成功登入並上線！(v{VERSION})")
         activity = discord.CustomActivity(name="🌸 符卡規則生效中 | 前綴: TB!")
         
         # 方案 B：動態顯示「正在玩某款東方遊戲」 (若要用方案 B，請把上一行註解並取消註解下一行)

@@ -86,7 +86,7 @@ class ItemEditView(discord.ui.LayoutView):
             container.add_item(discord.ui.TextDisplay(
                 f"## ⚠️ 刪除確認\n"
                 f"確定要永久刪除道具 **{item['name']}** (`{item['item_id']}`) 嗎？\n"
-                f"*(玩家背包內的該道具將會變成無效資料)*"
+                f"*(玩家神社倉庫內的該道具將會變成無效資料)*"
             ))
             container.add_item(discord.ui.Separator())
             container.add_item(discord.ui.ActionRow(confirm_btn, cancel_btn))
@@ -194,7 +194,7 @@ class ItemAmountModal(discord.ui.Modal):
         if not result["ok"]:
             notice = f"❌ {who} 只有 {name} `×{result['before']}`，不能扣除 `{abs(delta)}` 個（扣完會小於 0）。"
         elif result["after"] == 0:
-            notice = f"🗑️ 已扣除 {who} 的 {name} `×{abs(delta)}`，數量歸零，已從背包移除。"
+            notice = f"🗑️ 已扣除 {who} 的 {name} `×{abs(delta)}`，數量歸零，已從神社倉庫移除。"
         elif delta > 0:
             notice = f"🎁 已給予 {who} {name} `×{delta}`（`{result['before']}` ➔ `{result['after']}`）"
         else:
@@ -245,7 +245,7 @@ class ItemManageView(discord.ui.LayoutView):
         container = discord.ui.Container(accent_color=discord.Color.gold())
         container.add_item(discord.ui.TextDisplay(
             f"## 🎁 道具管理：{self.target.display_name}\n"
-            f"🎒 對方背包共 `{total_owned}` 件道具\n"
+            f"⛩️ 對方神社倉庫共 `{total_owned}` 件道具\n"
             f"-# 選擇道具後輸入數量：正數給予、負數扣除（扣完不能小於 0，剛好 0 會移除）"
         ))
         if self.notice:
@@ -471,7 +471,7 @@ class ItemAdmin(commands.GroupCog, group_name="admin-item", group_description="�
 
         # 🟢 超過 25 種時補上提示
         if len(summary_items) > 25:
-            lines.append(f"\n…（另有 `{len(summary_items) - 25}` 種道具已成功寫入背包，此處省略顯示）")
+            lines.append(f"\n…（另有 `{len(summary_items) - 25}` 種道具已成功寫入神社倉庫，此處省略顯示）")
 
         await send_notice(interaction, "## 🎁 隨機道具發放完成\n" + header + "\n".join(lines), color=discord.Color.gold())
 

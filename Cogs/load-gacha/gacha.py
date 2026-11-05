@@ -89,7 +89,7 @@ def sort_cards(cards: list) -> list:
 
 
 # ================= ⛩️ 祈願規則 =================
-DRAW_COST = 2000                 # 每抽賽錢
+DRAW_COST = 5000                 # 每抽賽錢 (十連 = 10 倍，沒有折扣；2026-11-05 使用者指定)
 RARITY_WEIGHTS = [75, 22, 3]     # 角色三個階級 (低 ➔ 高) 的權重
 PITY_THRESHOLD = 100             # 每個卡池連續 100 抽沒出 UR ➔ 第 100 抽必出 UR
 PITY_RARITY = "UR"

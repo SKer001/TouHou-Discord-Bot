@@ -133,7 +133,7 @@ def build_stamina_item_container(
     container.add_item(ui.Separator())
 
     if not owned:
-        container.add_item(ui.TextDisplay("🎒 背包裡沒有任何體力道具。\n-# 每日簽到可以獲得 🍙 陰陽梅干飯糰！"))
+        container.add_item(ui.TextDisplay("⛩️ 神社倉庫裡沒有任何體力道具。\n-# 每日簽到可以獲得 🍙 陰陽梅干飯糰！"))
         return container
 
     item = next(((iid, info, count) for iid, info, count in owned if iid == selected), None)
@@ -195,7 +195,7 @@ def build_profile_container(
         f"💰 **賽錢**　`{money:,}` 兩\n"
         f"🔴 **P點**　`{p_power:.1f}` P\n"
         f"{_stamina_text(stamina)}"
-        f"🎒 **背包物品數**　`{total_items}` 件道具\n\n"
+        f"⛩️ **神社倉庫**　`{total_items}` 件道具\n\n"
         f"✨ **經驗值 (EXP)**\n{exp_text}\n{exp_bar}"
     ))
     container.add_item(ui.Separator())
@@ -302,7 +302,7 @@ def build_inventory_container(
 
     header = ui.Section(
         ui.TextDisplay(
-            f"## {cat_name} - {user.display_name} 的背包\n"
+            f"## {cat_name} - {user.display_name} 的神社倉庫\n"
             f"共 `{data['kinds']}` 種道具 · 合計 `{data['total_amount']:,}` 件\n"
             f"-# 第 {data['page']} / {data['total_pages']} 頁 • 幻想鄉居民登記"
         ),

@@ -98,10 +98,10 @@ async def main():
     stats = await udm.get_gacha_stats(1)
     check("total draws", stats["total_draws"] == 215)
     money = (await udm.get_or_create_user(1))["money"]
-    check(f"money {money}", money == 1000 + 10_000_000 - 215 * 2000)
+    check(f"money {money}", money == 1000 + 10_000_000 - 215 * gacha.DRAW_COST)
 
     # 併發：錢只夠一次十連
-    await udm.add_money(2, 20_000 - 1000)
+    await udm.add_money(2, 10 * gacha.DRAW_COST - 1000)
     i1, i2 = Interaction(uid=2), Interaction(uid=2)
     await asyncio.gather(cmds["gacha"].callback(cog, i1, pool("classic"), pool(10)), cmds["gacha"].callback(cog, i2, pool("classic"), pool(10)))
     t = texts(i1.view) + texts(i2.view)

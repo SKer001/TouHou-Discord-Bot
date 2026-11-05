@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import datetime
 import json
 from Utils.components import send_notice
+from Utils.version import VERSION
 
 load_dotenv()
 
@@ -130,7 +131,7 @@ class Logger(commands.Cog):
         # 📢 發送至 Discord 頻道
         await self.send_alert_log(
             title="🟢 機器人已順利啟動",
-            description=f"**Bot 名稱:** {self.bot.user}\n**Bot ID:** `{self.bot.user.id}`",
+            description=f"**Bot 名稱:** {self.bot.user}\n**Bot ID:** `{self.bot.user.id}`\n**版本:** `v{VERSION}`",
             color=discord.Color.green()
         )
 
