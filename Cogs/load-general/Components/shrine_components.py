@@ -58,10 +58,13 @@ def build_shrine_container(user_name: str, s: dict, notice: str | None = None) -
 
     if s["guests"]:
         lines = [f"🙏 **參拜的妖怪**　`{len(s['guests'])} / {s['guest_max']}` 位"]
+        # 對齊：名字用全形空白補到一樣長 (中文字等寬)，數字在 code 等寬字型裡靠右對齊
+        name_w = max(len(g["kind"]) for g in s["guests"])
         for g in s["guests"]:
+            name = g["kind"] + "　" * (name_w - len(g["kind"]))
             lines.append(
-                f"{_mood_emoji(g['mood'])} **{g['kind']}**　心情 `{g['mood']}%`　"
-                f"每份餐點 `{g['reward_per_portion']:,}` 賽錢 · {ts(g['next_drop_at'])}心情變差"
+                f"{_mood_emoji(g['mood'])} **{name}**　心情 `{g['mood']:>3}%`　"
+                f"每份餐點 `{g['reward_per_portion']:>5,}` 賽錢 · {ts(g['next_drop_at'])}心情變差"
             )
         lines.append("-# 🍵 招待需要餐點（食物 / 茶水 / 點心），素材副本開放後就能製作")
     else:
