@@ -57,3 +57,28 @@ def simple_container(text: str, color: discord.Color | None = None) -> ui.Contai
     container = ui.Container(accent_color=color or discord.Color.blurple())
     container.add_item(ui.TextDisplay(text))
     return container
+
+
+def build_listing_announce(user_name: str, listing: dict, buyer_total: int, expires_ts: int, thumbnails: dict | None) -> ui.Container:
+    """上架成功後公開在頻道的公告"""
+    text = (
+        f"## 🏷️ 市場新上架\n**{user_name}** 上架了 {card_label(listing)}\n"
+        f"*{listing.get('title') or ''}*\n售價 `{buyer_total:,}` 賽錢\n"
+        f"-# 用 `/market browse` 購買 · <t:{expires_ts}:R>下架"
+    )
+    container = ui.Container(accent_color=discord.Color.gold())
+    url = get_thumbnail_url(listing["character_key"], thumbnails, listing["rarity"])
+    container.add_item(ui.Section(ui.TextDisplay(text), accessory=ui.Thumbnail(url)) if url else ui.TextDisplay(text))
+    return container
+
+
+def build_transfer_dm(sender_name: str, guild_name: str | None, amount: int, fee: int, test: bool = False) -> ui.Container:
+    """轉帳收款人收到的私訊"""
+    where = f"（來自伺服器 **{guild_name}**）" if guild_name else ""
+    text = (
+        f"## 💸 你收到一筆轉帳\n**{sender_name}** 轉給你 `{amount:,}` 賽錢{where}\n"
+        f"扣掉 5% 手續費 `{fee:,}`，實收 **`{amount - fee:,}`** 賽錢"
+    )
+    if test:
+        text += "\n-# 🧪 這是管理員發送的測試訊息，賽錢沒有實際變動"
+    return simple_container(text, discord.Color.green())

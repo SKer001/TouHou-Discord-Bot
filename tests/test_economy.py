@@ -99,6 +99,10 @@ async def main():
     check(f"dirt no overflow {r['summary']['dirt']}", r["summary"]["dirt"] == 4 and r["summary"]["efficiency"] == 0.6)
     r = await econ.shrine_clean(1, now=T0 + 5 * H, rng=NEVER)
     check("clean", r["before"] == 4 and r["summary"]["dirt"] == 0 and r["summary"]["efficiency"] == 1)
+    r = await econ.admin_set_shrine(1, box=12345, dirt=2, youkai=3, guests=2, guest_mood=50, now=T0 + 5 * H, rng=NEVER)
+    s = r["summary"]
+    check("admin shrine", s["box"] == 12345 and s["dirt"] == 2 and s["youkai"] == 3 and [g["mood"] for g in s["guests"]] == [50, 50])
+    check("admin reset shrine", await econ.admin_reset_shrine(1) and (await econ.get_shrine(1, now=T0 + 5 * H, rng=NEVER))["summary"]["box"] == 0)
 
     # ---------------- 市值公式 ----------------
     m = econ.completeness_multiplier
@@ -109,7 +113,8 @@ async def main():
     check("idle +2%", pc(0, 100) == 0.02)
     check("neutral 0%", abs(pc(50, 100)) < 1e-9)
     check("3x -> -10%", abs(pc(150, 100) + 0.10) < 1e-9 and abs(pc(999, 100) + 0.10) < 1e-9)
-    check("1/3 -> +10%", abs(pc(50 / 3, 100) - 0.10) < 1e-9)
+    check("under-sell between 0 and +2%", abs(pc(25, 100) - 0.01) < 1e-9)
+    check("monotonic", all(pc(i, 100) >= pc(i + 1, 100) for i in range(200)))
     check("2x -> -5%", abs(pc(100, 100) + 0.05) < 1e-9)
     check("expected 0 counts as 1", abs(pc(1, 0) + 0.05) < 1e-9)
 
@@ -124,6 +129,9 @@ async def main():
     prices = await econ.get_market_prices()
     check(f"settle 2 days {n}", n == 2)
     check(f"sr price {prices[('cirno','SR')]}", abs(prices[("cirno", "SR")] - 1000 * 0.9 * 1.02) < 1e-6)
+    await econ.admin_set_price("cirno", "SR", 777)
+    check("admin set price", (await econ.get_market_prices())[("cirno", "SR")] == 777)
+    await econ.admin_set_price("cirno", "SR", 1000 * 0.9 * 1.02)
     check(f"ur idle rise + floor {prices[('cirno','UR')]}", abs(prices[("cirno", "UR")] - 10000 * 1.02 * 1.02) < 1e-6)
     hist = await econ.get_price_history("cirno", "SR")
     check("history", [h["day"] for h in hist] == ["2026-11-05", "2026-11-06"] and abs(hist[0]["change"] + 0.1) < 1e-9)

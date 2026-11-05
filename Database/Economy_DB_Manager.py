@@ -228,14 +228,47 @@ async def shrine_defeat(user_id: int, now: datetime | None = None, rng=random) -
     return await _shrine_tx(user_id, action, now, rng)
 
 
+async def admin_set_shrine(user_id: int, box: int | None = None, dirt: int | None = None, youkai: int | None = None,
+                           guests: int | None = None, guest_mood: int = 100, now: datetime | None = None, rng=random) -> dict:
+    """
+    【管理員】調整神社 (先結算到現在再改)：
+    box 賽錢箱、dirt 清潔度階段 (從現在開始重新計時)、youkai 妖怪數、guests 參拜客數 (心情都設成 guest_mood)
+    """
+    now = now or datetime.now(timezone.utc)
+
+    async def action(state, db):
+        if box is not None:
+            state["box"] = float(max(0, min(SHRINE_BOX_MAX, box)))
+        if dirt is not None:
+            state["clean_at"] = now.isoformat()
+            state["dirt_extra"] = max(0, min(DIRT_MAX, dirt))
+        if youkai is not None:
+            state["youkai"] = max(0, min(YOUKAI_MAX, youkai))
+        if guests is not None:
+            mood = max(MOOD_STEP, min(100, guest_mood))
+            arrived = now - ((100 - mood) // MOOD_STEP) * MOOD_INTERVAL
+            state["guests"] = [{"kind": GUEST_KINDS[i % len(GUEST_KINDS)], "arrived_at": arrived.isoformat()}
+                               for i in range(max(0, min(GUEST_MAX, guests)))]
+        return {}
+    return await _shrine_tx(user_id, action, now, rng)
+
+
+async def admin_reset_shrine(user_id: int) -> bool:
+    """【管理員】刪除神社資料 (下次打開時重新建立，賽錢箱歸零)"""
+    async with connect() as db:
+        cursor = await db.execute("DELETE FROM shrines WHERE user_id = ?", (user_id,))
+        await db.commit()
+        return cursor.rowcount > 0
+
+
 # =========================================================
 # 💹 2. 浮動市值 (每天台灣時間 00:00 結算)
 # =========================================================
 OFFICIAL_PRICES = {"N": 50, "R": 100, "SR": 500, "SSR": 1000, "UR": 10000, "LR": 50000}   # 官方回收價 = 市值的保底
 PRICE_DAILY_LIMIT = 0.10       # 每天漲跌最多 ±10%
-PRICE_IDLE_RISE = 0.02         # 當天沒人賣 ➔ +2%
+PRICE_IDLE_RISE = 0.02         # 當天沒人賣 ➔ +2% (也是一天最多漲多少)
 NEUTRAL_RATIO = 0.5            # 賣出 = 當天新抽到張數的 50% 時持平
-SATURATE_RATIO = 3             # 賣出是持平的 3 倍 ➔ −10%；只有 1/3 ➔ +10% (中間照比例)
+SATURATE_RATIO = 3             # 賣出是持平的 3 倍 ➔ −10% (中間照比例)
 MAX_SETTLE_DAYS = 60           # 很久沒人用時最多補結算 60 天
 
 
@@ -258,16 +291,16 @@ def card_value(price: float, completeness: float) -> int:
 
 def price_change(sold: int, expected: float) -> float:
     """
-    一天的漲跌幅：expected = 當天全服抽卡數 × 這張卡的抽中機率 (至少算 1 張)
-    沒人賣 +2%；賣出 / 持平點 ≥ 1 往下跌、< 1 往上漲，偏離到 3 倍 / 1/3 時碰到 ±10%
+    一天的漲跌幅：expected = 當天全服抽卡數 × 這張卡的抽中機率 (至少算 1 張)，持平點 = expected × 50%
+    - 賣得比持平點少：從 +2% (沒人賣) 平滑降到 0% (剛好持平)
+    - 賣得比持平點多：往下跌，賣出是持平點 3 倍時跌到 −10% (上限)
+    整條曲線連續、賣越多一定越便宜 (v0.24.000 改：原本只賣 1 張會比沒人賣漲更多)
     """
-    if sold <= 0:
-        return PRICE_IDLE_RISE
     neutral = NEUTRAL_RATIO * max(1.0, expected)
-    x = sold / neutral
-    if x >= 1:
-        return -PRICE_DAILY_LIMIT * min(1.0, (x - 1) / (SATURATE_RATIO - 1))
-    return PRICE_DAILY_LIMIT * min(1.0, (1 - x) / (1 - 1 / SATURATE_RATIO))
+    x = max(0, sold) / neutral
+    if x <= 1:
+        return PRICE_IDLE_RISE * (1 - x)
+    return -PRICE_DAILY_LIMIT * min(1.0, (x - 1) / (SATURATE_RATIO - 1))
 
 
 async def _get_meta(db, key: str):
@@ -340,6 +373,20 @@ async def settle_prices(probabilities: dict, now: datetime | None = None) -> int
             await db.rollback()
             raise
     return settled
+
+
+async def admin_set_price(character_key: str, rarity: str, price: float | None):
+    """【管理員】直接設定市值；price=None 回到官方價 (之後每日結算照常進行，結算時仍不會低於官方價)"""
+    async with connect() as db:
+        if price is None:
+            await db.execute("DELETE FROM market_prices WHERE character_key = ? AND rarity = ?", (character_key, rarity))
+        else:
+            await db.execute(
+                "INSERT INTO market_prices (character_key, rarity, price) VALUES (?, ?, ?) "
+                "ON CONFLICT(character_key, rarity) DO UPDATE SET price = excluded.price",
+                (character_key, rarity, price),
+            )
+        await db.commit()
 
 
 async def get_market_prices() -> dict:

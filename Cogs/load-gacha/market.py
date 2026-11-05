@@ -3,6 +3,7 @@
 規則與數值在 Database/Economy_DB_Manager.py；卡池資料用 importlib 從抽卡模組取 (reload 後拿到新版)
 """
 import importlib
+import re
 from datetime import datetime, timezone
 
 import discord
@@ -14,6 +15,7 @@ from Database.User_DB_Manager import get_user_cards
 from Utils.components import send_notice
 from .Components.market_components import (
     build_price_container, build_listing_lines, card_label, short_id, simple_container,
+    build_listing_announce, build_transfer_dm,
 )
 
 AUTOCOMPLETE_LIMIT = 25
@@ -39,6 +41,33 @@ def card_probabilities() -> dict:
             for i, rarity in enumerate(g.GACHA_POOL[key]["rarities"]):
                 probs[(key, rarity)] = (pool, g.RARITY_WEIGHTS[i] / total / len(keys))
     return probs
+
+
+def resolve_pool(value: str | None) -> str | None:
+    """卡池參數：正常是 key；Discord 偶爾會把 autocomplete 的顯示名稱整串送進來，這時從名稱反查"""
+    g = gacha_mod()
+    if not value or value in g.GACHA_POOLS:
+        return value
+    for key, p in g.GACHA_POOLS.items():
+        if value.startswith(p["name"]) or f"({key})" in value:
+            return key
+    return value
+
+
+def resolve_character(value: str | None) -> str | None:
+    """角色參數：正常是 key；收到顯示名稱 (例如「🧸 愛麗絲 (alice) · 5 張」) 時取括號裡的 key"""
+    g = gacha_mod()
+    if not value or value in g.GACHA_POOL:
+        return value
+    for m in re.findall(r"\(([A-Za-z0-9_]+)\)", value):
+        if m in g.GACHA_POOL:
+            return m
+    return value
+
+
+def pick_label(card: dict) -> str:
+    """選單上的卡：同角色同完整度的卡會長得一樣，所以加上 ID 區分"""
+    return f"{card_label(card)} #{short_id(card['instance_id'])}"[:100]
 
 
 async def prepare_market():
@@ -160,8 +189,8 @@ class DecomposeView(OwnerView):
             placeholder="選擇要分解的卡（本頁）…", min_values=0, max_values=len(page_cards),
             options=[
                 discord.SelectOption(
-                    label=card_label(c)[:100], value=c["instance_id"], default=c["instance_id"] in self.selected,
-                    description=f"價值 {self.values[c['instance_id']]:,} 賽錢 · ID {short_id(c['instance_id'])}",
+                    label=pick_label(c), value=c["instance_id"], default=c["instance_id"] in self.selected,
+                    description=f"價值 {self.values[c['instance_id']]:,} 賽錢 · 取得 {c.get('obtained_at') or '?'}"[:100],
                 ) for c in page_cards
             ],
         )
@@ -199,8 +228,9 @@ class DecomposeView(OwnerView):
 # 🏷️ 上架：分頁單選 ➔ 確認 ➔ 結果
 # =========================================================
 class SellView(OwnerView):
-    def __init__(self, user_id: int, cards: list[dict], prices: dict, price: int):
+    def __init__(self, user_id: int, cards: list[dict], prices: dict, price: int, user_name: str = "", thumbnails: dict | None = None):
         super().__init__(user_id)
+        self.user_name, self.thumbnails = user_name, thumbnails
         self.cards = sorted(cards, key=lambda c: (c["rarity"], -c["completeness"]))
         self.prices, self.price = prices, price
         self.chosen, self.page, self.mode, self.result = None, 1, "pick", None
@@ -224,10 +254,10 @@ class SellView(OwnerView):
         if self.mode == "confirm":
             c = self.chosen
             container = simple_container(
-                f"## 🏷️ 確認上架\n{card_label(c)}\n"
+                f"## 🏷️ 確認上架\n{pick_label(c)}\n"
                 f"你的售價 `{self.price:,}` 賽錢（賣出後全額入帳）\n"
                 f"買家要付 `{econ.buyer_total(self.price):,}`（售價 × 1.05）\n"
-                f"參考市值 `{self._value(c):,}`\n-# 上架中的卡不能合成、融合、分解；7 天沒賣出自動下架", discord.Color.orange())
+                f"參考市值 `{self._value(c):,}`\n-# 確認後會在頻道公開上架公告；上架中的卡不能合成、融合、分解；7 天沒賣出自動下架", discord.Color.orange())
             ok = ui.Button(label="🏷️ 確認上架", style=discord.ButtonStyle.success)
             ok.callback = self.on_confirm
             back = ui.Button(label="↩️ 返回", style=discord.ButtonStyle.secondary)
@@ -239,8 +269,8 @@ class SellView(OwnerView):
         page_cards = self.cards[start:start + PICK_PER_PAGE]
         container = simple_container(f"## 🏷️ 上架到市場\n售價 `{self.price:,}` 賽錢，選一張要賣的卡：", discord.Color.teal())
         select = ui.Select(placeholder="選擇要上架的卡…", options=[
-            discord.SelectOption(label=card_label(c)[:100], value=c["instance_id"],
-                                 description=f"參考市值 {self._value(c):,} · ID {short_id(c['instance_id'])}")
+            discord.SelectOption(label=pick_label(c), value=c["instance_id"],
+                                 description=f"參考市值 {self._value(c):,} · 取得 {c.get('obtained_at') or '?'}"[:100])
             for c in page_cards
         ])
         select.callback = self.on_select
@@ -265,6 +295,13 @@ class SellView(OwnerView):
             return
         self.result, self.mode = r, "done"
         await self.refresh(interaction)
+        l = r["listing"]
+        announce = ui.LayoutView()
+        announce.add_item(build_listing_announce(self.user_name, l, econ.buyer_total(l["price"]), _expires_ts(l), self.thumbnails))
+        try:   # 上架要公開：在頻道發一則所有人看得到的公告
+            await interaction.followup.send(view=announce)
+        except discord.HTTPException:
+            pass
 
 
 # =========================================================
@@ -355,6 +392,17 @@ class ListingsView(OwnerView):
 # =========================================================
 # 💸 轉帳確認
 # =========================================================
+async def send_transfer_dm(target: discord.abc.User, sender_name: str, guild_name: str | None, amount: int, fee: int, test: bool = False) -> bool:
+    """私訊收款人；對方關閉私訊時回傳 False (轉帳照樣成功)"""
+    view = ui.LayoutView()
+    view.add_item(build_transfer_dm(sender_name, guild_name, amount, fee, test))
+    try:
+        await target.send(view=view)
+        return True
+    except (discord.Forbidden, discord.HTTPException, AttributeError):
+        return False
+
+
 class TransferView(OwnerView):
     def __init__(self, user_id: int, target: discord.abc.User, amount: int, sent_today: int):
         super().__init__(user_id, timeout=120)
@@ -376,10 +424,13 @@ class TransferView(OwnerView):
         if not r["ok"]:
             await send_notice(interaction, reason_text({**r, "amount": self.amount}, await econ.get_trade_status(self.user_id)))
             return
+        dm_ok = await send_transfer_dm(self.target, interaction.user.display_name,
+                                        interaction.guild.name if interaction.guild else None, self.amount, r["fee"])
         self.clear_items()
         self.add_item(simple_container(
             f"✅ 已轉給 **{self.target.display_name}** `{self.amount:,}` 賽錢（對方實收 `{r['received']:,}`，手續費 `{r['fee']:,}`）\n"
-            f"你剩下 `{r['money']:,}` 賽錢 · 今天還能轉 `{r['left_today']:,}`", discord.Color.green()))
+            f"你剩下 `{r['money']:,}` 賽錢 · 今天還能轉 `{r['left_today']:,}`" +
+            ("\n-# 📨 已私訊通知對方" if dm_ok else "\n-# ⚠️ 對方關閉了私訊，沒有收到通知"), discord.Color.green()))
         await interaction.response.edit_message(view=self)
 
     async def on_cancel(self, interaction):
@@ -437,6 +488,7 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
 
     async def _owned_cards(self, interaction, pool: str, character: str) -> list[dict] | None:
         g = gacha_mod()
+        pool, character = resolve_pool(pool), resolve_character(character)
         cards = [c for c in await get_user_cards(interaction.user.id)
                  if c["character_key"] == character and g.card_pool_key(c) == pool]
         if not cards:
@@ -450,6 +502,7 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
     @app_commands.autocomplete(pool=pool_autocomplete, character=character_autocomplete)
     async def price(self, interaction: discord.Interaction, pool: str, character: str):
         g = gacha_mod()
+        pool, character = resolve_pool(pool), resolve_character(character)
         data = g.GACHA_POOL.get(character)
         if data is None or data["pool"] != pool:
             await send_notice(interaction, "❌ 找不到這個角色，請從選單中選擇。")
@@ -468,7 +521,7 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
             })
         view = ui.LayoutView()
         view.add_item(build_price_container({**data, "key": character}, rows, g.THUMBNAILS))
-        await interaction.response.send_message(view=view)
+        await interaction.response.send_message(view=view, ephemeral=True)
 
     @app_commands.command(name="decompose", description="♻️ 分解卡牌：依市值 × 完整度換成賽錢")
     @app_commands.describe(pool="卡池 (代數)", character="角色")
@@ -478,7 +531,7 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
         if cards is None:
             return
         await prepare_market()
-        await interaction.response.send_message(view=DecomposeView(interaction.user.id, cards, await econ.get_market_prices()))
+        await interaction.response.send_message(view=DecomposeView(interaction.user.id, cards, await econ.get_market_prices()), ephemeral=True)
 
     @app_commands.command(name="sell", description="🏷️ 把卡上架到市場 (不限價格，7 天沒賣出自動下架)")
     @app_commands.describe(pool="卡池 (代數)", character="角色", price="售價 (賣出後全額入帳；買家另付 5%)")
@@ -492,13 +545,16 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
         if cards is None:
             return
         await prepare_market()
-        await interaction.response.send_message(view=SellView(interaction.user.id, cards, await econ.get_market_prices(), price))
+        view = SellView(interaction.user.id, cards, await econ.get_market_prices(), price,
+                        interaction.user.display_name, gacha_mod().THUMBNAILS)
+        await interaction.response.send_message(view=view, ephemeral=True)
 
     @app_commands.command(name="browse", description="🛒 瀏覽市場上架中的卡 (依價格排序)")
     @app_commands.describe(pool="卡池 (代數)", character="角色 (留空 = 整個卡池)")
     @app_commands.autocomplete(pool=pool_autocomplete, character=character_autocomplete)
     async def browse(self, interaction: discord.Interaction, pool: str, character: str | None = None):
         g = gacha_mod()
+        pool, character = resolve_pool(pool), resolve_character(character)
         if pool not in g.GACHA_POOLS:
             await send_notice(interaction, "❌ 找不到這個卡池，請從選單中選擇。")
             return
@@ -511,7 +567,7 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
         await prepare_market()
         listings = await econ.get_listings(keys)
         title = f"🛒 市場 · {g.GACHA_POOLS[pool]['name']}" + (f" · {g.GACHA_POOL[character]['name']}" if character else "")
-        await interaction.response.send_message(view=ListingsView(interaction.user.id, listings, "buy", title))
+        await interaction.response.send_message(view=ListingsView(interaction.user.id, listings, "buy", title), ephemeral=True)
 
     @app_commands.command(name="mine", description="📋 查看自己上架中的卡，可以下架")
     async def mine(self, interaction: discord.Interaction):

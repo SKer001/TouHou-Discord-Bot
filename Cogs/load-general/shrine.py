@@ -76,13 +76,13 @@ class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩�
     @app_commands.command(name="manage", description="⛩️ 打開自己的神社：賽錢箱、清掃、治退妖怪、參拜客")
     async def manage(self, interaction: discord.Interaction):
         result = await econ.get_shrine(interaction.user.id)
-        await interaction.response.send_message(view=ShrineView(interaction.user, result))
+        await interaction.response.send_message(view=ShrineView(interaction.user, result), ephemeral=True)
 
     @app_commands.command(name="collect", description="💰 回收神社賽錢箱裡的賽錢")
     async def collect(self, interaction: discord.Interaction):
         r = await econ.shrine_collect(interaction.user.id)
         notice = f"💰 回收了 `{r['collected']:,}` 賽錢！目前持有 `{r['money']:,}` 賽錢。" if r["collected"] else "⚠️ 賽錢箱裡還沒有錢。"
-        await interaction.response.send_message(view=ShrineView(interaction.user, r, notice))
+        await interaction.response.send_message(view=ShrineView(interaction.user, r, notice), ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

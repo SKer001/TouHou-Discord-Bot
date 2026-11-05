@@ -33,8 +33,8 @@ Database/
   item.new.json              道具批次匯入用資料
 Cogs/
   load-character/  character.py, Components/character_components.py   # 圖鑑
-  load-gacha/      gacha.py, market.py, Admin-gacha.py, Components/gacha_components.py, market_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 市場與轉帳 / 卡冊管理
-  load-general/    profile.py, inventory.py, shrine.py, leaderboard.py, Admin-item.py, Admin-user.py, Components/general_components.py, shrine_components.py
+  load-gacha/      gacha.py, market.py, Admin-gacha.py, Admin-market.py, Admin-trade.py, Components/gacha_components.py, market_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 市場與轉帳 / 卡冊管理
+  load-general/    profile.py, inventory.py, shrine.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Components/general_components.py, shrine_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
@@ -182,12 +182,15 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
 - **經濟系統（v0.23.000，2026-11-05 使用者指定的數值，見 `TODO.md` 第 5 節）**：`Database/Economy_DB_Manager.py`
   - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +1000 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**招待（每份 1000 × 心情²，每位至少 1 份、最多 3 類共 5 份）要等餐點 / 素材 / 素材副本，按鈕目前停用。**
-  - **市值**：`market_prices`（完整度 0.5 的價格，起始 = 官方價 `OFFICIAL_PRICES`，永遠不低於官方價）、`price_history`、`daily_draws`（`draw_gacha` 寫入全服每日抽數）、`daily_sales`（市場成交 + 分解）、`economy_meta.last_settled_day`。`settle_prices(probabilities)` 在每個 `/market` 指令開頭補結算到昨天（台灣時間；第一次只記錄起點）：期望 = 當天該卡池抽數 × 抽中機率（至少 1），持平 = 期望 × 50%，賣出 / 持平 ≥ 1 跌、< 1 漲，3 倍 / 三分之一時到 ±10%，沒人賣 +2%。抽中機率由 `market.card_probabilities()` 依 `GACHA_POOL` 與 `RARITY_WEIGHTS` 算（不含保底）。
+  - **市值**：`market_prices`（完整度 0.5 的價格，起始 = 官方價 `OFFICIAL_PRICES`，永遠不低於官方價）、`price_history`、`daily_draws`（`draw_gacha` 寫入全服每日抽數）、`daily_sales`（市場成交 + 分解）、`economy_meta.last_settled_day`。`settle_prices(probabilities)` 在每個 `/market` 指令開頭補結算到昨天（台灣時間；第一次只記錄起點）：期望 = 當天該卡池抽數 × 抽中機率（至少 1），持平 = 期望 × 50%；賣出比持平少時從 +2%（沒人賣）線性降到 0%，比持平多時往下跌、3 倍時 −10%（v0.24.000 改成連續曲線：一天最多漲 2%、最多跌 10%）。抽中機率由 `market.card_probabilities()` 依 `GACHA_POOL` 與 `RARITY_WEIGHTS` 算（不含保底）。
   - **完整度倍率** `completeness_multiplier`：0.5 以上 `1 + 0.2·((c−0.5)/0.5)²`、以下 `0.2 + 0.8·(c/0.5)²`；卡價值 = 市值 × 倍率（分解拿這個數）。
   - **市場**（`market.py`，`/market price / decompose / sell / browse / mine`）：上架時卡從 `gacha_cards` 移到 `market_listings` 託管（所以不能合成 / 融合 / 分解），不限價格，買家付 `ceil(售價 × 1.05)`、賣家拿售價，7 天沒賣出 `expire_listings` 退回；買賣、下架都在單一交易。
   - **轉帳 `/trade target amount`**：手續費 `ceil(5%)` 從金額扣，每人每天（台灣時間）最多轉出 500K，紀錄在 `market_trades(kind='transfer')`。
   - **開通交易**：`users.daily_count`（`claim_daily` 每次成功 +1）≥ 7 才能用市場與轉帳（雙方都要），分解不限；欄位第一次補上時現有玩家直接填 7（`USERS_BACKFILL`，使用者指定）。
   - 抽卡單抽 5000、十連 50000。
+  - **私人 / 公開（v0.24.000 使用者指定）**：`/shrine`、`/market` 全部 ephemeral；上架成功另外用 followup 在頻道發公開公告；`/trade` 確認與結果 ephemeral，收款人收到私訊（`send_transfer_dm`，私訊失敗不影響轉帳）。
+  - **Discord 有時會把 autocomplete 的顯示名稱整串當成參數值送來**（日誌看到 `character: '🧸 愛麗絲 (alice) · 5 張'`）：`market.resolve_pool` / `resolve_character` 會從名稱反查 key，新的指令也要這樣處理。
+  - 管理員：`/admin-shrine view / set / reset`、`/admin-market set_price / reset_price`、`/admin-trade test_dm`。
 - **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。簽到成功會多送 `DAILY_REWARD_ITEM`（顯示在獎勵那行）。本人的資料卡底部有「⚡ 恢復體力」按鈕 ➔ `StaminaItemView`：列出背包裡有 `effect.stamina` 的道具 ➔ 選擇後顯示說明與「使用後體力」➔ 「🍽️ 使用 1 個」（連點保護）➔ 可繼續使用或「🔙 返回資料卡」。
 - **inventory.py / general_components.py**：玩家道具背包已改名為「⛩️ 神社倉庫」（2026-11-05，為神社經營做準備；指令暫時還是 `/inventory`，程式內部仍叫 inventory）；每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
 - **leaderboard.py**：`/leaderboard category`（賽錢、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
@@ -242,7 +245,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：12 個測試檔全數通過（經濟系統 67、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：12 個測試檔全數通過，共 431 項（經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進與之後的計畫（卡面重做、未做的角色、TH07 之後的角色、經濟系統：探索 / 分解 / 浮動市值 / 市場 / 交易）統一記在根目錄 `TODO.md`。
 
 ## 8. 使用者的決定與工作習慣
