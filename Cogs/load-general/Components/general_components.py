@@ -81,8 +81,7 @@ def _daily_section_text(daily_status: dict, is_self: bool, reward: dict | None) 
         )
         if reward:
             text += f"\n\n🎉 **簽到成功！**　💰 `+{reward['money_gained']:,}` 兩　✨ `+{reward['exp_gained']:,}` EXP"
-            if reward.get("item"):
-                item = reward["item"]
+            for item in reward.get("items") or ([reward["item"]] if reward.get("item") else []):
                 text += f"　{item['emoji']} {item['name']} `×{item['amount']}`"
     else:
         hint = ("向博麗神社投賽錢，抽取今日運勢並獲得賽錢與經驗值吧！" if is_self

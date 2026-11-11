@@ -13,6 +13,17 @@
 
 ---
 
+## 0.29.001 — 2026-11-11：更多活動預留位、文件樹
+- 預留位再加上 (使用者：「都可以做」)：
+  - 🎴 祈願：`gacha.rate_up {角色: 倍率}` 機率提升、`gacha.rarity_weights` 階級機率 (保底不受影響)
+  - 📅 簽到：`daily_items` 額外送道具、`daily_money` / `daily_exp` 倍率
+  - ♻️ 分解：`decompose` 倍率 (分解預覽也會套用)
+  - ⛩️ 神社：`youkai_spawn` / `guest_spawn` 生成機率倍率 (最多 100%)
+  - `/event` 也會列出這些。
+- **文件樹**：`CLAUDE.md` 從 285 行瘦身到約 115 行 (每次對話都會自動載入)，細節拆到 `docs/` (database、cogs、card-art、testing、history、setup)，開頭放一張「要做什麼讀哪份」的表。
+- CodeGraph 索引重新同步。
+- 測試 595 項全過 (活動預留位 65)。
+
 ## 0.29.000 — 2026-11-11：活動預留位 (一般池 + 活動池)
 - 使用者指定：每個機制都做成「一般池 + 活動預留位」，之後的活動只要寫活動檔就能用，不用改程式。`events.game_rules()` 合併後各處統一讀 `rules`：
   - 🍱 點餐池 `order_pool {種類: {base, event}}` (原本就有的活動料理機率改成用這個池)

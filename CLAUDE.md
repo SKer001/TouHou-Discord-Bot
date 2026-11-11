@@ -5,6 +5,21 @@
 > 使用者慣用**繁體中文**溝通；回覆請簡潔、用繁體中文，不要貼一堆網址。
 > **程式架構與寫法規則（Cog 怎麼分、畫面 / 資料層怎麼寫、新增功能檢查清單）在 `ARCHITECTURE.md`，新增功能前先讀。**
 
+## 📚 文件樹（先看這張表，只讀跟這次工作有關的）
+| 要做什麼 | 讀這份 |
+|---|---|
+| 新增 / 修改功能前 | `ARCHITECTURE.md`（分層、寫法、新增功能檢查清單） |
+| 指令、玩法規則、數值 (抽卡、神社、經濟、市場…) | `docs/cogs.md` |
+| 資料表、資料庫函式、道具、角色檔格式 | `docs/database.md` |
+| 卡面 / 頭像生圖、ComfyUI、PhotoCraft | `docs/card-art.md` |
+| 跑測試、botcli、實機驗證 | `docs/testing.md` |
+| 活動檔格式與預留位 | `Events/README.md` |
+| 待做、目前進度 | `TODO.md` |
+| 每個版本做了什麼、踩過的坑 | `CHANGELOG.md`（最上面幾筆就好） |
+| 早期重構歷程 | `docs/history.md` |
+| CodeGraph 安裝 | `docs/setup.md` |
+| 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
+
 ## 1. 專案概觀
 - 繁體中文的「東方 Project」主題 Discord 機器人，使用 `discord.py`（**需要 >= 2.6**，因為用了 Components V2；目前用 2.7.1）、`aiosqlite`、`python-dotenv`、`Pillow`。Python 3.11。
 - 功能：抽卡（gacha）、卡冊、卡牌合成 / 融合、道具背包、角色圖鑑、個人資料卡 + 每日簽到 + 運勢、管理員指令、日誌。
@@ -19,11 +34,11 @@ Utils/version.py             目前版本號 VERSION (開機時印在主控台�
 TODO.md                      待做清單：UR/LR 重做、未做卡面的角色、TH07 之後的角色、經濟系統計畫
 ARCHITECTURE.md              程式架構與寫法規則 (分層、Cog / View / 資料層慣例、新增功能檢查清單)
 requirements.txt             套件清單：pip install -r requirements.txt
-tests/                       測試 (python tests/run_all.py)，見第 7 節
-tools/botcli.py              指令列測試工具：假裝打指令、點按鈕、選選單；--live 會把畫面真的送到測試頻道，見第 7 節
-tools/discord_peek.py        用機器人 Token 讀測試頻道最新訊息，把實機 V2 畫面印成文字，見第 7 節
+tests/                       測試 (python tests/run_all.py)，見 `docs/testing.md`
+tools/botcli.py              指令列測試工具：假裝打指令、點按鈕、選選單；--live 會把畫面真的送到測試頻道，見 `docs/testing.md`
+tools/discord_peek.py        用機器人 Token 讀測試頻道最新訊息，把實機 V2 畫面印成文字，見 `docs/testing.md`
 tools/discord_rest.py        上面兩個工具共用的 Discord REST 小工具 (只用 REST，不連 Gateway)
-tools/card_art/              卡面產生工具 (ComfyUI 生圖 → 蓋卡框 → 寫字 → 縮圖)，見第 4 節「卡面」
+tools/card_art/              卡面產生工具 (ComfyUI 生圖 → 蓋卡框 → 寫字 → 縮圖)，見 `docs/card-art.md`
 Characters/                  角色資料，一角色一檔：Main/ (主要主角)、TH01/ ~ TH06/ (各代)；圖鑑與卡池都讀這裡
 Database/
   User_DB_Manager.py         玩家資料庫（Users.db）所有存取
@@ -32,7 +47,7 @@ Database/
   shrine_data.py             神社的遊戲資料：素材、料理配方、採集地點與事件、雜貨店價格、參拜客 (最愛、提示、台詞)
   events.py                  讀 Events/*.json，把進行中的活動跟 shrine_data 合併成當下規則 (game_rules)
 Events/                      活動資料檔，一個活動一檔 (th06_scarlet_mist.json = 紅霧異變)；README.md = 格式與所有預留位
-  Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 8 節）
+  Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 5 節）
   item.new.json              道具批次匯入用資料
 Cogs/
   load-character/  character.py, Components/character_components.py   # 圖鑑
@@ -57,110 +72,14 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - `.env` 需要 `DISCORD_TOKEN`、`LOG_CHANNEL_ID`、`ADMIN_IDS`（管理員 ID，逗號分隔；沒設定時所有管理員指令都不能用）。`.env` 不進 git，換電腦要手動複製。`.gitignore` 有 `/.env`、`/Logger/Logs/`、`__pycache__/`、`/.vscode` 等。
 - 專案換行符為 **LF**（Windows 上 `core.autocrlf=true`，工作目錄可能是 CRLF，git 內部仍是 LF）。
 - Windows 主控台是 cp950，印 emoji 會 `UnicodeEncodeError`：執行 Python 時設 `PYTHONIOENCODING=utf-8`（例如 PowerShell：`$env:PYTHONIOENCODING = 'utf-8'; python Main.py`）。
+- CodeGraph（程式碼索引 MCP）安裝見 `docs/setup.md`；筆電已裝，桌機還沒裝。改了很多檔案後可以跑 `codegraph sync` 更新索引。
 
-- **CodeGraph（2026-11-05 筆電已安裝）**：colbymchenry/codegraph（MIT），幫 Claude Code 建程式碼索引的 MCP（`codegraph_explore` 等工具，一次查到符號原始碼與呼叫關係）。安裝：Node.js LTS（`winget install OpenJS.NodeJS.LTS`）→ `npm i -g @colbymchenry/codegraph` → `codegraph install --target claude --location global --yes`（會改 `~/.claude.json`、`~/.claude/settings.json` 的自動允許、`~/.claude/CLAUDE.md`）→ 專案根目錄 `codegraph init -y` 建索引（`.codegraph/` 已加入 `.gitignore`，每台電腦各自建）→ 重開 Claude Code。會收匿名使用統計，`codegraph telemetry off` 可關（筆電已關）。桌機還沒裝。
-
-## 3. 資料庫設計
-### Users.db（`User_DB_Manager.py`）
-- `connect()`：`aiosqlite`、`row_factory=aiosqlite.Row`、`PRAGMA foreign_keys=ON`。
-- 資料表：
-  - `users(user_id PK, money DEFAULT 1000, level, exp, last_daily TEXT, fortune_level INTEGER DEFAULT NULL, inventory TEXT DEFAULT '{}', created_at, is_public DEFAULT 1, stamina DEFAULT 240, stamina_updated_at TEXT)`
-  - `gacha_pity(user_id, pool, total_draws, since_ur, last_ur_at)`，主鍵 `(user_id, pool)`
-  - `gacha_stats(user_id PK → users ON DELETE CASCADE, total_draws, total_fusions)`
-  - `gacha_cards(instance_id TEXT PK, user_id → users ON DELETE CASCADE, character_key, name, emoji, rarity, title, completeness REAL, obtained_at)`，索引 `idx_gacha_cards_user`
-- 缺欄位用 `USERS_EXTRA_COLUMNS` 自動補。
-- 主要函式：`get_or_create_user`、`add_money`、`add_exp`（升級回傳 `leveled_up/old_p/new_p/is_max`）、`get_required_exp_for_level`、`get_total_exp_for_level`、`reset_daily`、`update_daily_time`、`add_item`、`update_user_inventory`、`get_leaderboard_stats(user_ids)`、`update_visibility`。
-- 簽到：`get_daily_status(user_id, today)`（唯讀，不替對方建資料）、`claim_daily(user_id, today, fortune_level)`（原子 `UPDATE … WHERE last_daily IS NULL OR last_daily != today`，連點/雙視窗只有一次成功）。
-- 抽卡：`get_user_cards(user_id)`（依 rowid 排序）、`get_gacha_stats(user_id)`。
-  - **祈願一律用 `draw_gacha(user_id, pool, draw_count, cost, roll_cards)`**：`BEGIN IMMEDIATE` → 查賽錢（不足丟 `InsufficientFunds`，什麼都不寫）→ 讀該卡池保底 → `roll_cards(since_ur)` 擲卡 → 扣款、寫卡、累加 `total_draws`、更新保底，全部同一個交易。
-  - `add_gacha_cards(user_id, cards, draw_count=None)`：直接寫卡（管理員發放用 `draw_count=0`）。寫卡共用內部的 `_insert_cards` / `_add_draws`。
-  - 保底表 `gacha_pity(user_id, pool, total_draws, since_ur, last_ur_at)`；`get_gacha_pity(user_id)`。
-- 體力：`users.stamina`（預設 240）、`users.stamina_updated_at`（UTC ISO）。**不用背景排程**，每次讀取 / 使用 / 回復時才結算：
-  - `calc_stamina(stored, updated_at, now)` 純計算：每 6 分鐘 +1，自然回復只到 240（`STAMINA_MAX`），零頭保留；超過 240（道具）時不再自然回復；已滿時時鐘停在現在。回傳 `stamina / max / updated_at / next_in / full_in`。
-  - `get_stamina`（唯讀）、`spend_stamina(user_id, n)`（不夠不扣，回傳 `ok=False`）、`add_stamina(user_id, n)`（可超過 240，扣到 0 為止），寫入都用 `BEGIN IMMEDIATE`。
-  - 目前沒有任何功能**消耗**體力；回復靠道具：`use_stamina_item(user_id, item_id, restore)` 在同一個交易裡背包 -1、體力 +restore（可超過 240），背包沒有時 `ok=False` 什麼都不改，回傳含 `before` / `left`。
-- 背包：`adjust_item(user_id, item_id, delta)`（管理員給予 / 扣除用：扣完小於 0 不寫入回 `ok=False`、剛好 0 移除，回傳 `before/after`）；`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
-- 合成 / 融合：`transform_cards(user_id, instance_ids, build_new_card, count_fusion=False)`
-  - `BEGIN IMMEDIATE` 鎖定 → 讀取素材 → `build_new_card(consumed)` 驗證並產生新卡（條件不符丟 `ValueError`）→ 刪素材 → 寫新卡 → 融合時 `total_fusions + 1`，全部同一個交易。
-  - 素材已不屬於玩家、重複 ID、驗證失敗都會回滾並丟 `ValueError`；連點或兩個確認畫面同時按只會成功一次。
-- 玩家 `inventory` 欄位是 JSON 字串（`{"道具id": 數量}`），讀取時需處理 str/dict 兩種型別。
-
-### Item.db（`Item_DB_Manager.py`）
-- `get_all_items`、`get_item`、`add_item_db`、`update_item_db`、`delete_item_db`、`batch_import_db`、`replace_all_items(items)`、`CATEGORY_NAMES`、`DEFAULT_ITEMS`、`DAILY_REWARD_ITEM`；`init_item_db()` 在 Item.db 缺少時會警告，**資料表空白時會寫入 `DEFAULT_ITEMS`**（所以預設清單要跟實際想要的道具一致）。
-- `item_templates(item_id PK, name, emoji, category, description, effect TEXT DEFAULT '{}')`；`effect` 是 JSON（目前支援 `{"stamina": N}`），讀出來是 dict；舊資料表缺 `effect` 會自動補。`update_item_db`（Modal 編輯）不會改動 effect。
-- 道具分類：`consumable`（消耗品）、`cuisine`（招待料理）、`material`（素材）、`collectible`（收藏品）、`special`（裝備與特殊）。
-- **目前道具（2026-10-28 使用者指定，舊的 demo 道具與所有玩家背包已清空）**：全部是 `consumable` 體力道具。
-  | ID | 名稱 | 體力 |
-  |---|---|---|
-  | `yuyuko_dango` | 🍡 幽夢三色團子 | 120 |
-  | `sakuya_scone_tea` | 🫖 咲夜特製司康與紅茶 | 120 |
-  | `marisa_mushroom_soup` | 🍄 螢光蘑菇濃湯 | 67 |
-  | `reimu_onigiri` | 🍙 陰陽梅干飯糰 | 60（每日簽到贈送 1 個，`DAILY_REWARD_ITEM`） |
-  - 目前只有簽到能拿到 🍙；其他三個只能用管理員指令發放。`Database/item.new.json` 是全部道具的批次匯入範本。
-  - **🍱 招待料理（`cuisine`，v0.26.000，名稱與說明由 Claude 依東方梗自訂，使用者同意）**：`effect.serve` = `food` / `drink` / `dessert`（`SERVE_TYPES`），招待參拜客用；目前沒有取得方式（之後跟素材副本一起做）。食物：`mystia_lamprey` 🍢 夜雀烤八目鰻、`ran_inari` 🍣 八雲特製豆皮壽司、`nitori_cucumber` 🥒 河童冰鎮小黃瓜；茶水：`reimu_bancha` 🍵 博麗神社粗茶、`eirin_herbal_tea` 🌿 永遠亭藥草茶、`suika_amazake` 🍶 伊吹甘酒；點心：`eientei_tsukimi_dango` 🌕 月見糰子、`cirno_kakigori` 🍧 琪露諾特製刨冰、`alice_cookie` 🍪 人偶師的手工餅乾。
-- 動到真實資料前的備份放在 `Database/backups/`（已加入 `.gitignore`，只留在本機）。
-
-- 管理員卡冊操作：`delete_gacha_cards(user_id, ids)`、`clear_gacha_cards(user_id)`、`update_cards_completeness(user_id, ids, value)`，都只動該玩家自己的卡並回傳實際影響張數。
-
-### 角色資料（`Characters/<分類>/<id>.json`）
-- 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`base_stats{hp, atk, def}`（目前都是 0）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。
-- SP 等級名稱 = `Easy・初陣` / `Lunatic・瘋狂` / `Phantasm・幻象` + `・` + SP 名稱；`spent` 是 B 點消耗（B 點系統尚未實作）。`type`、`spent`、`cooldown`、`desc` 目前只用於圖鑑顯示。
-- 驗證：檔名必須等於 `id`、`special_powers.levels` 的鍵必須等於 `gacha.rarities`。分類顯示名稱在 `Utils/character_data.py` 的 `CATEGORY_INFO`。
-- 舊作角色、大妖精、小惡魔的介紹與 SP 名稱是 Claude 依風格自訂的，使用者尚未確認。
-
-### 卡牌 ID
-- 格式 `c_<角色uuid前4碼>_<隨機hex>`。`instance_id` 是**全域主鍵**，隨機段為 **12 碼**；舊的 8 碼 ID 仍有效。合成的新卡沿用素材 ID 的前綴，融合的新卡用卡池中的 uuid。
-
-## 4. Components V2 的做法與限制
+## 3. Components V2 的做法與限制
 - **所有介面與通知一律用 Components V2**，不要再用 `discord.Embed` 或純文字 `content` 回覆。
 - 使用 `ui.LayoutView`、`ui.Container(accent_color=…)`、`ui.Section(TextDisplay, accessory=Thumbnail|Button)`、`ui.Separator`、`ui.ActionRow`。
 - **單則訊息最多 40 個元件**；V2 訊息不能帶 `content`/`embeds`，且一旦是 V2 之後只能以 V2 編輯。
 - 互動回呼寫成 `button.callback = self.xxx` 並在 `build()` 內重組畫面（`clear_items()` 後重新 `add_item`）；多種狀態（例如編輯 / 刪除確認 / 已刪除）放在同一個 View 用 `build(mode=...)` 切換。
 - 縮圖規則：依序查 `images/Thumbnails.json` 的 `角色id_階級` → `角色id` → `"fill"`，連 URL 都沒有就只顯示文字。卡牌畫面用該卡的階級（融合預覽用升階後的階級）；圖鑑角色頁在「🏷️ 卡牌階級」**每個階級一行、右側各放該階級的卡面縮圖**（`ui.Section` + `Thumbnail`；該階級沒有專屬卡面時退回角色圖 / fill），標題右側不放縮圖；角色一張專屬卡面都沒有時才照舊只在標題右側放一張（fill）。
-- **卡面（`tools/card_art/`）**：
-  - 流程：`make_workflow.py <角色> <階級> <種子> <out.json>` 產生 ComfyUI 工作流程（Animagine XL 4.0 Opt、896×1064、一次 2 張）→ 使用者挑圖 → 存成 `images/Original/Art/<角色>_<階級>.png` → `python tools/card_art/build_cards.py [角色…]` 產生 `images/Thumbnails/<角色>_<階級>.png` 並寫入 Thumbnails.json → **push 之後** Discord 才抓得到圖。
-  - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，2026-10-29 換成使用者給的新綠幕版 `rarity_greenscreen.jpg`，用 `make_rarity.py` 去背切成 6 張；`card.py` 的 `BADGE_SCALE = 1.25` 放大 1.25 倍）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框或等級圖要重跑 `make_empty.py` / `make_rarity.py` 和 `build_cards.py`（不加參數＝全部角色）。
-  - **分階段輸出**（使用者指定）：`build_cards.py --stages` 會在 `card_stages/`（已加入 .gitignore，太大不進 repo）存每一步的圖：`_base/frame.png`、`_base/rarity/*.png`（基礎元素）；`<角色>_<階級>/0_pic.png`（原圖）→ `1_art`（人物）→ `2_frame`（人物＋框）→ `3_text`（＋名字與稱號）→ `4_card`（＋等級，完成）。程式在 `card.render_stages()`。
-  - **動態卡 GIF**（使用者 2026-10-29 指定）：`build_cards.py` 對 SSR / UR / LR 另外產生 `images/Thumbnails/<角色>_<階級>.gif`，Thumbnails.json 指向 GIF（程式不用改，Discord 縮圖直接播）。效果在 `animate.py` 的 `RARITY_EFFECTS`：SSR `shine`（白色閃光掃過）、UR `holo`（實體雷射卡那種全息彩虹塗層：以閃光為基礎，彩虹隨角度流動 + 金屬細紋 + 亮片，蓋在整張卡上，畫窗是外框的 `HOLO_WINDOW`=0.75 倍）、LR `holo+sparkle`（再加畫窗內四角星光閃爍）。使用者要的「雷射」是雷射閃卡的全息反光，**不是光束**。2026-10-30 調整：雷射強度 0.85、32 格 × 90ms（約 2.9 秒一輪，比較慢）、所有動態都頭尾銜接、全部格子共用調色盤（不閃爍）；每張約 2～6MB；`--no-gif` 只做靜態圖。單張試作：`python tools/card_art/animate.py <角色> <階級> [效果] <out.gif>`。
-  - **分層合成**（神綺 LR）：模型畫不出清楚的大量彈幕（會變成子彈彈殼或糊成一團），所以改成「AI 宇宙背景＋程式畫的彈幕＋AI 單獨生成再去背的人物」：`tools/card_art/layered/cutout.py`（BiRefNet 去背，用 comfy venv 的 python -I 執行）、`danmaku.py`（光球環、螺旋米粒彈、星彈；風格 `rainbow` = 神綺 LR 彩虹、`freeze` = 琪露諾 UR 冰晶，8 成彈幕凍白 + 六角雪花；`density` 調數量）。新角色的大招可以再加風格。現在一律走下面的高清分層流程 `hd_card.py`（舊的 `compose_lr.py` 已於 2026-10-30 刪除）。
-  - **高清分層流程**（使用者 2026-10-30 指定，神綺 LR 試作完成）：`tools/card_art/layered/hd_card.py`（檔頭有完整步驟與指令）。
-    - 每一步的產出與修改後的圖都要保留（方便之後微調），放在 `images/Original/<分類>/<角色>/<階級>/`（分類 = `Characters/` 資料夾，例如 TH05）：背景 01 生成 → 02 重繪 → 03 放大 16 倍 → 04 壓暗加彈幕 → 05 壓縮；人物 06 生成 → 07 重繪 → 08 放大 16 倍 → 09 去背 → 10 壓縮 → 10b 打光；疊層 11 沒有框的完整原圖 → 12 背景 + 卡框 → 13 + 人物 → 14 + 文字 → 15 + 等級 → 16 GIF。`*_hd.png`（每張數十 MB）和重做前的 `_old_*/` 只留在本機。
-    - 疊層順序（使用者指定）：背景 > HD 外框 > 去背人物（蓋在卡框上）> 文字與等級 > 特效。背景是整張卡大小（沒有框的原圖也完整），彈幕畫滿整張卡。人物放在畫窗大小的畫布上，`LAYERS` 的 `tilt`（傾斜）、`char_scale`、`offset`（位置微調，超出畫窗切掉）可以調。
-    - 去背人物另外存成 `images/Original/Art/<角色>_<階級>_char.png`（使用者：UR / LR 都要留）。
-    - **打光**（使用者 2026-10-30 指定，`layered/relight.py`，`LAYERS` 的 `light`）：背景是大量發光彈幕，人物要背光。整體冷色調壓暗 + 邊緣輪廓光（顏色取自身後彈幕）+ 身後光暈；翅膀黑 / 紫色部分再壓暗、紅色紋路螢光發亮（只選四周被翅膀紫黑色包圍的紅色區塊，披肩、衣服不會被誤選；用方形形態學會出現方塊光斑、還會吃到頭髮，不要用）；眼睛發光（座標手動找，是 `10_char.png` 上的位置）。產出 `10b_char_lit.png`，有這張時疊層就用它。全部用程式算，不會改到人物線條。
-    - **翅膀分層（使用者 2026-10-30 指定，琪露諾 UR 起，有翅膀的角色優先用）**：人物和翅膀畫在同一張圖時，翅膀常被切掉、顏色選取會染到同色系的手 / 裙子 / 蝴蝶結、手描遮罩經過重繪放大去背後會對不準、去背模型會把半透明水晶切掉。改成：人物不畫翅膀（可以拿選好的人物用手描身體輪廓把翅膀塗白，例如琪露諾 06h）+ 翅膀單獨生成（W1 單顆水晶，no humans、白底）→ W2 放大 4 倍 → W3 去背只留最大一塊 → W4 `wings.py` 依 `LAYERS["wings"]["items"]`（角度、長度、粗細、離背距離，左右自動鏡射）排在背後錨點（06 座標，`make_char` 換算成 `10_anchor.json`）→ W5 整層打光（`emissive` 的 `mask: "alpha"`、`body` 亮度、`prism` 彩虹稜鏡）→ `10d_char_wings.png`（人物蓋在翅膀上）。調翅膀只要改參數重跑 `hd_card.py wings` + `compose`，不用重新生成。`relight.py` 的 `emissive` 也支援顏色選取 / 遮罩、`fill`（補洞）、`prism`（彩虹）。
-    - **掃帚尾流（使用者 2026-10-31 指定，魔理沙 UR 起）**：沒有翅膀但有掃帚的角色，尾流也做成獨立圖層：`layered/trail.py` 從掃帚尾端拉出幾條擺動的彩虹光帶 + 金白核心 + 沿路星星，`LAYERS["trail"]`（anchor = 掃帚尾端的 06 座標、angle 疊層後方向、length / width / wave 比例、spread、ribbons、stars、sat、core）→ `T1_trail.png` → `10e_char_trail.png`（人物蓋在尾流上）。調整只要改參數重跑 `hd_card.py trail` + `compose`。人物改了大小 / 傾斜後眼睛座標要重找。
-    - **環繞物件圈（2026-10-31，靈夢 UR 的陰陽玉起）**：`layered/orbs.py` 把單顆素材（O1 生成 → O3 去背）排成斜橢圓，分成人物後面 / 前面兩層（後半圈稍小稍暗），中間可連一圈結界光環；`LAYERS["orbs"]`（anchor 06 座標、count、rx / ry / size 比例、tilt、depth、phase、spin、link、`crop_square` 去掉球下面連著的倒影）→ `O4_orbs_back / front.png` → `10f_char_orbs.png`。彈幕風格多了 `seal`（七彩大光球 + 紅白符札 + 小陰陽玉，靈夢）。
-    - **共用構圖提示不要寫翅膀**：曾經把「翅膀完整入鏡」寫在 `CHAR_COMPOSITION`，魔理沙 4 張全長出翅膀；有翅膀的寫在各卡 `LAYERS["char"]`。各卡可用 `char_negative` 加負面提示、`extra_negative` 取代 `make_workflow.EXTRA_NEGATIVE`（魔理沙共用的「不要拿掃帚」會跟騎掃帚打架）。彈幕風格多了 `stars`（全部星彈，魔理沙）。
-    - **翅膀很大的角色（神綺六翼）模型一定會把翅膀畫出畫面**：直長 / 正方形 / 橫長畫布、加強提示都沒用；直接往外擴圖會長出多餘的翅膀。可行做法：挑一張好的 → 縮小到 60% 放在白色大畫布 → 被切的翅膀用 OpenCV inpaint 往外抹一小段當顏色引導（越遠越淡）→ 只重畫外圍（SetLatentNoiseMask，denoise 0.9，下方腳的部分不重畫，不然會多一隻靴子）→ 接縫一圈再用 denoise 0.4 輕度重繪 → `hd_card.py wf-up` 走重繪 / 高清。神綺 LR 的 06a~06d 就是這幾步。
-  - **UR 與 LR 一律用分層合成**（使用者 2026-10-29 指定，從 TH06 開始）：背景 / 彈幕（程式畫）/ 人物（單獨生成、正方形畫布、去背）分開做再合成，見下面「分層合成」。
-  - **UR 和 LR 的做法與步驟完全一樣**（使用者 2026-10-30 指定）：都走上面的高清分層流程（背景 01~05、人物 06~10、打光 10b、PhotoCraft 手修 10c、疊層 11~16），**只差最後的動態特效**（`animate.RARITY_EFFECTS`：UR = holo、LR = holo + sparkle）。畫面風格也一樣：背景有大量彈幕（UR 的 `density` 可以少一點，例如 0.75，LR 是 1.0）、人物背光（`light`）、人物在畫面中的比例偏小（`char_scale` 約 0.8，彈幕當主角）。舊的 UR 之後要一張張改成這套流程：已完成琪露諾、魔理沙、靈夢（2026-10-31）；還沒改的是魅魔、愛麗絲、神綺（單張生成）。
-  - 階級越高畫面越強：SR 日常輕鬆、SSR 施展法術有動態、UR 招牌大招（光效、結界、極限火花）；都維持明亮、淡陰影、全身。prompt 在 `make_workflow.py` 的 `SCENES`，英文名在 `build_cards.py` 的 `EN_NAMES`（新角色兩邊都要加）。
-  - 字型：衡山毛筆是 public domain 放在 repo；**`HarukazeSolid.ttf` 是 demo 版限個人使用，已加入 `.gitignore`，換電腦要手動複製到 `tools/card_art/fonts/`**（跟 .env 一樣）。
-  - **進度（2026-10-29）**：已完成 靈夢、魔理沙（Main）、魅魔（TH01）、玄爺、里香（TH02）、千百合、夢美（TH03）、艾莉、幻月、夢月（TH04）、愛麗絲（舊作外觀）、露易絲、神綺（LR 為分層合成）、雪與舞、夢子（TH05，舊作全部完成）。TH06：琪露諾（UR 2026-10-30 改用高清分層 + 翅膀分層重做）。**下一位：大妖精 daiyousei（TH06）**，依 `Characters/TH06/` 順序：大妖精 daiyousei → 芙蘭朵露 flandre（SSR/UR/LR）→ 小惡魔 koakuma → 紅美鈴 meiling → 帕秋莉 patchouli → 蕾米莉亞 remilia（SSR/UR/LR）→ 露米婭 rumia → 十六夜咲夜 sakuya。新作角色查萌娘百科一般條目即可。其餘尚未做的角色顯示 fill。
-  - **每位角色的做法（使用者指定：一位一位處理）**：
-    0. **先上網找參考圖**（使用者 2026-10-29 指定，從夢美開始）：**優先查萌娘百科**（使用者指定，東方資料最詳細，例如 `https://zh.moegirl.org.cn/艾丽(东方Project)`，有外貌、萌點、性格、設定 neta），舊作角色要查「(東方Project舊作)」條目（例如 `愛麗絲(東方Project舊作)`，跟新作同名角色是不同頁）；立繪圖檔可從 Touhou Wiki（en.touhouwiki.net 的 `/wiki/<作品>/Characters` 頁，例如 `Mystic_Square/Characters` 有 TH05 全員頭像、`Embodiment_of_Scarlet_Devil/Characters` 有 TH06 立繪）取得；THBWiki 有 Cloudflare 驗證、Danbooru 內建瀏覽器打不開。確認髮型髮色、服裝、配件、招牌道具，把參考圖與重點特徵給使用者看，再依此寫 prompt。
-    1. 在 `make_workflow.py` 加 `BASE`（外觀 Danbooru 標籤）、每個階級的 `SCENES`（依稱號、個性、故事；階級越高越強），需要時加 `EXTRA_NEGATIVE`（可用角色或 `(角色, 階級)` 當鍵）；在 `build_cards.py` 加 `EN_NAMES`。先用一兩句話跟使用者說明各階級的構想。
-    2. 每個階級用兩個種子各生 2 張（共 4 張）：`make_workflow.py <角色> <階級> <種子> <out.json>` → ComfyUI MCP `run_workflow(wait=False)` → `job(action="wait")`。
-    3. `python tools/card_art/candidates.py <角色> --out <暫存資料夾>` 做對照表（取最新 4 張，標 1～4），用 SendUserFile 傳給使用者，順便指出明顯的問題（多出的腳、翅膀、髮色錯誤等）。
-    4. 使用者回覆例如「343」＝各階級依序選第 3、4、3 張 → 把 ComfyUI 輸出的那張複製成 `images/Original/Art/<角色>_<階級>.png` → `build_cards.py <角色>` → 跑測試 → commit + push（不用先問）。
-  - **使用者偏好與踩過的坑**：明亮、淡陰影、全身、貼近角色個性；字不能太粗（會糊）；**構圖不一定要正面**（側身、回頭、看遠方都可以，不要每張都 `looking at viewer`）。**仰角可以用、些微裙底可以接受，但絕對不能露點**（2026-10-29 使用者修正；NEGATIVE 排除 nsfw / nude / nipples 等）。**要有角色個性，不要只有微笑**：從萌娘百科的「萌點」「性格」挑幾個元素放進表情、動作、道具（例如幻月：天然呆歪頭、姊姊的得意、鬼畜狂笑），三個等級分配不同的面向。魔理沙要加 `standing, holding broom` 負面提示不然會拿著掃帚；魅魔是幽靈尾巴但模型常畫出腳；玄爺照使用者給的官方形象（陸龜、白鬍子白眉、白毛尾巴，不是海龜、不要翅膀）；里香（PC-98 角色、二創造型不統一）用自訂的工程師造型：棕短髮、護目鏡、白襯衫、綠吊帶褲、手套，使用者已接受；兩個角色同框時（玄爺 R 載著靈夢）外觀標籤會互相染色（靈夢變白髮），要在負面提示排除。雙人卡（雪與舞）兩人特徵也會互相染色（雪的黑衣變白、翅膀長錯人、甚至合成一人）；`make_workflow.py` 用 `DUO` / `DUO_GIRLS`（不排除 multiple girls）處理，品質不穩時可改用分層合成（兩人各自生成去背再合成）。使用者不滿意時會給參考圖或說明，照著改 prompt 重生。小瑕疵（例如魔理沙 UR 掃帚柄沒對齊、幻月 SSR 少一隻腳）可以用 PIL 剪貼 + ComfyUI 局部重繪 (VAEEncodeForInpaint，遮罩只蓋問題區域、一次出 4 版讓使用者挑) 修，修好的檔名 `fix_<角色>_<階級>_*.png`。
-  - **PhotoCraft 修圖（2026-10-30 筆電已安裝，使用者指定用官方版）**：storytold/photocraft（免費開源、Rust 寫的 Photoshop 類修圖軟體，Apache-2.0），內建 MCP 伺服器 `photocraft-cli mcp`，有圖層、遮罩、調整（曲線、色階…）等幾百個指令（`command_list` 查、`command_run` / `command_batch` 執行；batch 失敗不會回滾，先 `image.duplicate` 在副本上改）。
-    - 安裝：GitHub Releases 下載 `photocraft-<版本>-windows-x64.msi`（對 `SHA256SUMS.txt` 驗證）→ 預設裝在 `%LOCALAPPDATA%\Programs\ArtCraft\PhotoCraft\`，CLI 是同資料夾的 `photocraft-cli.exe`（不在 PATH）。
-    - 登記：這台沒有 `claude` 指令，改用專案根目錄的 `.mcp.json`（含本機路徑，已加入 `.gitignore`，**每台電腦自己建**）：command = CLI 的完整路徑，args = `mcp --automation-read-root <專案>\images\Original --automation-write-root %USERPROFILE%\Documents\photocraft_out`。只能讀步驟圖資料夾、只能寫到獨立的輸出資料夾，修好的圖由 Claude 複製回步驟資料夾再重跑後續步驟。加好後要開新對話（第一次會詢問是否允許專案的 MCP 伺服器）。
-    - **對話開始後才加的 MCP 不會載入成工具**：用 `tools/card_art/layered/photocraft.py` 的 `PC` 類別直接跟 `photocraft-cli mcp` 走 stdio JSON-RPC，效果一樣（讀 `.mcp.json` 的設定與權限）。範例：`pc_shinki_LR_tips.py`（神綺 LR 羽尖壓暗，產出步驟 `10c_char_photocraft.png`，疊層優先用 10c）。好用的指令：`select.colorRange`（**滴管 points 沒生效、會退回前景黑色，要直接給 color / colors 色碼**）、`select.lasso` (mode subtract)、`select.loadSelection` (channel transparency, operation intersect，保護外側半透明光暈)、`select.modify.feather`、`image.adjustments.curves` / `hueSaturation`；預覽選取範圍用 `image.adjustments.invert` + `render_preview`（低飽和顏色用色相偏移看不出來）。`doc_export` 會保留 alpha。
-    - 分工：局部手修（接縫、調亮調暗、調色、光暈）用 PhotoCraft；AI 補畫（翅膀、腳）還是用 ComfyUI；整批、要重複的（去背、放大、疊層、打光、動畫）用程式。
-  - **ComfyUI 環境（筆電與桌機都已安裝）**：
-    - **桌機（2026-10-28 安裝，RTX 3060 Ti 8GB）**：新版 comfy-cli（1.23）會在 `ComfyUI\.venv` 自建虛擬環境並把 PyTorch（cu130）裝在那裡，`~/Documents/comfy/venv` 只有 comfy-cli。啟動要用 `& '~\Documents\comfy\ComfyUI\.venv\Scripts\python.exe' '~\Documents\comfy\ComfyUI\main.py' --listen 127.0.0.1 --port 8188`。
-    - 桌機的 comfy MCP 尚未設定（改 `~/.claude.json` 被自動權限擋下）；改用 REST API 也能生圖：把 `make_workflow.py` 的輸出包成 `{"prompt": 工作流程}` POST 到 `http://127.0.0.1:8188/prompt`，用 `GET /queue` 等佇列清空。
-    - 桌機的 Ollama（gemma4:26b）與 Wallpaper Engine 會佔顯示記憶體，SDXL 只能動態搬權重，一個工作要 3～4 分鐘；大量生圖前請使用者先 `ollama stop gemma4:26b`（不要自己關使用者的程式）。
-    - 以下是筆電的安裝方式：
-    - 獨立虛擬環境 `~/Documents/comfy/venv`（Python 3.11、PyTorch CUDA 版），裡面 `pip install comfy-cli`，`comfy --workspace ~/Documents/comfy/ComfyUI install` 安裝 ComfyUI（筆電是 v0.43.0，含 ComfyUI-Manager）。
-    - 模型：`models/checkpoints/animagine-xl-4.0-opt.safetensors`（約 6.9GB，Hugging Face cagliostrolab/animagine-xl-4.0）；放大模型 `models/upscale_models/4x-UltraSharp.pth`（約 67MB，Hugging Face Kim2091/UltraSharp，只有重新放大卡框時需要）。
-    - 啟動：`& '<venv>\Scripts\python.exe' '<ComfyUI>\main.py' --listen 127.0.0.1 --port 8188`（用終端機分頁跑，約 1～3 分鐘）。
-    - Claude 的 MCP：全域 Python `pip install comfy-mcp`，在 `~/.claude.json` 的 `mcpServers` 加 `comfyui`：command = 全域的 `comfy-mcp.exe`，env `COMFY_BIN` = venv 裡的 `comfy.exe`（`claude mcp add` 指令在這台不能用，直接改 json，改之前先備份）。
-    - ComfyUI 輸出在 `~/Documents/comfy/ComfyUI/output/touhou_card/`（`candidates.py` 預設讀這裡，路徑不同時設環境變數 `COMFY_OUTPUT`）。
-    - 筆電 RTX 4060 Laptop 8GB：896×1064 一次 2 張約 40 秒；8 個工作一次排進佇列沒問題。
 - **通知工具 `Utils/components.py`**：
   - `send_notice(interaction, text, color=None, footer=None, ephemeral=True)`：自動判斷用 `response` 或 `followup` 送出，預設 ephemeral。
   - `notice_container()` / `notice_view()`：需要自行加按鈕或嵌進其他畫面時使用。
@@ -168,104 +87,13 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - V2 畫面清單：`/card gacha`、`/card inventory`、`/card synthesis`、`/card fusion`、道具背包 `/inventory`（分類 + 分頁 + 跳頁 Modal）、`/character` 圖鑑（分類→角色→檔案頁）、`/profile`（含今日簽到狀態、運勢、簽到按鈕）、`/daily`、`/admin-item edit_item` 編輯控制台、`/admin-sys reload` 重載控制台、`/admin-gacha` 各畫面、Logger 重大事件通知，以及所有錯誤 / 成功提示。
 - **autocomplete 最多 25 個選項**：選項可能變多的地方一律「先選代數 (pool) → 再選角色」，選卡改用分頁選單畫面（每頁 20 張），不要直接用 autocomplete 列出卡牌。
 - 原本的 `/fortune` 已併入 `/profile`，已不存在。
+- 卡面相關（縮圖網址帶 `?v=`、卡框、分層合成、生圖流程）全部在 `docs/card-art.md`。
 
-## 5. 各 Cog 重點
-- **gacha.py**（指令群組 `/card`）：
-  - **卡池分代數**：`GACHA_POOLS` = `classic`（📜 舊作卡池：Main + TH01～TH05，15 位）、`th06`（🔴 紅魔鄉卡池，9 位），每個卡池列出包含的 `Characters/` 資料夾。`GACHA_POOL = load_gacha_pool()` 在載入模組時從 `Characters/` 讀取 `gacha.enabled` 的角色（每筆含 `pool`），改角色檔後要 `/admin-sys reload` 抽卡模組。`card_pool_key(card)` 取卡牌所屬卡池，角色不在卡池時為 `"other"`。
-  - 每個角色有三個階級 `rarities`（例如 `["SR","SSR","UR"]`）與各階級稱號 `titles`。
-  - 祈願 `/card gacha pool pull_type`：每抽 `DRAW_COST = 5000` 賽錢（十連 50,000 沒有折扣，2026-11-05 使用者指定）；稀有度權重 `RARITY_WEIGHTS = [75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；擲卡在 `roll_pool_cards()`，寫入走 `draw_gacha`（單一交易）。結果畫面顯示卡池名稱與保底進度，可繼續單抽/十連（沿用同卡池）/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。
-  - **保底**：每個卡池各自計數，連續 `PITY_THRESHOLD = 100` 抽沒有 UR 以上（`PITY_RESET_RARITIES = {UR, LR}`）時，第 100 抽強制換成卡池中有 UR 的角色的 UR；觸發的卡帶 `"pity": True`（只用於顯示「🎯 保底」）。十連會逐抽計算。
-  - **`/card history`**：各卡池累計抽數、保底 `since_ur / 100` 與進度條、上次 UR 時間，加上總祈願與融合次數。
-  - **卡冊 `/card inventory`**（`InventoryView`）：疊卡列表（同角色同階級一疊，每頁 `STACKS_PER_PAGE = 7`）→ 單一疊（依完整度高到低，每頁 `STACK_CARDS_PER_PAGE = 8`）→ 單卡詳情；卡池篩選（含「其他」）、階級篩選、排序按鈕循環切換 `INVENTORY_SORTS`（階級 / 完整度 / 最新 / 數量）。
-  - **合成 `/card synthesis pool character`**：兩張不同的、同角色、同階級、完整度都未滿 1.0000 的卡 → 一張新卡。
-    - `pool` / `character` autocomplete 只列出有可合成組合（`find_synthesis_groups`）的代數與角色；送出後開 `SynthesisPickerView`：步驟 1 選第一張 → 步驟 2 只列可配對的卡（皆可分頁）→ `make_synthesis_view()` 重新讀資料庫後交給 `CardActionConfirmView`。
-    - 公式 `calc_synthesis` / `roll_synthesis`：新完整度 = 較高那張 + 增幅；相對差距 `d = |a-b| / 較高那張`。
-    - 增幅上限依**較低那張**的位數（`SYNTHESIS_CAPS`）：0.x → 0.2、0.0x → 0.05、0.00x → 0.01、0.000x → 0.005；增幅 = 上限 × (1 − d)，至少 0.0001，新完整度不超過 1.0000。
-    - 加倍：機率 = 階級機率 × (1 − d)²（`SYNTHESIS_DOUBLE_CHANCE`：N 99%、R 50%、SR 30%、SSR 15%、UR 10%、LR 5%；完整度一模一樣時 d = 0 即原始機率）；加倍時增幅 ×2，可超過上限。
-    - 確認畫面同時顯示一般結果、加倍結果與加倍機率，按「確認合成」才擲骰並消耗卡牌。
-  - **融合 `/card fusion pool character rarity`**：三張同角色、同階級、完整度 1.0000 的卡 → 該角色的下一個階級（稱號換成新階級的）；已是最高階不能融合。
-    - 三個 autocomplete 都只列出符合條件的（`find_fusion_groups`：持有 3 張以上 1.0000 且還能升階）；系統自動取最早獲得的三張（滿完整度的卡除了 ID 都一樣）。角色 `gacha.enabled` 為 false 時不在 `GACHA_POOL`，也就不能融合。
-    - 新卡完整度與祈願相同（`generate_completeness`），`total_fusions + 1`。
-  - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
-- **經濟系統（v0.23.000，2026-11-05 使用者指定的數值，見 `TODO.md` 第 5 節）**：`Database/Economy_DB_Manager.py`
-  - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +800～1500 隨機 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**v0.27.000 起招待開放**（見下面「神社廚房」）。
-  - **神社廚房（v0.27.000，使用者 2026-11-05 指定）**：神社畫面同一則訊息切換 `main / serve_pick / serve / explore / cook / shop`；指令 `/shrine explore`、`/shrine cook`、`/shrine shop` 直接打開對應畫面。
-    - 採集：`explore(user, 地點, times)`，每趟 `EXPLORE_STAMINA = 20` 體力、3～5 個素材（`roll_explore`），`SPECIAL_CHANCE = 5%` 事件好壞各半（effect：add / lose / half / empty）；連續 5 次時體力不夠就做到用完。
-    - 料理：`cook(user, 料理, times)`，一鍋 `COOK_YIELD = 2` 份。雜貨店 `shop_buy`：只賣人里 5 種素材（`SHOP_PRICES` 600～900，一定比做成料理的收入低）。素材不能上市場。
-    - 點餐：客人生成時就決定（`make_order`：1～3 個不同種類，每類一道；活動期間每道 `order_event_chance` 機率是活動料理）。招待 `serve_guest(user, guest_id, extra)`：點的每道扣 1 份（要齊），額外招待可再選 1 份任意料理；報酬 `calc_serve_reward` = 份數 × `SERVING_REWARD = 2000` × 心情² × 1.2^(活動料理份數) × 1.5（額外那份 == 客人 favorite），加成都乘在過完心情之後；招待完客人離開。
-    - 客人資料 `shrine_data.GUESTS`（10 種 + 活動客人）：emoji、favorite、hint（灰字提示）、lines（high ≥70 / mid 40～60 / low ≤30，`{order}` 換成料理名）。頭像 `images/Thumbnails.json` 的 `guest_<種類>`（`tools/card_art/guest_workflow.py` 生成 ➔ `images/Original/Guests/<種類>.png` ➔ `build_guests.py`）。**生成客人頭像要照原作「種族」設定（Touhou Wiki 種族圖鑑，用內建瀏覽器讀，自動抓取會被擋），並在 `AVOID` 排除同種族知名角色的招牌特徵**（使用者 2026-11-05 指定，選 B：一般種族、外觀照原作，不畫成特定角色）。
-    - 舊資料相容：`sanitize_guests` 把中文名稱的 kind 換成 key、補 id / 點餐、已結束活動的客人離開、點了不存在料理的重新點餐。
-  - **活動系統（v0.27.000）**：`Events/<id>.json`（`auto_start`、`duration_days`、`order_event_chance`、`event_dish_bonus`、`location`、`items`、`recipes`、`guests`）；狀態存 `economy_meta` 的 `event:<id>`（沒有紀錄 + auto_start = 進行中；過了 `ends_at` 在下次讀取時自動結束）。結束時 `_clear_event_items` 清空所有玩家的活動道具（effect 帶 `event`）。`/event` 查看、`/admin-event start [days] / end`（結束有確認畫面）。目前只有 🔴 紅霧異變（TH06，測試中沒有結束時間）。
-    - **預留位（v0.29.000，使用者指定「一般池 + 活動預留位」）**：`game_rules` 把每個機制做成一般池 + 活動池：點餐池 `order_pool`、客人池 `guest_pool`（`event_guest_chance`）、一般客人的活動版 `guest_overrides`（台詞池 / 最愛）、採集地點 / `extra_drops` / 採集事件池 `explore_events` / `special_chance`、雜貨店 `shop`、數值倍率 `modifiers`（神社收入、妖怪賽錢、招待報酬、採集體力，預設 1）。完整表格在 `Events/README.md`。讀規則一律用 `rules[...]` 與 `econ.modifier()` / `econ.explore_cost()`，**不要直接讀 `shrine_data.SHOP_PRICES` / `EXPLORE_STAMINA`**。
-  - 道具：`Item_DB_Manager.managed_items()` 把 `shrine_data` 的素材 / 新料理與活動檔的道具在開機時 `INSERT OR IGNORE` 進 Item.db（分類 `material` 🧺 素材）。
-  - **市值**：`market_prices`（完整度 0.5 的價格，起始 = 官方價 `OFFICIAL_PRICES`，永遠不低於官方價）、`price_history`、`daily_draws`（`draw_gacha` 寫入全服每日抽數）、`daily_sales`（市場成交 + 分解）、`economy_meta.last_settled_day`。`settle_prices(probabilities)` 在每個 `/market` 指令開頭補結算到昨天（台灣時間；第一次只記錄起點）：期望 = 當天該卡池抽數 × 抽中機率（至少 1），持平 = 期望 × 50%；賣出比持平少時從 +2%（沒人賣）線性降到 0%，比持平多時往下跌、3 倍時 −10%（v0.24.000 改成連續曲線：一天最多漲 2%、最多跌 10%）。抽中機率由 `market.card_probabilities()` 依 `GACHA_POOL` 與 `RARITY_WEIGHTS` 算（不含保底）。
-  - **完整度倍率** `completeness_multiplier`：0.5 以上 `1 + 0.2·((c−0.5)/0.5)²`、以下 `0.2 + 0.8·(c/0.5)²`；卡價值 = 市值 × 倍率（分解拿這個數）。
-  - **市場**（`Cogs/load-market/market.py`，`/market price / decompose / sell / browse / mine`）：上架時卡從 `gacha_cards` 移到 `market_listings` 託管（所以不能合成 / 融合 / 分解），不限價格，買家付 `ceil(售價 × 1.05)`、賣家拿售價，7 天沒賣出 `expire_listings` 退回；買賣、下架都在單一交易。
-  - **轉帳 `/trade target amount`**（`Cogs/load-general/trade.py`）：手續費 `ceil(5%)` 從金額扣，每人每天（台灣時間）最多轉出 500K，紀錄在 `market_trades(kind='transfer')`。
-  - **開通交易**：`users.daily_count`（`claim_daily` 每次成功 +1）≥ 7 才能用市場與轉帳（雙方都要），分解不限；欄位第一次補上時現有玩家直接填 7（`USERS_BACKFILL`，使用者指定）。
-  - 抽卡單抽 5000、十連 50000。
-  - **私人 / 公開（v0.24.000 使用者指定）**：`/shrine`、`/market` 全部 ephemeral；上架成功另外用 followup 在頻道發公開公告；`/trade` 確認與結果 ephemeral，收款人收到私訊（`send_transfer_dm`，私訊失敗不影響轉帳）。
-  - **Discord 有時會把 autocomplete 的顯示名稱整串當成參數值送來**（日誌看到 `character: '🧸 愛麗絲 (alice) · 5 張'`）：`market.resolve_pool` / `resolve_character` 會從名稱反查 key，新的指令也要這樣處理。
-  - 管理員：`/admin-shrine view / set / reset`、`/admin-market set_price / reset_price`、`/admin-trade test_dm`。
-- **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。簽到成功會多送 `DAILY_REWARD_ITEM`（顯示在獎勵那行）。資料卡顯示「📅 累積簽到 N / 7 天」（滿 7 天顯示已開通市場與轉帳）。本人的資料卡底部有「⚡ 恢復體力」按鈕 ➔ `StaminaItemView`：列出背包裡有 `effect.stamina` 的道具 ➔ 選擇後顯示說明與「使用後體力」➔ 「🍽️ 使用 1 個」（連點保護）➔ 可繼續使用或「🔙 返回資料卡」。
-- **神社倉庫 `/shrine storage`（shrine.py 的 `InventoryView`，畫面在 general_components）**：玩家道具背包已改名為「⛩️ 神社倉庫」，v0.26.000 從 `/inventory` 搬到 `/shrine storage`（ephemeral，程式內部仍叫 inventory）；道具旁顯示效果標籤 `item_effect_tag`；每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
-- **help.py（v0.28.000）**：`/help` 依分類介紹指令（總覽 + 選單切分類頁，ephemeral）。指令說明與參數從 `bot.tree` 即時讀，管理員指令（`admin-` 開頭）不列；分類、玩法說明在 `help_components.CATEGORIES`，**新增頂層指令要記得分類**，沒分到的會出現在「📌 其他」。
-- **leaderboard.py**：`/leaderboard category`（賽錢、💎 資產總值 = 賽錢 + 卡牌市值（`econ.get_card_values`，含上架中的卡）、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
-- **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定（目前 2 位：`403895664666214400`、`414789026189672449`），一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
-  - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）
-  - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`manage [target]`、`give_items`
-    - `manage`（取代舊的 `give_item` 與 `/admin-user take_item`）：`ItemManageView` 分類選單（全部 / 各分類 / 🎒 只看對方持有的）+ 每頁 10 個的堆疊列表（顯示對方持有數）→ 選道具 → `ItemAmountModal` 輸入數量：正數給予、負數扣除、0 或非整數擋下；寫入用 `adjust_item`（扣完小於 0 拒絕、剛好 0 移除），完成後重新讀取並在畫面上方顯示結果。
-  - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；v0.25.000 起：單一模組會一起重載它資料夾的 `Components/`；「🔁 全部重載」先重載 `Database/`、`Utils/`、全部 Components（保留 `DB_PATH`）再重載全部 Cog、載入新檔案、卸載已不存在的模組。**改了 Database / Utils 一定要用全部重載**，單獨重載會讓沒重載的 Cog 拿到新舊混用的類別（例如 `InsufficientFunds` 接不到）、`sync`、`shutdown`
-  - `/admin-gacha`（`Cogs/load-gacha/Admin-gacha.py`）：`view target`（用 `InventoryView` 檢視對方卡冊）、`give target pool character rarity [amount 1~20] [completeness]`（不算抽卡次數）、`remove target pool character`、`set_completeness target pool character value`、`clear target`（確認畫面）。
-    - `remove` / `set_completeness` 共用 `CardPickerView`：每頁 20 張、可多選 → 確認 → 執行後重新讀取並回到列表。
-    - 每個指令開頭用 `_deny()` 檢查管理員（不要用 Cog 層級的 `interaction_check`，失敗會被 Logger 當成指令錯誤通報）。
-    - 用 `gacha_mod()`（`importlib.import_module`）在呼叫時取得抽卡模組，`/admin-sys reload` 抽卡模組後會拿到新的卡池。
-- **character.py**：`/character` 每次執行都用 `load_categories()` 重新讀 `Characters/`（改角色檔不必重開）；角色頁顯示稱號、種族、能力、基礎數值、卡牌階級與稱號、SP 三個等級，色條依最高階級上色；「卡牌階級」每個等級旁邊放該等級的卡面縮圖（2026-10-31 使用者指定）。
-- **Logger.py**：記錄指令/元件互動到 `Logger/Logs/`，重大事件（開機、斷線、重連、指令錯誤）用 `send_alert_log()` 以 V2 送到 `LOG_CHANNEL_ID`，時間用 Discord 時間戳記 `<t:…:F>`。
+## 4. 細節文件
+資料庫設計 ➔ `docs/database.md`；各 Cog 重點 ➔ `docs/cogs.md`；驗證方式 ➔ `docs/testing.md`；重構歷程 ➔ `docs/history.md`。
+- 最近一次測試：見 `docs/testing.md` 最後幾行（`python tests/run_all.py`）。
 
-## 6. 重構歷程（時間順序）
-1. 抽卡結果與卡冊改 V2、縮圖用 `images/Thumbnails.json`（沒有就用 `fill`）。起初誤解成「把 embed 合併」，後來澄清是要 10 張相連的畫面，最終採用 Components V2。
-2. 背包 `/inventory` 改 V2 並優化（分類排序、分頁、道具說明）。
-3. `images/` 移到專案根目錄，修正所有 `Thumbnails.json` 路徑。
-4. `/character` 圖鑑改 V2（`characters.json` 格式為 main_character/characters 結構）。
-5. 合併 `/profile`、`/daily`、`/fortune`（保留重複簽到提示）。
-6. 資料庫與檔案結構重整（提交 7b1bdf6）：`database.db`、`daily.db`、gacha `users/*.json` 全部併入 `Database/Users.db`；道具資料移到 `Database/Item.db`；gacha `character.json` → `Gacha_Pool.json`。一次性遷移腳本 `migrate_legacy.py` 已執行完畢並刪除，舊檔也已移除。
-7. 新增卡牌合成 / 融合（提交 cbf85f1）。
-8. 所有通知改用 Components V2、`Embeds` 改名 `Components`、新增 `Utils/components.py`（同一個提交 cbf85f1）。
-9. 新增 `Characters/` 一角色一檔（24 位卡池角色），`/character` 圖鑑與抽卡卡池都改讀這裡；卡池分代數（舊作 / 紅魔鄉）。
-10. 合成公式改為依位數動態決定上限、加倍改為依階級的機率；SP 改為 I/II/III 等級結構並加入 `spent`（B 點）。
-11. 卡冊改成疊卡列表 + 卡池 / 階級篩選 + 排序；新增 `/admin-gacha`；合成、融合、管理員選卡都改成「代數 → 角色 → 分頁選卡」避開 25 個選項上限。新增 `README.md`。
-12. 刪除已不再讀取的舊資料 `Cogs/load-gacha/Gacha_Pool.json`、`Cogs/load-character/characters.json`（舊圖鑑的 en_name / debut / location / theme_song / color / spell_cards 只存在 git 歷史中，需要時可從提交 d8fb060 以前取回）。`images/Original/` 是縮圖的高解析度原圖，保留。根目錄 `JSON.json` 是使用者的格式範本，不要動。
-13. 管理員 ID 移到 `.env`（`Utils/config.py`）、新增 `requirements.txt`；祈願改為單一交易並加入每卡池 100 抽 UR 保底與 `/card history`；卡冊加上收集進度與合成 / 融合捷徑（只有卡冊主人看得到）；圖鑑顯示自己的收藏；新增體力系統與 `/leaderboard`；測試放進 `tests/`。
-14. 新增 `tools/botcli.py`：不連 Discord 就能假裝打指令、點按鈕與選單、送出 Modal 來測試機器人（沙盒資料庫 `.botcli/`）。
-15. 新增實機工具：`botcli --live` 把畫面真的送到測試頻道讓 Discord 驗證、`tools/discord_peek.py` 讀頻道看實機結果（測試頻道沿用 log 頻道）。
-16. 道具改版：Item.db 加上 `effect` 欄位；刪除全部 83 個舊 demo 道具與所有玩家背包（備份在 `Database/backups/`），換成 4 個體力道具；簽到送 🍙；資料卡新增「⚡ 恢復體力」；`add_item` 改為原子操作；新增第二位管理員。
-17. `/admin-item give_item` 與 `/admin-user take_item` 合併成 `/admin-item manage`（分類 + 分頁 + 堆疊列表 → Modal 輸入數量，正數給予、負數扣除，不能扣到小於 0）。
-18. 卡面：ComfyUI 生成角色圖、套上綠幕去背的空白卡框、寫稱號 / 名字 / 等級圖（`tools/card_art/`）；縮圖改成依「角色＋階級」顯示。之後一位一位補角色卡面（進度見第 4 節「卡面」）。
-19. 經濟系統 v0.23.000（2026-11-05）：背包改名神社倉庫、抽卡改價、神社經營、浮動市值、分解、市場、轉帳；新增 `CHANGELOG.md` 與版本號（之後的歷程以 CHANGELOG 為準）。
-
-## 7. 驗證方式
-- 本機已安裝 discord.py 2.7.1 與 aiosqlite，可以直接跑機器人與測試。
-- 測試做法：把 `udm.DB_PATH` / `idm.DB_PATH` 指到暫存資料夾（道具資料庫用副本），用真實 discord.py 物件 + 假的 Interaction（response / followup / namespace）呼叫指令的 `callback` 與 autocomplete，並斷言回覆都是 `LayoutView`（沒有 content / embed）。**測試絕不碰真實的 Users.db / Item.db**（前後比對 sha256）。
-- **測試在 repo 的 `tests/`**：`python tests/run_all.py` 會逐一以子行程執行 `tests/test_*.py`、彙整結果，並在前後比對 `Database/*.db` 的 sha256（機器人同時在跑時可能誤報，跑測試前先關掉機器人）。
-  - 🖥️ **給桌機端的 Claude**：pull 之後先跑一次 `python tests/run_all.py` 確認環境正常；改完功能要跑、也要在對應的 `tests/test_*.py` 補測試。新增測試檔沿用現有檔案的寫法（開頭把 `udm.DB_PATH` 指到 `tempfile.mkdtemp()`、最後印出 `passed N, failed M`），`run_all.py` 會自動找到它。
-- **用 `tools/botcli.py` 實際操作機器人（改完功能後優先用它檢查畫面與流程）**：
-  - 載入全部 Cog（不登入 Discord、不載入 Logger），用假的 Interaction 執行斜線指令，把 V2 畫面印成文字（按鈕編號 `b1`、選單編號 `s1`、元件數 / 40）。
-  - 資料庫一律用沙盒 `.botcli/`（第一次從 `Database/` **唯讀**複製，已加進 `.gitignore`），資料會保留到下次；`--reset` 重新複製、`--fresh` 從空白開始、`--sandbox 路徑` 指定資料夾。
-  - 畫面只存在於同一次執行中：指令和之後的點擊要寫在同一次執行的步驟裡，例如：
-    `python tools/botcli.py "/card gacha pool:th06 pull_type:10" "click 繼續十連" "/card inventory" "select 卡池 th06"`
-  - 步驟：`/指令 參數:值`（成員參數用 `me`、`@名稱` 或 ID；`@名稱` 會產生固定的假玩家）、`? /指令 參數 [已填:值] [current:文字]`（看 autocomplete）、`click b2|按鈕文字`、`select s1|選單文字 值…`、`modal 標籤:值`、`as me|@名稱`、`msg 編號`、`show`、`users`、`sql SELECT…`、`commands`、`help`。
-  - 會自動抓的問題：回覆帶 content / embed、同一互動回應兩次、指令或元件沒有回應、元件超過 40 個、autocomplete 超過 25 個或選項超過 100 字、Discord 會擋下的參數（choices、Range）、程式例外（印出 traceback）。有任何錯誤時結束碼為 1。
-  - 在 Git Bash 執行時 `/card` 可能被改寫成路徑，CLI 會自動還原；也可以省略開頭的 `/`（`card gacha …`）。
-  - `tree.sync` 會被略過；頭像不會下載（主色退回預設紅色）。
-  - 步驟還有 `wait 秒數`、`say 文字`（示範用）。
-- **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
-  - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
-  - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：16 個測試檔全數通過，共 587 項（活動預留位 57、help 25、神社廚房 55、主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
-- 已知待改進與之後的計畫（卡面重做、未做的角色、TH07 之後的角色、經濟系統：探索 / 分解 / 浮動市值 / 市場 / 交易）統一記在根目錄 `TODO.md`。
-
-## 8. 使用者的決定與工作習慣
+## 5. 使用者的決定與工作習慣
 - **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。
   - Claude Code 的自動權限檢查可能會擋下「提交 / 推送 Users.db」，此時請使用者自己執行 git 指令，不要繞過。
 - 直接推到 `main`（個人專案，不開 PR）。
@@ -275,7 +103,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **完成並測試通過後直接 commit + push 到 `main`，不用先問**（2026-10-28 使用者指示）。只有重大事件才先問，例如要開分支、改寫 git 歷史、刪除大量資料等。`Database/Users.db`、`Item.db` 有變動時也一起推。
 - **卡面：一個角色（或一張卡）定案後才 commit + push**（2026-10-30 使用者指示，避免 git 歷史塞滿試作圖）。試作、調參數、使用者還在挑圖或要求調整時都只留在本機；使用者說「定案」「推送」或明確表示這版 OK 才推。程式碼改動也跟著那次定案一起推。
 
-## 9. 給 Claude Code 的工作守則
+## 6. 給 Claude Code 的工作守則
 - 動資料前先備份；遷移類工作**不得刪除或改動舊檔**。
 - 修改後保持 LF 換行；沿用既有的程式風格與繁體中文註解/文案（emoji 標題風格）。
 - 新增畫面或通知一律用 V2（優先用 `Utils/components.py`），注意 40 個元件上限，縮圖走 `Thumbnails.json`（角色_階級 → 角色 → `fill` 後備）。
@@ -283,3 +111,4 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - 使用者可能繞過 autocomplete 直接輸入值，指令內一定要再驗證一次。
 - 新 Cog 檔放進 `Cogs/load-*/`，不要留下舊的同名/過期檔案。
 - 不要在回覆中貼大量 URL；完成後簡述結果與下一步即可。
+- **文件樹**：CLAUDE.md 只放每次都要知道的事；細節寫進 `docs/` 對應的檔案，新主題就開新檔並加進上面的文件樹表格。

@@ -20,7 +20,9 @@ def _bar(value: float, maximum: float, width: int = 10) -> str:
 DIRT_NAMES = ["✨ 一塵不染", "🍃 有點落葉", "🍂 落葉滿地", "🕸️ 蜘蛛網", "🏚️ 荒廢"]
 MOOD_EMOJI = [(80, "😊"), (50, "🙂"), (20, "😐"), (0, "😠")]
 LOCATION_NAMES = {k: f"{v['emoji']} {v['name']}" for k, v in shrine_data.LOCATIONS.items()}
-MODIFIER_NAMES = {"shrine_income": "神社收入", "youkai_reward": "打退妖怪的賽錢", "serve_reward": "招待報酬", "explore_stamina": "採集體力消耗"}
+MODIFIER_NAMES = {"shrine_income": "神社收入", "youkai_reward": "打退妖怪的賽錢", "serve_reward": "招待報酬", "explore_stamina": "採集體力消耗",
+                  "youkai_spawn": "妖怪出現機率", "guest_spawn": "參拜客來訪機率", "daily_money": "簽到賽錢",
+                  "daily_exp": "簽到經驗", "decompose": "分解拿到的賽錢"}
 
 
 def _mood_emoji(mood: int) -> str:
@@ -237,6 +239,13 @@ def build_event_container(overview: list[dict], items: dict, recipes: dict) -> u
             extra.append("🍀 一般採集地點有活動限定的事件")
         if ev.get("shop"):
             extra.append("🏪 雜貨店活動商品：" + "、".join(f"{item_label(items, m)} `{p:,}`" for m, p in ev["shop"].items()))
+        gacha = ev.get("gacha", {})
+        if gacha.get("rate_up"):
+            extra.append("🎴 祈願機率提升：" + "、".join(f"{k} ×{v:g}" for k, v in gacha["rate_up"].items()))
+        if gacha.get("rarity_weights"):
+            extra.append("🎴 祈願階級機率調整：" + " / ".join(str(w) for w in gacha["rarity_weights"]))
+        if ev.get("daily_items"):
+            extra.append("📅 簽到額外送：" + "、".join(f"{item_label(items, i)} ×{n}" for i, n in ev["daily_items"]))
         if ev.get("guest_overrides"):
             extra.append("🙏 有些一般客人在活動期間口味或台詞不一樣")
         mods = {k: v for k, v in ev.get("modifiers", {}).items() if v != 1 and k in MODIFIER_NAMES}

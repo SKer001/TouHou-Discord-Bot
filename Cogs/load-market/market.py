@@ -137,10 +137,11 @@ class OwnerView(ui.LayoutView):
 # ♻️ 分解：分頁多選 ➔ 確認 ➔ 結果
 # =========================================================
 class DecomposeView(OwnerView):
-    def __init__(self, user_id: int, cards: list[dict], prices: dict):
+    def __init__(self, user_id: int, cards: list[dict], prices: dict, mult: float = 1.0):
         super().__init__(user_id)
         self.cards = sorted(cards, key=lambda c: (c["rarity"], -c["completeness"]))
-        self.values = {c["instance_id"]: econ.card_value(econ.price_of(prices, c["character_key"], c["rarity"]), c["completeness"]) for c in cards}
+        self.values = {c["instance_id"]: econ.card_value(econ.price_of(prices, c["character_key"], c["rarity"]), c["completeness"], mult)
+                       for c in cards}
         self.selected: set[str] = set()
         self.page, self.mode, self.result = 1, "pick", None
         self.build()
@@ -481,7 +482,8 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
         if cards is None:
             return
         await prepare_market()
-        await interaction.response.send_message(view=DecomposeView(interaction.user.id, cards, await econ.get_market_prices()), ephemeral=True)
+        await interaction.response.send_message(view=DecomposeView(interaction.user.id, cards, await econ.get_market_prices(),
+                                                                  econ.modifier(await econ.get_rules(), "decompose")), ephemeral=True)
 
     @app_commands.command(name="sell", description="🏷️ 把卡上架到市場 (不限價格，7 天沒賣出自動下架)")
     @app_commands.describe(pool="卡池 (代數)", character="角色", price="售價 (賣出後全額入帳；買家另付 5%)")

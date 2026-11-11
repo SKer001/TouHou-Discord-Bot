@@ -5,6 +5,7 @@ import discord
 from discord import app_commands, ui
 from discord.ext import commands
 
+from Database import Economy_DB_Manager as econ
 from Database.User_DB_Manager import (
     get_or_create_user, update_visibility, add_money, add_exp,
     get_daily_status as db_get_daily_status, claim_daily, calc_stamina,
@@ -66,21 +67,23 @@ async def perform_daily(user_id: int) -> dict | None:
     if not await claim_daily(user_id, today_str(), fortune_level):
         return None
 
+    rules = await econ.get_rules()   # 活動預留位：daily_money / daily_exp 倍率、daily_items 額外道具
     min_m, max_m = MONEY_RANGES.get(fortune_level, (300, 500))
-    money_gained = random.randint(min_m, max_m)
-    exp_gained = random.randint(100, 200)
+    money_gained = int(round(random.randint(min_m, max_m) * econ.modifier(rules, "daily_money")))
+    exp_gained = int(round(random.randint(100, 200) * econ.modifier(rules, "daily_exp")))
 
     # 呼叫主資料庫統一寫入，確保全域資料同步
     new_money = await add_money(user_id, money_gained)
     exp_result = await add_exp(user_id, exp_gained)
 
     # 🍙 簽到固定贈送的道具 (道具不存在於 Item.db 時就不送)
-    item_id, amount = DAILY_REWARD_ITEM
-    item_info = await get_item(item_id)
-    item_reward = None
-    if item_info:
-        await add_item(user_id, item_id, amount)
-        item_reward = {"item_id": item_id, "name": item_info["name"], "emoji": item_info["emoji"], "amount": amount}
+    items = []
+    for item_id, amount in [list(DAILY_REWARD_ITEM)] + rules.get("daily_items", []):
+        item_info = await get_item(item_id)
+        if item_info and amount > 0:
+            await add_item(user_id, item_id, amount)
+            items.append({"item_id": item_id, "name": item_info["name"], "emoji": item_info["emoji"], "amount": amount})
+    item_reward = items[0] if items else None
 
     return {
         "fortune_level": fortune_level,
@@ -89,6 +92,7 @@ async def perform_daily(user_id: int) -> dict | None:
         "new_money": new_money,
         "exp_result": exp_result,
         "item": item_reward,
+        "items": items,
     }
 
 

@@ -162,6 +162,7 @@ def advance_shrine(state: dict, now: datetime, rng=random, rules: dict | None = 
     """
     rules = rules or game_rules([])
     income_mult = modifier(rules, "shrine_income")
+    youkai_mult, guest_mult = modifier(rules, "youkai_spawn"), modifier(rules, "guest_spawn")
     st = dict(state)
     st["guests"] = list(state["guests"])
     anchor = _dt(st["created_at"])
@@ -186,10 +187,10 @@ def advance_shrine(state: dict, now: datetime, rng=random, rules: dict | None = 
         if t >= next_event:
             st["tick"] += 1
             st["guests"] = [g for g in st["guests"] if guest_mood(g, t) > 0]
-            if st["youkai"] < YOUKAI_MAX and rng.random() < YOUKAI_SPAWN[st["youkai"]]:
+            if st["youkai"] < YOUKAI_MAX and rng.random() < min(1.0, YOUKAI_SPAWN[st["youkai"]] * youkai_mult):
                 st["youkai"] += 1
             if st["tick"] % GUEST_EVERY_HOURS == 0 and len(st["guests"]) < GUEST_MAX \
-                    and rng.random() < GUEST_SPAWN[len(st["guests"])]:
+                    and rng.random() < min(1.0, GUEST_SPAWN[len(st["guests"])] * guest_mult):
                 st["guests"].append(new_guest(rules, t, rng))
 
     st["guests"] = [g for g in st["guests"] if guest_mood(g, now) > 0]
@@ -687,9 +688,9 @@ def completeness_multiplier(completeness: float) -> float:
     return 0.2 + 0.8 * (c / 0.5) ** 2
 
 
-def card_value(price: float, completeness: float) -> int:
-    """單張卡的價值 = 市值 × 完整度倍率 (分解拿到的錢)"""
-    return max(1, int(round(price * completeness_multiplier(completeness))))
+def card_value(price: float, completeness: float, mult: float = 1.0) -> int:
+    """單張卡的價值 = 市值 × 完整度倍率 (分解拿到的錢)；mult = 活動的分解倍率 (modifiers.decompose)"""
+    return max(1, int(round(price * completeness_multiplier(completeness) * mult)))
 
 
 def price_change(sold: int, expected: float) -> float:
@@ -881,9 +882,10 @@ async def decompose_cards(user_id: int, instance_ids: list[str], now: datetime |
             if len(cards) != len(instance_ids):
                 raise ValueError("部分卡牌已不在你的卡冊中")
             prices = await _prices(db)
+            mult = modifier(game_rules(await _active_events(db, now)), "decompose")
             total = 0
             for card in cards:
-                card["value"] = card_value(_price_of(prices, card["character_key"], card["rarity"]), card["completeness"])
+                card["value"] = card_value(_price_of(prices, card["character_key"], card["rarity"]), card["completeness"], mult)
                 total += card["value"]
                 await _log_sale(db, card["character_key"], card["rarity"], day)
                 await _log_trade(db, "decompose", card["value"], day, now, seller=user_id, card=card)

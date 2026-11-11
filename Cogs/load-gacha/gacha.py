@@ -8,6 +8,7 @@ import random
 import uuid
 from datetime import datetime
 
+from Database import Economy_DB_Manager as econ
 from Database.User_DB_Manager import (
     get_user_cards, transform_cards, draw_gacha, get_gacha_pity, get_gacha_stats, InsufficientFunds,
 )
@@ -96,20 +97,25 @@ PITY_RARITY = "UR"
 PITY_RESET_RARITIES = {"UR", "LR"}   # 抽到這些階級就重置保底計數
 
 
-def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness) -> tuple[list, int, bool]:
+def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness, rules: dict | None = None) -> tuple[list, int, bool]:
     """
     依保底計數擲出 count 張卡：(cards, 新的 since_ur, 是否出了 UR 以上)
     觸發保底的卡會帶 "pity": True (只用於顯示，不寫入資料庫)
+    rules = 活動規則 (econ.get_rules)：gacha_rate_up {角色: 權重倍率}、gacha_rarity_weights 取代 RARITY_WEIGHTS
     """
+    rules = rules or {}
+    rate_up = rules.get("gacha_rate_up") or {}
+    rarity_weights = rules.get("gacha_rarity_weights") or RARITY_WEIGHTS
     char_keys = [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
+    char_weights = [rate_up.get(k, 1.0) for k in char_keys]
     pity_keys = [k for k in char_keys if PITY_RARITY in GACHA_POOL[k]["rarities"]]
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cards, got_ur = [], False
 
     for _ in range(count):
         since_ur += 1
-        char_key = random.choice(char_keys)
-        rarity = random.choices(GACHA_POOL[char_key]["rarities"], weights=RARITY_WEIGHTS, k=1)[0]
+        char_key = random.choice(char_keys) if not rate_up else random.choices(char_keys, weights=char_weights, k=1)[0]
+        rarity = random.choices(GACHA_POOL[char_key]["rarities"], weights=rarity_weights, k=1)[0]
         pity = False
         if rarity not in PITY_RESET_RARITIES and since_ur >= PITY_THRESHOLD and pity_keys:
             char_key, rarity, pity = random.choice(pity_keys), PITY_RARITY, True
@@ -823,11 +829,12 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         user_id = interaction.user.id
         total_cost = draw_count * DRAW_COST
 
-        # 扣款、擲卡 (含保底)、寫入卡牌與統計全部在同一個交易
+        # 扣款、擲卡 (含保底)、寫入卡牌與統計全部在同一個交易；活動的機率提升在 rules
+        rules = await econ.get_rules()
         try:
             result = await draw_gacha(
                 user_id, pool_key, draw_count, total_cost,
-                lambda since_ur: roll_pool_cards(pool_key, draw_count, since_ur, self.generate_completeness),
+                lambda since_ur: roll_pool_cards(pool_key, draw_count, since_ur, self.generate_completeness, rules),
             )
         except InsufficientFunds as e:
             msg = f"❌ **賽錢不足！**\n祈願需要 `{total_cost:,}` 賽錢，但你的口袋裡只有 `{e.money:,}` 賽錢...\n*靈夢看了看空蕩蕩的賽錢箱，無奈地把你請出了神社。*"

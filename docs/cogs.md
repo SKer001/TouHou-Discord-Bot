@@ -1,0 +1,56 @@
+# 🧩 各 Cog 重點 (指令、規則、數值)
+
+> 從 `CLAUDE.md` 拆出來的細節文件 (2026-11-11)。要做這方面的工作時才讀；改了內容記得一起更新。
+
+- **gacha.py**（指令群組 `/card`）：
+  - **卡池分代數**：`GACHA_POOLS` = `classic`（📜 舊作卡池：Main + TH01～TH05，15 位）、`th06`（🔴 紅魔鄉卡池，9 位），每個卡池列出包含的 `Characters/` 資料夾。`GACHA_POOL = load_gacha_pool()` 在載入模組時從 `Characters/` 讀取 `gacha.enabled` 的角色（每筆含 `pool`），改角色檔後要 `/admin-sys reload` 抽卡模組。`card_pool_key(card)` 取卡牌所屬卡池，角色不在卡池時為 `"other"`。
+  - 每個角色有三個階級 `rarities`（例如 `["SR","SSR","UR"]`）與各階級稱號 `titles`。
+  - 祈願 `/card gacha pool pull_type`：每抽 `DRAW_COST = 5000` 賽錢（十連 50,000 沒有折扣，2026-11-05 使用者指定）；稀有度權重 `RARITY_WEIGHTS = [75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；擲卡在 `roll_pool_cards()`，寫入走 `draw_gacha`（單一交易）。結果畫面顯示卡池名稱與保底進度，可繼續單抽/十連（沿用同卡池）/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。
+  - **保底**：每個卡池各自計數，連續 `PITY_THRESHOLD = 100` 抽沒有 UR 以上（`PITY_RESET_RARITIES = {UR, LR}`）時，第 100 抽強制換成卡池中有 UR 的角色的 UR；觸發的卡帶 `"pity": True`（只用於顯示「🎯 保底」）。十連會逐抽計算。
+  - **`/card history`**：各卡池累計抽數、保底 `since_ur / 100` 與進度條、上次 UR 時間，加上總祈願與融合次數。
+  - **卡冊 `/card inventory`**（`InventoryView`）：疊卡列表（同角色同階級一疊，每頁 `STACKS_PER_PAGE = 7`）→ 單一疊（依完整度高到低，每頁 `STACK_CARDS_PER_PAGE = 8`）→ 單卡詳情；卡池篩選（含「其他」）、階級篩選、排序按鈕循環切換 `INVENTORY_SORTS`（階級 / 完整度 / 最新 / 數量）。
+  - **合成 `/card synthesis pool character`**：兩張不同的、同角色、同階級、完整度都未滿 1.0000 的卡 → 一張新卡。
+    - `pool` / `character` autocomplete 只列出有可合成組合（`find_synthesis_groups`）的代數與角色；送出後開 `SynthesisPickerView`：步驟 1 選第一張 → 步驟 2 只列可配對的卡（皆可分頁）→ `make_synthesis_view()` 重新讀資料庫後交給 `CardActionConfirmView`。
+    - 公式 `calc_synthesis` / `roll_synthesis`：新完整度 = 較高那張 + 增幅；相對差距 `d = |a-b| / 較高那張`。
+    - 增幅上限依**較低那張**的位數（`SYNTHESIS_CAPS`）：0.x → 0.2、0.0x → 0.05、0.00x → 0.01、0.000x → 0.005；增幅 = 上限 × (1 − d)，至少 0.0001，新完整度不超過 1.0000。
+    - 加倍：機率 = 階級機率 × (1 − d)²（`SYNTHESIS_DOUBLE_CHANCE`：N 99%、R 50%、SR 30%、SSR 15%、UR 10%、LR 5%；完整度一模一樣時 d = 0 即原始機率）；加倍時增幅 ×2，可超過上限。
+    - 確認畫面同時顯示一般結果、加倍結果與加倍機率，按「確認合成」才擲骰並消耗卡牌。
+  - **融合 `/card fusion pool character rarity`**：三張同角色、同階級、完整度 1.0000 的卡 → 該角色的下一個階級（稱號換成新階級的）；已是最高階不能融合。
+    - 三個 autocomplete 都只列出符合條件的（`find_fusion_groups`：持有 3 張以上 1.0000 且還能升階）；系統自動取最早獲得的三張（滿完整度的卡除了 ID 都一樣）。角色 `gacha.enabled` 為 false 時不在 `GACHA_POOL`，也就不能融合。
+    - 新卡完整度與祈願相同（`generate_completeness`），`total_fusions + 1`。
+  - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
+- **經濟系統（v0.23.000，2026-11-05 使用者指定的數值，見 `TODO.md` 第 5 節）**：`Database/Economy_DB_Manager.py`
+  - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +800～1500 隨機 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**v0.27.000 起招待開放**（見下面「神社廚房」）。
+  - **神社廚房（v0.27.000，使用者 2026-11-05 指定）**：神社畫面同一則訊息切換 `main / serve_pick / serve / explore / cook / shop`；指令 `/shrine explore`、`/shrine cook`、`/shrine shop` 直接打開對應畫面。
+    - 採集：`explore(user, 地點, times)`，每趟 `EXPLORE_STAMINA = 20` 體力、3～5 個素材（`roll_explore`），`SPECIAL_CHANCE = 5%` 事件好壞各半（effect：add / lose / half / empty）；連續 5 次時體力不夠就做到用完。
+    - 料理：`cook(user, 料理, times)`，一鍋 `COOK_YIELD = 2` 份。雜貨店 `shop_buy`：只賣人里 5 種素材（`SHOP_PRICES` 600～900，一定比做成料理的收入低）。素材不能上市場。
+    - 點餐：客人生成時就決定（`make_order`：1～3 個不同種類，每類一道；活動期間每道 `order_event_chance` 機率是活動料理）。招待 `serve_guest(user, guest_id, extra)`：點的每道扣 1 份（要齊），額外招待可再選 1 份任意料理；報酬 `calc_serve_reward` = 份數 × `SERVING_REWARD = 2000` × 心情² × 1.2^(活動料理份數) × 1.5（額外那份 == 客人 favorite），加成都乘在過完心情之後；招待完客人離開。
+    - 客人資料 `shrine_data.GUESTS`（10 種 + 活動客人）：emoji、favorite、hint（灰字提示）、lines（high ≥70 / mid 40～60 / low ≤30，`{order}` 換成料理名）。頭像 `images/Thumbnails.json` 的 `guest_<種類>`（`tools/card_art/guest_workflow.py` 生成 ➔ `images/Original/Guests/<種類>.png` ➔ `build_guests.py`）。**生成客人頭像要照原作「種族」設定（Touhou Wiki 種族圖鑑，用內建瀏覽器讀，自動抓取會被擋），並在 `AVOID` 排除同種族知名角色的招牌特徵**（使用者 2026-11-05 指定，選 B：一般種族、外觀照原作，不畫成特定角色）。
+    - 舊資料相容：`sanitize_guests` 把中文名稱的 kind 換成 key、補 id / 點餐、已結束活動的客人離開、點了不存在料理的重新點餐。
+  - **活動系統（v0.27.000）**：`Events/<id>.json`（`auto_start`、`duration_days`、`order_event_chance`、`event_dish_bonus`、`location`、`items`、`recipes`、`guests`）；狀態存 `economy_meta` 的 `event:<id>`（沒有紀錄 + auto_start = 進行中；過了 `ends_at` 在下次讀取時自動結束）。結束時 `_clear_event_items` 清空所有玩家的活動道具（effect 帶 `event`）。`/event` 查看、`/admin-event start [days] / end`（結束有確認畫面）。目前只有 🔴 紅霧異變（TH06，測試中沒有結束時間）。
+    - **預留位（v0.29.000，使用者指定「一般池 + 活動預留位」）**：`game_rules` 把每個機制做成一般池 + 活動池：點餐池 `order_pool`、客人池 `guest_pool`（`event_guest_chance`）、一般客人的活動版 `guest_overrides`（台詞池 / 最愛）、採集地點 / `extra_drops` / 採集事件池 `explore_events` / `special_chance`、雜貨店 `shop`、數值倍率 `modifiers`（神社收入、妖怪賽錢、招待報酬、採集體力，預設 1）。v0.29.001 再加上：抽卡 `gacha.rate_up` / `gacha.rarity_weights`（`roll_pool_cards(..., rules)`）、簽到 `daily_items` 與 `daily_money` / `daily_exp` 倍率（`profile.perform_daily`）、分解倍率 `decompose`（`card_value(..., mult)`）、妖怪 / 參拜客生成機率倍率 `youkai_spawn` / `guest_spawn`（上限 100%）。完整表格在 `Events/README.md`。讀規則一律用 `rules[...]` 與 `econ.modifier()` / `econ.explore_cost()`，**不要直接讀 `shrine_data.SHOP_PRICES` / `EXPLORE_STAMINA`**。
+  - 道具：`Item_DB_Manager.managed_items()` 把 `shrine_data` 的素材 / 新料理與活動檔的道具在開機時 `INSERT OR IGNORE` 進 Item.db（分類 `material` 🧺 素材）。
+  - **市值**：`market_prices`（完整度 0.5 的價格，起始 = 官方價 `OFFICIAL_PRICES`，永遠不低於官方價）、`price_history`、`daily_draws`（`draw_gacha` 寫入全服每日抽數）、`daily_sales`（市場成交 + 分解）、`economy_meta.last_settled_day`。`settle_prices(probabilities)` 在每個 `/market` 指令開頭補結算到昨天（台灣時間；第一次只記錄起點）：期望 = 當天該卡池抽數 × 抽中機率（至少 1），持平 = 期望 × 50%；賣出比持平少時從 +2%（沒人賣）線性降到 0%，比持平多時往下跌、3 倍時 −10%（v0.24.000 改成連續曲線：一天最多漲 2%、最多跌 10%）。抽中機率由 `market.card_probabilities()` 依 `GACHA_POOL` 與 `RARITY_WEIGHTS` 算（不含保底）。
+  - **完整度倍率** `completeness_multiplier`：0.5 以上 `1 + 0.2·((c−0.5)/0.5)²`、以下 `0.2 + 0.8·(c/0.5)²`；卡價值 = 市值 × 倍率（分解拿這個數）。
+  - **市場**（`Cogs/load-market/market.py`，`/market price / decompose / sell / browse / mine`）：上架時卡從 `gacha_cards` 移到 `market_listings` 託管（所以不能合成 / 融合 / 分解），不限價格，買家付 `ceil(售價 × 1.05)`、賣家拿售價，7 天沒賣出 `expire_listings` 退回；買賣、下架都在單一交易。
+  - **轉帳 `/trade target amount`**（`Cogs/load-general/trade.py`）：手續費 `ceil(5%)` 從金額扣，每人每天（台灣時間）最多轉出 500K，紀錄在 `market_trades(kind='transfer')`。
+  - **開通交易**：`users.daily_count`（`claim_daily` 每次成功 +1）≥ 7 才能用市場與轉帳（雙方都要），分解不限；欄位第一次補上時現有玩家直接填 7（`USERS_BACKFILL`，使用者指定）。
+  - 抽卡單抽 5000、十連 50000。
+  - **私人 / 公開（v0.24.000 使用者指定）**：`/shrine`、`/market` 全部 ephemeral；上架成功另外用 followup 在頻道發公開公告；`/trade` 確認與結果 ephemeral，收款人收到私訊（`send_transfer_dm`，私訊失敗不影響轉帳）。
+  - **Discord 有時會把 autocomplete 的顯示名稱整串當成參數值送來**（日誌看到 `character: '🧸 愛麗絲 (alice) · 5 張'`）：`market.resolve_pool` / `resolve_character` 會從名稱反查 key，新的指令也要這樣處理。
+  - 管理員：`/admin-shrine view / set / reset`、`/admin-market set_price / reset_price`、`/admin-trade test_dm`。
+- **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。簽到成功會多送 `DAILY_REWARD_ITEM`（顯示在獎勵那行）。資料卡顯示「📅 累積簽到 N / 7 天」（滿 7 天顯示已開通市場與轉帳）。本人的資料卡底部有「⚡ 恢復體力」按鈕 ➔ `StaminaItemView`：列出背包裡有 `effect.stamina` 的道具 ➔ 選擇後顯示說明與「使用後體力」➔ 「🍽️ 使用 1 個」（連點保護）➔ 可繼續使用或「🔙 返回資料卡」。
+- **神社倉庫 `/shrine storage`（shrine.py 的 `InventoryView`，畫面在 general_components）**：玩家道具背包已改名為「⛩️ 神社倉庫」，v0.26.000 從 `/inventory` 搬到 `/shrine storage`（ephemeral，程式內部仍叫 inventory）；道具旁顯示效果標籤 `item_effect_tag`；每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
+- **help.py（v0.28.000）**：`/help` 依分類介紹指令（總覽 + 選單切分類頁，ephemeral）。指令說明與參數從 `bot.tree` 即時讀，管理員指令（`admin-` 開頭）不列；分類、玩法說明在 `help_components.CATEGORIES`，**新增頂層指令要記得分類**，沒分到的會出現在「📌 其他」。
+- **leaderboard.py**：`/leaderboard category`（賽錢、💎 資產總值 = 賽錢 + 卡牌市值（`econ.get_card_values`，含上架中的卡）、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
+- **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定（目前 2 位：`403895664666214400`、`414789026189672449`），一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
+  - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）
+  - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`manage [target]`、`give_items`
+    - `manage`（取代舊的 `give_item` 與 `/admin-user take_item`）：`ItemManageView` 分類選單（全部 / 各分類 / 🎒 只看對方持有的）+ 每頁 10 個的堆疊列表（顯示對方持有數）→ 選道具 → `ItemAmountModal` 輸入數量：正數給予、負數扣除、0 或非整數擋下；寫入用 `adjust_item`（扣完小於 0 拒絕、剛好 0 移除），完成後重新讀取並在畫面上方顯示結果。
+  - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；v0.25.000 起：單一模組會一起重載它資料夾的 `Components/`；「🔁 全部重載」先重載 `Database/`、`Utils/`、全部 Components（保留 `DB_PATH`）再重載全部 Cog、載入新檔案、卸載已不存在的模組。**改了 Database / Utils 一定要用全部重載**，單獨重載會讓沒重載的 Cog 拿到新舊混用的類別（例如 `InsufficientFunds` 接不到）、`sync`、`shutdown`
+  - `/admin-gacha`（`Cogs/load-gacha/Admin-gacha.py`）：`view target`（用 `InventoryView` 檢視對方卡冊）、`give target pool character rarity [amount 1~20] [completeness]`（不算抽卡次數）、`remove target pool character`、`set_completeness target pool character value`、`clear target`（確認畫面）。
+    - `remove` / `set_completeness` 共用 `CardPickerView`：每頁 20 張、可多選 → 確認 → 執行後重新讀取並回到列表。
+    - 每個指令開頭用 `_deny()` 檢查管理員（不要用 Cog 層級的 `interaction_check`，失敗會被 Logger 當成指令錯誤通報）。
+    - 用 `gacha_mod()`（`importlib.import_module`）在呼叫時取得抽卡模組，`/admin-sys reload` 抽卡模組後會拿到新的卡池。
+- **character.py**：`/character` 每次執行都用 `load_categories()` 重新讀 `Characters/`（改角色檔不必重開）；角色頁顯示稱號、種族、能力、基礎數值、卡牌階級與稱號、SP 三個等級，色條依最高階級上色；「卡牌階級」每個等級旁邊放該等級的卡面縮圖（2026-10-31 使用者指定）。
+- **Logger.py**：記錄指令/元件互動到 `Logger/Logs/`，重大事件（開機、斷線、重連、指令錯誤）用 `send_alert_log()` 以 V2 送到 `LOG_CHANNEL_ID`，時間用 Discord 時間戳記 `<t:…:F>`。

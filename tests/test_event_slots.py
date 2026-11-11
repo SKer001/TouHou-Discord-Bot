@@ -58,7 +58,7 @@ check("explore events pool", len(r["locations"]["village"]["good"]) == 2 and len
 check("override favorite", r["guests"]["kappa"]["favorite"] == "evt_x" and sd.GUESTS["kappa"]["favorite"] != "evt_x")
 check("override lines added", len(r["guests"]["kappa"]["lines"]["high"]) == 2 and len(r["guests"]["kappa"]["lines"]["mid"]) == 1)
 check("shop event item", r["shop"]["evt_frog"] == 1234 and r["shop"]["mat_rice"] == sd.SHOP_PRICES["mat_rice"])
-check("mods", r["modifiers"] == {"shrine_income": 1.5, "youkai_reward": 2, "serve_reward": 1.1, "explore_stamina": 0.5})
+check("mods", {k: v for k, v in r["modifiers"].items() if v != 1} == {"shrine_income": 1.5, "youkai_reward": 2, "serve_reward": 1.1, "explore_stamina": 0.5})
 check("explore cost halved", econ.explore_cost(r) == 10)
 check("special max", r["special_chance"] == 0.2)
 check("two events multiply", game_rules([fake, fake])["modifiers"]["youkai_reward"] == 4)
@@ -105,6 +105,36 @@ check("line stable", pick_line(g, "high", "abc") == pick_line(g, "high", "abc"))
 check("line pool both used", {pick_line(g, "high", s) for s in "abcdefgh"} == set(g["lines"]["high"]))
 check("line fallback", pick_line({"lines": {}}, "high") == "{order}")
 check("line old str", pick_line(sd.GUESTS["kappa"], "mid") == sd.GUESTS["kappa"]["lines"]["mid"])
+
+# 生成機率倍率：0 = 不會來、很大 = 一定來 (上限 100%)
+spawn0 = game_rules([{"id": "z", "modifiers": {"youkai_spawn": 0, "guest_spawn": 0}}])
+spawn9 = game_rules([{"id": "z", "modifiers": {"youkai_spawn": 99, "guest_spawn": 99}}])
+mid = Rng(last=0.5)
+a0 = econ.advance_shrine(st, T0 + timedelta(hours=4), mid, spawn0)
+a9 = econ.advance_shrine(st, T0 + timedelta(hours=4), Rng(last=0.999), spawn9)
+check(f"spawn 0 {a0['youkai']} {len(a0['guests'])}", a0["youkai"] == 0 and not a0["guests"])
+check(f"spawn max {a9['youkai']} {len(a9['guests'])}", a9["youkai"] == 4 and len(a9["guests"]) == 2)
+
+# 分解倍率
+check("decompose mult", econ.card_value(1000, 0.5, 1.5) == 1500 and econ.card_value(1000, 0.5) == 1000)
+
+# 抽卡：機率提升 / 階級權重
+import importlib, random as _r
+gacha = importlib.import_module("Cogs.load-gacha.gacha")
+keys = [k for k, v in gacha.GACHA_POOL.items() if v["pool"] == "th06"]
+target = keys[0]
+_r.seed(1)
+cards, _, _ = gacha.roll_pool_cards("th06", 200, 0, lambda: 0.5, {"gacha_rate_up": {target: 1000}})
+check("rate up", sum(c["character_key"] == target for c in cards) > 180)
+_r.seed(2)
+cards, _, _ = gacha.roll_pool_cards("th06", 50, 0, lambda: 0.5, {"gacha_rarity_weights": [0, 0, 1]})
+check("rarity weights", all(c["rarity"] == gacha.GACHA_POOL[c["character_key"]]["rarities"][-1] for c in cards))
+_r.seed(3)
+cards, _, _ = gacha.roll_pool_cards("th06", 50, 0, lambda: 0.5)
+check("no rules ok", len(cards) == 50)
+g2 = game_rules([{"id": "a", "gacha": {"rate_up": {target: 2}}}, {"id": "b", "gacha": {"rate_up": {target: 3}}, "daily_items": [["reimu_onigiri", 2]]}])
+check("rate up multiply", g2["gacha_rate_up"][target] == 6 and g2["gacha_rarity_weights"] is None)
+check("daily items", g2["daily_items"] == [["reimu_onigiri", 2]])
 
 print(f"passed {ok}, failed {fail}")
 sys.exit(1 if fail else 0)

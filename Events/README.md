@@ -26,11 +26,18 @@
 | 🎯 抽到活動客人的機率 | 沒設 = 全部客人平均抽 | `event_guest_chance` | 設了就先依機率決定抽活動池還是一般池 |
 | 💬 一般客人的活動版 | `shrine_data.GUESTS` | `guest_overrides {客人: {favorite, hint, name, emoji, lines: {high/mid/low: [台詞]}}}` | `lines` 加進台詞池，其他欄位取代 |
 | 🏪 雜貨店 | 人里 5 種素材 | `shop {素材: 價格}` | 加進去 (同名取代價格) |
-| 📈 數值倍率 | 全部 ×1 | `modifiers {shrine_income, youkai_reward, serve_reward, explore_stamina}` | 乘上去 (多個活動相乘) |
+| 📈 數值倍率 | 全部 ×1 | `modifiers {...}` (見下面) | 乘上去 (多個活動相乘) |
+| 🎴 祈願機率提升 | 卡池角色平均抽 | `gacha.rate_up {角色: 倍率}` | 抽到該角色的權重 ×倍率 (多個活動相乘) |
+| 🎴 祈願階級機率 | `RARITY_WEIGHTS` [75, 22, 3] | `gacha.rarity_weights [低, 中, 高]` | 取代 (後面的活動蓋前面)；保底不受影響 |
+| 📅 簽到額外道具 | 🍙 飯糰 ×1 | `daily_items [[道具, 數量]]` | 加送 |
 
-- `modifiers`：`shrine_income` 神社每小時收入、`youkai_reward` 打退妖怪的賽錢、`serve_reward` 招待報酬 (乘在全部加成之後)、`explore_stamina` 每趟採集的體力消耗。
+- `modifiers`：
+  - 神社：`shrine_income` 每小時收入、`youkai_spawn` 妖怪出現機率、`guest_spawn` 參拜客來訪機率 (機率最多 100%)、`youkai_reward` 打退妖怪的賽錢
+  - 廚房：`serve_reward` 招待報酬 (乘在全部加成之後)、`explore_stamina` 每趟採集的體力消耗
+  - 簽到：`daily_money` 賽錢、`daily_exp` 經驗
+  - 卡牌：`decompose` 分解拿到的賽錢 (不影響市值)
 - 台詞池用客人 ID 挑一句，同一位客人每次打開畫面都是同一句。
 - 素材 / 料理要在 `items` 定義才會在活動結束時被清掉；`extra_drops` / `shop` 放一般素材也可以，但不會被清除。
 
 ## 還沒有預留位的系統
-抽卡卡池與機率、每日簽到獎勵、市場 / 分解、妖怪與參拜客的生成機率 —— 需要時再加。
+活動限定卡池 (要在 `/card gacha` 多一個卡池選項)、祈願價格 (選項上的價格是寫死的)、市場 / 轉帳手續費 —— 需要時再加。
