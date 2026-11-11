@@ -22,8 +22,8 @@
 
 | 分類 | 角色 | 階級 | 狀態 |
 |---|---|---|---|
-| Main | 靈夢 reimu | SR / SSR / UR | UR 已是分層 (背景要用新的 auto_dim 重新 compose)；SR、SSR 重生 |
-| Main | 魔理沙 marisa | SR / SSR / UR | UR 已是分層 (同上)；SR、SSR 重生 |
+| Main | 靈夢 reimu | SR / SSR / UR | UR ✅ (2026-11-11 彈幕 3 原點、背景壓暗)；SR、SSR 重生 |
+| Main | 魔理沙 marisa | SR / SSR / UR | UR ✅；SR、SSR 重生 |
 | TH01 | 魅魔 mima | SR / SSR / UR | 全部重生 (幽靈尾巴，模型常畫出腳) |
 | TH02 | 玄爺 genji | N / R / SR | 全部重生 (陸龜、白鬍子) |
 | TH02 | 里香 rika | N / R / SR | 全部重生 |
@@ -37,7 +37,7 @@
 | TH05 | 神綺 shinki | SSR / UR / LR | LR 已是分層 (同上)；SSR、UR 重生 (UR 構圖要跟 LR 拉開) |
 | TH05 | 雪與舞 yuki_mai | N / R / SR | 全部重生 (雙人：兩人各自生成去背再合成) |
 | TH05 | 夢子 yumeko | R / SR / SSR | 全部重生 |
-| TH06 | 琪露諾 cirno | SR / SSR / UR | UR 已是分層 (dim 0.8 ➔ 0.7，重新 compose)；SR、SSR 重生 |
+| TH06 | 琪露諾 cirno | SR / SSR / UR | UR ✅ (dim 0.55)；SR、SSR 重生 |
 | TH06 | 大妖精 daiyousei | N / R / SR | ✅ 0.30.002 完成 (人物直接帶翅膀) |
 | TH06 | 芙蘭朵露 flandre | SSR / UR / LR | **下一位**，新卡，水晶翅膀 ➔ 翅膀分層 |
 | TH06 | 小惡魔 koakuma | N / R / SR | 新卡 |

@@ -1,4 +1,4 @@
-"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用)
+"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用；starbow 是紅色大玉環 + 七彩水晶米粒彈 + 七彩菱形水晶彈雨，芙蘭「星弓破碎」用)
 draw_danmaku(size, seed, style) 回傳 (glow 光暈 RGB, core 清楚彈體 RGBA)；
 座標以 1344 寬的畫窗為基準，依 size 等比放大，所以可以直接畫在 4 倍高清的畫布上。"""
 import colorsys
@@ -8,11 +8,19 @@ import random
 from PIL import Image, ImageDraw, ImageFilter
 
 BASE_W = 1344
+# 同心環發射中心 (寬高比例)：每種數量都上下、左右錯開，螺旋彈中心在 (0.6, 0.4)
+ORIGIN_SETS = {
+    1: [(0.4, 0.62)],
+    2: [(0.24, 0.24), (0.76, 0.74)],
+    3: [(0.22, 0.2), (0.8, 0.5), (0.25, 0.8)],
+    4: [(0.62, 0.36), (0.25, 0.2), (0.82, 0.78), (0.2, 0.72)],
+}
 
 
-def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
+def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins=4):
     """scale：彈幕大小的倍率 (預設 = 寬 / 1344)；畫滿整張卡時傳畫窗的倍率，彈幕大小才會跟畫窗版一樣
-    density：彈幕留下的比例 (0~1)；隨機略過，排列的圖樣不變"""
+    density：彈幕留下的比例 (0~1)；隨機略過，排列的圖樣不變
+    origins：同心環的發射中心數 (最多 4；加上螺旋彈的中心 = 總共 origins + 1 個原點)"""
     W, H = size
     s = scale or W / BASE_W                            # 放大倍率 (所有尺寸、距離都乘上)
     rnd = random.Random(seed)
@@ -99,11 +107,24 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
             dot = (200, 30, 40, 255) if side == 1 else (250, 250, 250, 255)
             cd.ellipse((cx2 - r / 7, cy2 - r / 7, cx2 + r / 7, cy2 + r / 7), fill=dot)
 
+    STARBOW = [(255, 60, 70), (255, 150, 40), (255, 230, 60), (90, 230, 110), (70, 210, 255), (90, 110, 255), (200, 90, 255)]   # 芙蘭翅膀的七色水晶
+
+    def shard(x, y, L, ang, color):
+        """菱形水晶彈：細長菱形，沿行進方向"""
+        if keep.random() > density:
+            return
+        ca, sa = math.cos(ang), math.sin(ang)
+        def dia(k):
+            return [(x + px * ca - py * sa, y + px * sa + py * ca) for px, py in ((L * k, 0), (0, L * 0.32 * k), (-L * k, 0), (0, -L * 0.32 * k))]
+        gd.polygon(dia(1.8), fill=color)
+        cd.polygon(dia(1.0), fill=color + (255,), outline=(255, 255, 255, 255), width=max(1, int(s)))
+        cd.polygon(dia(0.4), fill=(255, 255, 255, 255))
+
     def inside(x, y):
         return -40 * s < x < W + 40 * s and -40 * s < y < H + 40 * s
 
-    # 幾個發射中心的同心環光球
-    for cx, cy in [(W * 0.62, H * 0.36), (W * 0.25, H * 0.2), (W * 0.82, H * 0.78), (W * 0.2, H * 0.72)]:
+    # 幾個發射中心的同心環光球：依數量挑上下平均分布的位置 (不要只取前幾個，否則全擠在上半部)
+    for cx, cy in [(W * fx, H * fy) for fx, fy in ORIGIN_SETS[min(max(1, origins), 4)]]:
         base_h = rnd.random()
         for ring in range(4 + rnd.randint(0, 2)):
             n = 18 + ring * 6
@@ -118,6 +139,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
                         star(x, y, r * 1.7, a, hue(base_h + k / n))
                     elif style == "seal":  # 靈夢：夢想封印的七彩大光球
                         orb(x, y, r * 1.6, hue(base_h + k / n, 0.7))
+                    elif style == "starbow":   # 芙蘭：紅色大玉環 (每隔幾顆夾一顆七彩)
+                        orb(x, y, r * 1.2, STARBOW[k % 7] if k % 3 == 0 else (230, 25, 45))
                     else:
                         orb(x, y, r, hue(base_h + k / n))
     # 螺旋米粒彈
@@ -132,11 +155,16 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0):
                     star(x, y, 15 * s, a, hue(arm / 7 + t / 90, 0.7))
                 elif style == "seal":   # 靈夢：紅白符札
                     ofuda(x, y, a + 0.35, 22 * s, (215, 35, 45))
+                elif style == "starbow":   # 芙蘭：一條手臂一種水晶色
+                    rice(x, y, a + 0.35, 17 * s, STARBOW[arm])
                 else:
                     rice(x, y, a + 0.35, 17 * s, hue(arm / 7 + t / 90, 0.7))
     if style == "seal":
         for _ in range(60):
             yinyang(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 16) * s, rnd.random() * math.tau)
+    if style == "starbow":   # 星弓破碎：七彩菱形水晶彈從上往下斜落
+        for _ in range(170):
+            shard(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(18, 30) * s, math.pi / 2 + rnd.uniform(-0.35, 0.35), rnd.choice(STARBOW))
     if style == "freeze":
         for _ in range(140):
             crystal(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(10, 26) * s, rnd.random() * 6, (215, 240, 255))

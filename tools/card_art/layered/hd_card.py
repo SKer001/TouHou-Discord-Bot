@@ -152,7 +152,7 @@ LAYERS = {
                  "frost particles around hands, slightly from below"),
         "style": "freeze",
         "density": 0.75,   # 使用者：UR 也要大量彈幕，比 LR 少一點
-        "dim": 0.7,        # 夜景本來就暗，比 auto_dim 亮一點 (2026-11-11 使用者：彈幕多要再暗一點，0.8 ➔ 0.7)
+        "dim": 0.55,       # 夜景本來就暗，比 auto_dim 亮一點 (2026-11-11 使用者兩次要求再暗：0.8 ➔ 0.7 ➔ 0.55)
         "glow": 0.3,
         "char_scale": 0.6, # 人物 (不含翅膀) 的大小；加上翅膀後整體比例偏小 (跟 LR 一樣，彈幕當主角)
         # 人物不畫翅膀 (06h：使用者選的 1 號用手描身體輪廓把翅膀塗白)；背光 + 冰藍色眼睛，座標是 10_char.png 上的位置
@@ -244,6 +244,84 @@ LAYERS = {
                       "emissive": [{"mask": "alpha", "color": (190, 255, 200), "strength": 0.6, "body": 0.95, "prism": 0.45}]},
         },
     },
+    # 芙蘭朵露 SSR / UR / LR (TH06，2026-11-11 候選)：金色側馬尾、紅眼、白色暴民帽 + 紅緞帶、紅背心裙 + 白襯衫、黃色領巾；
+    # 翅膀 (枯枝 + 七彩水晶) 模型畫不好 ➔ 照琪露諾 UR 做翅膀層：人物不畫翅膀，水晶 W1 單獨生成、三個階級共用；錨點等人物定案再量 (先填估計值)
+    # 另外有 inline_wings 版 (人物直接帶翅膀) 的候選給使用者比較
+    ("flandre", "SSR"): {
+        # SSR「惡魔的妹」：紅魔館地下室的玩具房，燭光溫暖明亮；抱著布偶歪頭笑，天真又有一點危險 (布偶線頭鬆脫)
+        "bg": ("no humans, scenery, basement room of a gothic western mansion, toy room, red carpet, scattered toys, stuffed animals, "
+               "teddy bears, dolls on shelves, building blocks, candles, candlelight, chandelier, red velvet curtains, red and dark wood, "
+               "warm light, bright, cozy, gothic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, dark, horror, blood",
+        "base": ("1girl, flandre scarlet, touhou, blonde hair, one side up, side ponytail, red eyes, mob cap, white headwear, hat ribbon, red ribbon, "
+                 "red vest, red skirt, frilled skirt, white shirt, puffy short sleeves, yellow ascot, wrist cuffs, white socks, red shoes"),
+        "char": ("standing, hugging stuffed animal, holding teddy bear, head tilt, innocent smile, open mouth, fang, playful, "
+                 "one leg raised behind, looking at viewer, hair ribbon fluttering, skirt fluttering"),
+        "char_negative": "(wings:1.5), (crystal wings:1.5), (crystals:1.3), demon wings, bat wings, weapon, staff, wand, blue hair, remilia scarlet",
+        "inline_wings_tags": ("crystal wings, wings, black branch-like wings, colorful crystals hanging from wings, "
+                         "rainbow crystals, multicolored crystals"),   # 只有 inline 候選用 (inline_wings 預設不開)
+        "char_scale": 0.9,
+        "wings": {   # 錨點是 06 基本圖背部 (兩肩之間) 的估計值，人物定案後再量
+            "crystals": {"A": "W1_crystal_A.png"},
+            "anchor": (468, 420),
+            "items": [],   # 枯枝 + 七顆水晶的排法等水晶素材定案再寫
+            "light": {"dark": 0.0, "rim": 0.3, "halo": 0.3,
+                      "emissive": [{"mask": "alpha", "color": (255, 255, 255), "strength": 0.5, "body": 0.9, "prism": 0.6}]},
+        },
+    },
+    ("flandre", "UR"): {
+        # UR「毀滅一切的狂氣之妹」禁忌「萊瓦汀」：血紅滿月下燃燒的紅魔館 + 星弓彈幕；狂笑、萊瓦汀燃燒
+        "bg": ("no humans, scenery, huge blood red full moon, crimson night sky, red mist, gothic western mansion silhouette, clock tower, "
+               "burning, flames, embers, floating sparks, red clouds, dark red and black, dramatic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, bat, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, flandre scarlet, touhou, blonde hair, one side up, side ponytail, red eyes, mob cap, white headwear, hat ribbon, red ribbon, "
+                 "red vest, red skirt, frilled skirt, white shirt, puffy short sleeves, yellow ascot, wrist cuffs, white socks, red shoes"),
+        "char": ("holding laevatein (touhou), holding black curved staff, flaming staff, fire, dynamic pose, swinging weapon, "
+                 "crazy smile, wide-eyed, crazy eyes, constricted pupils, glowing eyes, fang, insane, slightly from below, "
+                 "hair fluttering, skirt fluttering"),
+        "char_negative": "(wings:1.5), (crystal wings:1.5), (crystals:1.3), demon wings, bat wings, blue hair, remilia scarlet, spear of the gungnir",
+        "inline_wings_tags": ("crystal wings, wings, black branch-like wings, colorful crystals hanging from wings, "
+                         "rainbow crystals, multicolored crystals"),
+        "style": "starbow",
+        "density": 0.75,
+        "glow": 0.55,
+        "char_scale": 0.8,
+        "light": {"dark": 0.35, "eye_color": (255, 60, 60)},   # 背光；眼睛座標選好人物再補
+        "wings": {
+            "crystals": {"A": "W1_crystal_A.png"},
+            "anchor": (468, 420),
+            "items": [],
+            "light": {"dark": 0.0, "rim": 0.5, "halo": 0.5,
+                      "emissive": [{"mask": "alpha", "color": (255, 255, 255), "strength": 0.9, "body": 0.85, "prism": 0.7}]},
+        },
+    },
+    ("flandre", "LR"): {
+        # LR「掌控萬物目之四重存在」禁忌「四重存在」(Four of a Kind)：被破壞的大廳、破掉的天花板外是巨大紅月 + 星弓彈幕；
+        # 主體一人 (握碎萬物之「目」的手勢)，四重存在先試模型畫四人分身，不行就做主體 + 背後三個半透明殘影的程式疊層
+        "bg": ("no humans, scenery, destroyed grand hall, ruined gothic mansion interior, shattered stained glass windows, broken pillars, "
+               "collapsed ceiling, huge red moon through broken ceiling, floating debris, floating rubble, glass shards in the air, "
+               "crimson light, rainbow light, prismatic, dramatic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, bat, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, flandre scarlet, touhou, blonde hair, one side up, side ponytail, red eyes, mob cap, white headwear, hat ribbon, red ribbon, "
+                 "red vest, red skirt, frilled skirt, white shirt, puffy short sleeves, yellow ascot, wrist cuffs, white socks, red shoes"),
+        "char": ("floating, dutch angle, reaching toward viewer, open hand, about to clench fist, other hand holding laevatein (touhou), "
+                 "black curved staff, laughing, crazy smile, glowing eyes, crazy eyes, fang, hair flowing, skirt fluttering, from below"),
+        "char_negative": "(wings:1.5), (crystal wings:1.5), (crystals:1.3), demon wings, bat wings, blue hair, remilia scarlet, fire",
+        "inline_wings_tags": ("crystal wings, wings, black branch-like wings, colorful crystals hanging from wings, "
+                         "rainbow crystals, multicolored crystals"),
+        "style": "starbow",
+        "density": 1.0,
+        "glow": 0.6,
+        "char_scale": 0.8,
+        "light": {"dark": 0.35, "eye_color": (255, 60, 60)},
+        "wings": {
+            "crystals": {"A": "W1_crystal_A.png"},
+            "anchor": (468, 420),
+            "items": [],
+            "light": {"dark": 0.0, "rim": 0.5, "halo": 0.5,
+                      "emissive": [{"mask": "alpha", "color": (255, 255, 255), "strength": 1.0, "body": 0.85, "prism": 0.8}]},
+        },
+    },
 }
 
 
@@ -265,10 +343,11 @@ INLINE_WINGS = "fairy wings, transparent wings, iridescent insect wings, wings s
 def char_prompts(char_id: str, spec: dict) -> tuple[str, str]:
     """人物的正 / 負面提示；inline_wings = 翅膀直接跟人物一起畫 (不另外做翅膀層，負面提示拿掉翅膀相關的字)"""
     char, neg = spec["char"], spec.get("char_negative")
-    if spec.get("inline_wings"):
-        char = ", ".join([char, INLINE_WINGS])
-        neg = ", ".join(t for t in (neg or "").split(", ") if "wing" not in t) or None
-    positive = ", ".join([spec.get("base", BASE[char_id]), char, CHAR_COMPOSITION, QUALITY])
+    if spec.get("inline_wings"):   # 翅膀提示預設是妖精翅膀，inline_wings_tags 可以換 (例如芙蘭的水晶翅膀)
+        wings = spec.get("inline_wings_tags", INLINE_WINGS)
+        char = ", ".join([char, wings])
+        neg = ", ".join(t for t in (neg or "").split(", ") if "wing" not in t and "crystal" not in t) or None
+    positive = ", ".join([spec.get("base") or BASE[char_id], char, CHAR_COMPOSITION, QUALITY])
     negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, neg]))
     return positive, negative
 
@@ -377,8 +456,11 @@ DANMAKU_RARITIES = {"UR", "LR"}   # 只有 UR / LR 有彈幕 (使用者 2026-11-
 
 
 def auto_dim(density: float) -> float:
-    """彈幕越多背景越暗 (使用者 2026-11-11：大量彈幕時背景亮度要壓低，不然畫面很亂)：density 1.0 ➔ 0.6、0.75 ➔ 0.65"""
-    return round(0.8 - 0.2 * density, 3)
+    """彈幕越多背景越暗 (使用者 2026-11-11：大量彈幕時背景亮度要壓低，不然畫面很亂；第二次「背景再暗點」)：density 1.0 ➔ 0.45、0.75 ➔ 0.5"""
+    return round(0.65 - 0.2 * density, 3)
+
+
+DANMAKU_ORIGINS = 2   # 同心環的發射中心數 (+ 螺旋彈中心 = 3 個原點；使用者 2026-11-11：原點剩 2～3 個就好，原本 4 + 1)
 
 
 def make_bg(char_id, rarity):
@@ -398,7 +480,7 @@ def make_bg(char_id, rarity):
     # 彈幕畫滿整張卡 (沒有框的完整原圖也有彈幕)，大小以畫窗為基準
     l, t, r, b = window_box()
     glow, core = draw_danmaku(bg.size, seed=1, style=spec.get("style", "rainbow"), scale=(r - l) * HD / BASE_W,
-                              density=spec.get("density", 1.0))
+                              density=spec.get("density", 1.0), origins=spec.get("origins", DANMAKU_ORIGINS))
     bg = ImageChops.add(bg, ImageEnhance.Brightness(glow).enhance(spec.get("glow", 0.6))).convert("RGBA")
     bg.alpha_composite(core)
     bg = bg.convert("RGB")
