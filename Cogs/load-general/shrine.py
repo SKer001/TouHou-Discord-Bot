@@ -261,13 +261,20 @@ class ShrineView(ui.LayoutView):
                                           guest_image_url(g["kind"]), self.rules["event_dish_bonus"])
         if self.notice:
             container.add_item(ui.TextDisplay(self.notice))
-        dishes = sorted((d for d, n in self.inventory.items() if n > 0 and d in self.rules["dish_types"]),
+        # 額外招待只列「端完點的菜之後還有剩」的料理，避免選了才發現不夠
+        type_label = {"food": "食物", "drink": "茶水", "dessert": "點心"}
+        left = {d: n - g["order"].count(d) for d, n in self.inventory.items() if d in self.rules["dish_types"]}
+        dishes = sorted((d for d, n in left.items() if n > 0),
                         key=lambda d: (("food", "drink", "dessert").index(self.rules["dish_types"][d]), d))
-        options = [discord.SelectOption(label="不額外招待", value="__none__", emoji="➖", default=self.extra is None)]
+        options = [discord.SelectOption(label="不額外招待", value="__none__", emoji="➖", default=self.extra is None,
+                                        description="只端客人點的菜")]
         options += [discord.SelectOption(
-            label=f"{self.items.get(d, {}).get('name', d)}　×{self.inventory[d]}"[:100], value=d,
-            emoji=self.items.get(d, {}).get("emoji"), default=d == self.extra) for d in dishes[:24]]
-        select = ui.Select(placeholder="🎁 額外招待（可選一份）…", options=options)
+            label=f"額外招待：{self.items.get(d, {}).get('name', d)}"[:100], value=d,
+            emoji=self.items.get(d, {}).get("emoji"), default=d == self.extra,
+            description=(f"{type_label[self.rules['dish_types'][d]]} · 倉庫 {self.inventory[d]} 份，端完點餐後剩 {left[d]} 份"
+                         + (" · 🎪 活動料理" if d in self.rules["event_dishes"] else ""))[:100])
+            for d in dishes[:24]]
+        select = ui.Select(placeholder="🎁 要不要額外招待？（可以不選）", options=options)
         select.callback = self.on_pick_extra
         container.add_item(ui.ActionRow(select))
         need = {}

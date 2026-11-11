@@ -121,9 +121,10 @@ def build_serve_container(g: dict, items: dict, inventory: dict, extra: str | No
     rows.append("")
     if extra:
         have = inventory.get(extra, 0)
-        rows.append(f"🎁 **額外招待**：{item_label(items, extra)}" + ("" if have >= need[extra] else "　❌ 不夠"))
+        rows.append(f"🎁 **額外招待**：{item_label(items, extra)} 1 份" + ("" if have >= need[extra] else "　❌ 不夠"))
     else:
-        rows.append("🎁 **額外招待**：（沒有）")
+        rows.append("🎁 **額外招待**：不招待")
+    rows.append("-# 用下面的選單挑一份額外招待（可以不選）；點的菜會全部端上，不用選")
     rows.append(f"-# 💡 {g['hint']}")
     bonus = f"（含活動料理 ×{event_bonus:g}^{preview['event_count']}）" if preview["event_count"] else ""
     rows.append(f"\n💰 預估報酬 `{preview['total']:,}` 賽錢{bonus}\n-# 份數 × 2,000 × 心情²；額外招待正中客人的最愛時，整筆再 ×1.5")
