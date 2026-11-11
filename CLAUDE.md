@@ -38,7 +38,7 @@ Cogs/
   load-character/  character.py, Components/character_components.py   # 圖鑑
   load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理
   load-market/     market.py, Admin-market.py, Components/market_components.py   # 市值 / 分解 / 市場
-  load-general/    profile.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py
+  load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py, help_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
@@ -208,6 +208,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - 管理員：`/admin-shrine view / set / reset`、`/admin-market set_price / reset_price`、`/admin-trade test_dm`。
 - **profile.py**：簽到運勢 0–5 對應賽錢區間 `MONEY_RANGES`，經驗 100–200；時區用台灣 UTC+8，每日 00:00 重置；`/profile` 可傳 `visibility` 設定公開/私人，私人資料卡他人看不到。簽到成功會多送 `DAILY_REWARD_ITEM`（顯示在獎勵那行）。資料卡顯示「📅 累積簽到 N / 7 天」（滿 7 天顯示已開通市場與轉帳）。本人的資料卡底部有「⚡ 恢復體力」按鈕 ➔ `StaminaItemView`：列出背包裡有 `effect.stamina` 的道具 ➔ 選擇後顯示說明與「使用後體力」➔ 「🍽️ 使用 1 個」（連點保護）➔ 可繼續使用或「🔙 返回資料卡」。
 - **神社倉庫 `/shrine storage`（shrine.py 的 `InventoryView`，畫面在 general_components）**：玩家道具背包已改名為「⛩️ 神社倉庫」，v0.26.000 從 `/inventory` 搬到 `/shrine storage`（ephemeral，程式內部仍叫 inventory）；道具旁顯示效果標籤 `item_effect_tag`；每頁 10 件，排序為分類順序再依道具 ID；`get_avatar_dominant_color` 用 Pillow 取頭像主色（變數名 `accent_color`）。
+- **help.py（v0.28.000）**：`/help` 依分類介紹指令（總覽 + 選單切分類頁，ephemeral）。指令說明與參數從 `bot.tree` 即時讀，管理員指令（`admin-` 開頭）不列；分類、玩法說明在 `help_components.CATEGORIES`，**新增頂層指令要記得分類**，沒分到的會出現在「📌 其他」。
 - **leaderboard.py**：`/leaderboard category`（賽錢、💎 資產總值 = 賽錢 + 卡牌市值（`econ.get_card_values`，含上架中的卡）、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
 - **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定（目前 2 位：`403895664666214400`、`414789026189672449`），一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
   - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）
@@ -260,7 +261,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：14 個測試檔全數通過，共 504 項（神社廚房 55、（主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：15 個測試檔全數通過，共 530 項（help 25、神社廚房 55、主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進與之後的計畫（卡面重做、未做的角色、TH07 之後的角色、經濟系統：探索 / 分解 / 浮動市值 / 市場 / 交易）統一記在根目錄 `TODO.md`。
 
 ## 8. 使用者的決定與工作習慣
