@@ -96,6 +96,15 @@ async def cmd_stamina(bot, args):
     print(f"⚡ 玩家 {args[0]} 目前體力 {r['stamina']} / {r['max']}")
 
 
+async def cmd_notify(bot, args):
+    cog = bot.get_cog("NotifyCog")
+    if cog is None:
+        print("❌ 通知模組 (notify) 沒有載入")
+        return
+    r = await cog.run_once()
+    print(f"🔔 手動檢查通知：找到 {r['notices']} 則 ➔ 私訊 {r['users']} 位玩家（成功 {r['sent']}、失敗 {r['failed']}）")
+
+
 async def cmd_shutdown(bot, args):
     print("⚙️ 機器人正在安全關閉中...")
     await bot.close()
@@ -110,6 +119,7 @@ COMMANDS = {
     "sync": ("同步斜線指令到 Discord", cmd_sync),
     "money": ("money <玩家ID> <數量> 調整賽錢", cmd_money),
     "stamina": ("stamina <玩家ID> <數量> 調整體力", cmd_stamina),
+    "notify": ("手動檢查一次主動通知並私訊 (平常每 10 分鐘自動跑)", cmd_notify),
     "shutdown": ("安全關閉機器人 (也可以打 exit)", cmd_shutdown),
 }
 ALIASES = {"exit": "shutdown", "quit": "shutdown", "stop": "shutdown", "?": "help", "ls": "modules"}

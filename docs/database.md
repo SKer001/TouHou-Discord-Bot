@@ -26,6 +26,15 @@
   - 素材已不屬於玩家、重複 ID、驗證失敗都會回滾並丟 `ValueError`；連點或兩個確認畫面同時按只會成功一次。
 - 玩家 `inventory` 欄位是 JSON 字串（`{"道具id": 數量}`），讀取時需處理 str/dict 兩種型別。
 
+### 🔔 主動通知（`Notify_DB_Manager.py`，資料也在 Users.db）
+- 表由 `init_notify_db()` 自己建（notify Cog 的 `cog_load` 呼叫），不在 `User_DB_Manager.SCHEMA_STATEMENTS`；沒有外鍵。
+  - `notify_settings(user_id, kind, enabled)`，主鍵 `(user_id, kind)`：玩家開關，**沒有紀錄 = 開啟**（預設全開）。
+  - `notifications_sent(user_id, kind, key, sent_at, ok)`，主鍵 `(user_id, kind, key)`：去重，同一件事只發一次；`ok = 0` = 私訊失敗（不重試）；30 天前的紀錄由 `prune_sent` 清掉。
+  - `notify_watch(user_id, kind, value, updated_at)`，主鍵 `(user_id, kind)`：上次看到的狀態（賽錢箱 / 妖怪 `full` / `not_full`、體力 `spent` / `full`）；`user_id = 0` 是全服狀態：`baseline`（系統第一次上線的時間，之前的成交不通知）、`event:<id>` = `狀態|started_at`。
+  - `notify_listings(listing_id PK, seller_id, instance_id, name, emoji, rarity, price, listed_at)`：上次看到的上架清單；下次不見了、沒有成交紀錄、又過了 7 天 ➔ 到期退回通知。
+- 種類登記表 `Database/notify_data.py` 的 `NOTIFY_TYPES`（`name / emoji / desc / dm`）；`dm=False` 的種類永遠不私訊、不能開啟（`can_dm`）。
+- 純判斷：`check_shrine` / `check_stamina` / `check_sales` / `check_expired` / `check_events`；`collect_notices(now)` 讀資料庫跑一輪（會 `econ.get_shrine` 結算每座神社、`econ.expire_listings` 退回到期上架），回傳「開著、能私訊、還沒發過」的通知，發送前用 `claim` 佔位。常數：`CHECK_INTERVAL_MINUTES = 10`、`GUEST_LEAVING_WINDOW = 4 小時`、`SALES_LOOKBACK = 7 天`、`SENT_KEEP = 30 天`。
+
 ### Item.db（`Item_DB_Manager.py`）
 - `get_all_items`、`get_item`、`add_item_db`、`update_item_db`、`delete_item_db`、`batch_import_db`、`replace_all_items(items)`、`CATEGORY_NAMES`、`DEFAULT_ITEMS`、`DAILY_REWARD_ITEM`；`init_item_db()` 在 Item.db 缺少時會警告，**資料表空白時會寫入 `DEFAULT_ITEMS`**（所以預設清單要跟實際想要的道具一致）。
 - `item_templates(item_id PK, name, emoji, category, description, effect TEXT DEFAULT '{}')`；`effect` 是 JSON（目前支援 `{"stamina": N}`），讀出來是 dict；舊資料表缺 `effect` 會自動補。`update_item_db`（Modal 編輯）不會改動 effect。

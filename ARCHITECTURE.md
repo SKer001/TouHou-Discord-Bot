@@ -134,6 +134,7 @@ async def setup(bot):
 - 每日領取類用原子 `UPDATE … WHERE last_daily != today`，看 `rowcount` 判斷有沒有成功。
 - 新增欄位：加到 `USERS_EXTRA_COLUMNS`，`init_db()` 會自動 `ALTER TABLE` 補上，舊資料不用遷移腳本。
 - 不夠 / 不合法時回傳 `{"ok": False, ...}` 或丟自訂例外（`InsufficientFunds`、`ValueError`），**不要寫一半**。
+- **卡冊快取 `Utils/card_cache.py`**：只有 autocomplete 用 `card_cache.cached_user_cards()`（每人快取 `CARD_CACHE_TTL` = 30 秒）；真正執行的指令 / 按鈕一律 `get_user_cards()` 讀最新資料。新增任何會改 `gacha_cards` 的資料層函式，要在 commit 成功後呼叫 `card_cache.invalidate(user_id)`（牽涉兩位玩家就兩位都失效）。快取模組不能 import Cogs。
 
 ### 4.2 角色資料 `Characters/`
 

@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from Database.User_DB_Manager import connect, _ensure_user, _insert_cards, _load_inventory, tw_day, calc_stamina, STAMINA_MAX
 from Database import shrine_data
+from Utils import card_cache   # 卡冊有變動時讓 autocomplete 的快取失效
 from Database.events import load_events, game_rules, all_guests, event_item_ids, pick_line
 
 HOUR = timedelta(hours=1)
@@ -897,6 +898,7 @@ async def decompose_cards(user_id: int, instance_ids: list[str], now: datetime |
         except BaseException:
             await db.rollback()
             raise
+    card_cache.invalidate(user_id)
     return {"total": total, "money": money, "cards": cards}
 
 
@@ -945,6 +947,7 @@ async def expire_listings(now: datetime | None = None) -> int:
         except BaseException:
             await db.rollback()
             raise
+    card_cache.invalidate(*{listing["seller_id"] for listing in rows})   # 退回的賣家
     return len(rows)
 
 
@@ -977,6 +980,7 @@ async def list_card(user_id: int, instance_id: str, price: int, now: datetime | 
         except BaseException:
             await db.rollback()
             raise
+    card_cache.invalidate(user_id)
     return {"ok": True, "listing": listing}
 
 
@@ -1014,6 +1018,7 @@ async def cancel_listing(user_id: int, listing_id: int) -> dict:
         except BaseException:
             await db.rollback()
             raise
+    card_cache.invalidate(user_id)
     return {"ok": True, "listing": listing}
 
 
@@ -1061,6 +1066,7 @@ async def buy_listing(buyer_id: int, listing_id: int, now: datetime | None = Non
         except BaseException:
             await db.rollback()
             raise
+    card_cache.invalidate(buyer_id, listing["seller_id"])   # 買家多一張；賣家一併失效
     return {"ok": True, "listing": listing, "total": total, "money": money - total}
 
 

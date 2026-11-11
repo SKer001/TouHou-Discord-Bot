@@ -11,6 +11,7 @@ from Database.User_DB_Manager import (
     clear_gacha_cards, update_cards_completeness,
 )
 from Utils.config import is_admin
+from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Utils.components import send_notice, notice_container
 
 AUTOCOMPLETE_LIMIT = 25
@@ -316,7 +317,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
             return []
         g = gacha_mod()
         counts = {}
-        for card in await get_user_cards(target_id):
+        for card in await card_cache.cached_user_cards(target_id):
             pool_key = g.card_pool_key(card)
             counts[pool_key] = counts.get(pool_key, 0) + 1
         choices = []
@@ -334,7 +335,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
             return []
         g = gacha_mod()
         owned = {}
-        for card in await get_user_cards(target_id):
+        for card in await card_cache.cached_user_cards(target_id):
             if g.card_pool_key(card) != pool_key:
                 continue
             entry = owned.setdefault(card["character_key"], {"name": card["name"], "emoji": card.get("emoji", "🎴"), "count": 0})

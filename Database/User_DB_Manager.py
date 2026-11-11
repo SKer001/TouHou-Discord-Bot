@@ -15,6 +15,8 @@ from contextlib import asynccontextmanager
 
 import aiosqlite
 
+from Utils import card_cache   # 卡冊有變動時讓 autocomplete 的快取失效
+
 # 資料庫檔案與本檔案放在同一個資料夾 (Database/)
 DB_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(DB_DIR, "Users.db")
@@ -589,6 +591,7 @@ async def add_gacha_cards(user_id: int, cards: list[dict], draw_count: int | Non
         await _insert_cards(db, user_id, cards)
         await _add_draws(db, user_id, draw_count)
         await db.commit()
+    card_cache.invalidate(user_id)
 
 
 TW = timezone(timedelta(hours=8))
@@ -656,6 +659,7 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
         except BaseException:
             await db.rollback()
             raise
+    card_cache.invalidate(user_id)
     return {"cards": cards, "money": money - cost, "pool_draws": pool_draws, "since_ur": since_ur}
 
 
@@ -716,6 +720,7 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
         except BaseException:
             await db.rollback()
             raise
+    card_cache.invalidate(user_id)
     return consumed, new_card
 
 
@@ -733,7 +738,8 @@ async def delete_gacha_cards(user_id: int, instance_ids: list[str]) -> int:
             (user_id, *instance_ids),
         )
         await db.commit()
-        return cursor.rowcount
+    card_cache.invalidate(user_id)
+    return cursor.rowcount
 
 
 async def clear_gacha_cards(user_id: int) -> int:
@@ -741,7 +747,8 @@ async def clear_gacha_cards(user_id: int) -> int:
     async with connect() as db:
         cursor = await db.execute("DELETE FROM gacha_cards WHERE user_id = ?", (user_id,))
         await db.commit()
-        return cursor.rowcount
+    card_cache.invalidate(user_id)
+    return cursor.rowcount
 
 
 async def update_cards_completeness(user_id: int, instance_ids: list[str], completeness: float) -> int:
@@ -755,7 +762,8 @@ async def update_cards_completeness(user_id: int, instance_ids: list[str], compl
             (completeness, user_id, *instance_ids),
         )
         await db.commit()
-        return cursor.rowcount
+    card_cache.invalidate(user_id)
+    return cursor.rowcount
 
 
 # ---------------------------------------------------------

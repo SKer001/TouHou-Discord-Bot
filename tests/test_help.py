@@ -30,7 +30,8 @@ async def main():
     check("no admin", not any(n.startswith("admin-") for n in names))
     check("no help itself", "help" not in names)
     check("all player commands listed", {"card gacha", "card fusion", "character", "profile", "daily", "leaderboard",
-                                         "shrine manage", "shrine storage", "event", "market sell", "trade"} <= names)
+                                         "shrine manage", "shrine storage", "event", "market sell", "trade", "notify"} <= names)
+    check("notify in profile", "notify" in {c.name for c in cats["profile"]})
     check("no other yet", "other" not in cats)
     check("shrine has 6", len(cats["shrine"]) == 6)
 

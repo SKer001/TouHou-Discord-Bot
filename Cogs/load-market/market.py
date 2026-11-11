@@ -12,6 +12,7 @@ from discord.ext import commands
 
 from Database import Economy_DB_Manager as econ
 from Database.User_DB_Manager import get_user_cards
+from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Utils.components import send_notice
 from .Components.market_components import (
     build_price_container, build_listing_lines, card_label, short_id, simple_container,
@@ -414,7 +415,7 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
     async def owned_pool_autocomplete(self, interaction, current: str):
         g = gacha_mod()
         counts = {}
-        for card in await get_user_cards(interaction.user.id):
+        for card in await card_cache.cached_user_cards(interaction.user.id):
             key = g.card_pool_key(card)
             counts[key] = counts.get(key, 0) + 1
         out = []
@@ -428,7 +429,7 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
         g = gacha_mod()
         pool_key = getattr(interaction.namespace, "pool", None)
         owned = {}
-        for card in await get_user_cards(interaction.user.id):
+        for card in await card_cache.cached_user_cards(interaction.user.id):
             if g.card_pool_key(card) != pool_key:
                 continue
             e = owned.setdefault(card["character_key"], {"name": card["name"], "emoji": card.get("emoji") or "🎴", "n": 0})

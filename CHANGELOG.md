@@ -13,6 +13,17 @@
 
 ---
 
+## 0.30.000 — 2026-11-11：主動通知 (DM)、autocomplete 快取
+- **🔔 主動通知**：新指令 `/notify` (每種通知一個開關，預設全開)，背景每 10 分鐘檢查一次，同一位玩家的通知併成一則 V2 私訊。
+  - 8 種：賽錢箱滿了、妖怪滿 5 隻、參拜客快離開 (離開前 4 小時)、體力回滿、上架的卡賣出、上架到期退回、活動開始、活動結束。
+  - 使用者指定「有些能私訊有些不能」：`Database/notify_data.py` 的 `NOTIFY_TYPES` 每種有 `dm` 旗標，目前全部可以；`dm=False` 的 (之後的特定關卡等) 永遠不私訊、面板顯示「不支援私訊」。
+  - 去重表 `notifications_sent`、狀態表 `notify_watch` / `notify_listings`、設定表 `notify_settings` (`Database/Notify_DB_Manager.py`)。背景 loop 只在機器人登入後啟動，botcli / 測試不會發 DM；私訊失敗只記錄不重試。主控台多一個 `notify` 指令手動跑一次。
+  - 問題：`expire_listings` 會直接刪掉到期的上架、不留紀錄。解法：記上次看到的上架清單，前後比對找出到期退回的。
+  - 系統第一次看到的活動 (目前的紅霧異變) 只記錄、不補發「活動開始」。
+- **⚡ autocomplete 快取** (`Utils/card_cache.py`)：合成 / 融合 / 市場 / 管理員卡冊的 autocomplete 讀快取 (每位玩家 30 秒)，不用每打一個字就讀整本卡冊；真正執行的指令一律讀資料庫。所有改卡冊的函式 commit 後讓快取失效 (買賣雙方都失效)。
+- 這次用 Workflow 讓 3 個 agent 平行做 (通知、快取、大妖精卡面)。問題：第一輪在使用者中途送訊息打斷主 session 時一起被中止。解法：重開一輪，請 agent 接著上一輪留下的半成品做。
+- 新增 `tests/test_notify.py` (69 項)、`tests/test_card_cache.py` (33 項)；全部 18 個測試檔 699 項通過。
+
 ## 0.29.005 — 2026-11-11：兩台電腦環境對齊
 - 透過 Remote Control 請桌機回報環境：桌機從 ffb6bb2 落後 19 個提交，已 `git pull --ff-only` 到 0.29.004。
 - 兩台差異：Python 筆電 3.11.9、桌機 3.14.0；Pillow 筆電 11.0.0、桌機 13.0.0；discord.py 2.7.1、aiosqlite 0.22.1 相同。桌機的 .env、HarukazeSolid.ttf、codegraph 1.6.2 都在。寫進 CLAUDE.md 第 1 節。

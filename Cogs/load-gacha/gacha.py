@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime
 
 from Database import Economy_DB_Manager as econ
+from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Database.User_DB_Manager import (
     get_user_cards, transform_cards, draw_gacha, get_gacha_pity, get_gacha_stats, InsufficientFunds,
 )
@@ -934,10 +935,10 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
 
     # ---------------- ⚗️ 合成 ----------------
     async def synthesis_pool_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        return self._pool_choices(find_synthesis_groups(await get_user_cards(interaction.user.id)), current)
+        return self._pool_choices(find_synthesis_groups(await card_cache.cached_user_cards(interaction.user.id)), current)
 
     async def synthesis_character_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        groups = find_synthesis_groups(await get_user_cards(interaction.user.id))
+        groups = find_synthesis_groups(await card_cache.cached_user_cards(interaction.user.id))
         return self._character_choices(groups, getattr(interaction.namespace, "pool", None), current)
 
     async def make_synthesis_view(self, user_id: int, user_name: str, card1: str, card2: str):
@@ -998,16 +999,16 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
 
     # ---------------- 🔮 融合 ----------------
     async def fusion_pool_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        return self._pool_choices(find_fusion_groups(await get_user_cards(interaction.user.id)), current)
+        return self._pool_choices(find_fusion_groups(await card_cache.cached_user_cards(interaction.user.id)), current)
 
     async def fusion_character_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        groups = find_fusion_groups(await get_user_cards(interaction.user.id))
+        groups = find_fusion_groups(await card_cache.cached_user_cards(interaction.user.id))
         return self._character_choices(groups, getattr(interaction.namespace, "pool", None), current)
 
     async def fusion_rarity_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
         """依已選的角色列出可以融合的階級 (每個角色最多 2 個)"""
         char_key = getattr(interaction.namespace, "character", None)
-        groups = find_fusion_groups(await get_user_cards(interaction.user.id))
+        groups = find_fusion_groups(await card_cache.cached_user_cards(interaction.user.id))
         choices = []
         for (key, rarity), group in sorted(groups.items(), key=lambda kv: RARITY_ORDER.get(kv[0][1], 0)):
             if key != char_key or current.upper() not in rarity:
