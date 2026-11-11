@@ -1,3 +1,4 @@
+import importlib
 import random
 from datetime import datetime, timezone, timedelta
 
@@ -239,8 +240,10 @@ class ProfileView(ui.LayoutView):
         if self.is_self:
             stamina_btn = ui.Button(label="⚡ 恢復體力", style=discord.ButtonStyle.primary)
             stamina_btn.callback = self.on_stamina
+            shrine_btn = ui.Button(label="⛩️ 前往神社", style=discord.ButtonStyle.secondary)
+            shrine_btn.callback = self.on_shrine
             container.add_item(ui.Separator())
-            container.add_item(ui.ActionRow(stamina_btn))
+            container.add_item(ui.ActionRow(stamina_btn, shrine_btn))
         self.clear_items()
         self.add_item(container)
 
@@ -250,6 +253,13 @@ class ProfileView(ui.LayoutView):
         owned = await get_owned_stamina_items(interaction.user.id, user_data["inventory"])
         view = StaminaItemView(self, self.target_user, owned, stamina)
         await interaction.response.edit_message(view=view)
+
+    async def on_shrine(self, interaction: discord.Interaction):
+        """⛩️ 前往神社：另外開一則只有自己看得到的神社畫面 (同 /shrine manage)，資料卡留在原地"""
+        await interaction.response.defer(ephemeral=True)
+        shrine_view = importlib.import_module("Cogs.load-general.shrine").ShrineView   # 呼叫時才取，重載後拿到新版
+        view = await shrine_view.create(interaction.user, await econ.get_shrine(interaction.user.id))
+        await interaction.followup.send(view=view, ephemeral=True)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target_user.id:
