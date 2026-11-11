@@ -74,10 +74,13 @@ class FakeInteraction:
 
 
 def pure_checks(now):
-    # 賽錢箱 / 妖怪：第一次看到就滿 ➔ 通知；已經通知過 (watch=full) 不再通知；不滿 ➔ 重新計算
+    # 賽錢箱 / 妖怪：第一次看到就滿 ➔ 只記錄不通知；看過不滿再變滿 ➔ 通知；已經通知過 (watch=full) 不再通知
     n, up = ndm.check_shrine(A, summary(box=econ.SHRINE_BOX_MAX, youkai=5), now, {})
-    check("box+youkai first full", kinds(n) == ["shrine_box_full", "youkai_max"])
+    check("box+youkai first seen full = silent", n == [])
     check("watch full", up == {"shrine_box_full": "full", "youkai_max": "full"})
+    n, _ = ndm.check_shrine(A, summary(box=econ.SHRINE_BOX_MAX, youkai=5), now,
+                            {"shrine_box_full": "not_full", "youkai_max": "not_full"})
+    check("box+youkai become full", kinds(n) == ["shrine_box_full", "youkai_max"])
     n, _ = ndm.check_shrine(A, summary(box=econ.SHRINE_BOX_MAX, youkai=5), now, up)
     check("no repeat while full", n == [])
     n, up2 = ndm.check_shrine(A, summary(box=10, youkai=4), now, up)
@@ -150,6 +153,11 @@ async def main():
         sql("INSERT INTO shrines (user_id, created_at, updated_at, tick, box, clean_at, dirt_extra, youkai, guests) "
             "VALUES (?, ?, ?, 0, ?, ?, 0, 5, ?)", (uid, now.isoformat(), now.isoformat(), box, now.isoformat(),
                                                    json.dumps([guest] if uid == A else [])))
+    # 之前的檢查已經看過「沒滿」(第一次看到就滿只記錄、不通知)
+    for uid in (A, C):
+        for k in ("shrine_box_full", "youkai_max"):
+            sql("INSERT INTO notify_watch (user_id, kind, value, updated_at) VALUES (?, ?, 'not_full', ?)",
+                (uid, k, (now - H).isoformat()))
     check("spend stamina", (await udm.spend_stamina(B, 30))["ok"])
     # 上架：L1 6 天前 (之後到期)、L2 會賣出、L3 會自己下架
     def listing(lid, iid, days):
@@ -187,6 +195,17 @@ async def main():
     calls.clear()
     r = await cog_mod.run_notify_once(bot, now, sender)
     check("dedup", calls == [] and r["notices"] == 0)
+
+    # 私訊失敗送到 log 頻道 (有 Logger 才送；沒有就略過)
+    logged = []
+    class FakeLogger:
+        async def send_alert_log(s, title, desc, color, fields=None): logged.append((title, desc))
+    class FakeBot:
+        def get_cog(s, name): return FakeLogger() if name == "Logger" else None
+    await cog_mod.report_failures(FakeBot(), [(C, [{"kind": "youkai_max"}])])
+    check("failure logged", len(logged) == 1 and str(C) in logged[0][1] and "youkai_max" in logged[0][1])
+    await cog_mod.report_failures(bot, [(C, [{"kind": "youkai_max"}])])   # 沒有 Logger 不會出錯
+    check("no logger ok", len(logged) == 1)
 
     # ---------- 中間發生的事：L2 賣出、L3 下架、活動結束 ----------
     t2 = now + timedelta(days=2)

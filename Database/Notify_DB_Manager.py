@@ -195,17 +195,17 @@ def _stamp(now: datetime) -> str:
 def check_shrine(user_id: int, summary: dict, now: datetime, watch: dict) -> tuple[list[dict], dict]:
     """
     神社 (summary = econ.shrine_summary)：
-    - 賽錢箱滿了 / 妖怪滿了：從「不滿」變「滿」時通知一次 (第一次看到就已經滿了也算)；回收、治退後重新計算
+    - 賽錢箱滿了 / 妖怪滿了：看過「不滿」之後變「滿」時通知一次；第一次看到 (沒有紀錄) 只記錄不通知 (使用者 2026-11-11)；回收、治退後重新計算
     - 參拜客離開前 GUEST_LEAVING_WINDOW 內通知，每位客人 (id) 只通知一次
     """
     notices, updates = [], {}
     full = summary["box"] >= summary["box_max"]
-    if full and watch.get("shrine_box_full") != "full":
+    if full and watch.get("shrine_box_full") == "not_full":
         notices.append(_notice(user_id, "shrine_box_full", _stamp(now), box=summary["box"], box_max=summary["box_max"]))
     updates["shrine_box_full"] = "full" if full else "not_full"
 
     maxed = summary["youkai"] >= summary["youkai_max"]
-    if maxed and watch.get("youkai_max") != "full":
+    if maxed and watch.get("youkai_max") == "not_full":
         notices.append(_notice(user_id, "youkai_max", _stamp(now), youkai=summary["youkai"],
                                penalty=summary["youkai_penalty"]))
     updates["youkai_max"] = "full" if maxed else "not_full"

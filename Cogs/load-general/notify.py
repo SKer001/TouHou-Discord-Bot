@@ -33,6 +33,7 @@ async def run_notify_once(bot: commands.Bot, now: datetime | None = None, sender
         if await ndm.claim(n["user_id"], n["kind"], n["key"], now):   # 先佔位，同一件事只發一次
             by_user.setdefault(n["user_id"], []).append(n)
     sent = failed = 0
+    failed_users = []
     for uid, items in by_user.items():
         try:
             ok = await sender(uid, items)
@@ -43,9 +44,27 @@ async def run_notify_once(bot: commands.Bot, now: datetime | None = None, sender
             sent += 1
         else:
             failed += 1
+            failed_users.append((uid, items))
             await ndm.mark_failed(uid, [(n["kind"], n["key"]) for n in items])
     await ndm.prune_sent(now)
+    if failed_users:
+        await report_failures(bot, failed_users)
     return {"notices": len(notices), "users": len(by_user), "sent": sent, "failed": failed}
+
+
+async def report_failures(bot, failed_users: list[tuple[int, list[dict]]]):
+    """私訊失敗的玩家送到 log 頻道 (使用者 2026-11-11 指定)；沒有 Logger (botcli / 測試) 就略過"""
+    logger = bot.get_cog("Logger") if bot is not None else None
+    if logger is None:
+        return
+    lines = [f"<@{uid}>：" + "、".join(sorted({n['kind'] for n in items})) for uid, items in failed_users[:20]]
+    if len(failed_users) > 20:
+        lines.append(f"…還有 {len(failed_users) - 20} 位")
+    try:
+        await logger.send_alert_log("🔕 通知私訊失敗", "這些玩家收不到私訊 (可能關閉了私訊)，這幾則不會重送：\n" + "\n".join(lines),
+                                    discord.Color.orange())
+    except Exception as e:
+        print(f"⚠️ [Notify] 送 log 頻道失敗：{e}")
 
 
 async def send_notice_dm(bot: commands.Bot, user_id: int, notices: list[dict]) -> bool:
