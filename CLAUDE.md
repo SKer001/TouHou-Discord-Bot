@@ -21,7 +21,7 @@
 | 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
 
 ## 1. 專案概觀
-- 繁體中文的「東方 Project」主題 Discord 機器人，使用 `discord.py`（**需要 >= 2.6**，因為用了 Components V2；目前用 2.7.1）、`aiosqlite`、`python-dotenv`、`Pillow`。Python 3.11。
+- 繁體中文的「東方 Project」主題 Discord 機器人，使用 `discord.py`（**需要 >= 2.6**，因為用了 Components V2；目前用 2.7.1）、`aiosqlite`、`python-dotenv`、`Pillow`。Python：筆電 3.11.9 / Pillow 11、桌機 3.14.0 / Pillow 13（2026-11-11 確認，兩台的 discord.py 2.7.1、aiosqlite 0.22.1 一樣）。
 - 功能：抽卡（gacha）、卡冊、卡牌合成 / 融合、道具背包、角色圖鑑、個人資料卡 + 每日簽到 + 運勢、管理員指令、日誌。
 - Repo 是**公開**的（GitHub：SKer001/TouHou-Discord-Bot），分支 `main`。圖片以 `raw.githubusercontent.com` 連結提供，剛 push 的圖片可能要等一下 GitHub 才抓得到（曾出現「載入圖片失敗」，實為 GitHub 延遲）。**Discord 會依網址快取圖片**：卡面重做後檔名不變的話 Discord 會一直顯示舊圖，所以 `build_cards.py` 寫進 Thumbnails.json 的網址會帶 `?v=<檔案雜湊>`（2026-10-31），圖一改網址就變。
 
