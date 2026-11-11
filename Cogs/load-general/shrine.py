@@ -282,7 +282,7 @@ class ShrineView(ui.LayoutView):
         self.add_item(container)
 
     def _build_explore(self):
-        container = build_explore_container(self.rules["locations"], self.stamina, shrine_data.EXPLORE_STAMINA,
+        container = build_explore_container(self.rules["locations"], self.stamina, econ.explore_cost(self.rules),
                                             self.explore_result, self.items)
         if self.notice:
             container.add_item(ui.TextDisplay(self.notice))
@@ -293,7 +293,7 @@ class ShrineView(ui.LayoutView):
         ][:25])
         select.callback = self.on_pick_location
         container.add_item(ui.ActionRow(select))
-        cost = shrine_data.EXPLORE_STAMINA
+        cost = econ.explore_cost(self.rules)
         container.add_item(ui.ActionRow(
             self._btn(f"🗺️ 採集 1 次 (-{cost})", discord.ButtonStyle.primary, self.on_explore_1,
                       not self.explore_loc or self.stamina["stamina"] < cost),
@@ -333,7 +333,7 @@ class ShrineView(ui.LayoutView):
         self.add_item(container)
 
     def _build_shop(self):
-        prices = shrine_data.SHOP_PRICES
+        prices = self.rules["shop"]
         container = build_shop_container(prices, self.items, self.inventory, self.money, self.shop_sel, self.notice)
         select = ui.Select(placeholder="選擇要買的素材…", options=[
             discord.SelectOption(label=f"{self.items.get(m, {}).get('name', m)}　{p:,} 賽錢", value=m,

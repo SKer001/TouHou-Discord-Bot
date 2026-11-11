@@ -31,7 +31,7 @@ Database/
   Economy_DB_Manager.py      經濟系統（神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳），資料也在 Users.db；所有數值常數都在檔案開頭
   shrine_data.py             神社的遊戲資料：素材、料理配方、採集地點與事件、雜貨店價格、參拜客 (最愛、提示、台詞)
   events.py                  讀 Events/*.json，把進行中的活動跟 shrine_data 合併成當下規則 (game_rules)
-Events/                      活動資料檔，一個活動一檔 (th06_scarlet_mist.json = 紅霧異變)
+Events/                      活動資料檔，一個活動一檔 (th06_scarlet_mist.json = 紅霧異變)；README.md = 格式與所有預留位
   Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 8 節）
   item.new.json              道具批次匯入用資料
 Cogs/
@@ -196,6 +196,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
     - 客人資料 `shrine_data.GUESTS`（10 種 + 活動客人）：emoji、favorite、hint（灰字提示）、lines（high ≥70 / mid 40～60 / low ≤30，`{order}` 換成料理名）。頭像 `images/Thumbnails.json` 的 `guest_<種類>`（`tools/card_art/guest_workflow.py` 生成 ➔ `images/Original/Guests/<種類>.png` ➔ `build_guests.py`）。**生成客人頭像要照原作「種族」設定（Touhou Wiki 種族圖鑑，用內建瀏覽器讀，自動抓取會被擋），並在 `AVOID` 排除同種族知名角色的招牌特徵**（使用者 2026-11-05 指定，選 B：一般種族、外觀照原作，不畫成特定角色）。
     - 舊資料相容：`sanitize_guests` 把中文名稱的 kind 換成 key、補 id / 點餐、已結束活動的客人離開、點了不存在料理的重新點餐。
   - **活動系統（v0.27.000）**：`Events/<id>.json`（`auto_start`、`duration_days`、`order_event_chance`、`event_dish_bonus`、`location`、`items`、`recipes`、`guests`）；狀態存 `economy_meta` 的 `event:<id>`（沒有紀錄 + auto_start = 進行中；過了 `ends_at` 在下次讀取時自動結束）。結束時 `_clear_event_items` 清空所有玩家的活動道具（effect 帶 `event`）。`/event` 查看、`/admin-event start [days] / end`（結束有確認畫面）。目前只有 🔴 紅霧異變（TH06，測試中沒有結束時間）。
+    - **預留位（v0.29.000，使用者指定「一般池 + 活動預留位」）**：`game_rules` 把每個機制做成一般池 + 活動池：點餐池 `order_pool`、客人池 `guest_pool`（`event_guest_chance`）、一般客人的活動版 `guest_overrides`（台詞池 / 最愛）、採集地點 / `extra_drops` / 採集事件池 `explore_events` / `special_chance`、雜貨店 `shop`、數值倍率 `modifiers`（神社收入、妖怪賽錢、招待報酬、採集體力，預設 1）。完整表格在 `Events/README.md`。讀規則一律用 `rules[...]` 與 `econ.modifier()` / `econ.explore_cost()`，**不要直接讀 `shrine_data.SHOP_PRICES` / `EXPLORE_STAMINA`**。
   - 道具：`Item_DB_Manager.managed_items()` 把 `shrine_data` 的素材 / 新料理與活動檔的道具在開機時 `INSERT OR IGNORE` 進 Item.db（分類 `material` 🧺 素材）。
   - **市值**：`market_prices`（完整度 0.5 的價格，起始 = 官方價 `OFFICIAL_PRICES`，永遠不低於官方價）、`price_history`、`daily_draws`（`draw_gacha` 寫入全服每日抽數）、`daily_sales`（市場成交 + 分解）、`economy_meta.last_settled_day`。`settle_prices(probabilities)` 在每個 `/market` 指令開頭補結算到昨天（台灣時間；第一次只記錄起點）：期望 = 當天該卡池抽數 × 抽中機率（至少 1），持平 = 期望 × 50%；賣出比持平少時從 +2%（沒人賣）線性降到 0%，比持平多時往下跌、3 倍時 −10%（v0.24.000 改成連續曲線：一天最多漲 2%、最多跌 10%）。抽中機率由 `market.card_probabilities()` 依 `GACHA_POOL` 與 `RARITY_WEIGHTS` 算（不含保底）。
   - **完整度倍率** `completeness_multiplier`：0.5 以上 `1 + 0.2·((c−0.5)/0.5)²`、以下 `0.2 + 0.8·(c/0.5)²`；卡價值 = 市值 × 倍率（分解拿這個數）。
@@ -261,7 +262,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次：15 個測試檔全數通過，共 530 項（help 25、神社廚房 55、主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
+- 最近一次：16 個測試檔全數通過，共 587 項（活動預留位 57、help 25、神社廚房 55、主控台 14、經濟系統 71、合成融合 54、Admin-gacha 54、卡冊 44、圖鑑 47、V2 通知 34、保底 21、體力 21、道具 41、botcli 17、卡池 14、排行榜 10，共 424 項）。V2 畫面細節仍以 Discord 實機為準。
 - 已知待改進與之後的計畫（卡面重做、未做的角色、TH07 之後的角色、經濟系統：探索 / 分解 / 浮動市值 / 市場 / 交易）統一記在根目錄 `TODO.md`。
 
 ## 8. 使用者的決定與工作習慣

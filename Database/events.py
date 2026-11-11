@@ -34,38 +34,99 @@ def event_item_ids(event: dict) -> set[str]:
     return {item["id"] for item in event.get("items", [])}
 
 
+# 數值倍率的預留位：活動檔的 "modifiers" 可以設定，沒設定 = 1 (不影響)；同時有多個活動時相乘
+MODIFIER_KEYS = ("shrine_income", "youkai_reward", "serve_reward", "explore_stamina")
+
+
+def _as_list(x) -> list:
+    return list(x) if isinstance(x, list) else ([x] if x else [])
+
+
 def game_rules(active: list[dict]) -> dict:
     """
-    基本資料 + 進行中的活動 ➔ 這一刻的規則：
-    {"recipes", "dish_types", "locations", "guests", "event_dishes" (活動料理 ID ➔ 活動),
-     "event_guests", "order_event_chance", "event_dish_bonus"}
+    基本資料 + 進行中的活動 ➔ 這一刻的規則。每個機制都是「一般池 + 活動預留位」：
+
+    | 規則 | 一般 | 活動檔可以加的欄位 |
+    |---|---|---|
+    | recipes / dish_types | shrine_data.RECIPES | items (料理)、recipes |
+    | order_pool {種類: {base, event}} | 一般料理 | 活動料理自動進 event 池；order_event_chance = 抽 event 池的機率 |
+    | locations | shrine_data.LOCATIONS | location (限定地點)；extra_drops {地點: [素材]}、explore_events {地點: {good: [..], bad: [..]}} 加進一般地點 |
+    | guest_pool {base, event} / guests | shrine_data.GUESTS | guests (限定客人)；event_guest_chance = 來 event 客人的機率 (沒設 = 全部平均抽)；
+    |   |   | guest_overrides {客人: {favorite, hint, lines: {high/mid/low: [台詞]}}} (lines 是加進台詞池，其他是取代) |
+    | shop | shrine_data.SHOP_PRICES | shop {素材: 價格} |
+    | modifiers | 全部 1 | modifiers {shrine_income, youkai_reward, serve_reward, explore_stamina: 倍率} |
+    | special_chance | shrine_data.SPECIAL_CHANCE | special_chance (取最大) |
+    | event_dish_bonus | 1 | event_dish_bonus (取最大) |
     """
     recipes = dict(base.RECIPES)
     dish_types = dict(base.DISH_TYPES)
-    locations = {k: {**v, "event": None} for k, v in base.LOCATIONS.items()}
-    guests = {k: {**v, "event": None} for k, v in base.GUESTS.items()}
+    locations = {}
+    for k, v in base.LOCATIONS.items():
+        locations[k] = {**v, "drops": list(v["drops"]), "good": _as_list(v.get("good")), "bad": _as_list(v.get("bad")), "event": None}
+    guests = {k: {**v, "lines": {t: _as_list(l) for t, l in v.get("lines", {}).items()}, "event": None}
+              for k, v in base.GUESTS.items()}
+    shop = dict(base.SHOP_PRICES)
+    mods = {k: 1.0 for k in MODIFIER_KEYS}
     event_dishes, event_guests = {}, set()
-    chance, bonus = 0.0, 1.0
+    chance, bonus, guest_chance, special = 0.0, 1.0, None, base.SPECIAL_CHANCE
     for ev in active:
+        eid = ev["id"]
         recipes.update(ev.get("recipes", {}))
         for item in ev.get("items", []):
             serve = (item.get("effect") or {}).get("serve")
             if serve:
                 dish_types[item["id"]] = serve
-                event_dishes[item["id"]] = ev["id"]
-        loc = ev.get("location")
-        if loc:
-            locations[loc["id"]] = {**loc, "event": ev["id"]}
+                event_dishes[item["id"]] = eid
+        for loc in _as_list(ev.get("location")) + list(ev.get("locations", [])):
+            locations[loc["id"]] = {**loc, "drops": list(loc["drops"]), "good": _as_list(loc.get("good")),
+                                    "bad": _as_list(loc.get("bad")), "event": eid}
+        for loc_id, drops in ev.get("extra_drops", {}).items():
+            if loc_id in locations:
+                locations[loc_id]["drops"] += [m for m in drops if m not in locations[loc_id]["drops"]]
+        for loc_id, evs in ev.get("explore_events", {}).items():
+            if loc_id in locations:
+                for side in ("good", "bad"):
+                    locations[loc_id][side] = locations[loc_id][side] + _as_list(evs.get(side))
         for key, g in ev.get("guests", {}).items():
-            guests[key] = {**g, "event": ev["id"]}
+            guests[key] = {**g, "lines": {t: _as_list(l) for t, l in g.get("lines", {}).items()}, "event": eid}
             event_guests.add(key)
+        for key, ov in ev.get("guest_overrides", {}).items():
+            if key not in guests:
+                continue
+            g = guests[key] = {**guests[key], "lines": {t: list(l) for t, l in guests[key]["lines"].items()}}
+            for field in ("favorite", "hint", "name", "emoji"):
+                if field in ov:
+                    g[field] = ov[field]
+            for t, l in ov.get("lines", {}).items():
+                g["lines"][t] = g["lines"].get(t, []) + _as_list(l)
+        shop.update(ev.get("shop", {}))
+        for k, v in ev.get("modifiers", {}).items():
+            if k in mods:
+                mods[k] *= v
         chance = max(chance, ev.get("order_event_chance", 0.0))
         bonus = max(bonus, ev.get("event_dish_bonus", 1.0))
+        special = max(special, ev.get("special_chance", 0.0))
+        if "event_guest_chance" in ev:
+            guest_chance = max(guest_chance or 0.0, ev["event_guest_chance"])
+    order_pool = {}
+    for d, t in dish_types.items():
+        pool = order_pool.setdefault(t, {"base": [], "event": []})
+        pool["event" if d in event_dishes else "base"].append(d)
     return {
         "recipes": recipes, "dish_types": dish_types, "locations": locations, "guests": guests,
         "event_dishes": event_dishes, "event_guests": event_guests,
-        "order_event_chance": chance, "event_dish_bonus": bonus,
+        "order_pool": order_pool, "order_event_chance": chance, "event_dish_bonus": bonus,
+        "guest_pool": {"base": sorted(k for k in guests if k not in event_guests), "event": sorted(event_guests)},
+        "event_guest_chance": guest_chance, "shop": shop, "modifiers": mods, "special_chance": special,
     }
+
+
+def pick_line(guest: dict, tier: str, seed: str = "") -> str:
+    """從台詞池挑一句 (用客人 id 當種子，同一位客人每次看都是同一句)"""
+    pool = _as_list(guest.get("lines", {}).get(tier))
+    if not pool:
+        return "{order}"
+    return pool[sum(map(ord, seed)) % len(pool)]
 
 
 def all_guests() -> dict:

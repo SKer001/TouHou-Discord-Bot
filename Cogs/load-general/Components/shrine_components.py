@@ -4,6 +4,8 @@
 import discord
 from discord import ui
 
+from Database import shrine_data
+
 
 def ts(dt, style: str = "R") -> str:
     """Discord 時間戳記 (會依觀看者時區顯示，R = 「3 小時後」)"""
@@ -17,6 +19,8 @@ def _bar(value: float, maximum: float, width: int = 10) -> str:
 
 DIRT_NAMES = ["✨ 一塵不染", "🍃 有點落葉", "🍂 落葉滿地", "🕸️ 蜘蛛網", "🏚️ 荒廢"]
 MOOD_EMOJI = [(80, "😊"), (50, "🙂"), (20, "😐"), (0, "😠")]
+LOCATION_NAMES = {k: f"{v['emoji']} {v['name']}" for k, v in shrine_data.LOCATIONS.items()}
+MODIFIER_NAMES = {"shrine_income": "神社收入", "youkai_reward": "打退妖怪的賽錢", "serve_reward": "招待報酬", "explore_stamina": "採集體力消耗"}
 
 
 def _mood_emoji(mood: int) -> str:
@@ -225,6 +229,21 @@ def build_event_container(overview: list[dict], items: dict, recipes: dict) -> u
         guests = ev.get("guests", {})
         if guests:
             lines.append("\n🙏 **限定客人**：" + "、".join(f"{g['emoji']} {g['name']}" for g in guests.values()))
+        # 加在一般機制上的活動內容 (預留位，見 Database/events.py 的 game_rules)
+        extra = []
+        for loc_id, drops in ev.get("extra_drops", {}).items():
+            extra.append(f"🗺️ {LOCATION_NAMES.get(loc_id, loc_id)} 可以採到：" + "、".join(item_label(items, m) for m in drops))
+        if ev.get("explore_events"):
+            extra.append("🍀 一般採集地點有活動限定的事件")
+        if ev.get("shop"):
+            extra.append("🏪 雜貨店活動商品：" + "、".join(f"{item_label(items, m)} `{p:,}`" for m, p in ev["shop"].items()))
+        if ev.get("guest_overrides"):
+            extra.append("🙏 有些一般客人在活動期間口味或台詞不一樣")
+        mods = {k: v for k, v in ev.get("modifiers", {}).items() if v != 1 and k in MODIFIER_NAMES}
+        if mods:
+            extra.append("📈 " + "、".join(f"{MODIFIER_NAMES[k]} ×{v:g}" for k, v in mods.items()))
+        if extra:
+            lines.append("\n✨ **活動期間**\n" + "\n".join(extra))
         lines.append("\n-# ⚠️ 活動結束時，所有活動素材與活動料理會從神社倉庫清除")
         container.add_item(ui.Separator())
         container.add_item(ui.TextDisplay("\n".join(lines)))

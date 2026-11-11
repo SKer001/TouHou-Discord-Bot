@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from Database.User_DB_Manager import connect, _ensure_user, _insert_cards, _load_inventory, tw_day, calc_stamina, STAMINA_MAX
 from Database import shrine_data
-from Database.events import load_events, game_rules, all_guests, event_item_ids
+from Database.events import load_events, game_rules, all_guests, event_item_ids, pick_line
 
 HOUR = timedelta(hours=1)
 
@@ -79,21 +79,34 @@ def calc_serve_reward(mood: int, order: list[str], extra: str | None, rules: dic
     base = SERVING_REWARD * (mood / 100) ** 2 * len(served)
     event_count = sum(1 for d in served if d in rules["event_dishes"])
     favorite_hit = bool(extra) and extra == favorite
-    mult = rules["event_dish_bonus"] ** event_count * (FAVORITE_BONUS if favorite_hit else 1)
+    mult = rules["event_dish_bonus"] ** event_count * (FAVORITE_BONUS if favorite_hit else 1) * modifier(rules, "serve_reward")
     return {"base": int(base), "event_count": event_count, "favorite_hit": favorite_hit,
             "multiplier": mult, "total": int(round(base * mult))}
 
 
+def modifier(rules: dict, key: str) -> float:
+    """活動的數值倍率預留位 (events.MODIFIER_KEYS)；沒有活動設定 = 1"""
+    return (rules or {}).get("modifiers", {}).get(key, 1.0)
+
+
+def explore_cost(rules: dict) -> int:
+    """一趟採集的體力 (活動可以用 modifiers.explore_stamina 調整)"""
+    return max(1, round(shrine_data.EXPLORE_STAMINA * modifier(rules, "explore_stamina")))
+
+
 def make_order(rules: dict, rng=random) -> list[str]:
-    """點餐：1~3 個不同種類，每類一道；活動期間每道有 order_event_chance 機率是活動料理"""
+    """
+    點餐：1~3 個不同種類，每類一道。點餐池 = 一般池 + 活動池 (rules["order_pool"])：
+    活動池有東西時，每道有 order_event_chance 機率從活動池抽
+    """
     n = ORDER_SIZE[0] + int(rng.random() * (ORDER_SIZE[1] - ORDER_SIZE[0] + 1))
     types = list(SERVE_TYPES_ORDER)
     picked = []
     for _ in range(min(n, len(types))):
         t = rng.choice(types)
         types.remove(t)
-        normal = [d for d, k in rules["dish_types"].items() if k == t and d not in rules["event_dishes"]]
-        special = [d for d, k in rules["dish_types"].items() if k == t and d in rules["event_dishes"]]
+        pool = rules["order_pool"].get(t, {"base": [], "event": []})
+        normal, special = pool["base"], pool["event"]
         if special and rng.random() < rules["order_event_chance"]:
             picked.append(rng.choice(special))
         else:
@@ -102,8 +115,20 @@ def make_order(rules: dict, rng=random) -> list[str]:
     return order
 
 
+def pick_guest_kind(rules: dict, rng=random) -> str:
+    """
+    客人池 = 一般池 + 活動池 (rules["guest_pool"])：活動有設 event_guest_chance 時，
+    依機率決定抽哪一池；沒設 = 全部客人平均抽 (目前紅霧異變就是這樣)
+    """
+    pool = rules["guest_pool"]
+    chance = rules.get("event_guest_chance")
+    if chance is not None and pool["event"] and pool["base"]:
+        return rng.choice(pool["event"] if rng.random() < chance else pool["base"])
+    return rng.choice(sorted(rules["guests"]))
+
+
 def new_guest(rules: dict, t: datetime, rng=random) -> dict:
-    return {"id": f"{int(t.timestamp()):x}{int(rng.random() * 4096):03x}", "kind": rng.choice(sorted(rules["guests"])),
+    return {"id": f"{int(t.timestamp()):x}{int(rng.random() * 4096):03x}", "kind": pick_guest_kind(rules, rng),
             "arrived_at": t.isoformat(), "order": make_order(rules, rng)}
 
 
@@ -136,6 +161,7 @@ def advance_shrine(state: dict, now: datetime, rng=random, rules: dict | None = 
     - 參拜客心情掉到 0 就離開；來的時候就決定好點什麼 (rules = events.game_rules，含活動)
     """
     rules = rules or game_rules([])
+    income_mult = modifier(rules, "shrine_income")
     st = dict(state)
     st["guests"] = list(state["guests"])
     anchor = _dt(st["created_at"])
@@ -153,7 +179,7 @@ def advance_shrine(state: dict, now: datetime, rng=random, rules: dict | None = 
             next_dirt = clean_at + (int((t - clean_at) / DIRT_INTERVAL) + 1) * DIRT_INTERVAL
             seg_end = min(seg_end, next_dirt)
         seg_end = max(t, seg_end)   # 保險：事件時間點已經過了就只處理事件、不算收入
-        income = (seg_end - t) / HOUR * SHRINE_INCOME_PER_HOUR * shrine_efficiency(dirt, st["youkai"])
+        income = (seg_end - t) / HOUR * SHRINE_INCOME_PER_HOUR * shrine_efficiency(dirt, st["youkai"]) * income_mult
         st["box"] = min(SHRINE_BOX_MAX, st["box"] + income)
         t = seg_end
 
@@ -190,13 +216,13 @@ def shrine_summary(state: dict, now: datetime, rules: dict | None = None) -> dic
         guests.append({
             "id": g.get("id"), "kind": g["kind"], "name": info["name"], "emoji": info["emoji"],
             "event": info.get("event"), "order": list(g.get("order", [])), "hint": info.get("hint", ""),
-            "line": info.get("lines", {}).get(shrine_data.mood_tier(mood), "{order}"),
+            "line": pick_line(info, shrine_data.mood_tier(mood), g.get("id") or ""),
             "mood": mood, "arrived_at": arrived,
             "next_drop_at": arrived + (steps + 1) * MOOD_INTERVAL,
             "leave_at": arrived + (100 // MOOD_STEP) * MOOD_INTERVAL,
             "reward_per_portion": serving_reward(mood),
         })
-    income = SHRINE_INCOME_PER_HOUR * eff
+    income = SHRINE_INCOME_PER_HOUR * eff * modifier(rules, "shrine_income")
     box = int(state["box"])
     full_in = None
     if box < SHRINE_BOX_MAX and income > 0:
@@ -296,6 +322,7 @@ async def shrine_defeat(user_id: int, now: datetime | None = None, rng=random) -
             state["dirt_extra"] += 1
         low, high = YOUKAI_REWARD
         reward = min(high, low + int(rng.random() * (high - low + 1)))
+        reward = int(round(reward * modifier(rules, "youkai_reward")))
         await db.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (reward, user_id))
         return {"ok": True, "reward": reward}
     return await _shrine_tx(user_id, action, now, rng)
@@ -462,8 +489,11 @@ async def _write_inventory(db, user_id: int, inv: dict):
     await db.execute("UPDATE users SET inventory = ? WHERE user_id = ?", (json.dumps(inv, ensure_ascii=False), user_id))
 
 
-def roll_explore(location: dict, rng=random) -> dict:
-    """一趟採集 (純計算)：3~5 個素材，SPECIAL_CHANCE 機率發生事件 (好壞各半)"""
+def roll_explore(location: dict, rng=random, special_chance: float | None = None) -> dict:
+    """
+    一趟採集 (純計算)：3~5 個素材，special_chance (預設 SPECIAL_CHANCE) 機率發生事件 (好壞各半)
+    good / bad 可以是一個事件或事件池 (活動可以加進去，見 events.game_rules)
+    """
     lo, hi = shrine_data.EXPLORE_DROPS
     n = lo + int(rng.random() * (hi - lo + 1))
     drops = {}
@@ -471,9 +501,11 @@ def roll_explore(location: dict, rng=random) -> dict:
         m = rng.choice(location["drops"])
         drops[m] = drops.get(m, 0) + 1
     event = None
-    if rng.random() < shrine_data.SPECIAL_CHANCE:
+    if rng.random() < (shrine_data.SPECIAL_CHANCE if special_chance is None else special_chance):
         good = rng.random() < 0.5
-        ev = location["good" if good else "bad"]
+        pool = location["good" if good else "bad"]
+        pool = pool if isinstance(pool, list) else [pool]
+        ev = pool[0] if len(pool) == 1 else rng.choice(pool)
         fx = ev["effect"]
         for m, k in fx.get("add", {}).items():
             drops[m] = drops.get(m, 0) + k
@@ -497,11 +529,11 @@ async def explore(user_id: int, location_id: str, times: int = 1, now: datetime 
     失敗 reason：not_found (地點不存在 / 活動地點已關閉)、no_stamina
     """
     now = now or datetime.now(timezone.utc)
-    cost = shrine_data.EXPLORE_STAMINA
     async with connect() as db:
         await db.execute("BEGIN IMMEDIATE")
         try:
             rules = game_rules(await _active_events(db, now))
+            cost = explore_cost(rules)
             location = rules["locations"].get(location_id)
             if location is None:
                 await db.rollback()
@@ -514,7 +546,7 @@ async def explore(user_id: int, location_id: str, times: int = 1, now: datetime 
                 return {"ok": False, "reason": "no_stamina", "stamina": info["stamina"], "cost": cost}
             results, total = [], {}
             for _ in range(runs):
-                r = roll_explore(location, rng)
+                r = roll_explore(location, rng, rules["special_chance"])
                 results.append(r)
                 for m, k in r["drops"].items():
                     total[m] = total.get(m, 0) + k
@@ -563,17 +595,19 @@ async def cook(user_id: int, dish_id: str, times: int = 1, now: datetime | None 
     return {"ok": True, "made": made, "have": inv[dish_id]}
 
 
-async def shop_buy(user_id: int, material_id: str, qty: int) -> dict:
-    """雜貨店買素材；reason：not_found / bad_qty / not_enough"""
-    price = shrine_data.SHOP_PRICES.get(material_id)
-    if price is None:
-        return {"ok": False, "reason": "not_found"}
+async def shop_buy(user_id: int, material_id: str, qty: int, now: datetime | None = None) -> dict:
+    """雜貨店買素材 (商品 = 一般 + 活動商品 rules["shop"])；reason：not_found / bad_qty / not_enough"""
+    now = now or datetime.now(timezone.utc)
     if qty < 1:
         return {"ok": False, "reason": "bad_qty"}
-    cost = price * qty
     async with connect() as db:
         await db.execute("BEGIN IMMEDIATE")
         try:
+            price = game_rules(await _active_events(db, now))["shop"].get(material_id)
+            if price is None:
+                await db.rollback()
+                return {"ok": False, "reason": "not_found"}
+            cost = price * qty
             user = await _read_user(db, user_id)
             if user["money"] < cost:
                 await db.rollback()

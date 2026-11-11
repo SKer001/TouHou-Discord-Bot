@@ -44,7 +44,7 @@ async def main():
     check("all recipe items exist", all(d in items and all(m in items for m in r) for d, r in rules["recipes"].items()))
     check("all drops exist", all(m in items for loc in rules["locations"].values() for m in loc["drops"]))
     check("guest favorites exist", all(g["favorite"] in rules["dish_types"] for g in rules["guests"].values()))
-    check("guest lines", all(set(g["lines"]) == {"high", "mid", "low"} and all("{order}" in l for l in g["lines"].values()) for g in rules["guests"].values()))
+    check("guest lines", all(set(g["lines"]) == {"high", "mid", "low"} and all(l and all("{order}" in x for x in l) for l in g["lines"].values()) for g in rules["guests"].values()))
     check("event items in db", all(i in items and items[i]["effect"].get("event") == EV for i in ["evt_strawberry", "evt_napolitan"]))
     check("shop only village", set(sd.SHOP_PRICES) <= set(sd.LOCATIONS["village"]["drops"]))
     # 雜貨店素材做成料理一定還是賺 (2 份滿心情報酬 > 素材成本)
