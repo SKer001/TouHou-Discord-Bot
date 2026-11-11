@@ -188,7 +188,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
     - 新卡完整度與祈願相同（`generate_completeness`），`total_fusions + 1`。
   - 合成 / 融合共用 `CardActionConfirmView`（確認 / 取消，結果頁可查看卡庫）；`FUSION_COUNT = 3`、`AUTOCOMPLETE_LIMIT = 25`。
 - **經濟系統（v0.23.000，2026-11-05 使用者指定的數值，見 `TODO.md` 第 5 節）**：`Database/Economy_DB_Manager.py`
-  - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +1000 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**v0.27.000 起招待開放**（見下面「神社廚房」）。
+  - **神社 `/shrine manage`、`/shrine collect`**（`shrine.py`）：表 `shrines`。跟體力一樣不用排程，`advance_shrine(state, now, rng)` 純計算從 `updated_at` 推進到現在：賽錢箱每小時 5000 × 效率連續累積（上限 200K，要回收）；以建立時間為準每個整點判定妖怪（目前 0～4 隻時 80/70/55/35/10%，每隻 −8%），每 2 小時判定參拜客（0～4 位時 90/80/70/60/50%，最多 5 位，心情 100% 每 4 小時 −10%，0 離開）；清潔度 = 距上次清掃每 4 小時 +1 階 + 晦氣 `dirt_extra`（最多 4 階，每階 −10%）。效率 = 1 − 髒亂 − 妖怪（最低 20%）。治退妖怪 +800～1500 隨機 並晦氣 +1（已經最髒就不加）；清掃歸零、沒有獎勵與冷卻；任務不耗體力。太久沒來只模擬最後 14 天。**v0.27.000 起招待開放**（見下面「神社廚房」）。
   - **神社廚房（v0.27.000，使用者 2026-11-05 指定）**：神社畫面同一則訊息切換 `main / serve_pick / serve / explore / cook / shop`；指令 `/shrine explore`、`/shrine cook`、`/shrine shop` 直接打開對應畫面。
     - 採集：`explore(user, 地點, times)`，每趟 `EXPLORE_STAMINA = 20` 體力、3～5 個素材（`roll_explore`），`SPECIAL_CHANCE = 5%` 事件好壞各半（effect：add / lose / half / empty）；連續 5 次時體力不夠就做到用完。
     - 料理：`cook(user, 料理, times)`，一鍋 `COOK_YIELD = 2` 份。雜貨店 `shop_buy`：只賣人里 5 種素材（`SHOP_PRICES` 600～900，一定比做成料理的收入低）。素材不能上市場。

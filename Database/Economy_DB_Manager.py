@@ -30,7 +30,7 @@ DIRT_PENALTY = 0.10                    # 每階 −10% (最多 −40%)
 YOUKAI_MAX = 5
 YOUKAI_SPAWN = [0.80, 0.70, 0.55, 0.35, 0.10]   # 每小時生成機率：目前 0 隻時 80%、1 隻時 70%…
 YOUKAI_PENALTY = 0.08                  # 每隻 −8% (最多 −40%)
-YOUKAI_REWARD = 1000                   # 打退一隻的賽錢；打退後留下晦氣 ➔ 清潔度掉一階
+YOUKAI_REWARD = (800, 1500)            # 打退一隻的賽錢 (隨機，含頭尾；v0.27.004 從固定 1000 改)；打退後留下晦氣 ➔ 清潔度掉一階
 
 GUEST_EVERY_HOURS = 2                  # 每 2 小時判定一次參拜客
 GUEST_MAX = 5
@@ -285,7 +285,7 @@ async def shrine_clean(user_id: int, now: datetime | None = None, rng=random) ->
 
 
 async def shrine_defeat(user_id: int, now: datetime | None = None, rng=random) -> dict:
-    """治退一隻妖怪：+1000 賽錢，留下晦氣 (清潔度 +1 階，不會超過最髒)"""
+    """治退一隻妖怪：+800～1500 賽錢 (隨機)，留下晦氣 (清潔度 +1 階，不會超過最髒)"""
     now = now or datetime.now(timezone.utc)
 
     async def action(state, db, rules):
@@ -294,8 +294,10 @@ async def shrine_defeat(user_id: int, now: datetime | None = None, rng=random) -
         state["youkai"] -= 1
         if shrine_dirt(state, now) < DIRT_MAX:
             state["dirt_extra"] += 1
-        await db.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (YOUKAI_REWARD, user_id))
-        return {"ok": True, "reward": YOUKAI_REWARD}
+        low, high = YOUKAI_REWARD
+        reward = min(high, low + int(rng.random() * (high - low + 1)))
+        await db.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (reward, user_id))
+        return {"ok": True, "reward": reward}
     return await _shrine_tx(user_id, action, now, rng)
 
 

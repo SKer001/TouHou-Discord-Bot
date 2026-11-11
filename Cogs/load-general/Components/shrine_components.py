@@ -60,7 +60,7 @@ def build_shrine_container(user_name: str, s: dict, notice: str | None = None, i
 
     youkai_line = f"👹 **作亂的妖怪**　`{s['youkai']} / {s['youkai_max']}` 隻"
     if s["youkai"]:
-        youkai_line += "\n-# 打退一隻 +1,000 賽錢，但會留下晦氣（清潔度 −1 階）"
+        youkai_line += "\n-# 打退一隻 +800～1,500 賽錢，但會留下晦氣（清潔度 −1 階）"
 
     container.add_item(ui.TextDisplay(f"## ⛩️ {user_name} 的神社\n{box_line}\n\n{eff_line}\n{dirt_line}\n{youkai_line}"))
     container.add_item(ui.Separator())

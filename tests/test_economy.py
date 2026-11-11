@@ -89,7 +89,7 @@ async def main():
     r = await econ.shrine_collect(1, now=T0 + 3 * H + timedelta(minutes=30), rng=Rng([0.0], 0.999))   # 第 1 小時來一隻妖怪
     check(f"collect {r['collected']}", r["collected"] == 5000 + int(2.5 * 5000 * 0.92) and money(1) == 1000 + r["collected"])
     r = await econ.shrine_defeat(1, now=T0 + 4 * H, rng=NEVER)
-    check("defeat", r["ok"] and r["summary"]["youkai"] == 0 and r["summary"]["dirt"] == 2 and money(1) == 1000 + 16500 + 1000)
+    check("defeat", r["ok"] and r["summary"]["youkai"] == 0 and r["summary"]["dirt"] == 2 and money(1) == 1000 + 16500 + 1500)  # NEVER = 0.999 ➔ 上限 1500
     r = await econ.shrine_defeat(1, now=T0 + 4 * H, rng=NEVER)
     check("defeat none", not r["ok"])
     # 晦氣不會讓清潔度超過 4
