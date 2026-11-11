@@ -159,8 +159,8 @@ def build_explore_container(locations: dict, stamina: dict, cost: int, result: d
     container.add_item(ui.Separator())
     loc_lines = []
     for loc in locations.values():
-        drops = " ".join(items.get(m, {}).get("emoji", "❓") for m in loc["drops"])
-        loc_lines.append(f"{loc['emoji']} **{loc['name']}**{'　🎪 活動限定' if loc.get('event') else ''}　{drops}")
+        drops = "、".join(item_label(items, m) for m in loc["drops"])
+        loc_lines.append(f"{loc['emoji']} **{loc['name']}**{'　🎪 活動限定' if loc.get('event') else ''}\n-# 　{drops}")
     container.add_item(ui.TextDisplay("\n".join(loc_lines)))
     return container
 
