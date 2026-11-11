@@ -50,6 +50,12 @@ EN_NAMES = {
     "cirno": "Cirno",
     "daiyousei": "Daiyousei",
     "flandre": "Flandre Scarlet",
+    "remilia": "Remilia Scarlet",
+    "sakuya": "Sakuya Izayoi",
+    "patchouli": "Patchouli Knowledge",
+    "meiling": "Hong Meiling",
+    "rumia": "Rumia",
+    "koakuma": "Koakuma",
 }
 
 

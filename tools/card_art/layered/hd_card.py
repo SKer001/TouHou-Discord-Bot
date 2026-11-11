@@ -310,6 +310,62 @@ LAYERS = {
                   "emissive": [{"mask": f"10m_crystal_{g}.png", "color": c, "strength": 0.8, "body": 0.5}
                                for g, c in (("warm", (255, 190, 90)), ("green", (150, 255, 160)), ("blue", (120, 200, 255)), ("purple", (230, 140, 255)))]},
     },
+    # 蕾米莉亞 SSR / UR / LR (TH06，2026-11-11 候選)：萌娘百科外貌 = 淡藍短髮 (有時偏紫)、血紅眼、虎牙、淡粉色苞帽 + 左邊紅色大蝴蝶結、背後大蝴蝶結、
+    # 比身高還大的蝙蝠翅膀 ➔ 人物直接帶翅膀 (inline_wings_tags = 蝙蝠翅膀)
+    ("remilia", "SSR"): {
+        # SSR「鮮紅的惡魔」：紅魔館夜晚的玫瑰庭園、紅色滿月；收起的洋傘、高傲的笑
+        "bg": ("no humans, scenery, night, rose garden of a gothic western mansion, red roses, rose bushes, stone fountain, garden lanterns, "
+               "red brick mansion in background, clock tower, huge red full moon, starry sky, thin red mist, moonlight, elegant, "
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, bat, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, remilia scarlet, touhou, light blue hair, short hair, red eyes, slit pupils, fang, mob cap, pink headwear, hat ribbon, red ribbon, "
+                 "pink dress, white dress, red trim, puffy short sleeves, wrist cuffs, red bow on back, white socks, red shoes"),
+        "char": ("standing, holding closed parasol, pink parasol, hand on hip, smug, confident smile, fang, looking at viewer, "
+                 "dress fluttering, elegant pose"),
+        "char_negative": "flandre scarlet, blonde hair, crystal wings, crystals, weapon, spear",
+        "inline_wings": True,
+        "inline_wings_tags": ("bat wings, black bat wings, large wings, wings spread, demon wings"),
+        "char_scale": 0.9,
+    },
+    ("remilia", "UR"): {
+        # UR「紅魔館的夜之帝王」：紅魔館的王座大廳 (紅地毯、吊燈、彩繪玻璃透進紅月光)；翹腳坐在王座上拿紅酒杯、翅膀張開 + 紅色彈幕
+        "bg": ("no humans, scenery, grand throne room of a gothic western mansion, ornate red velvet throne, red carpet, chandeliers, candles, "
+               "tall stained glass windows, moonlight streaming in, dim lighting, dark interior, marble pillars, deep purple and black with gold accents, majestic, dramatic, "   # 背景偏暗紫黑，紅色彈幕才跳得出來
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, bat, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, remilia scarlet, touhou, light blue hair, short hair, red eyes, slit pupils, fang, mob cap, pink headwear, hat ribbon, red ribbon, "
+                 "pink dress, white dress, red trim, puffy short sleeves, wrist cuffs, red bow on back, white socks, red shoes"),
+        "char": ("sitting, crossed legs, holding wine glass, red wine, arrogant smile, fang, half-closed eyes, looking at viewer, "
+                 "glowing eyes, chin rest, regal, full body"),
+        "char_negative": "flandre scarlet, blonde hair, crystal wings, crystals, spear, chair, throne",
+        "inline_wings": True,
+        "inline_wings_tags": ("bat wings, black bat wings, large wings, wings spread, demon wings"),
+        "style": "scarlet",
+        "density": 0.75,
+        "glow": 0.55,
+        "char_scale": 0.8,
+        "light": {"dark": 0.35, "eyes": [(602, 598), (668, 601)], "eye_color": (255, 60, 60), "eye": 1.3, "eye_size": 3},   # 背光 + 紅眼發光 (C3 s5505)
+    },
+    ("remilia", "LR"): {
+        # LR「操縱命運之神槍惡魔」神槍「Spear the Gungnir」：紅霧籠罩的紅魔館上空、巨大紅月；舉起發光的紅色神槍要擲出
+        "bg": ("no humans, scenery, night sky above a gothic western mansion, huge blood red full moon, dark purple night sky, thin red mist, "
+               "dark clouds, clock tower far below, stars, dramatic, epic, deep purple and black, highly detailed, intricate details"),   # 天空偏暗紫黑 (紅色彈幕要跳)
+        "bg_negative": "1girl, person, human, character, face, wings, bat, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, remilia scarlet, touhou, light blue hair, short hair, red eyes, slit pupils, fang, mob cap, pink headwear, hat ribbon, red ribbon, "
+                 "pink dress, white dress, red trim, puffy short sleeves, wrist cuffs, red bow on back, white socks, red shoes"),
+        "char": ("floating in midair, holding spear the gungnir, glowing red spear, huge red energy spear, about to throw, arm raised, "
+                 "dynamic pose, fierce smile, fang, glowing eyes, dress fluttering, full body, from below"),
+        "char_negative": "flandre scarlet, blonde hair, crystal wings, crystals, cropped",
+        "inline_wings": True,
+        "inline_wings_tags": ("bat wings, black bat wings, large wings, wings spread, demon wings"),
+        "style": "scarlet",
+        "density": 0.7,
+        "glow": 0.6,
+        "char_scale": 0.8,
+        "light": {"dark": 0.35, "eyes": [(757, 736), (793, 729)], "eye_color": (255, 60, 60), "eye": 1.3, "eye_size": 3,   # 紅眼發光
+                  # 神槍發光試過 (偏粉紅)，使用者選回原版，只留紅眼
+                  },
+    },
 }
 
 

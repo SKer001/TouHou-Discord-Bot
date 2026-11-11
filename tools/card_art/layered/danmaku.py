@@ -1,4 +1,4 @@
-"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用；starbow 是紅色大玉環 + 七彩水晶米粒彈 + 七彩菱形水晶彈雨，芙蘭「星弓破碎」用)
+"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用；starbow 是紅色大玉環 + 七彩水晶米粒彈 + 七彩菱形水晶彈雨，芙蘭「星弓破碎」用；scarlet 全部紅色系大玉 + 米粒彈，蕾米莉亞用)
 draw_danmaku(size, seed, style) 回傳 (glow 光暈 RGB, core 清楚彈體 RGBA)；
 座標以 1344 寬的畫窗為基準，依 size 等比放大，所以可以直接畫在 4 倍高清的畫布上。"""
 import colorsys
@@ -109,6 +109,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
 
     STARBOW = [(255, 60, 70), (255, 150, 40), (255, 230, 60), (90, 230, 110), (70, 210, 255), (90, 110, 255), (200, 90, 255)]   # 芙蘭翅膀的七色水晶
 
+    SCARLET = [(235, 20, 40), (255, 60, 80), (200, 0, 30), (255, 120, 150), (180, 20, 90)]   # 蕾米莉亞：深紅、緋紅、粉紅、暗紫紅
+
     def shard(x, y, L, ang, color):
         """菱形水晶彈：細長菱形，沿行進方向"""
         if keep.random() > density:
@@ -139,6 +141,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                         star(x, y, r * 1.7, a, hue(base_h + k / n))
                     elif style == "seal":  # 靈夢：夢想封印的七彩大光球
                         orb(x, y, r * 1.6, hue(base_h + k / n, 0.7))
+                    elif style == "scarlet":   # 蕾米莉亞：深紅大玉環 (每四顆夾一顆粉紅)
+                        orb(x, y, r * 1.5, SCARLET[3] if k % 4 == 0 else SCARLET[ring % 3])
                     elif style == "starbow":   # 芙蘭：紅色大玉環 (每隔幾顆夾一顆七彩)
                         orb(x, y, r * 1.2, STARBOW[k % 7] if k % 3 == 0 else (230, 25, 45))
                     else:
@@ -155,6 +159,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                     star(x, y, 15 * s, a, hue(arm / 7 + t / 90, 0.7))
                 elif style == "seal":   # 靈夢：紅白符札
                     ofuda(x, y, a + 0.35, 22 * s, (215, 35, 45))
+                elif style == "scarlet":   # 蕾米莉亞：紅色米粒彈
+                    rice(x, y, a + 0.35, 19 * s, SCARLET[arm % 5])
                 elif style == "starbow":   # 芙蘭：一條手臂一種水晶色
                     rice(x, y, a + 0.35, 17 * s, STARBOW[arm])
                 else:
@@ -169,9 +175,10 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
         for _ in range(140):
             crystal(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(10, 26) * s, rnd.random() * 6, (215, 240, 255))
     # 星形彈與散落小玉
+    red = style == "scarlet"   # 蕾米莉亞：散落的彈也都是紅色系
     for _ in range(260 if style == "stars" else 110):
-        star(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 17) * s, rnd.random() * 6, hue(rnd.random(), 0.6))
+        star(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 17) * s, rnd.random() * 6, rnd.choice(SCARLET) if red else hue(rnd.random(), 0.6))
     for _ in range(260):
-        orb(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(3, 6) * s, hue(rnd.random(), 0.5))
+        orb(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(3, 6) * s, rnd.choice(SCARLET) if red else hue(rnd.random(), 0.5))
 
     return glow.filter(ImageFilter.GaussianBlur(9 * s)), core
