@@ -244,9 +244,9 @@ LAYERS = {
                       "emissive": [{"mask": "alpha", "color": (190, 255, 200), "strength": 0.6, "body": 0.95, "prism": 0.45}]},
         },
     },
-    # 芙蘭朵露 SSR / UR / LR (TH06，2026-11-11 候選)：金色側馬尾、紅眼、白色暴民帽 + 紅緞帶、紅背心裙 + 白襯衫、黃色領巾；
-    # 翅膀 (枯枝 + 七彩水晶) 模型畫不好 ➔ 照琪露諾 UR 做翅膀層：人物不畫翅膀，水晶 W1 單獨生成、三個階級共用；錨點等人物定案再量 (先填估計值)
-    # 另外有 inline_wings 版 (人物直接帶翅膀) 的候選給使用者比較
+    # 芙蘭朵露 SSR / UR / LR (TH06，2026-11-11)：金色側馬尾、紅眼、白色暴民帽 + 紅緞帶、紅背心裙 + 白襯衫、黃色領巾；
+    # 角色名一出現模型就會畫翅膀，負面權重加重只會讓圖壞掉 ➔ 人物直接帶翅膀 (SSR 選的 C2 是「不帶翅膀」提示詞但照樣長出翅膀，所以不開 inline 才能跟生成時一致)
+    # 使用者選：SSR B1 (s1101) C2 (s2202)、UR B2 (s2202) C3 (s3303)、LR B1 (s1101) + 人物照 C4 的俯瞰視角重生、翅膀要像原作、彈幕少一點
     ("flandre", "SSR"): {
         # SSR「惡魔的妹」：紅魔館地下室的玩具房，燭光溫暖明亮；抱著布偶歪頭笑，天真又有一點危險 (布偶線頭鬆脫)
         "bg": ("no humans, scenery, basement room of a gothic western mansion, toy room, red carpet, scattered toys, stuffed animals, "
@@ -261,13 +261,6 @@ LAYERS = {
         "inline_wings_tags": ("crystal wings, wings, black branch-like wings, colorful crystals hanging from wings, "
                          "rainbow crystals, multicolored crystals"),   # 只有 inline 候選用 (inline_wings 預設不開)
         "char_scale": 0.9,
-        "wings": {   # 錨點是 06 基本圖背部 (兩肩之間) 的估計值，人物定案後再量
-            "crystals": {"A": "W1_crystal_A.png"},
-            "anchor": (468, 420),
-            "items": [],   # 枯枝 + 七顆水晶的排法等水晶素材定案再寫
-            "light": {"dark": 0.0, "rim": 0.3, "halo": 0.3,
-                      "emissive": [{"mask": "alpha", "color": (255, 255, 255), "strength": 0.5, "body": 0.9, "prism": 0.6}]},
-        },
     },
     ("flandre", "UR"): {
         # UR「毀滅一切的狂氣之妹」禁忌「萊瓦汀」：血紅滿月下燃燒的紅魔館 + 星弓彈幕；狂笑、萊瓦汀燃燒
@@ -280,47 +273,42 @@ LAYERS = {
                  "crazy smile, wide-eyed, crazy eyes, constricted pupils, glowing eyes, fang, insane, slightly from below, "
                  "hair fluttering, skirt fluttering"),
         "char_negative": "(wings:1.5), (crystal wings:1.5), (crystals:1.3), demon wings, bat wings, blue hair, remilia scarlet, spear of the gungnir",
+        "inline_wings": True,
         "inline_wings_tags": ("crystal wings, wings, black branch-like wings, colorful crystals hanging from wings, "
                          "rainbow crystals, multicolored crystals"),
         "style": "starbow",
         "density": 0.75,
         "glow": 0.55,
         "char_scale": 0.8,
-        "light": {"dark": 0.35, "eye_color": (255, 60, 60)},   # 背光；眼睛座標選好人物再補
-        "wings": {
-            "crystals": {"A": "W1_crystal_A.png"},
-            "anchor": (468, 420),
-            "items": [],
-            "light": {"dark": 0.0, "rim": 0.5, "halo": 0.5,
-                      "emissive": [{"mask": "alpha", "color": (255, 255, 255), "strength": 0.9, "body": 0.85, "prism": 0.7}]},
-        },
+        "light": {"dark": 0.35, "eyes": [(463, 882), (494, 872)], "eye_color": (255, 60, 60), "eye": 1.3, "eye_size": 3},   # 背光 + 紅眼發光 (10_char.png 座標，使用者要眼睛發亮)
     },
     ("flandre", "LR"): {
-        # LR「掌控萬物目之四重存在」禁忌「四重存在」(Four of a Kind)：被破壞的大廳、破掉的天花板外是巨大紅月 + 星弓彈幕；
-        # 主體一人 (握碎萬物之「目」的手勢)，四重存在先試模型畫四人分身，不行就做主體 + 背後三個半透明殘影的程式疊層
+        # LR：被破壞的大廳、破掉的天花板外是巨大紅月 + 星弓彈幕；俯瞰視角，握碎萬物之「目」的手勢
+        # 四重存在 (模型畫不出分身) 使用者說不一定要，稱號可以改
         "bg": ("no humans, scenery, destroyed grand hall, ruined gothic mansion interior, shattered stained glass windows, broken pillars, "
                "collapsed ceiling, huge red moon through broken ceiling, floating debris, floating rubble, glass shards in the air, "
                "crimson light, rainbow light, prismatic, dramatic, highly detailed, intricate details"),
         "bg_negative": "1girl, person, human, character, face, wings, bat, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
         "base": ("1girl, flandre scarlet, touhou, blonde hair, one side up, side ponytail, red eyes, mob cap, white headwear, hat ribbon, red ribbon, "
                  "red vest, red skirt, frilled skirt, white shirt, puffy short sleeves, yellow ascot, wrist cuffs, white socks, red shoes"),
-        "char": ("floating, dutch angle, reaching toward viewer, open hand, about to clench fist, other hand holding laevatein (touhou), "
-                 "black curved staff, laughing, crazy smile, glowing eyes, crazy eyes, fang, hair flowing, skirt fluttering, from below"),
-        "char_negative": "(wings:1.5), (crystal wings:1.5), (crystals:1.3), demon wings, bat wings, blue hair, remilia scarlet, fire",
-        "inline_wings_tags": ("crystal wings, wings, black branch-like wings, colorful crystals hanging from wings, "
-                         "rainbow crystals, multicolored crystals"),
+        "char": ("from above, high angle, full body, floating in midair, looking up at viewer, reaching toward viewer, open hand, "
+                 "other hand holding laevatein (touhou), black curved staff, laughing, crazy smile, glowing eyes, fang, "
+                 "hair flowing, skirt fluttering"),
+        "char_negative": "(wings:1.5), (crystal wings:1.5), (crystals:1.3), demon wings, bat wings, blue hair, remilia scarlet, fire, "
+                         "tree, bare tree, many branches, tangled branches, thorns, cropped",
+        "inline_wings": True,
+        # 原作翅膀 (萌娘百科)：一對扭曲的細黑枝條，每根吊一排水晶；顏色由內到外 天藍、藍、紫、粉、橙、黃、淺綠、天藍，沒有紅色 (不是彩虹七色)
+        "inline_wings_tags": ("crystal wings, wings, (one pair of thin black wings:1.2), (single thin twisted branch on each side:1.2), symmetrical wings, "
+                              "(crystals hanging in a row:1.2), light blue, blue, purple, pink, orange, yellow, light green crystals, "
+                              "small diamond-shaped crystal pendants, (no red crystals:1.1)"),
         "style": "starbow",
-        "density": 1.0,
+        "density": 0.7,   # 使用者：彈幕太多
         "glow": 0.6,
         "char_scale": 0.8,
-        "light": {"dark": 0.35, "eye_color": (255, 60, 60)},
-        "wings": {
-            "crystals": {"A": "W1_crystal_A.png"},
-            "anchor": (468, 420),
-            "items": [],
-            "light": {"dark": 0.0, "rim": 0.5, "halo": 0.5,
-                      "emissive": [{"mask": "alpha", "color": (255, 255, 255), "strength": 1.0, "body": 0.85, "prism": 0.8}]},
-        },
+        "light": {"dark": 0.35, "eyes": [(644, 981), (697, 953)], "eye_color": (255, 60, 60), "eye": 1.3, "eye_size": 3,   # 紅眼發光 (同 UR)
+                  # 翅膀水晶各自發光 (使用者要)：crystal_mask.py 依色相抓出水晶存成遮罩，每組用自己的顏色發光
+                  "emissive": [{"mask": f"10m_crystal_{g}.png", "color": c, "strength": 0.8, "body": 0.5}
+                               for g, c in (("warm", (255, 190, 90)), ("green", (150, 255, 160)), ("blue", (120, 200, 255)), ("purple", (230, 140, 255)))]},
     },
 }
 

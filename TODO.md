@@ -39,7 +39,7 @@
 | TH05 | 夢子 yumeko | R / SR / SSR | 全部重生 |
 | TH06 | 琪露諾 cirno | SR / SSR / UR | UR ✅ (dim 0.55)；SR、SSR 重生 |
 | TH06 | 大妖精 daiyousei | N / R / SR | ✅ 0.30.002 完成 (人物直接帶翅膀) |
-| TH06 | 芙蘭朵露 flandre | SSR / UR / LR | **下一位**，新卡，水晶翅膀 ➔ 翅膀分層 |
+| TH06 | 芙蘭朵露 flandre | SSR / UR / LR | ✅ 2026-11-11 (人物直接帶翅膀；LR 稱號改「破壞萬物的禁忌之妹」) |
 | TH06 | 小惡魔 koakuma | N / R / SR | 新卡 |
 | TH06 | 紅美鈴 meiling | R / SR / SSR | 新卡 |
 | TH06 | 帕秋莉 patchouli | SR / SSR / UR | 新卡，魔法書 / 元素可做環繞圖層 |

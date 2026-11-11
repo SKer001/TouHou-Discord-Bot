@@ -49,6 +49,7 @@ EN_NAMES = {
     "yumeko": "Yumeko",
     "cirno": "Cirno",
     "daiyousei": "Daiyousei",
+    "flandre": "Flandre Scarlet",
 }
 
 
