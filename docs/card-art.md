@@ -2,6 +2,20 @@
 
 > 從 `CLAUDE.md` 拆出來的細節文件 (2026-11-11)。要做這方面的工作時才讀；改了內容記得一起更新。
 
+## ⭐ 現行規則 (2026-11-11 使用者指定，取代下面舊的「UR / LR 才分層」說法)
+- **N～LR 全部階級都走高清分層流程** `tools/card_art/layered/hd_card.py`，步驟一樣、也都放大 16 倍再壓縮：
+  1. **背景**（01 生成 → 02 重繪 → 03 高清）
+  2. **彈幕**（04，**只有 UR / LR**）：彈幕越多背景越暗，`auto_dim(density)` = 0.8 − 0.2 × density（LR 1.0 ➔ 0.6、UR 0.75 ➔ 0.65）；N～SSR 不壓暗、沒有彈幕
+  3. **翅膀**（有翅膀的角色先做翅膀層 W1~W5，再做人物）／其他附屬物件（尾流、環繞物件）
+  4. **人物**（06~10，單獨生成、白底、去背；UR / LR 加背光打光 10b）
+  5. **卡框** → 文字 → 等級（11~15）
+  6. **特效**（16 GIF）：SSR = shine 閃光、UR = holo 雷射、LR = holo + sparkle；N～SR 靜態
+- 舊的單張生成卡（`make_workflow.py` 的 `SCENES`）**全部重生**：照現有的 `SCENES` 構想拆成 `LAYERS` 的背景（bg）與人物動作（char），一位一位做，每張先給候選讓使用者挑，定案才推。進度清單在 `TODO.md` 第 1 節。
+- **翅膀：先試人物直接帶翅膀**（2026-11-11 大妖精）：翅膀層 (W1~W5 程式排列) 做出來使用者覺得怪；改成 `LAYERS` 加 `"inline_wings": True`，人物提示自動加上翅膀、負面提示拿掉翅膀相關字，去背後翅膀有保留下來 (會變得比較不透明)。翅膀層留給水晶翅膀、六翼這種模型畫不好的。
+  - 大妖精的角色名本身就會讓模型畫出金框翅膀；「飛行 / 半空」姿勢更一定會畫。要「沒有翅膀」的人物時，拿掉角色名只描述外觀又會讓衣服跑掉 (水手服)，所以有翅膀的角色乾脆直接帶翅膀。
+  - 硬把人物圖上的翅膀塗掉，翅膀蓋到臉 / 手時會連帶弄壞 (大妖精 R 第一次右眼、右手變形)；塗白也會被去背模型當成物體留下，要塗成附近的背景色。
+- 階級越高畫面越強的原則不變（N/R 日常、SR 輕鬆、SSR 施法有動態、UR/LR 招牌大招 + 大量彈幕）。
+
 - **卡面（`tools/card_art/`）**：
   - 流程：`make_workflow.py <角色> <階級> <種子> <out.json>` 產生 ComfyUI 工作流程（Animagine XL 4.0 Opt、896×1064、一次 2 張）→ 使用者挑圖 → 存成 `images/Original/Art/<角色>_<階級>.png` → `python tools/card_art/build_cards.py [角色…]` 產生 `images/Thumbnails/<角色>_<階級>.png` 並寫入 Thumbnails.json → **push 之後** Discord 才抓得到圖。
   - 合成順序：角色原圖墊底 → 蓋上 `empty.png`（畫窗透明，邊角不會有瑕疵）→ 左上中文稱號（衡山毛筆行書，`吞→呑`、`絕→絶`）、右上等級圖（`tools/card_art/rarity/`，2026-10-29 換成使用者給的新綠幕版 `rarity_greenscreen.jpg`，用 `make_rarity.py` 去背切成 6 張；`card.py` 的 `BADGE_SCALE = 1.25` 放大 1.25 倍）、名牌英文名（Harukaze Solid，可稍微超出名牌）。`empty.png` 由 `make_empty.py` 從綠幕卡框產生（含底部 TouHou / Project 小字）；綠幕原圖只有 736×1024，所以先用 ComfyUI 的 4x-UltraSharp 放大 4 倍再縮成 1748×2432，存成 `empty_greenscreen_hd.png`（2026-10-29，卡框明顯變清楚）。改了卡框或等級圖要重跑 `make_empty.py` / `make_rarity.py` 和 `build_cards.py`（不加參數＝全部角色）。

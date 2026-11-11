@@ -1,10 +1,12 @@
-"""高清分層卡面流程 (使用者 2026-10-30 指定，UR 與 LR 步驟完全一樣，只差最後的動態特效)：每一步的產出與修改後的圖都保留，方便之後微調
+"""高清分層卡面流程：**N～LR 全部階級都走這套** (使用者 2026-11-11 指定，原本只有 UR / LR)，每一步的產出與修改後的圖都保留，方便之後微調
+順序：背景 ➔ 彈幕 (只有 UR / LR) ➔ 翅膀 (有翅膀的角色先做) ➔ 人物 ➔ 卡框 ➔ 文字 / 等級 ➔ 特效 (SSR 閃光、UR 雷射、LR 雷射 + 星光)
+彈幕越多背景壓越暗 (auto_dim)，不然畫面很亂；N～SSR 沒有彈幕、背景不壓暗
 步驟檔放在 images/Original/<分類>/<角色>/<階級>/ (分類 = Characters/ 的資料夾，例如 TH05)：
 
   背景  01_bg_base.png     SDXL 生成 (跟卡面同比例 864×1200)
         02_bg_hires.png    放大 2 倍再重繪補細節 (1728×2400)
         03_bg_hd.png       4x-UltraSharp 放大成卡面 4×4 = 16 倍像素 (6992×9728)
-        04_bg_fx_hd.png    壓暗 + 程式畫的彈幕 (高清畫，邊緣乾淨)
+        04_bg_fx_hd.png    UR / LR：壓暗 + 程式畫的彈幕 (高清畫，邊緣乾淨)；N～SSR：直接沿用 03 (不壓暗、沒有彈幕)
         05_bg.png          壓縮成卡面大小 (1748×2432) ★
   人物  06_char_base.png   SDXL 生成完整全身、白底 (跟畫窗同比例 936×1128)
         07_char_hires.png  放大 1.5 倍重繪 (1400×1688)
@@ -76,7 +78,7 @@ CHAR_COMPOSITION = ("solo, full body, entire body visible, head to toe, "
 CHAR_NEGATIVE = ("background scenery, danmaku, effects, cropped, cut off feet, "
                  "black border, letterbox, frame, close-up, large figure")
 
-# 每張分層卡的提示詞：bg = 背景 (不要人物)、char = 人物動作表情、style = 彈幕風格 (danmaku.py)、dim = 背景亮度
+# 每張分層卡的提示詞：bg = 背景 (不要人物)、char = 人物動作表情、base = 取代 make_workflow.BASE 的外觀 (例如拿掉翅膀標籤)、style = 彈幕風格 (danmaku.py)、dim = 背景亮度
 LAYERS = {
     # 神綺 LR「魔界宇宙之創世主」：宇宙背景 + 彩虹彈幕；人物斜角 (左下腳、右上頭)、微仰視、六翼完整
     ("shinki", "LR"): {
@@ -108,7 +110,6 @@ LAYERS = {
         "char_negative": "magic effects, orbs, yin yang orb, light, sparkles, ofuda, wings, multiple girls",
         "style": "seal",
         "density": 0.75,
-        "dim": 0.75,
         "glow": 0.55,
         "char_scale": 0.75,
         "light": {"dark": 0.35},   # 背光；眼睛座標選好人物再補
@@ -129,7 +130,6 @@ LAYERS = {
                           "multiple brooms, two brooms, bristles on both ends, extra hat, floating hat"),
         "style": "stars",
         "density": 0.75,   # UR：大量彈幕，比 LR 少一點
-        "dim": 0.75,
         "glow": 0.55,
         "char_scale": 0.75,   # 使用者：人物放大一點
         "tilt": -12,               # 原圖掃帚往右上斜 (像往左下俯衝)；使用者：比 -20 再逆時針轉一點，掃帚尾端翹向右上留空間給尾流
@@ -152,7 +152,7 @@ LAYERS = {
                  "frost particles around hands, slightly from below"),
         "style": "freeze",
         "density": 0.75,   # 使用者：UR 也要大量彈幕，比 LR 少一點
-        "dim": 0.8,        # 夜景本來就暗，不用壓太多
+        "dim": 0.7,        # 夜景本來就暗，比 auto_dim 亮一點 (2026-11-11 使用者：彈幕多要再暗一點，0.8 ➔ 0.7)
         "glow": 0.3,
         "char_scale": 0.6, # 人物 (不含翅膀) 的大小；加上翅膀後整體比例偏小 (跟 LR 一樣，彈幕當主角)
         # 人物不畫翅膀 (06h：使用者選的 1 號用手描身體輪廓把翅膀塗白)；背光 + 冰藍色眼睛，座標是 10_char.png 上的位置
@@ -175,6 +175,75 @@ LAYERS = {
                       "emissive": [{"mask": "alpha", "color": (170, 222, 255), "strength": 1.0, "body": 0.75, "prism": 0.45}]},
         },
     },
+    # 大妖精 N / R / SR (2026-11-11 改走高清分層)：明亮白天的霧之湖；人物不畫翅膀 (base 拿掉 BASE 的翅膀標籤 + char_negative)，
+    # 翅膀另外做 (W1 單片妖精翅膀：半透明、淡綠、帶彩虹光，三個階級共用同一組素材)；N～SR 沒有彈幕、不打光，人物比 UR 大
+    ("daiyousei", "N"): {
+        # N「霧之湖的大妖精」：清晨湖邊淺灘，赤腳踩水、提著裙擺回頭看遠方的霧，溫和恬靜
+        "bg": ("no humans, scenery, misty lake, lakeside, shallow water, morning mist, reeds, lily pads, ripples, "
+               "soft sunlight, daytime, bright, blue sky, distant forest, pastel colors, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, daiyousei, touhou, green hair, short hair, side ponytail, yellow hair ribbon, hair bow, green eyes, "
+                 "blue dress, white shirt, puffy short sleeves, yellow neckerchief"),
+        "char": ("standing on both feet, both legs visible, barefoot, lightly holding skirt hem, looking back over shoulder, from side, looking into the distance, "
+                 "gentle smile, calm, soft expression, hair fluttering"),
+        "char_negative": "(wings:1.4), (fairy wings:1.3), insect wings, transparent wings, butterfly wings, angel wings, staff, wand, weapon, ribbon streamer, cape, scarf, "
+                         "water, splash",
+        "inline_wings": True,   # 2026-11-11 使用者：翅膀層版本怪怪的 ➔ 改成人物直接帶翅膀
+        "char_scale": 0.95,
+        "wings": {   # 錨點是 06 基本圖上的背部 (兩肩之間) 估計值，人物定案後再精準調
+            "crystals": {"A": "W1_crystal_A.png"},
+            "anchor": (480, 300),   # 06 人物圖的背部 (2026-11-11 人物定案後量的)
+            # W5 翅膀素材本身就是一大一小兩片，一邊一個、左右鏡射
+            "items": [{"crystal": "A", "angle": 35, "length": 0.3, "r0": 0.0, "width": 1.0}],
+            "light": {"dark": 0.0, "rim": 0.2, "halo": 0.2,
+                      "emissive": [{"mask": "alpha", "color": (200, 255, 210), "strength": 0.4, "body": 0.9, "prism": 0.35}]},
+        },
+    },
+    ("daiyousei", "R"): {
+        # R「湖畔的守護精靈」：站在湖岸張開雙手擋在前面 (像在護著琪露諾)，略帶擔心又堅定 (N～SR 沒有彈幕，原本的綠色小彈拿掉)
+        # 2026-11-11：跳躍 / 半空的姿勢模型一定會畫翅膀，塗掉又讓臉和手變形 ➔ 使用者選改成站在地上重生
+        "bg": ("no humans, scenery, lake shore, misty lake, mist over water, water splash, wind, forest edge, "
+               "daytime, bright sunlight, blue sky, clouds, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, daiyousei, touhou, green hair, short hair, side ponytail, yellow hair ribbon, hair bow, green eyes, "
+                 "blue dress, white shirt, puffy short sleeves, yellow neckerchief"),
+        "char": ("standing, feet on ground, firm stance, legs apart, arms outstretched to the sides, protective pose, shielding, "
+                 "worried expression, determined, looking to the side, hair flowing in wind, skirt fluttering, from side"),
+        "char_negative": "(wings:1.4), (fairy wings:1.3), insect wings, transparent wings, butterfly wings, angel wings, staff, wand, weapon, ribbon streamer, cape, scarf, "
+                         "danmaku, bullets, (wings on back:1.5), (white wings:1.4), flying, floating, midair, jumping",   # 半空姿勢會讓模型自動畫出翅膀
+        "inline_wings": True,   # 2026-11-11 使用者：翅膀層版本怪怪的 ➔ 改成人物直接帶翅膀
+        "char_scale": 0.95,
+        "wings": {
+            "crystals": {"A": "W1_crystal_A.png"},
+            "anchor": (438, 625),   # 06 人物圖的背部 (2026-11-11 人物定案後量的)
+            # W5 翅膀素材本身就是一大一小兩片，一邊一個、左右鏡射
+            "items": [{"crystal": "A", "angle": 40, "length": 0.3, "r0": 0.0, "width": 1.0}],
+            "light": {"dark": 0.0, "rim": 0.2, "halo": 0.2,
+                      "emissive": [{"mask": "alpha", "color": (200, 255, 210), "strength": 0.4, "body": 0.9, "prism": 0.35}]},
+        },
+    },
+    ("daiyousei", "SR"): {
+        # SR「翠綠的大自然精靈」：湖畔森林、花草盛開；浮在空中雙手合十、閉眼祈禱，安詳 (捧綠光會畫成一團雲，改掉)
+        "bg": ("no humans, scenery, forest clearing by a misty lake, blooming flowers, flower field, vines, swirling leaves, "
+               "flower petals, light rays through trees, sunbeam, daytime, bright, lush green, magical, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, daiyousei, touhou, green hair, short hair, side ponytail, yellow hair ribbon, hair bow, green eyes, "
+                 "blue dress, white shirt, puffy short sleeves, yellow neckerchief"),
+        "char": ("floating, both legs visible, hands clasped together in front of chest, own hands together, closed eyes, "
+                 "serene, praying, gentle, hair flowing, dress fluttering, slightly from below"),
+        "char_negative": "(wings:1.4), (fairy wings:1.3), insect wings, transparent wings, butterfly wings, angel wings, staff, wand, weapon, ribbon streamer, cape, scarf, "
+                         "leaves, petals, flowers",
+        "inline_wings": True,   # 2026-11-11 使用者：翅膀層版本怪怪的 ➔ 改成人物直接帶翅膀
+        "char_scale": 0.9,
+        "wings": {
+            "crystals": {"A": "W1_crystal_A.png"},
+            "anchor": (495, 455),   # 06 人物圖的背部 (2026-11-11 人物定案後量的)
+            # W5 翅膀素材本身就是一大一小兩片，一邊一個、左右鏡射
+            "items": [{"crystal": "A", "angle": 38, "length": 0.32, "r0": 0.0, "width": 1.0}],
+            "light": {"dark": 0.0, "rim": 0.25, "halo": 0.3,
+                      "emissive": [{"mask": "alpha", "color": (190, 255, 200), "strength": 0.6, "body": 0.95, "prism": 0.45}]},
+        },
+    },
 }
 
 
@@ -190,6 +259,20 @@ def stage_dir(char_id: str, rarity: str) -> str:
     return d
 
 
+INLINE_WINGS = "fairy wings, transparent wings, iridescent insect wings, wings spread"
+
+
+def char_prompts(char_id: str, spec: dict) -> tuple[str, str]:
+    """人物的正 / 負面提示；inline_wings = 翅膀直接跟人物一起畫 (不另外做翅膀層，負面提示拿掉翅膀相關的字)"""
+    char, neg = spec["char"], spec.get("char_negative")
+    if spec.get("inline_wings"):
+        char = ", ".join([char, INLINE_WINGS])
+        neg = ", ".join(t for t in (neg or "").split(", ") if "wing" not in t) or None
+    positive = ", ".join([spec.get("base", BASE[char_id]), char, CHAR_COMPOSITION, QUALITY])
+    negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, neg]))
+    return positive, negative
+
+
 def workflow(char_id: str, rarity: str, layer: str, seed: int) -> dict:
     spec = LAYERS[(char_id, rarity)]
     if layer == "bg":
@@ -197,8 +280,7 @@ def workflow(char_id: str, rarity: str, layer: str, seed: int) -> dict:
         negative = spec["bg_negative"]
         denoise, hd = 0.4, (1748 * HD, 2432 * HD)
     else:
-        positive = ", ".join([BASE[char_id], spec["char"], CHAR_COMPOSITION, QUALITY])
-        negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, spec.get("char_negative")]))
+        positive, negative = char_prompts(char_id, spec)
         l, t, r, b = window_box()
         denoise, hd = 0.35, ((r - l) * HD, (b - t) * HD)
     (bw, bh), (hw, hh) = SIZES[layer]["base"], SIZES[layer]["hires"]
@@ -234,8 +316,7 @@ def outpaint_workflow(char_id: str, rarity: str, src: str, seed: int, pads=(240,
     """往外擴圖 (補完被切掉的翅膀、腳)：原圖縮小到 shrink，四周加 pads (左, 上, 右, 下) 讓 AI 補畫，一次 2 張
     src 要先複製到 ComfyUI/input/"""
     spec = LAYERS[(char_id, rarity)]
-    positive = ", ".join([BASE[char_id], spec["char"], CHAR_COMPOSITION, QUALITY])
-    negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, spec.get("char_negative")]))
+    positive, negative = char_prompts(char_id, spec)
     l, t, r, b = pads
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "animagine-xl-4.0-opt.safetensors"}},
@@ -257,8 +338,7 @@ def upscale_workflow(char_id: str, rarity: str, src: str, seed: int) -> dict:
     """拿現成的人物圖 (例如之前生成、翅膀完整的) 走重繪 → 高清；src 要先複製到 ComfyUI/input/
     輸出跟 workflow() 同名，collect 可以直接收"""
     spec = LAYERS[(char_id, rarity)]
-    positive = ", ".join([BASE[char_id], spec["char"], CHAR_COMPOSITION, QUALITY])
-    negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, spec.get("char_negative")]))
+    positive, negative = char_prompts(char_id, spec)
     w, h = Image.open(os.path.join(COMFY_OUT, "..", "input", src)).size
     hw, hh = int(w * 1.5) // 8 * 8, int(h * 1.5) // 8 * 8
     prefix = f"touhou_card/hd/{char_id}_{rarity}_char_s{seed}"
@@ -293,11 +373,28 @@ def collect(char_id, rarity, layer, seed):
         print("✅", name)
 
 
+DANMAKU_RARITIES = {"UR", "LR"}   # 只有 UR / LR 有彈幕 (使用者 2026-11-11)
+
+
+def auto_dim(density: float) -> float:
+    """彈幕越多背景越暗 (使用者 2026-11-11：大量彈幕時背景亮度要壓低，不然畫面很亂)：density 1.0 ➔ 0.6、0.75 ➔ 0.65"""
+    return round(0.8 - 0.2 * density, 3)
+
+
 def make_bg(char_id, rarity):
     d = stage_dir(char_id, rarity)
     spec = LAYERS[(char_id, rarity)]
     bg = Image.open(os.path.join(d, "03_bg_hd.png")).convert("RGB")
-    bg = ImageEnhance.Brightness(bg).enhance(spec.get("dim", 0.62))
+    if rarity not in DANMAKU_RARITIES or not spec.get("style"):
+        # N～SSR：沒有彈幕，背景原樣 (可用 dim 微調)
+        if spec.get("dim"):
+            bg = ImageEnhance.Brightness(bg).enhance(spec["dim"])
+        bg.save(os.path.join(d, "04_bg_fx_hd.png"))
+        print("✅ 04_bg_fx_hd (沒有彈幕)")
+        bg.resize((bg.width // HD, bg.height // HD), Image.LANCZOS).save(os.path.join(d, "05_bg.png"))
+        print("✅ 05_bg")
+        return
+    bg = ImageEnhance.Brightness(bg).enhance(spec.get("dim", auto_dim(spec.get("density", 1.0))))
     # 彈幕畫滿整張卡 (沒有框的完整原圖也有彈幕)，大小以畫窗為基準
     l, t, r, b = window_box()
     glow, core = draw_danmaku(bg.size, seed=1, style=spec.get("style", "rainbow"), scale=(r - l) * HD / BASE_W,

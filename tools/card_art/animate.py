@@ -136,7 +136,7 @@ def holo_layer(size, frame_mask, t, strength=1.0, seed=3):
 
 
 # 各階級的動態效果 (使用者 2026-10-29 指定)：SSR 白色閃光、UR 雷射塗層、LR 雷射塗層 + 閃爍
-RARITY_EFFECTS = {"SSR": ["shine"], "UR": ["holo"], "LR": ["holo", "sparkle"]}
+RARITY_EFFECTS = {"SSR": ["shine"], "UR": ["holo"], "LR": ["holo", "sparkle"]}   # N～SR 靜態；2026-11-11 使用者確認 SSR 保留閃光
 
 
 def save_animation(card: Image.Image, effects: list[str], out: str, size_w: int = 460, origin_frac=None) -> int:

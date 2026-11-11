@@ -101,6 +101,12 @@ BASE = {
         "1girl, cirno, touhou, blue hair, short hair, blue eyes, blue hair bow, large bow, white shirt, puffy short sleeves, "
         "red neck ribbon, blue dress, pinafore dress, ice wings, six ice wings, ice crystal wings, child, petite"
     ),
+    # 大妖精：照萌娘百科 / 原作 (紅魔鄉 2 面道中頭目)；綠色短髮 + 左側馬尾 (黃色蝴蝶結)、藍色洋裝 + 白襯衫、黃色領巾、
+    # 透明的妖精翅膀 (蟲翅型，不是冰晶)；萌點：溫和、照顧琪露諾的姊姊角色、霧之湖
+    "daiyousei": (
+        "1girl, daiyousei, touhou, green hair, short hair, side ponytail, yellow hair ribbon, hair bow, green eyes, "
+        "blue dress, white shirt, puffy short sleeves, yellow neckerchief, fairy wings, transparent wings, insect wings"
+    ),
 }
 
 # 各階級的場景；依角色個性與故事寫
@@ -403,6 +409,22 @@ SCENES = {
         "standing on top of an iceberg, hand on hip, v sign, laughing, open mouth, confident, smug, "
         "ice blocks flying, icicles, ice shards, snowflakes, frozen lake, blue sky, sparkles, wind, dynamic angle"
     ),
+    # 大妖精 N「霧之湖的大妖精」：湖邊淺灘赤腳踩水、提著裙擺，回頭看遠方的霧，溫和恬靜
+    ("daiyousei", "N"): (
+        "wading in shallow water, barefoot, holding skirt, looking back, looking into the distance, gentle smile, calm, "
+        "lakeside, misty lake, morning mist, reeds, lily pads, ripples, soft sunlight, from behind"
+    ),
+    # 大妖精 R「湖畔的守護精靈」：張開翅膀飛起、張開雙手擋在前面守護 (像在護著琪露諾)，略帶擔心又堅定的表情，放出小顆綠色彈幕
+    ("daiyousei", "R"): (
+        "flying, spread wings, arms outstretched, protective pose, worried expression, determined, looking to the side, "
+        "danmaku, small green bullets, glowing orbs, fairy dust, lake shore, mist, water splash, wind, hair flowing, dynamic angle"
+    ),
+    # 大妖精 SR「翠綠的大自然精靈」：浮在湖面上雙手捧著發光的綠光，周圍花草藤蔓生長、葉子與花瓣旋轉，閉眼祈禱般施法
+    ("daiyousei", "SR"): (
+        "floating above water, hands cupped, holding glowing green light, closed eyes, serene, casting spell, nature magic, "
+        "swirling leaves, flower petals, vines, blooming flowers, green aura, glowing particles, light rays, sparkles, "
+        "fairy wings glowing, misty lake, forest, bloom, magical, from below"
+    ),
 }
 
 EXTRA_NEGATIVE = {
@@ -426,6 +448,7 @@ EXTRA_NEGATIVE = {
                        "large figure, bullet (ammunition), cartridge, gun, shell casing, missile, rocket, sword, weapon"),   # bullet 標籤會畫成子彈
     "cirno": "adult, mature female, tall, long hair, daiyousei, green hair, side ponytail, multiple girls",   # 小孩身高、不要畫成大妖精
     "yumeko": "izayoi sakuya, silver hair, short hair, knife, kitchen knife, blue dress",   # 不要畫成咲夜 (銀髮藍裙飛刀)
+    "daiyousei": "cirno, blue hair, ice wings, ice crystal wings, ice, long hair, twintails, multiple girls, adult, mature female",   # 不要畫成琪露諾 (藍髮冰翅膀)
     "yuki_mai": "solo, 1girl, 3girls, kirisame marisa, witch hat with star, blue hat, white hat, black dress on blue-haired girl, blonde girl with wings",   # 兩人特徵不要互換
 }
 

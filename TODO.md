@@ -10,34 +10,44 @@
 - **開發工具**：botcli / discord_peek 測試、主控台指令、重載控制台；504 項測試全過。
 
 ## 下一步建議 (擇一)
-1. **TH06 卡面**：從大妖精開始 (第 2 節)，紅魔鄉卡池目前大多是 fill。
+1. **TH06 卡面**：從大妖精開始 (第 1 節)，紅魔鄉卡池目前大多是 fill。
 2. **實機試玩經濟與廚房**：觀察一天收入與招待手感，再調數值 (第 5 節)。
-3. **UR 重做**：魅魔 / 愛麗絲 / 神綺 (第 1 節)。
+3. **舊卡全部重生**：改走新的分層流程 (第 1 節)。
 
 > 卡面做法見 `docs/card-art.md`；UR / LR 一律走高清分層流程 (`tools/card_art/layered/hd_card.py`)，背景大量彈幕、人物背光且偏小、附屬物件分層，UR 和 LR 只差最後特效。
 
-## 1. UR / LR 重做 (舊卡改成高清分層)
-- [x] 神綺 LR (TH05)
-- [x] 琪露諾 UR (TH06，水晶翅膀分層)
-- [x] 魔理沙 UR (Main，掃帚尾流)
-- [x] 靈夢 UR (Main，陰陽玉環)
-- [ ] 魅魔 UR (TH01) — 幽靈尾巴，模型常畫出腳；新月杖 / 星形彈可以考慮做成附屬圖層
-- [ ] 愛麗絲 UR (TH05，舊作外觀)
-- [ ] 神綺 UR (TH05) — 跟 LR 同角色，構圖要跟 LR 拉開差異
+## 1. 卡面全部重生 (N～LR 統一走高清分層流程，2026-11-11 使用者指定)
+流程見 `docs/card-art.md`「現行規則」：背景 ➔ 彈幕 (只有 UR/LR，彈幕越多背景越暗) ➔ 翅膀 ➔ 人物 ➔ 卡框 / 文字 / 等級 ➔ 特效 (SSR 閃光、UR 雷射、LR 雷射 + 星光)。
+照現有 `make_workflow.py` 的 `SCENES` 構想拆成 `LAYERS` 的背景與人物；一位一位做，每張先給候選讓使用者挑，定案才推。
 
-## 2. 還沒有卡面的角色 (TH06，依序一位一位做)
-| 角色 | id | 階級 | 備註 |
+| 分類 | 角色 | 階級 | 狀態 |
 |---|---|---|---|
-| 大妖精 | daiyousei | N / R / SR | **下一位** |
-| 芙蘭朵露 | flandre | SSR / **UR / LR** | 水晶翅膀 → 翅膀分層 |
-| 小惡魔 | koakuma | N / R / SR | |
-| 紅美鈴 | meiling | R / SR / SSR | |
-| 帕秋莉 | patchouli | SR / SSR / **UR** | 魔法書 / 元素可做環繞圖層 |
-| 蕾米莉亞 | remilia | SSR / **UR / LR** | 蝙蝠翅膀 → 翅膀分層 |
-| 露米婭 | rumia | R / SR / SSR | |
-| 十六夜咲夜 | sakuya | SR / SSR / **UR** | 飛刀可做環繞圖層 |
+| Main | 靈夢 reimu | SR / SSR / UR | UR 已是分層 (背景要用新的 auto_dim 重新 compose)；SR、SSR 重生 |
+| Main | 魔理沙 marisa | SR / SSR / UR | UR 已是分層 (同上)；SR、SSR 重生 |
+| TH01 | 魅魔 mima | SR / SSR / UR | 全部重生 (幽靈尾巴，模型常畫出腳) |
+| TH02 | 玄爺 genji | N / R / SR | 全部重生 (陸龜、白鬍子) |
+| TH02 | 里香 rika | N / R / SR | 全部重生 |
+| TH03 | 千百合 chiyuri | N / R / SR | 全部重生 |
+| TH03 | 夢美 yumemi | R / SR / SSR | 全部重生 |
+| TH04 | 艾莉 elly | N / R / SR | 全部重生 |
+| TH04 | 幻月 gengetsu | R / SR / SSR | 全部重生 (有翅膀 ➔ 翅膀分層) |
+| TH04 | 夢月 mugetsu | N / R / SR | 全部重生 |
+| TH05 | 愛麗絲 alice | SR / SSR / UR | 全部重生 (舊作外觀) |
+| TH05 | 露易絲 luize | N / R / SR | 全部重生 |
+| TH05 | 神綺 shinki | SSR / UR / LR | LR 已是分層 (同上)；SSR、UR 重生 (UR 構圖要跟 LR 拉開) |
+| TH05 | 雪與舞 yuki_mai | N / R / SR | 全部重生 (雙人：兩人各自生成去背再合成) |
+| TH05 | 夢子 yumeko | R / SR / SSR | 全部重生 |
+| TH06 | 琪露諾 cirno | SR / SSR / UR | UR 已是分層 (dim 0.8 ➔ 0.7，重新 compose)；SR、SSR 重生 |
+| TH06 | 大妖精 daiyousei | N / R / SR | ✅ 0.30.002 完成 (人物直接帶翅膀) |
+| TH06 | 芙蘭朵露 flandre | SSR / UR / LR | **下一位**，新卡，水晶翅膀 ➔ 翅膀分層 |
+| TH06 | 小惡魔 koakuma | N / R / SR | 新卡 |
+| TH06 | 紅美鈴 meiling | R / SR / SSR | 新卡 |
+| TH06 | 帕秋莉 patchouli | SR / SSR / UR | 新卡，魔法書 / 元素可做環繞圖層 |
+| TH06 | 蕾米莉亞 remilia | SSR / UR / LR | 新卡，蝙蝠翅膀 ➔ 翅膀分層 |
+| TH06 | 露米婭 rumia | R / SR / SSR | 新卡 |
+| TH06 | 十六夜咲夜 sakuya | SR / SSR / UR | 新卡，飛刀可做環繞圖層 |
 
-粗體 = 走高清分層。
+順序建議：先做完 TH06 新卡 (卡池最缺)，再回頭重生舊卡。
 
 ## 3. TH07 之後的角色 (要先建 `Characters/THxx/` 角色檔與新卡池)
 每一代要做：角色檔 (介紹、稱號、SP) → `GACHA_POOLS` 加卡池 → `CATEGORY_INFO` 加分類 → 卡面。
@@ -66,7 +76,7 @@
 - **TH20 之後**：上萌娘百科查最新作再補
 
 ## 4. 程式待改進
-- [ ] autocomplete 每次都讀整本卡冊 (卡多了會慢，可加快取)
+- [x] autocomplete 每次都讀整本卡冊 ➔ 0.30.000 加了 30 秒快取
 - [ ] 卡牌存了名稱 / 稱號副本 (角色改名時舊卡不會跟著變)
 - [ ] 桌機安裝 CodeGraph、PhotoCraft (見 `docs/setup.md`、`docs/card-art.md`)
 - [ ] 體力道具只有 🍙 能拿到 (簽到)，團子 / 司康 / 蘑菇湯只能管理員發放，之後要給取得方式
