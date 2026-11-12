@@ -46,7 +46,7 @@
 | TH06 | 帕秋莉 patchouli | SR / SSR / UR | ✅ 0.30.008 (桌機；UR 彈幕風格 elements、環繞水晶各自發光) |
 | TH06 | 蕾米莉亞 remilia | SSR / UR / LR | ✅ 2026-11-11 (人物直接帶蝙蝠翅膀；彈幕風格 scarlet；SSR 人物使用者手修) |
 | TH06 | 露米婭 rumia | R / SR / SSR | 新卡 |
-| TH06 | 十六夜咲夜 sakuya | SR / SSR / UR | 新卡，飛刀可做環繞圖層 |
+| TH06 | 十六夜咲夜 sakuya | SR / SSR / UR | UR ✅ 0.30.011 (桌機；knives 彈幕、紅眼發光)；SR / SSR 筆電已合成，待推 |
 
 順序建議：先做完 TH06 新卡 (卡池最缺)，再回頭重生舊卡。
 
