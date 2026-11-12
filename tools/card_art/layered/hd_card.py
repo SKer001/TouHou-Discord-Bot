@@ -366,6 +366,62 @@ LAYERS = {
                   # 神槍發光試過 (偏粉紅)，使用者選回原版，只留紅眼
                   },
     },
+    # 帕秋莉 SR / SSR / UR (TH06，2026-11-12 桌機)：萌娘百科外貌 = 紫色長直髮、末端與兩邊鬢角用緞帶綁、紫瞳半睜眼；
+    # 荷葉邊圓形睡帽 + 新月飾品；像睡衣的紫 / 淡紫直條紋長袍 + 淡紫長外衣；紅、藍兩色蝴蝶結；永遠拿著魔導書
+    # 萌點：宅女、毒舌、慵懶、畏光、體力差 ➔ SR 慵懶看書、SSR 被打擾的不耐煩 + 施法、UR 認真起來的七曜大魔法
+    ("patchouli", "SR"): {
+        # SR「七曜的魔導士」：紅魔館地下大圖書館，坐在半空中的書堆上翻魔導書，半睜眼慵懶
+        "bg": ("no humans, scenery, huge underground library, endless tall bookshelves, wooden ladders, floating books, stacks of books, "
+               "reading desk, oil lamps, warm lamplight, candles, dust particles in light beams, arched ceiling, cozy, bright, "
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, dark, horror",
+        "base": ("1girl, patchouli knowledge, touhou, purple hair, very long hair, straight hair, hair ribbon, blunt bangs, purple eyes, "
+                 "mob cap, crescent hat ornament, striped dress, vertical-striped dress, pink and purple dress, long sleeves, wide sleeves, "
+                 "capelet, red bow, blue bow"),
+        # 2026-11-12 使用者：坐姿很難跟背景搭 ➔ 改成浮在半空中邊飄邊看書
+        "char": ("floating in midair, slightly reclining in the air, holding open book, reading, half-closed eyes, sleepy, bored expression, "
+                 "relaxed, looking down at book, slight tilt of head, both legs visible, dress hanging down, from side"),
+        "char_negative": "sitting, chair, stack of books, books on floor, furniture, weapon, staff, wand, wings, fire, magic circle",
+        "char_scale": 0.9,
+    },
+    ("patchouli", "SSR"): {
+        # SSR「不動的大圖書館」：被打擾 (偷書賊又來了) 的不耐煩，一手抱魔導書、一手往前施法，書頁翻飛、地上魔法陣發光
+        "bg": ("no humans, scenery, great library, towering bookshelves, glowing magic circle on the floor, floating books, flying pages, "
+               "swirling paper, purple magic particles, lamplight, bright, mystical, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, horror",
+        "base": ("1girl, patchouli knowledge, touhou, purple hair, very long hair, straight hair, hair ribbon, blunt bangs, purple eyes, "
+                 "mob cap, crescent hat ornament, striped dress, vertical-striped dress, pink and purple dress, long sleeves, wide sleeves, "
+                 "capelet, red bow, blue bow"),
+        "char": ("floating, holding book against chest, other arm outstretched, casting spell, open palm, annoyed, frown, half-closed eyes, "
+                 "glaring at viewer, sleeves fluttering, hair flowing, dress fluttering, slightly from below"),
+        "char_negative": "weapon, staff, wand, wings, broom, witch hat",
+        "char_scale": 0.9,
+    },
+    ("patchouli", "UR"): {
+        # UR「元素極致之大魔導士」日符「Royal Flare」/ 火水木金土符「賢者之石」：昏暗的大圖書館深處 + 七曜元素彈幕與魔法陣；
+        # 浮在空中、魔導書自己翻開發光，周圍五顆元素水晶 (賢者之石)，認真起來的冷靜表情
+        "bg": ("no humans, scenery, depths of a vast dark library, endless bookshelves fading into darkness, floating books, "
+               "faint arcane glyphs, dim lighting, dark purple and black, deep shadows, mysterious, majestic, "   # 背景偏暗紫黑，七色彈幕才跳得出來
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, bright, daylight",
+        "base": ("1girl, patchouli knowledge, touhou, purple hair, very long hair, straight hair, hair ribbon, blunt bangs, purple eyes, "
+                 "mob cap, crescent hat ornament, striped dress, vertical-striped dress, pink and purple dress, long sleeves, wide sleeves, "
+                 "capelet, red bow, blue bow"),
+        "char": ("floating in midair, open book floating in front of her, glowing book, one hand raised, casting spell, "
+                 "five floating crystals around her, red crystal, blue crystal, green crystal, yellow crystal, orange crystal, "
+                 "serious expression, calm, glowing eyes, hair flowing, sleeves fluttering, dress fluttering, full body, slightly from below"),
+        "char_negative": "weapon, staff, wand, wings, broom, witch hat, cropped",
+        "style": "elements",
+        "density": 0.75,
+        "glow": 0.55,
+        "char_scale": 0.8,
+        # 使用者選：SR B2 (s2202) C3 (s5505)、SSR B2 (s2202) C1 (s3303)、UR B1 (s1101) C1 (s3303)
+        "light": {"dark": 0.35, "eyes": [(668, 588), (710, 571)], "eye_color": (200, 120, 255), "eye": 1.3, "eye_size": 3,   # 背光 + 紫眼發光 (10_char.png 座標)
+                  # 環繞的水晶 (賢者之石) 各自發光 (使用者要)：自動抓飽和大色塊、排除身體範圍，使用者在預覽上圈補暗面後，依每顆的色相分組存成 10m_crystal_<組>.png
+                  "emissive": [{"mask": f"10m_crystal_{g}.png", "color": c, "strength": 1.0, "body": 0.25, "keep_color": True}
+                               for g, c in (("red", (255, 90, 90)), ("orange", (255, 170, 70)), ("yellow", (255, 230, 110)),
+                                            ("green", (130, 255, 140)), ("blue", (110, 200, 255)), ("purple", (210, 140, 255)))]},
+    },
 }
 
 

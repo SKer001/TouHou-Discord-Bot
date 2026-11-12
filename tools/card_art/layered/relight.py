@@ -11,6 +11,7 @@ opts (都可省略)：
   wing_dark   翅膀本體 (紫色 / 黑色部分) 再壓暗的程度
   eyes        眼睛中心座標 [(x, y), ...] (10_char.png 的座標)；eye 強度、eye_color、eye_size
   emissive    依顏色指定的發光部位清單 [{hue: (lo, hi), sat: (lo, hi), val: (lo,), color, strength, exclude: [多邊形]}]
+              (或 mask: 遮罩檔；keep_color: True = 從原圖顏色提亮，不吃背光壓暗)
 """
 import colorsys
 
@@ -94,7 +95,8 @@ def relight(char: Image.Image, bg: Image.Image, opts: dict) -> Image.Image:
         col = np.array(em.get("color", (120, 215, 255)), dtype=np.float32) / 255
         s_ = em.get("strength", 1.0)
         # 本體：保留顏色、往發光色偏 (body 越大越亮，用濾色提亮才不會變成灰白一片)
-        tinted = np.clip(out * np.array([0.8, 1.0, 1.12]), 0, 1)
+        # keep_color：發光物件不吃背光壓暗 / 冷色調，從原圖顏色開始提亮 (帕秋莉的彩色水晶，不然會變成灰白)
+        tinted = rgb if em.get("keep_color") else np.clip(out * np.array([0.8, 1.0, 1.12]), 0, 1)
         lit = 1 - (1 - tinted) * (1 - col * em.get("body", 0.12) * s_)
         if em.get("prism"):
             # 稜鏡彩虹：色相隨位置與晶面明暗變化 (不同晶面散射不同顏色)，低飽和濾色疊上去
