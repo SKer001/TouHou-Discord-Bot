@@ -54,7 +54,7 @@
     - **對話開始後才加的 MCP 不會載入成工具**：用 `tools/card_art/layered/photocraft.py` 的 `PC` 類別直接跟 `photocraft-cli mcp` 走 stdio JSON-RPC，效果一樣（讀 `.mcp.json` 的設定與權限）。範例：`pc_shinki_LR_tips.py`（神綺 LR 羽尖壓暗，產出步驟 `10c_char_photocraft.png`，疊層優先用 10c）。好用的指令：`select.colorRange`（**滴管 points 沒生效、會退回前景黑色，要直接給 color / colors 色碼**）、`select.lasso` (mode subtract)、`select.loadSelection` (channel transparency, operation intersect，保護外側半透明光暈)、`select.modify.feather`、`image.adjustments.curves` / `hueSaturation`；預覽選取範圍用 `image.adjustments.invert` + `render_preview`（低飽和顏色用色相偏移看不出來）。`doc_export` 會保留 alpha。
     - 分工：局部手修（接縫、調亮調暗、調色、光暈）用 PhotoCraft；AI 補畫（翅膀、腳）還是用 ComfyUI；整批、要重複的（去背、放大、疊層、打光、動畫）用程式。
   - **ComfyUI 環境（筆電與桌機都已安裝）**：
-    - **桌機（2026-10-28 安裝，RTX 3060 Ti 8GB）**：新版 comfy-cli（1.23）會在 `ComfyUI\.venv` 自建虛擬環境並把 PyTorch（cu130）裝在那裡，`~/Documents/comfy/venv` 只有 comfy-cli。啟動要用 `& '~\Documents\comfy\ComfyUI\.venv\Scripts\python.exe' '~\Documents\comfy\ComfyUI\main.py' --listen 127.0.0.1 --port 8188`。
+    - **桌機（2026-10-28 安裝；2026-11-12 顯示卡換成 RTX 5060 Ti 16GB）**：新版 comfy-cli（1.23）會在 `ComfyUI\.venv` 自建虛擬環境並把 PyTorch（cu130）裝在那裡，`~/Documents/comfy/venv` 只有 comfy-cli。啟動要用 `& '~\Documents\comfy\ComfyUI\.venv\Scripts\python.exe' '~\Documents\comfy\ComfyUI\main.py' --listen 127.0.0.1 --port 8188`。
     - 桌機的 comfy MCP 尚未設定（改 `~/.claude.json` 被自動權限擋下）；改用 REST API 也能生圖：把 `make_workflow.py` 的輸出包成 `{"prompt": 工作流程}` POST 到 `http://127.0.0.1:8188/prompt`，用 `GET /queue` 等佇列清空。
     - 桌機的 Ollama（gemma4:26b）與 Wallpaper Engine 會佔顯示記憶體，SDXL 只能動態搬權重，一個工作要 3～4 分鐘；大量生圖前請使用者先 `ollama stop gemma4:26b`（不要自己關使用者的程式）。
     - 以下是筆電的安裝方式：
@@ -63,4 +63,6 @@
     - 啟動：`& '<venv>\Scripts\python.exe' '<ComfyUI>\main.py' --listen 127.0.0.1 --port 8188`（用終端機分頁跑，約 1～3 分鐘）。
     - Claude 的 MCP：全域 Python `pip install comfy-mcp`，在 `~/.claude.json` 的 `mcpServers` 加 `comfyui`：command = 全域的 `comfy-mcp.exe`，env `COMFY_BIN` = venv 裡的 `comfy.exe`（`claude mcp add` 指令在這台不能用，直接改 json，改之前先備份）。
     - ComfyUI 輸出在 `~/Documents/comfy/ComfyUI/output/touhou_card/`（`candidates.py` 預設讀這裡，路徑不同時設環境變數 `COMFY_OUTPUT`）。
-    - 筆電 RTX 4060 Laptop 8GB：896×1064 一次 2 張約 40 秒；8 個工作一次排進佇列沒問題。
+    - 筆電 RTX 4060 Laptop 8GB：896×1064 一次 2 張約 40 秒；8 個工作一次排進佇列沒問題。hd_card 第一段 28 步約 1.25 it/s。
+    - 桌機 RTX 5060 Ti 16GB (2026-11-12)：hd_card 第一段 2.49 it/s、重繪段 1.06 it/s，一個工作含載入約 100 秒 (約筆電 2 倍)。桌機跑 hd_card 要設環境變數 `COMFY_PYTHON` = `ComfyUI\.venv\Scripts\python.exe`、`COMFY_OUTPUT` = `ComfyUI\output`；去背 (rembg 2.0.86 + onnxruntime 1.31.1) 裝在 `ComfyUI\.venv`，全域 Python 3.14 另外裝了 scipy (relight.py 要用)。
+    - **兩台分工** (2026-11-12 使用者要求)：一台做一位角色的整套流程 (候選 → 挑圖 → 合成 → 定案推送)，兩邊各自把對照表傳給使用者挑；兩台都會在 `hd_card.py` 的 `LAYERS` 最後加角色、在 `danmaku.py` 加風格，push 前先 `git pull --rebase`，版本號接著最新的編。
