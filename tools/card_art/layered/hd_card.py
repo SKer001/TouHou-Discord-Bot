@@ -507,6 +507,89 @@ LAYERS = {
         "char_negative": "weapon, sword, wings, sleeping, closed eyes",
         "char_scale": 0.9,
     },
+    # 露米婭 R / SR / SSR (TH06，2026-11-12 桌機)：萌娘百科外貌 = 金色短髮 (鮑伯)、紅眼、左側紅色髮帶 (其實是封印符)；
+    # 白襯衫 + 黑背心 + 黑長裙、紅色領巾 / 領帶；招牌動作 = 張開雙臂擺十字架姿勢 (「是這樣嗎～」)；沒有翅膀
+    # 三個階級都沒有彈幕；SSR 有閃光特效 (build_cards 自動)
+    ("rumia", "R"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C1 (s3303)
+        # R「宵暗的妖怪」：黃昏的森林小路，張開雙臂飄在半空，天真的笑
+        "bg": ("no humans, scenery, forest path at dusk, tall trees, orange and purple sunset sky, fading light, fireflies, "
+               "long shadows, quiet, slightly eerie, beautiful, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, rumia, touhou, blonde hair, short hair, bob cut, red eyes, red hair ribbon, hair ribbon, "
+                 "white shirt, black vest, black skirt, long skirt, red neckerchief, red ascot"),
+        "char": ("outstretched arms, spread arms, t-pose, floating, levitating, open mouth, innocent smile, happy, "
+                 "looking at viewer, head tilt, full body"),
+        "char_negative": "wings, weapon, cross, crucifix",
+        "char_scale": 0.8,
+    },
+    ("rumia", "SR"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C1 (s3303)
+        # SR「暗夜的吞噬者」：沒有月亮的夜晚森林，身邊被一團黑暗包圍，紅眼在黑暗中閃爍、露出小虎牙的危險笑容
+        "bg": ("no humans, scenery, dark forest at night, moonless night, deep blue darkness, faint starlight through branches, "
+               "black mist, drifting shadows, mysterious, eerie, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime, moon",
+        "base": ("1girl, rumia, touhou, blonde hair, short hair, bob cut, red eyes, red hair ribbon, hair ribbon, "
+                 "white shirt, black vest, black skirt, long skirt, red neckerchief, red ascot"),
+        "char": ("outstretched arms, floating, surrounded by darkness, black aura, dark mist around body, glowing red eyes, "
+                 "fang, smile, mischievous, hungry, looking at viewer, slightly from below, full body"),
+        "char_negative": "wings, weapon, cross, crucifix, blood, gore",
+        "char_scale": 0.8,
+    },
+    ("rumia", "SSR"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C2 (s4404)，四周氣焰被切 ➔ 補邊 O2 (outpaint s8801 第 2 張) ➔ wf-up s9901
+        # SSR「封印解放之宵暗」：紅月之夜，髮帶 (封印) 鬆開、黑暗向四周爆發，嚴肅的紅眼、頭髮與裙擺被黑暗氣流吹起
+        "bg": ("no humans, scenery, night sky, huge red moon, crimson moonlight, dark clouds swirling, black void tendrils spreading, "
+               "silhouette of forest below, dramatic, ominous, cinematic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime",
+        "base": ("1girl, rumia, touhou, blonde hair, short hair, bob cut, red eyes, red hair ribbon, hair ribbon, "
+                 "white shirt, black vest, black skirt, long skirt, red neckerchief, red ascot"),
+        "char": ("floating, arms spread wide, untied ribbon, ribbon flying away, dark aura exploding, black energy, darkness swirling around, "
+                 "glowing red eyes, serious expression, cold stare, looking at viewer, hair flowing, skirt fluttering, dynamic, full body"),
+        "char_negative": "wings, weapon, cross, crucifix, blood, gore, smile",
+        "char_scale": 0.85,
+    },
+    # 小惡魔 N / R / SR (TH06，2026-11-12 桌機)：萌娘百科外貌 = 紅色長髮、紅眼、頭上一對蝙蝠小翼、背上一對蝙蝠翅膀；
+    # 白長袖襯衫 + 黑背心 + 黑長裙、紅色領帶；帕秋莉的助手，住在大圖書館；人物直接帶翅膀 (同大妖精)
+    # 三個階級都沒有彈幕
+    ("koakuma", "N"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C1 (s3303)
+        # N「大圖書館的使魔」：紅魔館大圖書館，抱著一疊書搬運中
+        "bg": ("no humans, scenery, huge library, tall wooden bookshelves, countless books, ladders, warm lamp light, "
+               "dust particles in light rays, cozy, gothic interior, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, koakuma, touhou, red hair, long hair, red eyes, head wings, bat wings, demon wings, "
+                 "white shirt, long sleeves, black vest, black skirt, long skirt, red necktie"),
+        "char": ("standing, carrying books, holding stack of books, smile, cheerful, looking at viewer, full body"),
+        "char_negative": "patchouli knowledge, purple hair, hat, remilia scarlet",
+        "char_scale": 0.8,
+    },
+    ("koakuma", "R"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C1 (s3303)
+        # R「司書的助手小惡魔」：飄在高高的書架前，捧著打開的書，豎起食指抵著嘴唇「噓～圖書館要安靜」
+        "bg": ("no humans, scenery, inside a grand library, very tall bookshelves reaching the ceiling, spiral staircase, "
+               "floating candles, soft warm light, gothic arches, quiet, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, koakuma, touhou, red hair, long hair, red eyes, head wings, bat wings, demon wings, "
+                 "white shirt, long sleeves, black vest, black skirt, long skirt, red necktie"),
+        "char": ("flying, floating, holding open book, finger to lips, shushing, wink, playful smile, looking at viewer, "
+                 "wings spread, full body"),
+        "char_negative": "patchouli knowledge, purple hair, hat, remilia scarlet",
+        "char_scale": 0.8,
+    },
+    ("koakuma", "SR"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C3 (s5505)
+        # SR「黑魔法秘典守護者」：深夜的禁書區，抱著發光的黑魔法書，身邊浮著紫色魔法陣，小惡魔式的壞笑
+        "bg": ("no humans, scenery, forbidden section of a dark library at night, old bookshelves, chained books, candlelight, "
+               "purple magical glow, floating runes, mysterious, gothic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime",
+        "base": ("1girl, koakuma, touhou, red hair, long hair, red eyes, head wings, bat wings, demon wings, "
+                 "white shirt, long sleeves, black vest, black skirt, long skirt, red necktie"),
+        "char": ("holding glowing book, grimoire, hugging book, purple magic aura, magic circle, glowing runes, "
+                 "smirk, mischievous, devilish smile, looking at viewer, wings spread, hair flowing, full body"),
+        "char_negative": "patchouli knowledge, purple hair, hat, remilia scarlet",
+        "char_scale": 0.8,
+    },
 }
 
 
