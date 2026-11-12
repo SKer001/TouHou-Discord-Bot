@@ -1,4 +1,4 @@
-"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用；starbow 是紅色大玉環 + 七彩水晶米粒彈 + 七彩菱形水晶彈雨，芙蘭「星弓破碎」用；scarlet 全部紅色系大玉 + 米粒彈，蕾米莉亞用；elements 是七曜色 (日月火水木金土) 大玉環 + 七色螺旋 + 七個元素魔法陣，帕秋莉用)
+"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用；starbow 是紅色大玉環 + 七彩水晶米粒彈 + 七彩菱形水晶彈雨，芙蘭「星弓破碎」用；scarlet 全部紅色系大玉 + 米粒彈，蕾米莉亞用；elements 是七曜色 (日月火水木金土) 大玉環 + 七色螺旋 + 七個元素魔法陣，帕秋莉用；knives 銀藍飛刀環 + 飛刀螺旋 + 時停飛刀陣，咲夜用)
 draw_danmaku(size, seed, style) 回傳 (glow 光暈 RGB, core 清楚彈體 RGBA)；
 座標以 1344 寬的畫窗為基準，依 size 等比放大，所以可以直接畫在 4 倍高清的畫布上。"""
 import colorsys
@@ -132,6 +132,22 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
         gd.ellipse((x - r * 2, y - r * 2, x + r * 2, y + r * 2), fill=color)
         cd.ellipse((x - r, y - r, x + r, y + r), fill=(255, 255, 255, 255))
 
+    KNIFE = [(235, 240, 255), (200, 225, 255), (150, 200, 255), (110, 170, 255)]   # 咲夜：銀色、淡藍飛刀
+
+    def knife(x, y, ang, L, color):
+        """飛刀彈：細長刀身 (沿行進方向) + 深色刀柄"""
+        if keep.random() > density:
+            return
+        ca, sa = math.cos(ang), math.sin(ang)
+        def pts(seq):
+            return [(x + px * ca - py * sa, y + px * sa + py * ca) for px, py in seq]
+        blade = [(L, 0), (L * 0.1, L * 0.13), (-L * 0.35, L * 0.1), (-L * 0.35, -L * 0.1), (L * 0.1, -L * 0.13)]
+        gd.polygon(pts([(px * 1.5, py * 2.2) for px, py in blade]), fill=color)
+        cd.polygon(pts(blade), fill=color + (255,), outline=(255, 255, 255, 255), width=max(1, int(s)))
+        cd.line(pts([(L * 0.85, 0), (-L * 0.3, 0)]), fill=(255, 255, 255, 255), width=max(1, int(s)))
+        cd.polygon(pts([(-L * 0.35, L * 0.16), (-L * 0.42, L * 0.16), (-L * 0.42, -L * 0.16), (-L * 0.35, -L * 0.16)]), fill=(70, 80, 110, 255))
+        cd.polygon(pts([(-L * 0.42, L * 0.07), (-L * 0.75, L * 0.07), (-L * 0.75, -L * 0.07), (-L * 0.42, -L * 0.07)]), fill=(60, 50, 70, 255))
+
     def shard(x, y, L, ang, color):
         """菱形水晶彈：細長菱形，沿行進方向"""
         if keep.random() > density:
@@ -162,6 +178,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                         star(x, y, r * 1.7, a, hue(base_h + k / n))
                     elif style == "seal":  # 靈夢：夢想封印的七彩大光球
                         orb(x, y, r * 1.6, hue(base_h + k / n, 0.7))
+                    elif style == "knives":    # 咲夜：一圈刀尖朝外的飛刀
+                        knife(x, y, a, r * 3.6, KNIFE[ring % 4])
                     elif style == "scarlet":   # 蕾米莉亞：深紅大玉環 (每四顆夾一顆粉紅)
                         orb(x, y, r * 1.5, SCARLET[3] if k % 4 == 0 else SCARLET[ring % 3])
                     elif style == "starbow":   # 芙蘭：紅色大玉環 (每隔幾顆夾一顆七彩)
@@ -182,6 +200,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                     star(x, y, 15 * s, a, hue(arm / 7 + t / 90, 0.7))
                 elif style == "seal":   # 靈夢：紅白符札
                     ofuda(x, y, a + 0.35, 22 * s, (215, 35, 45))
+                elif style == "knives":    # 咲夜：螺旋排列的飛刀
+                    knife(x, y, a + 0.35, 30 * s, KNIFE[arm % 4])
                 elif style == "scarlet":   # 蕾米莉亞：紅色米粒彈
                     rice(x, y, a + 0.35, 19 * s, SCARLET[arm % 5])
                 elif style == "starbow":   # 芙蘭：一條手臂一種水晶色
@@ -204,9 +224,13 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
         for _ in range(140):
             crystal(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(10, 26) * s, rnd.random() * 6, (215, 240, 255))
     # 星形彈與散落小玉
+    if style == "knives":   # 咲夜：時間停止的飛刀陣 (散落、方向一致朝下斜)
+        for _ in range(120):
+            knife(rnd.uniform(0, W), rnd.uniform(0, H), math.pi * 0.62 + rnd.uniform(-0.15, 0.15), rnd.uniform(26, 40) * s, rnd.choice(KNIFE))
     red = style == "scarlet"   # 蕾米莉亞：散落的彈也都是紅色系
-    palette = SCARLET if red else ELEMENTS if style == "elements" else None   # 帕秋莉：散落的彈用七曜色
-    for _ in range(260 if style == "stars" else 110):
+    blue = style == "knives"   # 咲夜：散落的彈是藍白色系
+    palette = SCARLET if red else ELEMENTS if style == "elements" else KNIFE if blue else None   # 帕秋莉：七曜色；咲夜：銀藍
+    for _ in range(260 if style == "stars" else 60 if blue else 110):
         star(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 17) * s, rnd.random() * 6, rnd.choice(palette) if palette else hue(rnd.random(), 0.6))
     for _ in range(260):
         orb(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(3, 6) * s, rnd.choice(palette) if palette else hue(rnd.random(), 0.5))

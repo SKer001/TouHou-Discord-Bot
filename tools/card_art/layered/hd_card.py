@@ -422,6 +422,48 @@ LAYERS = {
                                for g, c in (("red", (255, 90, 90)), ("orange", (255, 170, 70)), ("yellow", (255, 230, 110)),
                                             ("green", (130, 255, 140)), ("blue", (110, 200, 255)), ("purple", (210, 140, 255)))]},
     },
+    # 十六夜咲夜 SR / SSR / UR (TH06，2026-11-12 候選)：萌娘百科外貌 = 銀色短髮、兩側小麻花辮綁綠色絲帶、女僕髮卡、藍白女僕裝 (白圍裙、腰帶)、腰間懷錶、飛刀
+    ("sakuya", "SR"): {
+        # SR「紅魔館的女僕長」：白天的紅魔館走廊 (紅地毯、長窗)；端著紅茶托盤，微笑
+        "bg": ("no humans, scenery, corridor of a gothic western mansion, red carpet, long hallway, tall arched windows, sunlight, "
+               "red walls, paintings on walls, chandeliers, vases with flowers, elegant, bright, warm light, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, dark",
+        "base": ("1girl, izayoi sakuya, touhou, silver hair, short hair, twin braids, side braids, green bow, hair bow, maid headdress, blue eyes, "
+                 "maid, blue dress, blue skirt, white apron, waist apron, puffy short sleeves, wrist cuffs, white shirt, pocket watch, white socks, black shoes"),
+        "char": ("standing, holding tray, tea set, teapot, teacup, gentle smile, closed mouth, looking at viewer, elegant, full body"),
+        "char_negative": "remilia scarlet, wings, bat wings, long hair, blonde hair" + ", knife, weapon",
+        "char_scale": 0.9,
+    },
+    ("sakuya", "SSR"): {
+        # SSR「完美而瀟灑的從者」：紅魔館鐘樓內部 (巨大齒輪、時鐘背面透光)；指間夾著飛刀，帥氣地擺出投擲姿勢
+        "bg": ("no humans, scenery, inside a clock tower, giant gears, cogwheels, huge clock face seen from behind, backlit clock glass, "
+               "moonlight, wooden beams, gothic, steampunk, dust particles, blue and gold, dramatic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "base": ("1girl, izayoi sakuya, touhou, silver hair, short hair, twin braids, side braids, green bow, hair bow, maid headdress, blue eyes, "
+                 "maid, blue dress, blue skirt, white apron, waist apron, puffy short sleeves, wrist cuffs, white shirt, pocket watch, white socks, black shoes"),
+        "char": ("holding knife, knives between fingers, throwing knives, multiple knives, dynamic pose, about to throw, cool, "
+                 "confident smile, looking at viewer, skirt fluttering, full body"),
+        "char_negative": "remilia scarlet, wings, bat wings, long hair, blonde hair",
+        "char_scale": 0.9,
+    },
+    ("sakuya", "UR"): {
+        # UR「操縱時間的幻影女僕」：使用者給參考圖 (2026-11-12)：不一定強調時間能力，要有「強者感」——
+        # 夜空巨大滿月在背後、人物強烈背光近乎剪影、紅眼發光、兩手指間夾著飛刀、壓低身體前傾、從容的冷笑、四周飄著紅色碎光
+        "bg": ("no humans, scenery, night sky, huge full moon, bright moonlight, dark clouds, starry sky, floating red petals, red particles, "
+               "rooftop of a gothic western mansion silhouette at bottom, deep navy blue and black, dramatic, cinematic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, clock, gears, daytime",
+        "base": ("1girl, izayoi sakuya, touhou, silver hair, short hair, twin braids, side braids, green bow, hair bow, maid headdress, blue eyes, "
+                 "maid, blue dress, blue skirt, white apron, waist apron, puffy short sleeves, wrist cuffs, white shirt, pocket watch, white socks, black shoes"),
+        "char": ("holding knives, knives between fingers, knife in each hand, crouching, low stance, leaning forward, ready to strike, dutch angle, "
+                 "smirk, confident, menacing, glowing eyes, red eyes, glowing red eyes, light trail from eyes, looking at viewer, "
+                 "backlighting, rim light, dark shading, intimidating, hair fluttering, skirt fluttering, full body"),
+        "char_negative": "remilia scarlet, wings, bat wings, long hair, blonde hair" + ", clock, pocket watch, giant clock, chain, gears, smile, happy",
+        "style": "knives",
+        "density": 0.7,
+        "glow": 0.55,
+        "char_scale": 0.8,
+        "light": {"dark": 0.5, "eye_color": (255, 50, 50), "eye": 1.5, "eye_size": 3},   # 背光更強 (參考圖的剪影感)；眼睛座標選好人物再補
+    },
 }
 
 
