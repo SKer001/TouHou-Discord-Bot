@@ -464,6 +464,48 @@ LAYERS = {
         "char_scale": 0.8,
         "light": {"dark": 0.5, "eye_color": (255, 50, 50), "eye": 1.5, "eye_size": 3},   # 背光更強 (參考圖的剪影感)；眼睛座標選好人物再補
     },
+    # 紅美鈴 R / SR / SSR (TH06，2026-11-12 桌機)：萌娘百科外貌 = 紅色及腰長髮、兩鬢各一條麻花辮 + 蝴蝶結、藍灰眼、身材高；
+    # 深綠中式上衣 + 裙褂 (不是旗袍，上下分開、高開叉、內穿白長褲)、綠帽 + 刻「龍」字的金色五角星；萌點 = 門番、睡神、武術家，也是紅魔館的園丁
+    # 三個階級都沒有彈幕；SSR 有閃光特效 (build_cards 自動)
+    ("meiling", "R"): {
+        # R「華人小娘」：午後的紅魔館大門前，靠著門柱站著打瞌睡 (睡神)
+        "bg": ("no humans, scenery, front gate of a red gothic western mansion, red brick wall, ornate iron gate, gate pillars, stone path, "
+               "flower beds, afternoon, warm sunlight, blue sky, clouds, peaceful, bright, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, hong meiling, touhou, red hair, very long hair, side braids, twin braids, hair ribbon, blue eyes, tall, "
+                 "green hat, star hat ornament, chinese clothes, green dress, side slit, white pants, puffy short sleeves"),
+        "char": ("standing, leaning back, arms crossed, sleeping while standing, closed eyes, dozing off, drooling, peaceful sleepy face, "
+                 "head tilted, relaxed, from side"),
+        "char_negative": "weapon, sword, wings, fighting stance, qi, aura",
+        "char_scale": 0.49,          # 使用者：人物小一點、更符合場景 (0.95 ➔ 0.7 ➔ 再 ×0.7)
+        "offset": (0.0, 0.225),      # 腳的位置不變 (踩在石板路上；縮小時 dy 跟著算)
+    },
+    ("meiling", "SR"): {
+        # SR「紅魔館的彩虹門衛」：照顧紅魔館的花圃，提著澆水壺、水霧中出現小彩虹，開朗的笑
+        "bg": ("no humans, scenery, flower garden of a red gothic western mansion, colorful flower beds, roses, tulips, sunflowers, "
+               "garden path, stone fountain, water spray, small rainbow in the mist, butterflies, sunny day, blue sky, bright, vivid, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, hong meiling, touhou, red hair, very long hair, side braids, twin braids, hair ribbon, blue eyes, tall, "
+                 "green hat, star hat ornament, chinese clothes, green dress, side slit, white pants, puffy short sleeves"),
+        "char": ("standing, holding watering can, watering flowers, water spray, cheerful smile, open mouth, happy, "
+                 "looking to the side, hair ribbon fluttering, gentle breeze"),
+        "char_negative": "weapon, sword, wings, fighting stance, flowers, plants",
+        "char_scale": 0.56,          # 使用者：人物小一點、更符合場景 (0.95 ➔ 0.7 ➔ 再 ×0.8)
+        "offset": (0.05, 0.19),      # 往右 1/10 畫窗寬；腳的位置不變
+    },
+    ("meiling", "SSR"): {
+        # SSR「太極拳之終極衛士」華符「彩光蓮華掌」：大門前擺出太極 / 拳法架式，雙掌凝聚七彩的氣，認真的武術家表情
+        "bg": ("no humans, scenery, courtyard in front of a red gothic western mansion gate, stone tiles, red brick, cherry blossom petals flying, "
+               "wind, morning sunlight, light rays, blue sky, dramatic, dynamic, bright, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, hong meiling, touhou, red hair, very long hair, side braids, twin braids, hair ribbon, blue eyes, tall, "
+                 "green hat, star hat ornament, chinese clothes, green dress, side slit, white pants, puffy short sleeves"),
+        "char": ("fighting stance, martial arts, kung fu, tai chi pose, palm strike, one palm thrust forward, wide stance, "
+                 "rainbow aura around hands, glowing qi, colorful energy, serious expression, determined, focused eyes, "
+                 "hair flowing, dress fluttering, dynamic pose"),
+        "char_negative": "weapon, sword, wings, sleeping, closed eyes",
+        "char_scale": 0.9,
+    },
 }
 
 
