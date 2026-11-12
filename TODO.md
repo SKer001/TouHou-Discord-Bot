@@ -24,7 +24,7 @@
 |---|---|---|---|
 | Main | 靈夢 reimu | SR / SSR / UR | ✅ 全部完成 (SR、SSR 2026-11-12 重生) |
 | Main | 魔理沙 marisa | SR / SSR / UR | ✅ 全部完成 (SR、SSR 2026-11-12 重生) |
-| TH01 | 魅魔 mima | SR / SSR / UR | 全部重生 (幽靈尾巴，模型常畫出腳) |
+| TH01 | 魅魔 mima | SR / SSR / UR | ✅ 全部完成 (2026-11-12 重生，UR 用 twilight 彈幕) |
 | TH02 | 玄爺 genji | N / R / SR | 全部重生 (陸龜、白鬍子) |
 | TH02 | 里香 rika | N / R / SR | 全部重生 |
 | TH03 | 千百合 chiyuri | N / R / SR | 全部重生 |

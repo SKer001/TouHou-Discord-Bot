@@ -11,6 +11,7 @@
 - **合成完傳整張卡 (15_card 縮圖) 給使用者看；他問特效再傳 16_card.gif**。
 - **定案才推**：使用者說「定案推送」才 `build_cards.py <角色>` ➔ 更新 `Utils/version.py` (+1)、`CHANGELOG.md`、`TODO.md` 第 1 節、本文件 ➔ `python tests/run_all.py` ➔ `git pull --rebase` ➔ commit + push。試作圖不推。
 - **筆電 (16GB RAM) 生圖時不要同時去背 / 合成**：ComfyUI 生圖約佔 4GB、去背 (BiRefNet CPU) 再吃好幾 GB，2026-11-12 兩次同時跑都讓 ComfyUI 直接崩潰 (Fatal Python error: Aborted)。先讓佇列跑完或暫停，再合成；桌機 16GB VRAM / 記憶體較多沒遇到。
+- **改了 `light` (眼睛、emissive) 要先跑 `hd_card.py light <角色> <階級>`**，再 `compose`；只跑 compose 會沿用舊的 10b_char_lit。紅色小物 (領結) 會被翅膀紋路偵測當成紋路發光 ➔ 沒有翅膀的角色設 `glow_red: 0`。
 - **背景道具要跟人物互動時 (倚著樹、坐在椅子上)**：人物層白底去背會把樹、地面一起切掉 ➔ 把樹畫在背景，人物照常去背、用 `char_scale` / `offset` 放到樹根；或像咲夜 / 蕾米莉亞的椅子一樣讓道具留在人物層 (去背模型通常會保留緊貼人物的家具)。
 - **兩台分工**：一台負責一位角色的整套流程；每個階段 (候選完成、使用者選圖、合成完、推送) 都用 SendMessage 跟另一台互報一則短訊。
 

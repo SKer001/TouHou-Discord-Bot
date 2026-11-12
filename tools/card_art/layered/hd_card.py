@@ -755,7 +755,208 @@ LAYERS = {
         "density": 0.72,
         "glow": 0.55,
         "char_scale": 0.8,
-        "light": {"dark": 0.35, "eyes": [], "eye_color": (90, 255, 150), "eye": 1.3, "eye_size": 3},   # 綠瞳發光；eyes 座標等人物定案後量
+        "light": {"dark": 0.35, "glow_red": 0,   # glow_red 0：紅色領結會被當成翅膀紋路發光
+                  "eyes": [(515, 528), (478, 566)], "eye_color": (90, 255, 150), "eye": 1.3, "eye_size": 3,   # 綠瞳發光 (B2C2 的 10_char 量的)
+                  # 使用者 (2026-11-12)：杖頭月牙、旁邊的紫色魔焰、眼睛都要發亮
+                  "emissive": [
+                      {"hue": (0.70, 0.86), "sat": (0.35, 1.0), "val": (0.25,), "color": (190, 120, 255), "strength": 0.8, "body": 0.45, "keep_color": True},   # 紫色魔焰
+                      {"hue": (0.86, 1.0), "sat": (0.35, 1.0), "val": (0.45,), "color": (255, 130, 180), "strength": 1.0, "body": 0.6, "keep_color": True,    # 杖頭粉紅月牙
+                       "exclude": [[(450, 530), (610, 530), (610, 670), (450, 670)], [(930, 610), (1210, 610), (1210, 810), (930, 810)]]},   # 扣掉領結、右邊紅緞帶
+                  ]},
+    },
+    ("genji", "N"): {
+        # N「飛天神龜」(沿用舊 SCENES)：老龜悠哉地飛過湖面 (蘆葦、倒影、藍天白雲)；眼睛半閉、表情平靜
+        # 非人角色：人物層只畫烏龜 (no humans, animal focus)，湖面 / 水花全部放背景，不然去背會一起被切掉或留下奇怪的水塊
+        # hd_card 只吃 EXTRA_NEGATIVE["genji"]，舊的 ("genji", "N") 負面提示 (不要人) 要寫進 char_negative
+        "bg": ("no humans, scenery, calm lake, lake surface, reeds, water reflection, lily pads, distant green hills, "
+               "blue sky, white clouds, daylight, soft lighting, peaceful, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, animal, turtle, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("no humans, animal focus, genjii (touhou), touhou, minogame, tortoise, old tortoise, land tortoise, green shell, olive brown skin, "
+                 "four legs, clawed feet, long white beard, bushy white eyebrows, half-closed eyes, sleepy eyes, "
+                 "long fluffy white tail, flowing white hair-like tail, wise, flying tortoise"),
+        "char": ("flying, floating in the air, legs relaxed, calm expression, eyes half closed, peaceful, beard flowing in the wind, "
+                 "side view, from side, full body"),
+        "char_negative": ("1girl, human, humanization, anthropomorphic, girl, rider, person riding, "
+                          "water, lake, splash, reeds, wings, feathers, sea turtle, flippers"),
+        "char_scale": 0.7,   # 烏龜是橫長的，畫窗直長；日常卡人物偏小，先抓 0.7，等去背圖出來再依實際寬度調
+    },
+    ("genji", "R"): {
+        # R「靈夢的御用坐騎」(沿用舊 SCENES)：載著 (舊作 PC-98 造型的) 靈夢在空中飛行，下方遠處是博麗神社、櫻花飛舞
+        # 雙人卡 (DUO)：靈夢 + 烏龜都放人物層，神社 / 櫻花 / 天空放背景；手上的符札會留著，飄的花瓣放背景
+        # 注意：共用的 CHAR_COMPOSITION 有 "solo"，可能只畫出其中一個 (或烏龜被縮成小配件)，挑圖時要檢查兩個都在
+        # 2026-11-12 使用者：第一輪背景 (B2 仰拍鳥居) 跟「在天上飛」的人物不搭 ➔ 改成高空俯瞰，神社只在遠遠的下方
+        "bg": ("no humans, scenery, aerial view, high altitude, open sky, white clouds around, wind, "
+               "looking down at gensokyo far below, tiny hakurei shrine and red torii far below, forest, mountains, lake, "
+               "pink cherry blossom trees far below, few falling petals, blue sky, daylight, cheerful, bright, highly detailed"),
+        "bg_negative": ("1girl, person, human, character, face, animal, turtle, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark, "
+                        "from below, low angle, close-up building, large building, shrine in foreground, torii in foreground"),
+        "base": ("1girl, hakurei reimu, touhou, touhou (pc-98), brown hair, black hair, brown eyes, hair tubes, red bow, "
+                 "red and white miko outfit, detached sleeves, red skirt, "
+                 "riding on a giant old tortoise, genjii (touhou), minogame, tortoise, green shell, olive brown skin, "
+                 "long white beard, bushy white eyebrows, long fluffy white tail"),
+        "char": ("sitting on the tortoise's shell, riding, flying through the sky, holding ofuda, cheerful smile, looking at viewer, "
+                 "hair flowing, sleeves fluttering, wind, tortoise with half-closed eyes, calm, from side, full body"),
+        "char_negative": ("humanization, anthropomorphic, turtle girl, multiple girls, white hair, grey hair, silver hair, "
+                          "animal ears, tail on girl, beard on girl, broom, wings, sea turtle, flippers, cherry blossoms, petals"),
+        "char_scale": 0.8,   # 靈夢 + 烏龜比單隻大，先 0.8；腳要留在龜殼上，太大會被畫窗切掉
+    },
+    ("genji", "SR"): {
+        # SR「萬年修行的靈龜」(沿用舊 SCENES)：仙山雲海上的神龜，龜殼上古老的符文發著金光、靈氣環繞
+        # 去背會把身邊的金色氣焰一起去掉 ➔ 光芒、光柱、金色光點都放背景，人物層只留龜殼上的發光符文 (是身體的一部分，去背會保留)
+        # N～SSR 沒有彈幕 / 魔法陣，舊 SCENES 也沒有，維持
+        "bg": ("no humans, scenery, sea of clouds, chinese mountains, towering karst peaks, waterfall, pine trees on cliffs, "
+               "golden light rays, divine light, glowing golden particles, sparkles, mist, mystical, sacred, majestic, "
+               "daylight, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, animal, turtle, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark, magic circle",
+        "base": ("no humans, animal focus, genjii (touhou), touhou, minogame, tortoise, ancient divine tortoise, old tortoise, land tortoise, green shell, olive brown skin, "
+                 "four legs, clawed feet, long white beard, bushy white eyebrows, half-closed eyes, "
+                 "long fluffy white tail, flowing white hair-like tail, wise, flying tortoise"),
+        # 2026-11-12 第一輪 C1～C4 都畫出整圈金光 / 雲 / 好幾隻烏龜 (去背會切掉) ➔ 拿掉發光、飄動、仰角，改成單隻烏龜安穩站著的側面全身
+        "char": ("solo, single tortoise, standing calmly, side view, three-quarter view, ancient patterns carved on shell, "
+                 "dignified, wise expression, gentle smile, simple background, white background, full body"),
+        "char_negative": ("1girl, human, humanization, anthropomorphic, girl, rider, multiple tortoises, "
+                          "aura, glow, glowing, golden light, energy, smoke, clouds, swirl, runes, symbols, light particles, "
+                          "wings, feathers, sea turtle, flippers, dragon, waterfall, magic circle, danmaku"),
+        "char_scale": 0.75,
+    },
+    ("rika", "N"): {
+        # N「戰車技師」(沿用舊 SCENES)：在草地上修理自製的小戰車 (野花、藍天白雲、白天柔光)；拿扳手跪在戰車旁、臉頰沾油污、開朗笑
+        # 外觀照萌娘百科 (封魔錄 1 面)：棕色長髮綁兩條麻花辮、棕瞳、白襯衫 + 紫色領結；舊 base 的護目鏡 / 吊帶工作褲不是原作，拿掉
+        # 戰車要跟人物一起留在去背圖裡，所以戰車寫在 char (人物層)，草地、天空寫在 bg
+        "bg": ("no humans, scenery, grassy field, meadow, wildflowers, blue sky, white clouds, distant hills, "
+               "daylight, soft lighting, peaceful, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, tank, vehicle, military, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, rika (touhou), touhou, touhou (pc-98), brown hair, long hair, twin braids, brown eyes, "
+                 "white shirt, collared shirt, purple bowtie, bowtie"),
+        "char": ("kneeling next to a small cute tank, repairing tank, holding wrench, oil stain on cheek, cheerful smile, looking at viewer, "
+                 "small handmade tank, flower decorations on the tank, toolbox, gears, bolts, full body"),
+        "char_negative": "military uniform, soldier, gun, rifle, mecha, robot girl, goggles, overalls, short hair, helmet",
+        "char_scale": 0.55,   # 日常場景人物小一點融入背景 (紅美鈴 R 0.49 / SR 0.56 的經驗)；戰車也要放得下
+    },
+    ("rika", "R"): {
+        # R「邪惡工程師」(沿用舊 SCENES)：坐在長滿花的戰車「Flower～戰車」頂上指揮、得意的壞笑、風吹花瓣、草原藍天
+        # N~SSR 沒有彈幕：舊 SCENES 的 tank cannon firing / danmaku / glowing bullets 拿掉，只留砲口一點硝煙
+        # 萌娘百科：Flower～戰車有加強裝甲 + 藤蔓偽裝，所以戰車寫 vines / flowers；戰車在 char 層 (去背才留得住)
+        "bg": ("no humans, scenery, meadow, flower field, rolling hills, blue sky, white clouds, sunlight, wind, flower petals flying, "
+               "highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, tank, vehicle, military, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, rika (touhou), touhou, touhou (pc-98), brown hair, long hair, twin braids, brown eyes, "
+                 "white shirt, collared shirt, purple bowtie, bowtie"),
+        "char": ("sitting on top of a tank, riding tank, flower tank, tank covered in flowers and vines, armored tank, cannon, smoke from cannon, "
+                 "pointing forward, mischievous grin, smug, looking at viewer, hair blowing in wind, petals, dynamic angle, full body"),
+        "char_negative": ("military uniform, soldier, gun, rifle, mecha, robot girl, goggles, overalls, short hair, helmet, "
+                          "danmaku, bullets, explosion, fire, magic circle"),
+        "char_scale": 0.65,   # 戰車比人大，人物 + 戰車整組要放得進畫窗
+    },
+    ("rika", "SR"): {
+        # SR「花樣戰車大師」(沿用舊 SCENES)：邪眼「Evil Eye Σ」— 飛行戰車；站在邪眼上張開雙手得意大笑，天空雲海、光線
+        # 萌娘百科的邪眼Σ造型：一顆大眼睛、紅色眼珠帶血絲、兩隻紫色蝙蝠翅膀、天使光環、兩根粗觸手、下面青色的東西 (可能是葉子)、眼皮下有紅色 Σ 標誌
+        # N~SSR 沒有彈幕：舊 SCENES 的 laser beams / flower-shaped danmaku 拿掉；SR 也不放施法光效，只留邪眼本身
+        # 邪眼要跟人物一起留在去背圖，寫在 char；背景只有天空
+        "bg": ("no humans, scenery, sky, above the clouds, sea of clouds, blue sky, dramatic clouds, sunlight, light rays, wind, "
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, eye, eyeball, monster, tank, vehicle, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night",
+        "base": ("1girl, rika (touhou), touhou, touhou (pc-98), brown hair, long hair, twin braids, brown eyes, "
+                 "white shirt, collared shirt, purple bowtie, bowtie"),
+        "char": ("standing on top of a giant floating eyeball, evil eye sigma, huge eyeball, red iris, bloodshot eye, "
+                 "purple bat wings on the eyeball, halo above the eyeball, two thick tentacles, green leaves under the eyeball, red sigma symbol, "
+                 "arms spread, confident laugh, open mouth, looking at viewer, hair blowing in wind, dynamic angle, full body"),
+        "char_negative": ("military uniform, soldier, gun, rifle, mecha, robot girl, goggles, overalls, short hair, helmet, "
+                          "wings on girl, halo on girl, laser, danmaku, bullets, magic circle, gore, blood"),
+        "char_scale": 0.75,   # 邪眼很大，人物在上面會變小；邪眼被切到時用 outpaint 補邊
+    },
+    ("chiyuri", "N"): {
+        # N「教授助手」(沿用舊 SCENES)：研究室裡抱著一疊書和文件跑來跑去，紙張飛起來，開朗地笑
+        # 背景 = 研究室 (書架、寫滿算式的黑板、燒瓶、大窗戶、陽光)；書與紙張留在人物層 (抱在手上，去背會一起留下)
+        # 外觀照萌娘百科：金髮金瞳、偏左側的雙馬尾捲髮、藍白水手服 (胸前黃色結)、露臍、短褲、白色海軍帽 (船錨徽章、後面兩條緞帶)
+        "bg": ("no humans, scenery, indoors, laboratory, study room, tall bookshelves, many books, chalkboard with equations, "
+               "flasks, test tubes, beakers on desk, scattered papers, large window, sunlight, light rays, daylight, "
+               "warm soft lighting, cozy, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, kitashirakawa chiyuri, touhou, touhou (pc-98), blonde hair, twintails, side twintails, curly hair, yellow eyes, red lips, "
+                 "white sailor hat, anchor emblem, hat ribbon, sailor collar, blue sailor collar, white sailor shirt, yellow bow, "
+                 "midriff, navel, blue shorts, short shorts"),
+        "char": ("carrying a stack of books, holding papers, papers flying, running, cheerful smile, open mouth, "
+                 "looking at viewer, twintails swaying, dynamic pose, full body"),
+        "char_negative": "blue eyes, short hair, long straight hair, skirt, pleated skirt, dress, school uniform, marisa, kirisame marisa, witch hat, danmaku, magic circle",
+        "char_scale": 0.6,   # 日常場景人物小一點、融入背景 (紅美鈴 R 0.49 / SR 0.56 的經驗)
+    },
+    ("chiyuri", "R"): {
+        # R「水手服科學家」(沿用舊 SCENES)：在船的甲板上做實驗，拿著發光燒瓶、得意地笑 + 眨眼
+        # 背景 = 甲板 (欄杆、繩索、海、海鷗、藍天白雲)；燒瓶 / 試管在人物手上 (去背會留下)
+        "bg": ("no humans, scenery, ship deck, wooden deck, railing, ropes, mast, ocean, sea, horizon, seagulls, "
+               "blue sky, white clouds, sunlight, wind, bright, summer, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark, storm",
+        "base": ("1girl, kitashirakawa chiyuri, touhou, touhou (pc-98), blonde hair, twintails, side twintails, curly hair, yellow eyes, red lips, "
+                 "white sailor hat, anchor emblem, hat ribbon, sailor collar, blue sailor collar, white sailor shirt, yellow bow, "
+                 "midriff, navel, blue shorts, short shorts"),
+        "char": ("holding glowing flask, holding test tube, science experiment, colorful bubbling liquid, sparkles, "
+                 "smug smile, wink, one eye closed, looking at viewer, hat ribbons fluttering, wind, standing, dynamic angle, full body"),
+        "char_negative": "blue eyes, short hair, long straight hair, skirt, pleated skirt, dress, school uniform, marisa, kirisame marisa, witch hat, danmaku, magic circle",
+        "char_scale": 0.55,
+    },
+    ("chiyuri", "SR"): {
+        # SR「時空船之助手」(沿用舊 SCENES)：駕駛可能性空間移動船穿越時空 (光環、曲速隧道、星雲)
+        # 去背只留人物：船舵 / 控制台放人物層很可能被切掉或切一半 ➔ 船艙 (發光控制台、全息螢幕、窗外的時空隧道) 全放背景，
+        # 人物只做「站在船艙裡、一手往前指 / 下指令」的姿勢，SR 不放彈幕
+        "bg": ("no humans, scenery, inside a futuristic spaceship bridge, cockpit, glowing control panels, holographic screens, "
+               "large front window, flying through a space-time portal, glowing rings, warp tunnel, stars, nebula, light streaks, "
+               "blue and gold light, sci-fi, epic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime, blue sky",
+        "base": ("1girl, kitashirakawa chiyuri, touhou, touhou (pc-98), blonde hair, twintails, side twintails, curly hair, yellow eyes, red lips, "
+                 "white sailor hat, anchor emblem, hat ribbon, sailor collar, blue sailor collar, white sailor shirt, yellow bow, "
+                 "midriff, navel, blue shorts, short shorts"),
+        "char": ("standing, pointing forward, giving orders, other hand on hip, determined smile, confident, looking at viewer, "
+                 "hat ribbons flowing, twintails flowing, wind, dynamic angle, full body"),
+        "char_negative": "blue eyes, short hair, long straight hair, skirt, pleated skirt, dress, school uniform, marisa, kirisame marisa, witch hat, ship's wheel, steering wheel, chair, sitting, danmaku, magic circle",
+        "char_scale": 0.6,
+    },
+    ("yumemi", "R"): {
+        # R「比較物理學教授」(沿用舊 SCENES)：大學階梯教室，黑板寫滿物理公式、桌椅、書本、大窗戶白天光線；
+        # 人物拿教鞭指向旁邊 (黑板在背景)、一手插腰、自信得意地笑。平常服裝：不披戰鬥用披風 (萌娘百科：披風是戰鬥時才披)
+        # 日常場景人物縮小融入背景 (參考紅美鈴 R 0.49)
+        "bg": ("no humans, scenery, university lecture hall, large chalkboard covered with physics equations, chalk diagrams, "
+               "rows of wooden desks, stacks of books, large window, daylight, sunlight, soft lighting, academic, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, okazaki yumemi, touhou, touhou (pc-98), dark red hair, long hair, braid, single braid, hair behind back, red eyes, "
+                 "white shirt, puffy sleeves, red vest, breast pocket, red long skirt, white frilled hem, red bowtie, red shoes, white socks"),
+        "char": ("standing, holding pointer stick, pointing to the side, lecturing, hand on hip, confident smile, smug, "
+                 "looking at viewer, full body"),
+        "char_negative": "cape, cloak, blonde hair, yellow eyes, black vest, black dress, glasses, lab coat, chalkboard, desk, chair, sitting",
+        "char_scale": 0.5,
+    },
+    ("yumemi", "SR"): {
+        # SR「夢幻的魔術教授」(沿用舊 SCENES)：可能性空間移動船的艙內實驗室，科幻機械、全像螢幕、空中浮著發光的數學公式；
+        # 人物披上戰鬥披風，手上的科學儀器發光、用科學施展「人造魔法」，興奮地咧嘴笑。
+        # N~SSR 沒有彈幕：舊 SCENES 的 magic circle made of formulas 拿掉；浮空公式 / 全像螢幕放背景 (去背會去掉人物身邊的光)
+        "bg": ("no humans, scenery, inside a futuristic spaceship laboratory, sci-fi machinery, glowing scientific instruments, "
+               "holographic screens, glowing equations floating in the air, mathematical symbols, control panels, red and white interior, "
+               "cool blue lighting, sparkles, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, magic circle",
+        "base": ("1girl, okazaki yumemi, touhou, touhou (pc-98), dark red hair, long hair, braid, single braid, red eyes, "
+                 "white shirt, puffy sleeves, red vest, red long skirt, white frilled hem, red bowtie, red shoes, white socks, "
+                 "red cape, white collar, white trim, cape lining"),
+        "char": ("standing, holding a glowing scientific device, glowing flask, one hand raised, excited grin, open mouth, "
+                 "cape fluttering, dynamic pose, dynamic angle, looking at viewer, full body"),
+        "char_negative": "blonde hair, yellow eyes, black vest, black dress, glasses, lab coat, magic circle, danmaku, sitting",
+        "char_scale": 0.56,
+    },
+    ("yumemi", "SSR"): {
+        # SSR「時空空間之主宰」(沿用舊 SCENES)：可能性空間移動船上方，時空裂縫、碎裂的天空、漩渦狀次元門、星星；
+        # 身後巨大的發光十字架光束 (符卡「十字架光束兵器」) 放背景；人物張開雙臂、狂笑、紅眼發光，披風與長髮翻飛。
+        # 船畫在背景下方 (人物腳下)，人物圖不畫船 (去背只留人物，船身不會被保留)
+        # N~SSR 沒有彈幕；十字光束是背景裡的一道大光，不是彈幕 (SSR 的閃光 build_cards 會自動加)
+        "bg": ("no humans, scenery, top deck of a giant futuristic flying ship at the bottom, space-time rift, cracked sky, "
+               "swirling dimensional portal, stars, giant glowing cross-shaped laser beam in the center, massive energy cross, "
+               "light rays, bloom, epic, majestic, dramatic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime, blue sky, danmaku",
+        "base": ("1girl, okazaki yumemi, touhou, touhou (pc-98), dark red hair, long hair, braid, single braid, red eyes, "
+                 "white shirt, puffy sleeves, red vest, red long skirt, white frilled hem, red bowtie, red shoes, white socks, "
+                 "red cape, white collar, white trim, cape lining"),
+        "char": ("standing, arms spread, arms outstretched, maniacal laugh, open mouth, glowing eyes, red eyes, "
+                 "cape billowing, hair flowing, wind, powerful, dynamic pose, dynamic angle, from below, looking at viewer, full body"),
+        "char_negative": "blonde hair, yellow eyes, black vest, black dress, glasses, lab coat, magic circle, danmaku, ship, vehicle, cross, sitting",
+        "char_scale": 0.85,
     },
     # 夢子 R / SR / SSR (TH05 舊卡重生，2026-11-12 桌機)：外觀沿用 make_workflow.BASE (舊作 PC-98：金色波浪長髮、黃眼、女僕頭飾、紅色女僕裝 + 白圍裙)；
     # 神綺的女僕長，武器是劍 (不是飛刀)；不要畫成咲夜 (EXTRA_NEGATIVE 已排除銀髮藍裙)

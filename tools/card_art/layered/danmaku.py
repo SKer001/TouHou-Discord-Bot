@@ -148,6 +148,26 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
         cd.polygon(pts([(-L * 0.35, L * 0.16), (-L * 0.42, L * 0.16), (-L * 0.42, -L * 0.16), (-L * 0.35, -L * 0.16)]), fill=(70, 80, 110, 255))
         cd.polygon(pts([(-L * 0.42, L * 0.07), (-L * 0.75, L * 0.07), (-L * 0.75, -L * 0.07), (-L * 0.42, -L * 0.07)]), fill=(60, 50, 70, 255))
 
+    TWILIGHT = [(110, 90, 255), (150, 110, 255), (90, 140, 255), (180, 130, 255)]   # 魅魔：藍紫色月牙
+    MIMA_GREEN = (150, 255, 190)
+    STARLIGHT = [(255, 255, 255), (255, 250, 200), (240, 240, 255)]   # 魅魔：白、淡黃星光
+
+    def crescent(x, y, r, ang, color):
+        """月牙刃彈：外圓扣掉偏移的內圓，開口朝行進方向的反方向"""
+        if keep.random() > density:
+            return
+        ca, sa = math.cos(ang), math.sin(ang)
+        pts = []
+        for k in range(21):
+            t = -math.pi * 0.9 + math.pi * 1.8 * k / 20
+            pts.append((r * math.cos(t), r * math.sin(t)))
+        for k in range(21):
+            t = math.pi * 0.78 - math.pi * 1.56 * k / 20
+            pts.append((-r * 0.45 + r * 0.95 * math.cos(t) * 0.9, r * 0.95 * math.sin(t) * 0.9))
+        poly = [(x + px * ca - py * sa, y + px * sa + py * ca) for px, py in pts]
+        gd.polygon([(x + (px - x) * 1.6, y + (py - y) * 1.6) for px, py in poly], fill=color)
+        cd.polygon(poly, fill=color + (255,), outline=(255, 255, 255, 255), width=max(1, int(s * 1.2)))
+
     def shard(x, y, L, ang, color):
         """菱形水晶彈：細長菱形，沿行進方向"""
         if keep.random() > density:
@@ -186,6 +206,11 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                         orb(x, y, r * 1.2, STARBOW[k % 7] if k % 3 == 0 else (230, 25, 45))
                     elif style == "elements":   # 帕秋莉：一圈一種元素色的大玉
                         orb(x, y, r * 1.4, ELEMENTS[(ring + int(base_h * 7)) % 7])
+                    elif style == "twilight":   # 魅魔：藍紫月牙刃環，每五顆夾一顆淡綠大玉
+                        if k % 5 == 0:
+                            orb(x, y, r * 1.7, MIMA_GREEN)
+                        else:
+                            crescent(x, y, r * 1.8, a, TWILIGHT[ring % 4])
                     else:
                         orb(x, y, r, hue(base_h + k / n))
     # 螺旋米粒彈
@@ -208,6 +233,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                     rice(x, y, a + 0.35, 17 * s, STARBOW[arm])
                 elif style == "elements":   # 帕秋莉：七條手臂 = 七曜
                     rice(x, y, a + 0.35, 18 * s, ELEMENTS[arm])
+                elif style == "twilight":   # 魅魔：藍紫米粒彈
+                    rice(x, y, a + 0.35, 18 * s, TWILIGHT[arm % 4])
                 else:
                     rice(x, y, a + 0.35, 17 * s, hue(arm / 7 + t / 90, 0.7))
     if style == "seal":
@@ -229,7 +256,7 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
             knife(rnd.uniform(0, W), rnd.uniform(0, H), math.pi * 0.62 + rnd.uniform(-0.15, 0.15), rnd.uniform(26, 40) * s, rnd.choice(KNIFE))
     red = style == "scarlet"   # 蕾米莉亞：散落的彈也都是紅色系
     blue = style == "knives"   # 咲夜：散落的彈是藍白色系
-    palette = SCARLET if red else ELEMENTS if style == "elements" else KNIFE if blue else None   # 帕秋莉：七曜色；咲夜：銀藍
+    palette = SCARLET if red else ELEMENTS if style == "elements" else KNIFE if blue else STARLIGHT if style == "twilight" else None   # 帕秋莉：七曜色；咲夜：銀藍；魅魔：白 / 淡黃星光
     for _ in range(260 if style == "stars" else 60 if blue else 110):
         star(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 17) * s, rnd.random() * 6, rnd.choice(palette) if palette else hue(rnd.random(), 0.6))
     for _ in range(260):
