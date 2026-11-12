@@ -757,6 +757,74 @@ LAYERS = {
         "char_scale": 0.8,
         "light": {"dark": 0.35, "eyes": [], "eye_color": (90, 255, 150), "eye": 1.3, "eye_size": 3},   # 綠瞳發光；eyes 座標等人物定案後量
     },
+    # 夢子 R / SR / SSR (TH05 舊卡重生，2026-11-12 桌機)：外觀沿用 make_workflow.BASE (舊作 PC-98：金色波浪長髮、黃眼、女僕頭飾、紅色女僕裝 + 白圍裙)；
+    # 神綺的女僕長，武器是劍 (不是飛刀)；不要畫成咲夜 (EXTRA_NEGATIVE 已排除銀髮藍裙)
+    ("yumeko", "R"): {
+        # 使用者選 (2026-11-12)：B2 (s2202) C1 (s3303)
+        # R「魔界的女長官」：魔界宮殿大廳，提裙行禮、被誇獎時害羞又得意的笑
+        "bg": ("no humans, scenery, grand palace hall in the demon world, pandemonium, red carpet, chandeliers, tall gothic windows, "
+               "purple sky outside, marble pillars, warm lighting, elegant, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("curtsey, bowing politely, holding skirt, blushing, embarrassed smile, proud, happy, looking at viewer, standing, full body"),
+        "char_negative": "sword, weapon, knife, wings",
+        "char_scale": 0.75,
+    },
+    ("yumeko", "SR"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C4 (s6606)
+        # SR「飛刀之魔界女僕」：宮殿長廊，指間夾著多把劍、旋身擲出，冷靜幹練
+        "bg": ("no humans, scenery, long palace corridor in the demon world, red and gold, arched ceiling, rows of windows, "
+               "purple sky, flying swords in the distance, light streaks, dramatic perspective, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("holding multiple swords between fingers, sword in each hand, spinning, about to throw, mid-turn, "
+                 "calm expression, cool, composed, sharp eyes, skirt fluttering, hair flowing, dynamic pose, full body"),
+        "char_negative": "knife, kitchen knife, wings, gun",
+        "char_scale": 0.85,
+    },
+    ("yumeko", "SSR"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C3 (s5505)，左上劍焰被切 ➔ 補邊 O3 (outpaint s8802 第 1 張) ➔ wf-up s9901；使用者用 PhotoCraft 放大人物 (10c_char_photocraft.png)
+        # SSR「神綺的終極刃舞」：魔界王座廳，擋在空王座前，背後數百把劍排成巨大環狀 (劍陣畫在背景)
+        "bg": ("no humans, scenery, demon world throne room, grand empty throne, hundreds of swords floating in giant rings, "
+               "radial sword formation, glowing blades, red and gold light, light particles, light rays, majestic, epic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("standing guard, protective stance, one arm outstretched, holding sword, sword pointed forward, "
+                 "determined, fierce eyes, glowing blade, hair flowing, skirt fluttering, wind, powerful, full body"),
+        "char_negative": "knife, kitchen knife, wings, throne, multiple swords",
+        "char_scale": 0.9,
+        "wing_mask": "10m_flame.png",   # 去背會把劍的藍色火焰切掉 ➔ 06 基本圖抓青藍色做遮罩，範圍內保留
+    },
+    # 露易絲 N / R / SR (TH05 舊卡重生，2026-11-12 桌機)：外觀沿用 make_workflow.BASE (金髮短馬尾、瞇瞇眼、白色寬簷遮陽帽 + 紫緞帶、淡紫長裙、紫領巾)；
+    # 魔界的旅行者；不要畫成藍髮版
+    ("luize", "N"): {
+        # 使用者選 (2026-11-12)：B2 (s2202) C1 (s3303)
+        # N「魔界旅行者」：魔界城門前提著行李箱，壓著帽子眨眼，興奮地準備出發
+        "bg": ("no humans, scenery, demon world city gate, makai, strange spiral towers, purple sky, floating rocks, "
+               "stone road leading out of the city, morning light, soft lighting, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("holding suitcase, carrying luggage, hand on hat, one eye closed, wink, excited, eager smile, walking, from side, full body"),
+        "char_negative": "wings, weapon",
+        "char_scale": 0.75,
+    },
+    ("luize", "R"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C1 (s3303)
+        # R「觀光的魔界人」：景觀台上坐在行李箱上看地圖，悠哉曬太陽
+        "bg": ("no humans, scenery, scenic overlook, flower field, distant small town, rolling hills, blue sky, white clouds, "
+               "sunny day, peaceful, bright, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("sitting on suitcase, holding map, camera around neck, tourist, relaxed, closed eyes, content smile, basking in sunlight, full body"),
+        "char_negative": "wings, weapon",
+        "char_scale": 0.75,
+    },
+    ("luize", "SR"): {
+        # 使用者選 (2026-11-12)：B1 (s1101) C1 (s3303)
+        # SR「邊境流浪魔導士」：魔界與人間的交界，張手放出旋轉的方形結界彈幕，第一次認真
+        "bg": ("no humans, scenery, border between two worlds, dimensional rift, half purple demon world sky and half blue sky, "
+               "rotating square barriers, converging glowing squares, geometric patterns, purple and white light, light rays, epic, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("serious expression, eyes open, determined, arms spread, casting magic, glowing hands, "
+                 "hat ribbon fluttering, dress fluttering in wind, dynamic angle, full body"),
+        "char_negative": "wings, weapon, suitcase",
+        "char_scale": 0.85,
+    },
 }
 
 
