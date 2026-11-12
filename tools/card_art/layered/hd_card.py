@@ -590,6 +590,173 @@ LAYERS = {
         "char_negative": "patchouli knowledge, purple hair, hat, remilia scarlet",
         "char_scale": 0.8,
     },
+    # 博麗靈夢 SR / SSR (主角，舊版單張生成卡改走高清分層，2026-11-12 草稿)
+    # 萌娘百科外貌：黑髮 (「黑長直」「齊劉海」「長鬢角」，部分作品是短髮)、瞳色不固定 (黑瞳或紅瞳)；
+    # 頭上大蝴蝶結、兩鬢用髮帶綁起 (束鬢、半馬尾)；露肩露腋的無袖巫女服 + 分離袖子、胸前領巾、紅裙 (緋袴)、纏胸布、
+    # 白色短襪 + 瑪麗珍鞋；道具：御幣、符札、封魔針、陰陽玉 (博麗神社最大的秘寶)
+    # make_workflow.BASE 沒寫髮色 ➔ base 補上 black hair、brown eyes、sidelocks、hair tubes、white socks、mary janes
+    # 跟 UR (夜空 + 博麗大結界、正面仰拍、陰陽玉獨立圖層) 拉開：SR 白天神社日常、SSR 黃昏天空中施放符札的動態
+    ("reimu", "SR"): {
+        # SR「博麗神社的巫女」：春天的博麗神社 (鳥居、石階、櫻花)；微微浮在參道上，扛著御幣，輕鬆隨性地笑
+        "bg": ("no humans, scenery, hakurei shrine grounds, huge cherry blossom tree in the foreground center, thick tree trunk, "
+               "grass and fallen petals at the base of the tree, shrine building and red torii behind the tree, stone lanterns, "
+               "falling petals, spring, blue sky, daylight, soft lighting, peaceful, bright, highly detailed, intricate details"),   # 使用者：倚在神社櫻花樹下 ➔ 樹畫在背景，人物坐在樹根
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, hakurei reimu, touhou, black hair, long hair, blunt bangs, sidelocks, hair tubes, brown eyes, "
+                 "red bow, large bow, frilled bow, red and white miko outfit, sleeveless, bare shoulders, detached sleeves, wide sleeves, "
+                 "yellow ascot, red skirt, white socks, mary janes"),
+        "char": ("sitting on the ground under a cherry blossom tree, leaning back against the tree trunk, tree trunk behind her, "
+                 "cherry blossom branches above, falling petals, knees up, holding gohei over shoulder, relaxed smile, half-closed eyes, "
+                 "carefree, looking at viewer, full body"),   # 使用者 (2026-11-12)：喜歡 C4 的坐姿，改成倚在神社的櫻花樹下 (樹畫在人物層，去背一起留下)
+        "char_negative": "kirisame marisa, witch hat, blonde hair, wings, multiple girls, magic circle, glowing effects, "
+                         "nsfw, nipples, cleavage",
+        "char_scale": 0.62,
+        "offset": (0.0, 0.17),   # 人物縮小、往下放到樹根
+        
+    },
+    ("reimu", "SSR"): {
+        # SSR「樂園的奇妙巫女」：黃昏的幻想鄉天空，博麗神社在遠遠的下方、櫻花被風捲起；
+        # 斜身飛行、指間夾著符札甩出，兩顆陰陽玉在身旁，堅定的笑 (UR 是正面俯視的強者感，這張是側身的速度感)
+        "bg": ("no humans, scenery, sky above gensokyo, golden hour, sunset, orange and pink clouds, sunlight, light rays, "
+               "hakurei shrine and torii far below on a mountain, cherry blossom petals swirling in the wind, "
+               "wide view, dramatic, warm colors, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night",
+        "base": ("1girl, hakurei reimu, touhou, black hair, long hair, blunt bangs, sidelocks, hair tubes, brown eyes, "
+                 "red bow, large bow, frilled bow, red and white miko outfit, sleeveless, bare shoulders, detached sleeves, wide sleeves, "
+                 "yellow ascot, red skirt, white socks, mary janes"),
+        "char": ("flying, dynamic pose, leaning forward, holding gohei, throwing ofuda, ofuda between fingers, "
+                 "two yin yang orbs beside her, determined smile, looking at viewer, wind, sleeves fluttering, "
+                 "hair ribbon fluttering, skirt fluttering, both legs visible, full body"),
+        "char_negative": "kirisame marisa, witch hat, blonde hair, wings, multiple girls, magic circle, barrier, rainbow, "
+                         "nsfw, nipples, cleavage, panties",
+        "char_scale": 0.9,
+    },
+    # ── 霧雨魔理沙 SR / SSR (2026-11-12 從舊的單張生成改走高清分層) ──
+    # 萌娘百科外貌：金色長髮 (及肩到及腰、微捲)，一側編成麻花辮垂在胸前，辮子綁蝴蝶結；瞳色金 (少數作品紅瞳)；
+    # 寬大的黑色三角巫師帽 (尖頂寬簷)，帽上有大蝴蝶結 (多為白色)；黑色魔女裝 + 白圍裙 (紅魔鄉是全身圍裙，之後是半身圍裙)、泡泡袖；
+    # 白短襪 + 樂福鞋 / 瑪麗珍鞋；隨身帶掃帚與迷你八卦爐 (八角形、刻八卦圖)。沒有翅膀、沒有尾巴
+    # BASE 沒有跟萌娘百科衝突，只補上金眼、帽子白蝴蝶結、泡泡袖、半身圍裙、鞋襪 (不寫眼睛顏色的話有機會畫成紅眼)
+    # UR 是夜空 + 騎掃帚 + Master Spark ➔ SR / SSR 都放在白天，SR 站著不騎、SSR 完全不畫掃帚，跟 UR 拉開
+    ("marisa", "SR"): {
+        # SR「普通的魔法使」：原本的構想是白天騎掃帚穿過魔法森林 ➔ 改成白天魔法森林裡自己家 (霧雨魔法店) 門口，
+        # 一手直握掃帚 (刷毛著地)、一手捧著剛採的發光蘑菇，咧嘴笑加眨眼，日常又有朝氣
+        "bg": ("no humans, scenery, forest of magic, giant mushrooms, glowing mushrooms, small cluttered western cottage, wooden sign, "
+               "piles of books and jars by the door, sunlight through trees, light rays, dappled light, moss, ferns, daytime, bright, "
+               "lush green, whimsical, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, broom, witch hat, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, kirisame marisa, touhou, blonde hair, long hair, wavy hair, single side braid, hair bow, yellow eyes, "
+                 "witch hat, black headwear, white bow on hat, black dress, white shirt, puffy short sleeves, white apron, waist apron, "
+                 "white socks, black shoes"),
+        "char": ("standing, one hand holding a broom upright beside her, broom bristles on the ground, single broom, "
+                 "other hand holding up a glowing mushroom, grin, one eye closed, wink, energetic, cheerful, looking at viewer, "
+                 "hair fluttering, full body"),
+        # 共用的 EXTRA_NEGATIVE 會擋「standing, holding broom」，這張剛好要站著拿掃帚 ➔ 換掉，改成擋騎掃帚
+        "extra_negative": "riding broom, sitting on broom, flying, broom on shoulder",
+        "char_negative": ("red eyes, wings, multiple brooms, two brooms, bristles on both ends, extra hat, floating hat, "
+                          "magic effects, sparkles, stars, laser, mushrooms on ground, alice margatroid, hakurei reimu"),
+        "char_scale": 0.9,
+    },
+    ("marisa", "SSR"): {
+        # SSR「東洋的西洋魔術師」：原本的構想是白天在魔法森林上空高速飛、星星彈幕與魔法陣 ➔ 保留白天藍天 + 森林上空 (跟 UR 的夜空分開)，
+        # 不騎掃帚 (UR 已經騎了)：跳到半空、一手按住帽子、一手把迷你八卦爐往前伸，爐口噴出星星，自信大笑
+        "bg": ("no humans, scenery, above the forest of magic, sea of treetops below, giant mushrooms poking out of the canopy, "
+               "bright blue sky, big white clouds, sunlight, lens flare, wind, flying leaves, daytime, vivid colors, "
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, broom, witch hat, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, kirisame marisa, touhou, blonde hair, long hair, wavy hair, single side braid, hair bow, yellow eyes, "
+                 "witch hat, black headwear, white bow on hat, black dress, white shirt, puffy short sleeves, white apron, waist apron, "
+                 "white socks, black shoes"),
+        "char": ("midair, jumping, dynamic pose, one hand holding hat brim, other arm stretched forward holding glowing mini-hakkero, "
+                 "octagonal hakkero, star (symbol), stars bursting from the hakkero, confident grin, open mouth, looking at viewer, "
+                 "hair flowing in wind, hat ribbon flowing, skirt fluttering, slightly from below, full body"),
+        # 這張不要掃帚 ➔ 換掉共用的 EXTRA_NEGATIVE (它只擋拿掃帚，沒擋騎掃帚)
+        "extra_negative": "broom, holding broom, riding broom, sitting on broom, broom on shoulder",
+        "char_negative": ("red eyes, wings, extra hat, floating hat, laser, beam, huge magic circle, background scenery, "
+                          "alice margatroid, hakurei reimu, panties, upskirt"),
+        "char_scale": 0.9,
+    },
+    # 琪露諾 SR / SSR (TH06，2026-11-12 草稿，舊單張卡改走高清分層)：外觀照 make_workflow.BASE 與 UR
+    # (萌娘百科這次打不開，沒核對)：藍色短髮、藍眼、藍色大蝴蝶結、白襯衫 + 泡泡短袖、紅色領結、藍色背心裙、
+    # 背後六片冰晶翅膀、小孩身材；萌點：笨蛋⑨、自稱最強、愛凍青蛙、霧之湖
+    # 翅膀：UR 用翅膀層；SR / SSR 先讓人物直接帶冰晶翅膀 (inline_wings，寫法照大妖精)，base 拿掉 BASE 的翅膀標籤，免得跟 inline_wings_tags 重複
+    ("cirno", "SR"): {
+        # SR「冰之妖精」：清晨霧之湖邊 (蘆葦、睡蓮葉)；蹲著得意舉起剛凍住的青蛙 (青蛙包在冰塊裡)，調皮又天真
+        "bg": ("no humans, scenery, misty lake, lakeside, morning fog, reeds, lily pads, calm water, ripples, thin ice on water edge, "
+               "frost on grass, soft sunlight, daytime, bright, pale blue sky, distant forest, pastel colors, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, wings, frog, animal, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, cirno, touhou, blue hair, short hair, blue eyes, blue hair bow, large bow, white shirt, puffy short sleeves, "
+                 "red neck ribbon, blue dress, pinafore dress, child, petite"),
+        "char": ("squatting, both feet on ground, holding up a frozen frog, frog in ice block, ice cube, arm raised, proud grin, "
+                 "mischievous, innocent, open mouth, looking at viewer, frost particles around hand, hair fluttering, from side"),
+        "char_negative": "(fairy wings:1.3), insect wings, transparent wings, butterfly wings, angel wings, weapon, staff, wand, "
+                         "water, splash, reeds, lily pad, multiple frogs, danmaku",
+        "inline_wings": True,
+        "inline_wings_tags": "ice wings, six ice crystal wings, ice crystal wings, clear blue ice, wings spread",
+        "char_scale": 0.9,
+    },
+    ("cirno", "SSR"): {
+        # SSR「湖上的冰精女王」：結冰的湖面中間一座冰山，晴空、冰柱和雪花飛舞 (冰山在背景裡，人物站在下方中央的冰山頂上)；
+        # 一手插腰一手比 V、張嘴大笑，自信又得意；冰塊冰柱只當背景與手邊的冰晶，不做成彈幕 (SSR 沒有彈幕)
+        "bg": ("no humans, scenery, frozen lake, ice field, large iceberg in the foreground center, jagged ice peak, icicles, "
+               "ice shards in the air, flying ice chunks, snowflakes, sparkles, clear blue sky, white clouds, wind, "
+               "daytime, bright, crisp, cold, dynamic angle, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, cirno, touhou, blue hair, short hair, blue eyes, blue hair bow, large bow, white shirt, puffy short sleeves, "
+                 "red neck ribbon, blue dress, pinafore dress, child, petite"),
+        "char": ("standing, feet apart, both legs visible, hand on hip, v sign, laughing, open mouth, confident, smug, v-shaped eyebrows, "
+                 "small ice shards swirling around her, frost particles, hair fluttering, dress fluttering, wind, slightly from below"),
+        "char_negative": "(fairy wings:1.3), insect wings, transparent wings, butterfly wings, angel wings, weapon, staff, wand, "
+                         "iceberg, ground, rock, danmaku, bullets",
+        "inline_wings": True,
+        "inline_wings_tags": "ice wings, six ice crystal wings, ice crystal wings, clear blue ice, wings spread",
+        "char_scale": 0.9,
+    },
+    ("mima", "SR"): {
+        # SR「久遠的博麗神社惡靈」(沿用舊 SCENES)：荒廢的舊博麗神社 (青苔、雜草、舊鳥居、午後陽光、螢火蟲)；人物在空中盤腿悠哉飄著、調皮地笑
+        "bg": ("no humans, scenery, old abandoned shinto shrine, overgrown, moss, tall grass, weathered old torii, small stone shrine, stone lanterns, "
+               "afternoon, warm sunlight, light rays through trees, fireflies, peaceful, nostalgic, soft lighting, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, ghost, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "base": ("1girl, mima (touhou), touhou, green hair, very long hair, green eyes, wizard hat, white headwear, "
+                 "blue dress, blue skirt, blue cape, red ribbon, neck ribbon, ghost tail, no legs, holding staff, crescent staff"),
+        "char": ("floating in the air, ghost tail, no legs, relaxed pose, sitting cross-legged in the air, chin resting on hand, "
+                 "mischievous smile, looking at viewer, cape fluttering, hair flowing, full body"),
+        "char_negative": "(legs:1.3), (feet:1.3), shoes, socks, thighhighs, standing, kneeling, wings, marisa, kirisame marisa, blonde hair",
+        "char_scale": 0.9,
+    },
+    ("mima", "SSR"): {
+        # SSR「祟高而冷酷的惡靈」(沿用舊 SCENES)：舊神社上空，藍天白雲；舉起月牙杖施法、冷笑、半閉眼，披風被風吹起，四周飄著靈體光絲
+        # N~SSR 沒有彈幕：舊 SCENES 寫的 star danmaku / magic circle 拿掉，只留杖頭的藍色魔法光 (SSR 的閃光 build_cards 會自動加)
+        "bg": ("no humans, scenery, sky above an old shinto shrine, shrine roof and torii far below, blue sky, dramatic clouds, wind, "
+               "spectral wisps, faint blue mist, light rays, dynamic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, ghost, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night",
+        "base": ("1girl, mima (touhou), touhou, green hair, very long hair, green eyes, wizard hat, white headwear, "
+                 "blue dress, blue skirt, blue cape, red ribbon, neck ribbon, ghost tail, no legs, holding staff, crescent staff"),
+        "char": ("floating, ghost tail, no legs, raising staff, crescent staff, casting spell, glowing staff tip, blue magic, "
+                 "cold smile, half-closed eyes, looking down at viewer, cape fluttering, hair flowing, wind, dynamic pose, dynamic angle, full body"),
+        "char_negative": "(legs:1.3), (feet:1.3), shoes, socks, thighhighs, standing, wings, marisa, kirisame marisa, blonde hair, danmaku, magic circle",
+        "char_scale": 0.9,
+    },
+    ("mima", "UR"): {
+        # UR「憑依博麗之陰影」(沿用舊 SCENES)：雲層之上的夜空、背後巨大的月牙 / 滿月 (月光下會變強)；
+        # 杖高舉過頭、眼睛發光、自信的邪笑，全身藍色靈體光焰，披風與長髮大幅翻飛。背景壓暗紫藍色，彈幕才跳得出來
+        "bg": ("no humans, scenery, night sky above the clouds, sea of clouds, huge crescent moon, bright moonlight, starry sky, "
+               "faint blue spectral flames, ghostly mist, deep navy blue and purple, dark, dramatic, cinematic, majestic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, ghost, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime, blue sky, sun",
+        "base": ("1girl, mima (touhou), touhou, green hair, very long hair, green eyes, wizard hat, white headwear, "
+                 "blue dress, blue skirt, blue cape, red ribbon, neck ribbon, ghost tail, no legs, holding staff, crescent staff"),
+        "char": ("floating high, ghost tail, no legs, staff raised overhead, crescent staff, glowing staff, "
+                 "glowing eyes, green eyes, confident, evil smile, menacing, looking at viewer, "
+                 "ghostly blue aura, spectral flames, cape billowing, hair flowing, backlighting, rim light, dynamic angle, from below, full body"),
+        "char_negative": "(legs:1.3), (feet:1.3), shoes, socks, thighhighs, standing, marisa, kirisame marisa, blonde hair, magic circle, danmaku, happy",
+        # 封魔錄第三形態的六隻紫色翅膀 (萌娘百科萌點有翅膀)：要的話參照 remilia 的寫法打開，但會增加畫壞的機率
+        # "inline_wings": True,
+        # "inline_wings_tags": "six wings, multiple wings, purple wings, wings spread",
+        "style": "twilight",   # 新風格提案 (danmaku.py 要另外做)；還沒做之前先用 "stars"
+        "density": 0.72,
+        "glow": 0.55,
+        "char_scale": 0.8,
+        "light": {"dark": 0.35, "eyes": [], "eye_color": (90, 255, 150), "eye": 1.3, "eye_size": 3},   # 綠瞳發光；eyes 座標等人物定案後量
+    },
 }
 
 
