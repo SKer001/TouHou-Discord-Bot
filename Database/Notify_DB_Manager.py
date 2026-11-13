@@ -330,7 +330,7 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
         ) as cursor:
             trades = [dict(r) for r in await cursor.fetchall()]
         async with db.execute("SELECT * FROM market_listings") as cursor:
-            listings = [dict(r) for r in await cursor.fetchall()]
+            listings = econ.apply_current_names([dict(r) for r in await cursor.fetchall()])
     names = {r["instance_id"]: r for r in prev_listings.values()}
     for t in trades:   # 成交紀錄沒有卡名，從上次看到的上架清單補
         if t["instance_id"] in names:

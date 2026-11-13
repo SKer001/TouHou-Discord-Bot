@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta, timezone
 from Database.User_DB_Manager import connect, _ensure_user, _insert_cards, _load_inventory, tw_day, calc_stamina, STAMINA_MAX
 from Database import shrine_data
 from Utils import card_cache   # 卡冊有變動時讓 autocomplete 的快取失效
+from Utils.character_data import apply_current_names   # 卡名 / 稱號一律用目前的角色檔
 from Database.events import load_events, game_rules, all_guests, event_item_ids, pick_line
 
 HOUR = timedelta(hours=1)
@@ -472,7 +473,18 @@ async def get_rules(now: datetime | None = None) -> dict:
         except BaseException:
             await db.rollback()
             raise
+    _remember_fee_mods(rules)
     return rules
+
+
+# 活動的手續費倍率 (modifiers.market_fee / transfer_fee)：畫面顯示用的同步快取，每次 get_rules 更新；
+# 真正扣款 (buy_listing / transfer_money) 會在交易裡重新算，不靠這個快取
+_FEE_MODS = {"market_fee": 1.0, "transfer_fee": 1.0}
+
+
+def _remember_fee_mods(rules: dict):
+    for k in _FEE_MODS:
+        _FEE_MODS[k] = rules["modifiers"].get(k, 1.0)
 
 
 # =========================================================
@@ -910,8 +922,13 @@ MARKET_BUYER_FEE = 0.05         # 買家付 上架價 × 1.05，多的 5% 被系
 LISTING_DURATION = timedelta(days=7)
 
 
-def buyer_total(price: int) -> int:
-    return math.ceil(price * (1 + MARKET_BUYER_FEE))
+def market_fee_rate(mult: float | None = None) -> float:
+    """買家手續費率 (活動可以用 modifiers.market_fee 調整)"""
+    return MARKET_BUYER_FEE * (_FEE_MODS["market_fee"] if mult is None else mult)
+
+
+def buyer_total(price: int, mult: float | None = None) -> int:
+    return math.ceil(price * (1 + market_fee_rate(mult)))
 
 
 async def _daily_count(db, user_id: int) -> int:
@@ -998,7 +1015,7 @@ async def get_listings(character_keys: list[str] | None = None, seller_id: int |
     sql += " ORDER BY price, listing_id"
     async with connect() as db:
         async with db.execute(sql, args) as cursor:
-            return [dict(r) for r in await cursor.fetchall()]
+            return apply_current_names([dict(r) for r in await cursor.fetchall()])
 
 
 async def cancel_listing(user_id: int, listing_id: int) -> dict:
@@ -1048,7 +1065,9 @@ async def buy_listing(buyer_id: int, listing_id: int, now: datetime | None = Non
                 return await fail("own")
             if _dt(listing["listed_at"]) + LISTING_DURATION <= now:
                 return await fail("expired")
-            total = buyer_total(listing["price"])
+            rules = game_rules(await _active_events(db, now))
+            _remember_fee_mods(rules)
+            total = buyer_total(listing["price"], rules["modifiers"]["market_fee"])
             async with db.execute("SELECT money FROM users WHERE user_id = ?", (buyer_id,)) as cursor:
                 money = (await cursor.fetchone())["money"]
             if money < total:
@@ -1077,8 +1096,13 @@ TRANSFER_FEE = 0.05                 # 手續費 5%，從轉帳金額裡扣 (轉 
 TRANSFER_DAILY_LIMIT = 500_000      # 每人每天 (台灣時間) 最多轉出 500K
 
 
-def transfer_fee(amount: int) -> int:
-    return math.ceil(amount * TRANSFER_FEE)
+def transfer_fee_rate(mult: float | None = None) -> float:
+    """轉帳手續費率 (活動可以用 modifiers.transfer_fee 調整)"""
+    return TRANSFER_FEE * (_FEE_MODS["transfer_fee"] if mult is None else mult)
+
+
+def transfer_fee(amount: int, mult: float | None = None) -> int:
+    return math.ceil(amount * transfer_fee_rate(mult))
 
 
 async def get_transfer_today(user_id: int, now: datetime | None = None) -> int:
@@ -1124,7 +1148,9 @@ async def transfer_money(sender_id: int, receiver_id: int, amount: int, now: dat
                 money = (await cursor.fetchone())["money"]
             if money < amount:
                 return await fail("not_enough", money=money)
-            fee = transfer_fee(amount)
+            rules = game_rules(await _active_events(db, now))
+            _remember_fee_mods(rules)
+            fee = transfer_fee(amount, rules["modifiers"]["transfer_fee"])
             await db.execute("UPDATE users SET money = money - ? WHERE user_id = ?", (amount, sender_id))
             await db.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (amount - fee, receiver_id))
             await _log_trade(db, "transfer", amount, day, now, seller=sender_id, buyer=receiver_id, fee=fee)

@@ -9,6 +9,7 @@
   - `gacha_pity(user_id, pool, total_draws, since_ur, last_ur_at)`，主鍵 `(user_id, pool)`
   - `gacha_stats(user_id PK → users ON DELETE CASCADE, total_draws, total_fusions)`
   - `gacha_cards(instance_id TEXT PK, user_id → users ON DELETE CASCADE, character_key, name, emoji, rarity, title, completeness REAL, obtained_at)`，索引 `idx_gacha_cards_user`
+    - `name` / `emoji` / `title` 只是寫入當下的副本：讀卡時 (`get_user_cards`、`transform_cards`、`econ.get_listings`、通知的上架清單) 一律用 `Utils.character_data.apply_current_names` 換成目前角色檔的內容，角色改名、改稱號後舊卡跟著變 (角色檔快取 60 秒；角色檔刪掉才顯示副本)。2026-11-13 起。
 - 缺欄位用 `USERS_EXTRA_COLUMNS` 自動補。
 - 主要函式：`get_or_create_user`、`add_money`、`add_exp`（升級回傳 `leveled_up/old_p/new_p/is_max`）、`get_required_exp_for_level`、`get_total_exp_for_level`、`reset_daily`、`update_daily_time`、`add_item`、`update_user_inventory`、`get_leaderboard_stats(user_ids)`、`update_visibility`。
 - 簽到：`get_daily_status(user_id, today)`（唯讀，不替對方建資料）、`claim_daily(user_id, today, fortune_level)`（原子 `UPDATE … WHERE last_daily IS NULL OR last_daily != today`，連點/雙視窗只有一次成功）。

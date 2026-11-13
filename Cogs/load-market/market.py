@@ -75,6 +75,7 @@ async def prepare_market():
     """每個市場指令開頭：補結算市值、下架過期的卡"""
     await econ.settle_prices(card_probabilities())
     await econ.expire_listings()
+    await econ.get_rules()   # 更新活動的手續費倍率 (畫面上的買家價格)
 
 
 def reason_text(r: dict, status: dict | None = None) -> str:
@@ -258,7 +259,7 @@ class SellView(OwnerView):
             container = simple_container(
                 f"## 🏷️ 確認上架\n{pick_label(c)}\n"
                 f"你的售價 `{self.price:,}` 賽錢（賣出後全額入帳）\n"
-                f"買家要付 `{econ.buyer_total(self.price):,}`（售價 × 1.05）\n"
+                f"買家要付 `{econ.buyer_total(self.price):,}`（售價 × {1 + econ.market_fee_rate():g}）\n"
                 f"參考市值 `{self._value(c):,}`\n-# 確認後會在頻道公開上架公告；上架中的卡不能合成、融合、分解；7 天沒賣出自動下架", discord.Color.orange())
             ok = ui.Button(label="🏷️ 確認上架", style=discord.ButtonStyle.success)
             ok.callback = self.on_confirm
@@ -331,7 +332,7 @@ class ListingsView(OwnerView):
             l = self.chosen
             if self.kind == "buy":
                 text = (f"## 🛒 確認購買\n{card_label(l)}\n*{l.get('title') or ''}*\n"
-                        f"要付 `{econ.buyer_total(l['price']):,}` 賽錢（售價 `{l['price']:,}` × 1.05）")
+                        f"要付 `{econ.buyer_total(l['price']):,}` 賽錢（售價 `{l['price']:,}` × {1 + econ.market_fee_rate():g}）")
                 label, style = "🛒 確認購買", discord.ButtonStyle.success
             else:
                 text = f"## 📋 確認下架\n{card_label(l)}\n售價 `{l['price']:,}`\n-# 下架後卡會回到你的卡冊"

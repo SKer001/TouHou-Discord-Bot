@@ -45,7 +45,7 @@ async def main():
     cmd = next(c for c in cog.walk_app_commands() if c.name == "gacha")
     d = bot.tree.get_command("card").to_dict(bot.tree)
     g = next(o for o in d["options"] if o["name"] == "gacha")
-    check("pool choices", [c["value"] for c in g["options"][0]["choices"]] == ["classic", "th06"])
+    check("pool choices", [c["value"] for c in g["options"][0]["choices"]] == ["classic", "th06", "event"])   # 最後一個是活動限定卡池
 
     await udm.add_money(1, 10_000_000)
     for pk, members in (("classic", classic), ("th06", th06)):
@@ -65,6 +65,29 @@ async def main():
     it = Interaction(); await gacha.GachaCardSys.execute_gacha(cog, it, 1, "nope")
     check("unknown pool rejected", "沒有任何角色" in texts(it.view))
     check("money not taken on bad pool", True)
+
+    # 🎪 活動限定卡池：沒有活動 ➔ 提示；有活動 ➔ 只抽活動列的角色，保底記在 event_<id>，繼續祈願沿用
+    it = Interaction(); await gacha.GachaCardSys.execute_gacha(cog, it, 1, "event")
+    check("no event pool notice", "沒有進行中的活動卡池" in texts(it.view))
+    from Database import Economy_DB_Manager as econ
+    orig_rules = econ.get_rules
+    async def fake_rules(now=None):
+        r = await orig_rules(now)
+        r["gacha_event_pool"] = {"key": "event_test", "event": "test", "name": "🎪 測試卡池", "desc": "", "characters": ["reimu", "marisa"]}
+        r["modifiers"]["gacha_cost"] = 0.5
+        return r
+    econ.get_rules = fake_rules
+    before = len(await udm.get_user_cards(1))
+    money = (await udm.get_or_create_user(1))["money"]
+    it = Interaction(); await gacha.GachaCardSys.execute_gacha(cog, it, 10, "event")
+    new = (await udm.get_user_cards(1))[before:]
+    check("event pool draws listed", len(new) == 10 and {c["character_key"] for c in new} <= {"reimu", "marisa"})
+    check("event pool name shown", "測試卡池" in texts(it.view))
+    check("event price applied", (await udm.get_or_create_user(1))["money"] == money - gacha.DRAW_COST * 5)
+    check("event pity separate", "event_test" in await udm.get_gacha_pity(1))
+    it2 = Interaction(component=True); await it.view.draw_single_again(it2)
+    check("event redraw same pool", len(await udm.get_user_cards(1)) == before + 11)
+    econ.get_rules = orig_rules
 
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")

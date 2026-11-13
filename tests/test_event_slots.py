@@ -136,5 +136,32 @@ g2 = game_rules([{"id": "a", "gacha": {"rate_up": {target: 2}}}, {"id": "b", "ga
 check("rate up multiply", g2["gacha_rate_up"][target] == 6 and g2["gacha_rarity_weights"] is None)
 check("daily items", g2["daily_items"] == [["reimu_onigiri", 2]])
 
+# 🎴 活動限定卡池 (2026-11-13 補的預留位)：角色可以跨一般卡池；後面的活動蓋前面
+check("no event pool", base["gacha_event_pool"] is None)
+mixed = ["reimu", keys[0], "no_such_char"]
+g3 = game_rules([{"id": "a", "name": "測試", "gacha": {"pool": {"characters": ["marisa"]}}},
+                 {"id": "b", "name": "測試二", "emoji": "🎉", "gacha": {"pool": {"characters": mixed}}}])
+ep = g3["gacha_event_pool"]
+check("event pool later wins", ep["key"] == "event_b" and ep["event"] == "b" and ep["characters"] == mixed)
+check("event pool default name", ep["name"] == "🎉 測試二卡池" and ep["desc"] == "活動限定")
+check("event pool chars filtered", gacha.pool_characters("event_b", g3) == ["reimu", keys[0]])
+cards, _, _ = gacha.roll_pool_cards("event_b", 60, 0, lambda: 0.5, g3)
+check("event pool rolls only listed", {c["character_key"] for c in cards} <= {"reimu", keys[0]})
+check("normal pool unaffected", set(gacha.pool_characters("th06", g3)) == set(keys))
+check("empty pool ignored", game_rules([{"id": "c", "gacha": {"pool": {"characters": []}}}])["gacha_event_pool"] is None)
+
+# 💰 祈願價格、市場 / 轉帳手續費倍率 (沒活動 = 原價)
+check("draw cost base", gacha.draw_cost(10) == gacha.DRAW_COST * 10)
+g4 = game_rules([{"id": "d", "modifiers": {"gacha_cost": 0.8, "market_fee": 0, "transfer_fee": 2}}])
+check("draw cost event", gacha.draw_cost(10, g4["modifiers"]["gacha_cost"]) == round(gacha.DRAW_COST * 8))
+check("market fee base", econ.buyer_total(1000, 1.0) == 1050)
+check("market fee free", econ.buyer_total(1000, g4["modifiers"]["market_fee"]) == 1000)
+check("transfer fee base", econ.transfer_fee(1000, 1.0) == 50)
+check("transfer fee doubled", econ.transfer_fee(1000, g4["modifiers"]["transfer_fee"]) == 100)
+econ._remember_fee_mods(g4)
+check("cached fee mods", econ.buyer_total(1000) == 1000 and econ.transfer_fee(1000) == 100)
+econ._remember_fee_mods(base)
+check("cached fee reset", econ.buyer_total(1000) == 1050 and econ.transfer_fee(1000) == 50)
+
 print(f"passed {ok}, failed {fail}")
 sys.exit(1 if fail else 0)

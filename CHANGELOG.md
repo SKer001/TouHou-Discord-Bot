@@ -13,6 +13,15 @@
 
 ---
 
+## 0.30.017 — 2026-11-13：卡牌名稱 / 稱號跟著角色檔走，活動預留位補完
+- **🎴 卡牌名稱 / 稱號**：`gacha_cards`、`market_listings` 存的 name / emoji / title 只是寫入當下的副本，角色改名或改稱號後舊卡不會變 ➔ 新增 `Utils.character_data.apply_current_names`，讀卡時 (`get_user_cards`、合成 / 融合、市場清單、通知) 一律換成目前角色檔的內容；角色檔刪掉才顯示副本。角色檔快取 60 秒。
+- **🎪 活動限定卡池**：活動檔 `gacha.pool {name, desc, characters}`；`/card gacha` 多一個「🎪 活動限定卡池」選項，沒有活動時提示；角色可以跨一般卡池，保底獨立記在 `event_<活動 id>`，`/card history` 會列出來，「繼續祈願」沿用。
+- **💰 祈願價格、手續費倍率**：`modifiers.gacha_cost`、`market_fee`、`transfer_fee` (沒設 = 原價 / 5%)。扣款在交易裡依當下的活動重算；畫面上的價格與「× 1.05」「5%」文字改成依倍率顯示。
+- 使用者決定 (TODO 已更新)：市場只給卡牌；體力道具取得方式、紅霧異變天數之後再說；更多活動等卡面做完；數值之後微調；桌機 CodeGraph / PhotoCraft 已裝好。
+- 測試：新增 `test_card_names.py`；`test_event_slots.py`、`test_pools.py` 加上活動卡池、價格、手續費。725 項全過。
+- 問題：用 heredoc 跑 Python 改檔時，`
+` 會被當成換行、中文要 `PYTHONUTF8=1`，含中文和跳脫字元的小改動改用 Edit 比較穩。
+
 ## 0.30.016 — 2026-11-12：魅魔 SR / SSR / UR 重生 (筆電)，新彈幕風格 twilight
 - **👻 魅魔**：SR「久遠的博麗神社惡靈」青苔廢神社前坐在月牙杖上飄 (B1 + C1)；SSR「祟高而冷酷的惡靈」鳥居上空持杖飛行、身邊藍色氣流 (B2 + C2)；UR「憑依博麗之陰影」夜空巨月前施法、紫色暗影 (B2 + C2)。下半身是幽靈尾巴，提示詞負面加權擋腳。
 - **🌙 `danmaku.py` 新風格 `twilight`**：同心環是藍紫月牙刃 (每五顆夾一顆淡綠大玉)、螺旋是藍紫米粒彈、散落白 / 淡黃星光。

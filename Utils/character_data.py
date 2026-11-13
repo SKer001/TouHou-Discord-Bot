@@ -90,3 +90,43 @@ def load_categories() -> dict:
 def load_characters() -> dict:
     """{"角色id": 角色資料, ...}，不分分類"""
     return {c["id"]: c for cat in load_categories().values() for c in cat["characters"]}
+
+
+# ---------------------------------------------------------
+# 🎴 卡牌顯示用的名稱 / 稱號 (2026-11-13)
+# 資料庫的卡牌 (gacha_cards、market_listings) 存有寫入當下的 name / emoji / title 副本，
+# 角色改名或改稱號後舊卡不會跟著變 ➔ 讀卡時一律用目前的角色檔覆蓋；角色檔不存在 (已刪除) 才保留副本
+# ---------------------------------------------------------
+import time
+
+_CARD_INFO_TTL = 60          # 秒；角色檔改了最多 60 秒後生效 (/admin-sys reload 會直接重載本模組)
+_card_info: dict | None = None
+_card_info_at = 0.0
+
+
+def _card_info_map() -> dict:
+    global _card_info, _card_info_at
+    if _card_info is None or time.monotonic() - _card_info_at > _CARD_INFO_TTL:
+        _card_info = {cid: (c["name"], c["emoji"], c["gacha"].get("titles", {})) for cid, c in load_characters().items()}
+        _card_info_at = time.monotonic()
+    return _card_info
+
+
+def clear_card_info_cache():
+    """角色檔改完想立刻生效 (測試也會用)"""
+    global _card_info
+    _card_info = None
+
+
+def apply_current_names(cards):
+    """把卡牌 (dict 或 dict 的清單) 的 name / emoji / title 換成目前角色檔的內容，原地修改並回傳同一個物件"""
+    info = _card_info_map()
+    for card in ([cards] if isinstance(cards, dict) else cards):
+        cur = info.get(card.get("character_key"))
+        if cur is None:
+            continue
+        name, emoji, titles = cur
+        card["name"], card["emoji"] = name, emoji
+        if card.get("rarity") in titles:
+            card["title"] = titles[card["rarity"]]
+    return cards

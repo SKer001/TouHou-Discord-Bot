@@ -36,7 +36,8 @@ def event_item_ids(event: dict) -> set[str]:
 
 # 數值倍率的預留位：活動檔的 "modifiers" 可以設定，沒設定 = 1 (不影響)；同時有多個活動時相乘
 MODIFIER_KEYS = ("shrine_income", "youkai_reward", "serve_reward", "explore_stamina",
-                 "youkai_spawn", "guest_spawn", "daily_money", "daily_exp", "decompose")
+                 "youkai_spawn", "guest_spawn", "daily_money", "daily_exp", "decompose",
+                 "gacha_cost", "market_fee", "transfer_fee")   # 祈願價格、市場買家手續費、轉帳手續費 (2026-11-13 補的預留位)
 
 
 def _as_list(x) -> list:
@@ -59,6 +60,7 @@ def game_rules(active: list[dict]) -> dict:
     | special_chance | shrine_data.SPECIAL_CHANCE | special_chance (取最大) |
     | gacha_rate_up {角色: 倍率} | 卡池角色平均抽 | gacha.rate_up (抽到該角色的權重 ×倍率，多個活動相乘) |
     | gacha_rarity_weights | 沒有 = 抽卡用預設 RARITY_WEIGHTS | gacha.rarity_weights [低, 中, 高] (後面的活動蓋前面) |
+    | gacha_event_pool | None | gacha.pool {name, desc, characters: [角色 id]} (活動限定卡池；後面的活動蓋前面) |
     | daily_items [[道具, 數量]] | 沒有 (🍙 由簽到本身送) | daily_items (簽到額外送) |
     | event_dish_bonus | 1 | event_dish_bonus (取最大) |
     """
@@ -73,7 +75,7 @@ def game_rules(active: list[dict]) -> dict:
     mods = {k: 1.0 for k in MODIFIER_KEYS}
     event_dishes, event_guests = {}, set()
     chance, bonus, guest_chance, special = 0.0, 1.0, None, base.SPECIAL_CHANCE
-    rate_up, rarity_weights, daily_items = {}, None, []
+    rate_up, rarity_weights, daily_items, event_pool = {}, None, [], None
     for ev in active:
         eid = ev["id"]
         recipes.update(ev.get("recipes", {}))
@@ -116,6 +118,11 @@ def game_rules(active: list[dict]) -> dict:
             rate_up[key] = rate_up.get(key, 1.0) * mult
         if gacha.get("rarity_weights"):
             rarity_weights = list(gacha["rarity_weights"])
+        if gacha.get("pool", {}).get("characters"):
+            pool = gacha["pool"]
+            event_pool = {"key": f"event_{eid}", "event": eid,
+                          "name": pool.get("name") or f"{ev.get('emoji', '🎪')} {ev.get('name', eid)}卡池",
+                          "desc": pool.get("desc", "活動限定"), "characters": list(pool["characters"])}
         daily_items += [list(x) for x in ev.get("daily_items", [])]
         if "event_guest_chance" in ev:
             guest_chance = max(guest_chance or 0.0, ev["event_guest_chance"])
@@ -129,7 +136,8 @@ def game_rules(active: list[dict]) -> dict:
         "order_pool": order_pool, "order_event_chance": chance, "event_dish_bonus": bonus,
         "guest_pool": {"base": sorted(k for k in guests if k not in event_guests), "event": sorted(event_guests)},
         "event_guest_chance": guest_chance, "shop": shop, "modifiers": mods, "special_chance": special,
-        "gacha_rate_up": rate_up, "gacha_rarity_weights": rarity_weights, "daily_items": daily_items,
+        "gacha_rate_up": rate_up, "gacha_rarity_weights": rarity_weights, "gacha_event_pool": event_pool,
+        "daily_items": daily_items,
     }
 
 

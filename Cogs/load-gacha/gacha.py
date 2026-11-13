@@ -92,22 +92,37 @@ def sort_cards(cards: list) -> list:
 
 # ================= ⛩️ 祈願規則 =================
 DRAW_COST = 5000                 # 每抽賽錢 (十連 = 10 倍，沒有折扣；2026-11-05 使用者指定)
+EVENT_POOL = "event"             # /card gacha 的「活動限定卡池」選項；實際卡池 = 進行中活動的 gacha.pool (Events/README.md)
+
+
+def draw_cost(draw_count: int, mult: float = 1.0) -> int:
+    """祈願價格 (活動可以用 modifiers.gacha_cost 調整)"""
+    return round(draw_count * DRAW_COST * mult)
 RARITY_WEIGHTS = [75, 22, 3]     # 角色三個階級 (低 ➔ 高) 的權重
 PITY_THRESHOLD = 100             # 每個卡池連續 100 抽沒出 UR ➔ 第 100 抽必出 UR
 PITY_RARITY = "UR"
 PITY_RESET_RARITIES = {"UR", "LR"}   # 抽到這些階級就重置保底計數
 
 
+def pool_characters(pool_key: str, rules: dict | None = None) -> list[str]:
+    """卡池裡的角色；活動卡池 (event_xxx) 用活動檔列的角色 (一般卡池的角色都可以放)"""
+    event_pool = (rules or {}).get("gacha_event_pool")
+    if event_pool and pool_key == event_pool["key"]:
+        return [k for k in event_pool["characters"] if k in GACHA_POOL]
+    return [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
+
+
 def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness, rules: dict | None = None) -> tuple[list, int, bool]:
     """
     依保底計數擲出 count 張卡：(cards, 新的 since_ur, 是否出了 UR 以上)
     觸發保底的卡會帶 "pity": True (只用於顯示，不寫入資料庫)
-    rules = 活動規則 (econ.get_rules)：gacha_rate_up {角色: 權重倍率}、gacha_rarity_weights 取代 RARITY_WEIGHTS
+    rules = 活動規則 (econ.get_rules)：gacha_rate_up {角色: 權重倍率}、gacha_rarity_weights 取代 RARITY_WEIGHTS、
+            gacha_event_pool (pool_key 是活動卡池時用它的角色清單)
     """
     rules = rules or {}
     rate_up = rules.get("gacha_rate_up") or {}
     rarity_weights = rules.get("gacha_rarity_weights") or RARITY_WEIGHTS
-    char_keys = [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
+    char_keys = pool_characters(pool_key, rules)
     char_weights = [rate_up.get(k, 1.0) for k in char_keys]
     pity_keys = [k for k in char_keys if PITY_RARITY in GACHA_POOL[k]["rarities"]]
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -229,16 +244,16 @@ def find_fusion_groups(cards: list) -> dict:
 
 # ================= 🎛️ 抽卡結果 View (Components V2) =================
 class GachaResultView(ui.LayoutView):
-    def __init__(self, user_id: int, user_name: str, gacha_cog, container: ui.Container, pool_key: str):
+    def __init__(self, user_id: int, user_name: str, gacha_cog, container: ui.Container, pool_key: str, cost_mult: float = 1.0):
         super().__init__(timeout=180)
         self.user_id = user_id
         self.user_name = user_name
         self.gacha_cog = gacha_cog
-        self.pool_key = pool_key   # 「繼續祈願」沿用同一個卡池
+        self.pool_key = pool_key   # 「繼續祈願」沿用同一個卡池 (活動卡池是 "event"，每次重新找進行中的活動)
 
-        single_btn = ui.Button(label=f"🌸 繼續單抽 ({DRAW_COST:,})", style=discord.ButtonStyle.primary)
+        single_btn = ui.Button(label=f"🌸 繼續單抽 ({draw_cost(1, cost_mult):,})", style=discord.ButtonStyle.primary)
         single_btn.callback = self.draw_single_again
-        ten_btn = ui.Button(label=f"⛩️ 繼續十連 ({DRAW_COST * 10:,})", style=discord.ButtonStyle.success)
+        ten_btn = ui.Button(label=f"⛩️ 繼續十連 ({draw_cost(10, cost_mult):,})", style=discord.ButtonStyle.success)
         ten_btn.callback = self.draw_ten_again
         inv_btn = ui.Button(label="🎒 查看卡庫", style=discord.ButtonStyle.secondary)
         inv_btn.callback = self.view_inventory
@@ -822,16 +837,28 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     async def execute_gacha(self, interaction: discord.Interaction, draw_count: int, pool_key: str):
         await interaction.response.defer()
 
+        # 活動的機率提升、祈願價格倍率、活動限定卡池都在 rules
+        rules = await econ.get_rules()
+        choice_key = pool_key   # 「繼續祈願」用：活動卡池記 "event"，下次重新找進行中的活動
+        if pool_key == EVENT_POOL:
+            event_pool = rules.get("gacha_event_pool")
+            if not event_pool:
+                await send_notice(interaction, "🎪 目前沒有進行中的活動卡池。")
+                return
+            pool_key, pool_name = event_pool["key"], event_pool["name"]
+        else:
+            pool_name = GACHA_POOLS.get(pool_key, {}).get("name", "📦 其他")
+
         # 卡池沒有角色時直接中止
-        if not any(v["pool"] == pool_key for v in GACHA_POOL.values()):
+        if not pool_characters(pool_key, rules):
             await send_notice(interaction, "❌ 這個卡池目前沒有任何角色，暫時無法祈願，請聯絡管理員。")
             return
 
         user_id = interaction.user.id
-        total_cost = draw_count * DRAW_COST
+        cost_mult = rules["modifiers"].get("gacha_cost", 1.0)
+        total_cost = draw_cost(draw_count, cost_mult)
 
-        # 扣款、擲卡 (含保底)、寫入卡牌與統計全部在同一個交易；活動的機率提升在 rules
-        rules = await econ.get_rules()
+        # 扣款、擲卡 (含保底)、寫入卡牌與統計全部在同一個交易 (活動卡池的保底跟一般卡池分開算)
         try:
             result = await draw_gacha(
                 user_id, pool_key, draw_count, total_cost,
@@ -847,7 +874,6 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         if any(c.get("pity") for c in results):
             pity_text = f"🎯 **觸發保底！必定獲得 {PITY_RARITY}！**\n" + pity_text
 
-        pool_name = GACHA_POOLS[pool_key]["name"]
         if draw_count == 1:
             container = build_gacha_single_container(
                 results[0], interaction.user.display_name, total_cost, THUMBNAILS, pool_name, pity_text
@@ -857,7 +883,7 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
                 results, interaction.user.display_name, total_cost, THUMBNAILS, pool_name, pity_text
             )
 
-        view = GachaResultView(user_id, interaction.user.display_name, self, container, pool_key)
+        view = GachaResultView(user_id, interaction.user.display_name, self, container, choice_key, cost_mult)
 
         if interaction.type == discord.InteractionType.component:
             await interaction.edit_original_response(view=view)
@@ -867,7 +893,8 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
     @app_commands.command(name="gacha", description="⛩️ 博麗神社祈願：消耗賽錢抽取角色卡牌")
     @app_commands.describe(pool="要祈願的卡池 (依作品代數劃分)", pull_type="單抽或十連")
     @app_commands.choices(
-        pool=[app_commands.Choice(name=f"{p['name']} ({p['desc']})", value=key) for key, p in GACHA_POOLS.items()],
+        pool=[app_commands.Choice(name=f"{p['name']} ({p['desc']})", value=key) for key, p in GACHA_POOLS.items()]
+             + [app_commands.Choice(name="🎪 活動限定卡池 (活動期間才開放)", value=EVENT_POOL)],
         pull_type=[
             app_commands.Choice(name=f"單次祈願 ({DRAW_COST:,} 賽錢)", value=1),
             app_commands.Choice(name=f"十連祈願 ({DRAW_COST * 10:,} 賽錢)", value=10),
@@ -881,8 +908,12 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         user_id = interaction.user.id
         pity = await get_gacha_pity(user_id)
         stats = await get_gacha_stats(user_id)
+        pools = dict(GACHA_POOLS)
+        event_pool = (await econ.get_rules()).get("gacha_event_pool")
+        if event_pool:   # 進行中的活動卡池也列出來 (保底跟一般卡池分開算)
+            pools[event_pool["key"]] = {"name": event_pool["name"]}
         container = build_gacha_history_container(
-            interaction.user.display_name, GACHA_POOLS, pity, stats, PITY_THRESHOLD, PITY_RARITY
+            interaction.user.display_name, pools, pity, stats, PITY_THRESHOLD, PITY_RARITY
         )
         view = ui.LayoutView()
         view.add_item(container)

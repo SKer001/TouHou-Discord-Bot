@@ -16,7 +16,7 @@ def build_transfer_dm(sender_name: str, guild_name: str | None, amount: int, fee
     where = f"（來自伺服器 **{guild_name}**）" if guild_name else ""
     text = (
         f"## 💸 你收到一筆轉帳\n**{sender_name}** 轉給你 `{amount:,}` 賽錢{where}\n"
-        f"扣掉 5% 手續費 `{fee:,}`，實收 **`{amount - fee:,}`** 賽錢"
+        f"扣掉手續費 `{fee:,}`，實收 **`{amount - fee:,}`** 賽錢"
     )
     if test:
         text += "\n-# 🧪 這是管理員發送的測試訊息，賽錢沒有實際變動"

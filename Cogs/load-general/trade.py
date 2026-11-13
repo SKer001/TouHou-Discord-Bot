@@ -43,7 +43,7 @@ class TransferView(ui.LayoutView):
         fee = econ.transfer_fee(amount)
         container = simple_container(
             f"## 💸 確認轉帳\n給 **{target.display_name}** `{amount:,}` 賽錢\n"
-            f"手續費 5%：`{fee:,}` ➔ 對方實收 `{amount - fee:,}`\n"
+            f"手續費 {econ.transfer_fee_rate() * 100:g}%：`{fee:,}` ➔ 對方實收 `{amount - fee:,}`\n"
             f"-# 今天已轉出 `{sent_today:,} / {econ.TRANSFER_DAILY_LIMIT:,}`", discord.Color.orange())
         ok = ui.Button(label="💸 確認轉帳", style=discord.ButtonStyle.success)
         ok.callback = self.on_confirm
@@ -99,6 +99,7 @@ class TradeCog(commands.Cog):
             await send_notice(interaction, reason_text({"reason": "locked"}, status))
             return
         sent = await econ.get_transfer_today(interaction.user.id)
+        await econ.get_rules()   # 更新活動的手續費倍率 (確認畫面顯示用；實際扣款在交易裡重算)
         await interaction.response.send_message(view=TransferView(interaction.user.id, target, amount, sent), ephemeral=True)
 
 
