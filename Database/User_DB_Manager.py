@@ -50,7 +50,8 @@ SCHEMA_STATEMENTS = [
     CREATE TABLE IF NOT EXISTS gacha_stats (
         user_id       INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
         total_draws   INTEGER NOT NULL DEFAULT 0,
-        total_fusions INTEGER NOT NULL DEFAULT 0
+        total_fusions INTEGER NOT NULL DEFAULT 0,
+        total_synths  INTEGER NOT NULL DEFAULT 0
     )
     """,
     """
@@ -177,6 +178,10 @@ USERS_EXTRA_COLUMNS = [
     ("daily_count", "INTEGER DEFAULT 0"),   # 累積簽到天數 (滿 7 天開放市場與轉帳)
     ("equipped_title", "TEXT DEFAULT NULL"),   # 戴著的稱號 id (Database/title_data.py)；NULL = 沒戴
 ]
+# 舊版 gacha_stats 缺少的欄位 (init_db 自動補上)
+GACHA_STATS_EXTRA_COLUMNS = [
+    ("total_synths", "INTEGER NOT NULL DEFAULT 0"),   # 累計合成次數 (2026-11-13 起才開始記，之前的補不回來；合成稱號用)
+]
 # 欄位剛補上時，現有玩家要填的值 (使用者 2026-11-05：現有玩家直接開通交易)
 USERS_BACKFILL = {"daily_count": "7"}
 
@@ -221,6 +226,12 @@ async def init_db():
                 if column in USERS_BACKFILL:
                     await db.execute(f"UPDATE users SET {column} = {USERS_BACKFILL[column]}")
                 print(f"🔧 [Database] 已自動為 users 資料表補上 `{column}` 欄位！")
+        async with db.execute("PRAGMA table_info(gacha_stats)") as cursor:
+            columns = [row["name"] for row in await cursor.fetchall()]
+        for column, definition in GACHA_STATS_EXTRA_COLUMNS:
+            if column not in columns:
+                await db.execute(f"ALTER TABLE gacha_stats ADD COLUMN {column} {definition}")
+                print(f"🔧 [Database] 已自動為 gacha_stats 資料表補上 `{column}` 欄位！")
 
         await db.commit()
     print("✅ [Database] Users.db 連線成功並已完成表單初始化！")
@@ -530,9 +541,10 @@ async def update_visibility(user_id: int, is_public: bool):
 async def get_title_stats(user_id: int) -> dict:
     """解鎖稱號用的玩家統計 (title_data 的 stat 鍵)"""
     async with connect() as db:
-        async with db.execute("SELECT total_draws, total_fusions FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
+        async with db.execute("SELECT total_draws, total_fusions, total_synths FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
-    return {"total_draws": row["total_draws"] if row else 0, "total_fusions": row["total_fusions"] if row else 0}
+    keys = ("total_draws", "total_fusions", "total_synths")
+    return {k: (row[k] if row else 0) for k in keys}
 
 
 async def get_title_state(user_id: int) -> dict:
@@ -716,13 +728,14 @@ async def get_gacha_pity(user_id: int) -> dict:
     return {r["pool"]: {"total_draws": r["total_draws"], "since_ur": r["since_ur"], "last_ur_at": r["last_ur_at"]} for r in rows}
 
 
-async def transform_cards(user_id: int, instance_ids: list[str], build_new_card, count_fusion: bool = False) -> tuple[list[dict], dict]:
+async def transform_cards(user_id: int, instance_ids: list[str], build_new_card, count_fusion: bool = False,
+                          count_synthesis: bool = False) -> tuple[list[dict], dict]:
     """
     合成 / 融合共用：消耗指定卡牌並產生一張新卡 (同一個交易)。
     - 以 BEGIN IMMEDIATE 鎖定資料庫，讀取 → 驗證 → 刪除 → 寫入之間不會被其他操作插隊
     - build_new_card(consumed_cards) 負責驗證並回傳新卡；條件不符時丟出 ValueError
     - 任何一張卡已不屬於玩家 (被用掉 / 不存在) 也會丟出 ValueError，整筆不寫入
-    - count_fusion=True 時累加 gacha_stats.total_fusions
+    - count_fusion=True 時累加 gacha_stats.total_fusions；count_synthesis=True 時累加 total_synths (合成)
     回傳 (被消耗的卡牌, 新卡)
     """
     if len(set(instance_ids)) != len(instance_ids):
@@ -756,6 +769,14 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
                     """
                     INSERT INTO gacha_stats (user_id, total_fusions) VALUES (?, 1)
                     ON CONFLICT(user_id) DO UPDATE SET total_fusions = total_fusions + 1
+                    """,
+                    (user_id,),
+                )
+            if count_synthesis:
+                await db.execute(
+                    """
+                    INSERT INTO gacha_stats (user_id, total_synths) VALUES (?, 1)
+                    ON CONFLICT(user_id) DO UPDATE SET total_synths = total_synths + 1
                     """,
                     (user_id,),
                 )

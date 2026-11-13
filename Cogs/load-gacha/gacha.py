@@ -1023,7 +1023,7 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
 
         async def on_confirm(_interaction: discord.Interaction):
             try:
-                _, new_card = await transform_cards(user_id, [card1, card2], build_new_card)
+                _, new_card = await transform_cards(user_id, [card1, card2], build_new_card, count_synthesis=True)
             except ValueError as e:
                 return f"❌ **合成失敗**：{e}\n-# 卡牌沒有任何變動。"
             result = new_card.pop("_result")

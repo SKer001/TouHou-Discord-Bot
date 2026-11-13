@@ -56,7 +56,13 @@ check("label", td.title_label("draw_2000") == "[UR] 賽錢箱的守護神")
 check("color", td.title_color("draw_5000") == 0xE74C3C and td.title_color(None) == td.NO_TITLE_COLOR == 0x5865F2)
 
 async def main():
+    # 舊版 gacha_stats 沒有 total_synths ➔ init_db 要自動補上
+    con = sqlite3.connect(udm.DB_PATH)
+    con.execute("CREATE TABLE gacha_stats (user_id INTEGER PRIMARY KEY, total_draws INTEGER NOT NULL DEFAULT 0, total_fusions INTEGER NOT NULL DEFAULT 0)")
+    con.execute("INSERT INTO gacha_stats VALUES (99, 5, 2)"); con.commit(); con.close()
     await udm.init_db()
+    con = sqlite3.connect(udm.DB_PATH)
+    check("migrated total_synths", con.execute("SELECT total_synths FROM gacha_stats WHERE user_id = 99").fetchone() == (0,)); con.close()
     A = 1
     st = await udm.get_title_state(A)
     check("new player no titles", st == {"equipped": None, "unlocked": []})
@@ -75,6 +81,15 @@ async def main():
     sql("UPDATE gacha_stats SET total_fusions = 12 WHERE user_id = ?", (A,))
     check("fusion stat read", (await udm.get_title_state(A))["unlocked"] == ["draw_100", "fusion_10", "draw_10", "fusion_1"])
     sql("UPDATE gacha_stats SET total_fusions = 0 WHERE user_id = ?", (A,))
+    # 合成次數 (2026-11-13 起記錄)：合成才加，融合不加
+    card = {"instance_id": "s1", "character_key": "reimu", "name": "x", "emoji": "x", "rarity": "SR",
+            "title": "x", "completeness": 0.5, "obtained_at": "x"}
+    await udm.add_gacha_cards(A, [card, dict(card, instance_id="s2")], draw_count=0)
+    await udm.transform_cards(A, ["s1", "s2"], lambda cs: dict(cs[0], instance_id="s3"), count_synthesis=True)
+    check("synthesis counted", (await udm.get_title_stats(A))["total_synths"] == 1)
+    await udm.add_gacha_cards(A, [dict(card, instance_id="s4")], draw_count=0)
+    await udm.transform_cards(A, ["s3", "s4"], lambda cs: dict(cs[0], instance_id="s5"))
+    check("plain transform not counted", (await udm.get_title_stats(A))["total_synths"] == 1)
     check("unequip", await udm.set_equipped_title(A, None) and (await udm.get_title_state(A))["equipped"] is None)
 
     # --- /profile 畫面 ---
