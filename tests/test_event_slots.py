@@ -147,6 +147,11 @@ check("event pool default name", ep["name"] == "🎉 測試二卡池" and ep["de
 check("event pool chars filtered", gacha.pool_characters("event_b", g3) == ["reimu", keys[0]])
 cards, _, _ = gacha.roll_pool_cards("event_b", 60, 0, lambda: 0.5, g3)
 check("event pool rolls only listed", {c["character_key"] for c in cards} <= {"reimu", keys[0]})
+exp = gacha.expected_cards("event_b", 10, g3)
+check("expected cards sum", abs(sum(exp.values()) - 10) < 1e-9 and {k for k, _ in exp} == {"reimu", keys[0]})
+g5 = dict(g3, gacha_rate_up={"reimu": 3})
+exp5 = gacha.expected_cards("event_b", 8, g5)
+check("expected follows rate up", abs(sum(n for (k, _), n in exp5.items() if k == "reimu") - 6) < 1e-9)
 check("normal pool unaffected", set(gacha.pool_characters("th06", g3)) == set(keys))
 check("empty pool ignored", game_rules([{"id": "c", "gacha": {"pool": {"characters": []}}}])["gacha_event_pool"] is None)
 

@@ -610,10 +610,11 @@ class InsufficientFunds(Exception):
         self.money = money
 
 
-async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_cards) -> dict:
+async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_cards, expected: dict | None = None) -> dict:
     """
     祈願：扣款 ➔ 依保底計數擲卡 ➔ 寫入卡牌 ➔ 累加統計與該卡池的保底，全部同一個交易
     - roll_cards(since_ur) 回傳 (cards, new_since_ur, got_ur)；since_ur = 該卡池距離上次 UR 的抽數
+    - expected {(角色, 階級): 預期張數}：活動卡池用，記進 daily_draws 的 `card:<角色>:<階級>` (浮動市值的預期抽到量)
     - 賽錢不足丟出 InsufficientFunds (什麼都不會寫入)
     回傳 {"cards", "money", "pool_draws", "since_ur"}
     """
@@ -645,6 +646,14 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
                 """,
                 (tw_day(), pool, draw_count),
             )
+            if expected:   # 小數也照存 (SQLite 存不成整數時會存成實數)
+                await db.executemany(
+                    """
+                    INSERT INTO daily_draws (day, pool, draws) VALUES (?, ?, ?)
+                    ON CONFLICT(day, pool) DO UPDATE SET draws = draws + excluded.draws
+                    """,
+                    [(tw_day(), f"card:{k}:{r}", n) for (k, r), n in expected.items() if n > 0],
+                )
             last_ur_at = max(c["obtained_at"] for c in cards) if got_ur else None
             await db.execute(
                 """

@@ -112,6 +112,23 @@ def pool_characters(pool_key: str, rules: dict | None = None) -> list[str]:
     return [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
 
 
+def expected_cards(pool_key: str, count: int, rules: dict | None = None) -> dict:
+    """count 抽預期抽到的張數 {(角色, 階級): 張數}，照實際的角色權重 (rate_up) 與階級權重 (不算保底)。
+    活動卡池用：浮動市值的「預期新抽到張數」本來只看一般卡池，活動卡池的抽數要靠這個記進去"""
+    rules = rules or {}
+    rate_up = rules.get("gacha_rate_up") or {}
+    rarity_weights = rules.get("gacha_rarity_weights") or RARITY_WEIGHTS
+    keys = pool_characters(pool_key, rules)
+    weights = {k: rate_up.get(k, 1.0) for k in keys}
+    total_w, total_r = sum(weights.values()), sum(rarity_weights)
+    result = {}
+    for k in keys:
+        for rarity, rw in zip(GACHA_POOL[k]["rarities"], rarity_weights):
+            if total_w and total_r:
+                result[(k, rarity)] = count * weights[k] / total_w * rw / total_r
+    return result
+
+
 def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness, rules: dict | None = None) -> tuple[list, int, bool]:
     """
     依保底計數擲出 count 張卡：(cards, 新的 since_ur, 是否出了 UR 以上)
@@ -863,6 +880,8 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             result = await draw_gacha(
                 user_id, pool_key, draw_count, total_cost,
                 lambda since_ur: roll_pool_cards(pool_key, draw_count, since_ur, self.generate_completeness, rules),
+                # 活動卡池：每張卡的預期抽數另外記，浮動市值才算得到 (一般卡池照舊用卡池抽數 × 機率)
+                expected=expected_cards(pool_key, draw_count, rules) if choice_key == EVENT_POOL else None,
             )
         except InsufficientFunds as e:
             msg = f"❌ **賽錢不足！**\n祈願需要 `{total_cost:,}` 賽錢，但你的口袋裡只有 `{e.money:,}` 賽錢...\n*靈夢看了看空蕩蕩的賽錢箱，無奈地把你請出了神社。*"

@@ -221,6 +221,12 @@ async def main():
     n = con.execute("SELECT draws FROM daily_draws WHERE day = ? AND pool = 'th06'", (udm.tw_day(),)).fetchone()[0]; con.close()
     check("daily draws logged", n == before_draws + 10)
 
+    # 活動卡池的抽數 (card:<角色>:<階級> 預期張數) 也算進預期：期望 10 張、賣 5 張 = 持平
+    sql("INSERT INTO daily_draws VALUES ('2026-11-25', 'card:cirno:SR', 10.0)")
+    sql("INSERT INTO daily_sales VALUES ('2026-11-25', 'cirno', 'SR', 5)")
+    await econ.settle_prices(probs, now=T0 + timedelta(days=21))
+    h = {x["day"]: x["change"] for x in await econ.get_price_history("cirno", "SR")}
+    check(f"event pool draws count {h.get('2026-11-25')}", abs(h.get("2026-11-25", 1)) < 1e-9)
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")
 shutil.rmtree(tmp, ignore_errors=True)

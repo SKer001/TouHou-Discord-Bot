@@ -767,7 +767,7 @@ async def settle_prices(probabilities: dict, now: datetime | None = None) -> int
                     sales = {(r["character_key"], r["rarity"]): r["sold"] for r in await cursor.fetchall()}
                 for key in set(probabilities) | set(sales):
                     pool, p = probabilities.get(key, (None, 0.0))
-                    expected = draws.get(pool, 0) * p
+                    expected = draws.get(pool, 0) * p + draws.get(f"card:{key[0]}:{key[1]}", 0)   # 一般卡池 + 活動卡池
                     change = price_change(sales.get(key, 0), expected)
                     official = OFFICIAL_PRICES.get(key[1], 1)
                     new_price = max(official, _price_of(prices, *key) * (1 + change))

@@ -85,6 +85,11 @@ async def main():
     check("event pool name shown", "測試卡池" in texts(it.view))
     check("event price applied", (await udm.get_or_create_user(1))["money"] == money - gacha.DRAW_COST * 5)
     check("event pity separate", "event_test" in await udm.get_gacha_pity(1))
+    import sqlite3
+    con = sqlite3.connect(udm.DB_PATH)
+    rows = dict(con.execute("SELECT pool, draws FROM daily_draws WHERE pool LIKE 'card:%'").fetchall()); con.close()
+    check("event expected recorded", abs(sum(rows.values()) - 10) < 1e-6
+          and {k.split(":")[1] for k in rows} == {"reimu", "marisa"})
     it2 = Interaction(component=True); await it.view.draw_single_again(it2)
     check("event redraw same pool", len(await udm.get_user_cards(1)) == before + 11)
     econ.get_rules = orig_rules
