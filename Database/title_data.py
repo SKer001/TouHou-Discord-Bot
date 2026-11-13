@@ -128,6 +128,19 @@ TITLES = {
                  "desc": "把火力開到極限，連魔理沙都要說一聲「火力就是正義」。"},
     "power_100": {"name": "∞ INFINITE POWER ∞", "rarity": "LR", "stat": "power_level", "min": 1000,
                   "desc": "FULL POWER 的盡頭不是終點，而是無限。彈幕已經多到看不見天空了。"},
+    # 💹 市場賣出 (累計在市場被別人買走幾張，market_trades kind = 'market'，不會失去；分解不算；2026-11-13 使用者選 A)
+    "sold_1": {"name": "第一筆生意", "rarity": "N", "stat": "market_sold", "min": 1,
+               "desc": "第一張卡被買走了，原來自己的收藏也有人想要。"},
+    "sold_10": {"name": "跳蚤市場的攤主", "rarity": "R", "stat": "market_sold", "min": 10,
+                "desc": "在人里擺了個小攤子，客人開始會回頭光顧。"},
+    "sold_50": {"name": "河童的生意夥伴", "rarity": "SR", "stat": "market_sold", "min": 50,
+                "desc": "河童們說要跟你合夥，條件是讓她們抽成。"},
+    "sold_100": {"name": "霧雨道具店的競爭對手", "rarity": "SSR", "stat": "market_sold", "min": 100,
+                 "desc": "魔理沙開始擔心，客人是不是都跑去你那裡了。"},
+    "sold_300": {"name": "幻想鄉的大商人", "rarity": "UR", "stat": "market_sold", "min": 300,
+                 "desc": "從人里到妖怪之山，大家都知道找你買卡就對了。"},
+    "sold_500": {"name": "卡牌市場的支配者", "rarity": "LR", "stat": "market_sold", "min": 500,
+                 "desc": "市場的價格由你決定，連紫都想跟你談生意。"},
     # 📚 卡池收集 (卡冊「現在」的卡；一個卡池兩個：角色到齊、全卡收集；2026-11-13 使用者選定)
     #    統計是 0 / 1 (Utils.gacha_pools.collection_stats)；開新卡池 ➔ 這裡補兩個，all_cards 會自動把新卡池算進去 (使用者選 1：LR 要所有卡池)
     "pool_classic_chars": {"name": "舊作巡禮者", "rarity": "SR", "stat": "pool_chars:classic", "min": 1,
@@ -157,6 +170,7 @@ TITLE_GROUPS = {
     "perfect": {"name": "💎 完美卡", "stats": ("perfect_kinds",)},
     "money":   {"name": "💰 財富", "stats": ("best_money",)},
     "power":   {"name": "🔴 火力", "stats": ("power_level",)},
+    "market":  {"name": "💹 市場賣出", "stats": ("market_sold",)},
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
 }
@@ -247,4 +261,5 @@ def _stat_text(t: dict) -> str:
             "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)",
             "all_cards": "所有卡池的卡全部收集 (每個階級)",
             "best_money": f"曾經持有 {t['min']:,} 賽錢",
-            "power_level": f"火力達到 {t['min'] / 10:.1f} P"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "power_level": f"火力達到 {t['min'] / 10:.1f} P",
+            "market_sold": f"在市場賣出 {t['min']:,} 張卡"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")

@@ -235,7 +235,7 @@ async def main():
     calls.clear()
     r = await cog_mod.run_notify_once(bot, t2, sender)
     got = dict(calls)
-    check("A round2", got.get(A) == ["event_end", "market_expired", "market_sold"])
+    check("A round2", got.get(A) == ["event_end", "market_expired", "market_sold", "title_unlocked"])   # 賣出第 1 張 ➔ 稱號「第一筆生意」
     check("B stamina full", got.get(B) == ["stamina_full"])
     check("C event_end disabled", C not in got)
     sold = rows("SELECT key FROM notifications_sent WHERE kind = 'market_sold'")
@@ -259,7 +259,7 @@ async def main():
     got = dict(calls)
     check("B new titles", got.get(B) == ["title_unlocked", "title_unlocked", "title_unlocked"])
     check("title keys", sorted(k for (k,) in rows("SELECT key FROM notifications_sent WHERE kind = 'title_unlocked'"))
-          == ["draw_10", "draw_100", "synth_1"])
+          == ["draw_10", "draw_100", "sold_1", "synth_1"])
     calls.clear()
     await cog_mod.run_notify_once(bot, t3 + H, sender)
     check("titles once", B not in dict(calls))

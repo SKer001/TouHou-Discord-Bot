@@ -597,6 +597,8 @@ async def get_title_stats(user_id: int) -> dict:
             user = await cursor.fetchone()
         async with db.execute(TITLE_CARD_KINDS_SQL + " WHERE user_id = ?", (user_id,)) as cursor:
             kinds = await cursor.fetchone()
+        async with db.execute("SELECT COUNT(*) AS n FROM market_trades WHERE kind = 'market' AND seller_id = ?", (user_id,)) as cursor:
+            sold = (await cursor.fetchone())["n"]   # 💹 市場賣出 (被別人買走的張數)
         async with db.execute("SELECT character_key, rarity, MAX(completeness) AS best FROM gacha_cards WHERE user_id = ? "
                               "GROUP BY character_key, rarity", (user_id,)) as cursor:
             rows = await cursor.fetchall()
@@ -611,6 +613,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats["best_streak"] = (user["best_streak"] or 0) if user else 0
     stats["best_money"] = (user["best_money"] or 0) if user else 0
     stats["power_level"] = (user["level"] or 0) if user else 0   # 火力：level 0～1000 = 0.0～100.0 P
+    stats["market_sold"] = sold
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
     stats["perfect_kinds"] = kinds["perfect_kinds"] or 0

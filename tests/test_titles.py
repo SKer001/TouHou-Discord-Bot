@@ -110,6 +110,20 @@ async def main():
           == [("N", 10), ("R", 100), ("SR", 300), ("SSR", 500), ("UR", 700), ("LR", 990), ("LR", 1000)])
     check("power condition", td.condition_text("power_99") == "火力達到 99.0 P" and td.title_group("power_100") == "power")
 
+    # 💹 市場賣出：market_trades kind = 'market' 的賣家筆數 (分解、轉帳不算)
+    S = 66
+    await udm.get_or_create_user(S)
+    for i in range(10):
+        sql("INSERT INTO market_trades (kind, seller_id, buyer_id, price, day, created_at) VALUES ('market', ?, 990, 100, 'd', 'c')", (S,))
+    sql("INSERT INTO market_trades (kind, seller_id, price, day, created_at) VALUES ('decompose', ?, 100, 'd', 'c')", (S,))
+    sql("INSERT INTO market_trades (kind, seller_id, buyer_id, price, day, created_at) VALUES ('market', 990, ?, 100, 'd', 'c')", (S,))
+    check("market sold count", (await udm.get_title_stats(S))["market_sold"] == 10)
+    unlocked = (await udm.get_title_state(S))["unlocked"]
+    check("market titles", "sold_10" in unlocked and "sold_1" in unlocked and "sold_50" not in unlocked)
+    check("market names", [td.TITLES[f"sold_{n}"]["name"] for n in (1, 10, 50, 100, 300, 500)]
+          == ["第一筆生意", "跳蚤市場的攤主", "河童的生意夥伴", "霧雨道具店的競爭對手", "幻想鄉的大商人", "卡牌市場的支配者"])
+    check("market condition", td.condition_text("sold_300") == "在市場賣出 300 張卡" and td.title_group("sold_1") == "market")
+
     # 🌟 UR / LR：卡冊裡現在有幾種角色 (同角色多張只算一種，賣掉就沒了)
     U = 60
     await udm.get_or_create_user(U)
