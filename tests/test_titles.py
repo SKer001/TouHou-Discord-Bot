@@ -96,6 +96,35 @@ async def main():
     check("perfect kinds", (await udm.get_title_stats(P))["perfect_kinds"] == 2)
     check("perfect title", (await udm.get_title_state(P))["unlocked"] == ["perfect_1"])
 
+    # 📚 卡池收集：紅魔鄉角色到齊 (階級不限) ➔ 全卡 ➔ 再加舊作全卡 = LR
+    from Utils import gacha_pools as gp
+    members = gp.pool_members()
+    check("pool sizes", (len(members["classic"]), len(members["th06"])) == (15, 9)
+          and sum(len(r) for r in members["classic"].values()) == 45 and sum(len(r) for r in members["th06"].values()) == 27)
+    C = 62
+    await udm.get_or_create_user(C)
+    def add(pool, every_rarity, prefix):
+        for cid, rs in members[pool].items():
+            for r in (rs if every_rarity else rs[:1]):
+                sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, ?, 'x', ?, 0.5)",
+                    (f"{prefix}{cid}{r}", C, cid, r))
+    add("th06", False, "a")
+    st = await udm.get_title_stats(C)
+    check("th06 chars", st["pool_chars:th06"] == 1 and st["pool_cards:th06"] == 0 and st["all_cards"] == 0)
+    check("th06 chars title", "pool_th06_chars" in (await udm.get_title_state(C))["unlocked"])
+    add("th06", True, "b")
+    add("classic", True, "c")
+    unlocked = (await udm.get_title_state(C))["unlocked"]
+    check("all pools LR", {"pool_th06_cards", "pool_classic_chars", "pool_classic_cards", "pool_all"} <= set(unlocked))
+    sql("DELETE FROM gacha_cards WHERE user_id = ? AND character_key = 'remilia' AND rarity = 'LR'", (C,))
+    unlocked = (await udm.get_title_state(C))["unlocked"]
+    check("sold one ➔ lose cards titles", "pool_all" not in unlocked and "pool_th06_cards" not in unlocked
+          and "pool_th06_chars" in unlocked and "pool_classic_cards" in unlocked)
+    check("pool condition text", td.condition_text("pool_th06_chars") == "紅魔鄉卡池的角色全部到齊"
+          and td.condition_text("pool_classic_cards") == "舊作卡池的卡全部收集 (每個階級)")
+    check("every pool has titles", all(any(t["stat"] == f"pool_{k}:{p}" for t in td.TITLES.values())
+                                       for p in gp.GACHA_POOLS for k in ("chars", "cards")))
+
     # 📅 簽到稱號 (累積天數) 與連續簽到 (daily_streak / best_streak)
     D = 50
     check("daily titles", [td.TITLES[f"daily_{n}"]["name"] for n in (7, 30, 60, 100, 200, 365)]

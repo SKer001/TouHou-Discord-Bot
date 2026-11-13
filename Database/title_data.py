@@ -100,6 +100,18 @@ TITLES = {
                    "desc": "三十種完美的卡，連河童都想借去研究保存方法。"},
     "perfect_50": {"name": "完美的瀟灑", "rarity": "UR", "stat": "perfect_kinds", "min": 50,
                    "desc": "完美到這種程度，咲夜都要對你點頭致意。"},
+    # 📚 卡池收集 (卡冊「現在」的卡；一個卡池兩個：角色到齊、全卡收集；2026-11-13 使用者選定)
+    #    統計是 0 / 1 (Utils.gacha_pools.collection_stats)；開新卡池 ➔ 這裡補兩個，all_cards 會自動把新卡池算進去 (使用者選 1：LR 要所有卡池)
+    "pool_classic_chars": {"name": "舊作巡禮者", "rarity": "SR", "stat": "pool_chars:classic", "min": 1,
+                           "desc": "從魅魔到夢子，舊作的角色都進了你的卡冊。"},
+    "pool_classic_cards": {"name": "舊作的守護者", "rarity": "UR", "stat": "pool_cards:classic", "min": 1,
+                           "desc": "連早已被遺忘的舊作卡，你也一張不漏地收好了。"},
+    "pool_th06_chars": {"name": "紅魔館的訪客", "rarity": "SR", "stat": "pool_chars:th06", "min": 1,
+                        "desc": "紅魔館的住人都到齊了，連門番都讓你進門了。"},
+    "pool_th06_cards": {"name": "紅魔館的座上賓", "rarity": "UR", "stat": "pool_cards:th06", "min": 1,
+                        "desc": "每一張卡都在你手上，蕾米莉亞邀你一起喝紅茶。"},
+    "pool_all": {"name": "幻想鄉緣起", "rarity": "LR", "stat": "all_cards", "min": 1,
+                 "desc": "幻想鄉的每一位、每一張都在你的卡冊裡，你就是活著的緣起。"},
 }
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
@@ -134,6 +146,12 @@ def condition_text(tid: str) -> str:
 
 
 def _stat_text(t: dict) -> str:
+    stat = t["stat"]
+    if stat.startswith(("pool_chars:", "pool_cards:")):
+        from Utils.gacha_pools import GACHA_POOLS
+        kind, pool = stat.split(":", 1)
+        name = GACHA_POOLS.get(pool, {}).get("name", pool).split(" ", 1)[-1]   # 去掉 emoji
+        return f"{name}的角色全部到齊" if kind == "pool_chars" else f"{name}的卡全部收集 (每個階級)"
     return {"total_draws": f"累計祈願 {t['min']:,} 抽",
             "total_fusions": f"累計融合 {t['min']:,} 次",
             "total_synths": f"累計合成 {t['min']:,} 次",
@@ -141,4 +159,5 @@ def _stat_text(t: dict) -> str:
             "best_streak": f"連續簽到 {t['min']:,} 天",
             "ur_kinds": f"卡冊有 {t['min']:,} 種角色的 UR 卡",
             "lr_kinds": f"卡冊有 {t['min']:,} 種角色的 LR 卡",
-            "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)",
+            "all_cards": "所有卡池的卡全部收集 (每個階級)"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")

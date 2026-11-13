@@ -28,42 +28,13 @@ from .Components.gacha_components import (
     build_fusion_result_container,
 )
 from Utils.components import send_notice
-from Utils.character_data import load_categories
+from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
 THUMBNAILS_FILE = os.path.join(PROJECT_ROOT, "images", "Thumbnails.json")
 
-# 🎰 卡池依代數劃分：每個卡池包含哪些 Characters/ 分類資料夾
-#    新增卡池 ➔ 在這裡加一筆，並把角色檔放進對應資料夾即可
-GACHA_POOLS = {
-    "classic": {"name": "📜 舊作卡池", "desc": "主要主角 + TH01 ~ TH05", "folders": ["Main", "TH01", "TH02", "TH03", "TH04", "TH05"]},
-    "th06":    {"name": "🔴 紅魔鄉卡池", "desc": "TH06 東方紅魔鄉", "folders": ["TH06"]},
-}
-
-
-def load_gacha_pool() -> dict:
-    """
-    從 Characters/ 讀取 gacha.enabled 的角色：
-    {"角色id": {"name", "emoji", "uuid", "rarities", "titles", "pool"}, ...}
-    """
-    folder_to_pool = {folder: key for key, pool in GACHA_POOLS.items() for folder in pool["folders"]}
-    result = {}
-    for folder, category in load_categories().items():
-        pool_key = folder_to_pool.get(folder)
-        for char in category["characters"]:
-            gacha = char["gacha"]
-            if pool_key is None or not gacha.get("enabled"):
-                continue
-            result[char["id"]] = {
-                "name": char["name"],
-                "emoji": char["emoji"],
-                "uuid": gacha["uuid"],
-                "rarities": gacha["rarities"],
-                "titles": gacha["titles"],
-                "pool": pool_key,
-            }
-    return result
+# 🎰 卡池定義 GACHA_POOLS 與 load_gacha_pool 在 Utils/gacha_pools.py (稱號的卡池收集也要用)
 
 
 # 角色資料在載入 Cog 時讀取一次；改了 Characters/ 之後用 /admin-sys reload 重新載入本模組

@@ -17,6 +17,7 @@ import aiosqlite
 
 from Utils import card_cache   # 卡冊有變動時讓 autocomplete 的快取失效
 from Utils.character_data import apply_current_names   # 卡名 / 稱號一律用目前的角色檔 (資料庫存的是副本)
+from Utils.gacha_pools import collection_stats   # 稱號：卡池收集
 
 # 資料庫檔案與本檔案放在同一個資料夾 (Database/)
 DB_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -565,6 +566,8 @@ async def get_title_stats(user_id: int) -> dict:
             user = await cursor.fetchone()
         async with db.execute(TITLE_CARD_KINDS_SQL + " WHERE user_id = ?", (user_id,)) as cursor:
             kinds = await cursor.fetchone()
+        async with db.execute("SELECT DISTINCT character_key, rarity FROM gacha_cards WHERE user_id = ?", (user_id,)) as cursor:
+            owned = {(r["character_key"], r["rarity"]) for r in await cursor.fetchall()}
     keys = ("total_draws", "total_fusions", "total_synths")
     stats = {k: (row[k] if row else 0) for k in keys}
     stats["daily_count"] = (user["daily_count"] or 0) if user else 0
@@ -572,6 +575,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
     stats["perfect_kinds"] = kinds["perfect_kinds"] or 0
+    stats.update(collection_stats(owned))
     return stats
 
 
