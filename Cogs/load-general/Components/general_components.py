@@ -5,6 +5,7 @@ from PIL import Image
 from Database.User_DB_Manager import get_required_exp_for_level
 from Database.Item_DB_Manager import CATEGORY_NAMES
 from Database.Economy_DB_Manager import TRADE_UNLOCK_DAILY
+from Database import title_data
 
 
 # ---------------------------------------------------------
@@ -166,14 +167,15 @@ def build_profile_container(
     user: discord.User | discord.Member,
     user_data: dict,
     daily_status: dict,
-    dominant_color: discord.Color,
+    title_id: str | None = None,
     is_self: bool = False,
     reward: dict | None = None,
     daily_button: ui.Button | None = None,
     stamina: dict | None = None,
 ) -> ui.Container:
     """
-    個人資料卡：頭像標題 / 賽錢・P點・體力・背包 / 經驗值進度條 / 今日簽到與運勢。
+    個人資料卡：頭像標題 (+ 稱號與說明) / 賽錢・P點・體力・背包 / 經驗值進度條 / 今日簽到與運勢。
+    title_id = 戴著的稱號 (title_data.TITLES)；色條 = 稱號等級色，沒戴 = 固定色 (公開、私人一樣，2026-11-13 使用者)。
     daily_button 不為 None 時，會放在「今日運勢」區塊的右側 (只有本人的卡片才會有)。
     stamina = calc_stamina() 的結果；None 時不顯示體力。
     """
@@ -186,13 +188,14 @@ def build_profile_container(
     p_power = current_level / 10.0
     total_items = sum(inventory.values()) if isinstance(inventory, dict) else 0
     exp_text, exp_bar = _exp_text_and_bar(current_level, exp)
-    card_color = dominant_color if is_public else discord.Color.dark_gray()
+    title = title_data.TITLES.get(title_id)
+    container = ui.Container(accent_color=discord.Color(title_data.title_color(title_id)))
 
-    container = ui.Container(accent_color=card_color)
-
+    title_text = f"**{title_data.title_label(title_id)}**\n-# *{title['desc']}*\n" if title else ""
     container.add_item(ui.Section(
         ui.TextDisplay(
             f"## 🌸 {user.display_name} 的幻想鄉通行證\n"
+            f"{title_text}"
             f"-# {'🌐 公開' if is_public else '🔒 私人'}資料卡 • TouHouBot Profile System • 幻想鄉居民登記"
         ),
         accessory=ui.Thumbnail(user.display_avatar.with_size(128).url),

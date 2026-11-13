@@ -10,11 +10,11 @@ from Database import Economy_DB_Manager as econ
 from Database.User_DB_Manager import (
     get_or_create_user, update_visibility, add_money, add_exp,
     get_daily_status as db_get_daily_status, claim_daily, calc_stamina,
-    add_item, use_stamina_item,
+    add_item, use_stamina_item, get_title_state, set_equipped_title,
 )
+from Database import title_data
 from Database.Item_DB_Manager import get_all_items, get_item, DAILY_REWARD_ITEM
 from .Components.general_components import (
-    get_avatar_dominant_color,
     build_profile_container,
     build_daily_repeat_container,
     build_power_up_container,
@@ -209,12 +209,12 @@ class StaminaItemView(ui.LayoutView):
 # 🎛️ 資料卡 View (Components V2)：卡片內含「投賽錢簽到」按鈕
 # ---------------------------------------------------------
 class ProfileView(ui.LayoutView):
-    def __init__(self, target_user, is_self: bool, dominant_color: discord.Color,
+    def __init__(self, target_user, is_self: bool, title_state: dict,
                  user_data: dict, daily_status: dict, reward: dict | None = None):
         super().__init__(timeout=180)
         self.target_user = target_user
         self.is_self = is_self
-        self.dominant_color = dominant_color
+        self.title_state = title_state   # get_title_state()：{"equipped", "unlocked"}
         self.reward = reward          # 剛簽到完的獎勵 (只顯示在這張卡片上)
         self.message = None           # 送出後由指令填入，供逾時時停用按鈕
         self.daily_button = None
@@ -233,11 +233,13 @@ class ProfileView(ui.LayoutView):
 
         stamina = calc_stamina(user_data.get("stamina"), user_data.get("stamina_updated_at"))
         container = build_profile_container(
-            self.target_user, user_data, daily_status, self.dominant_color,
+            self.target_user, user_data, daily_status, self.title_state["equipped"],
             is_self=self.is_self, reward=self.reward, daily_button=button, stamina=stamina,
         )
-        # ⚡ 恢復體力：只有本人的卡片才有
+        # 🏷️ 更換稱號、⚡ 恢復體力：只有本人的卡片才有
         if self.is_self:
+            container.add_item(ui.Separator())
+            container.add_item(ui.ActionRow(self._title_select()))
             stamina_btn = ui.Button(label="⚡ 恢復體力", style=discord.ButtonStyle.primary)
             stamina_btn.callback = self.on_stamina
             shrine_btn = ui.Button(label="⛩️ 前往神社", style=discord.ButtonStyle.secondary)
@@ -246,6 +248,33 @@ class ProfileView(ui.LayoutView):
             container.add_item(ui.ActionRow(stamina_btn, shrine_btn))
         self.clear_items()
         self.add_item(container)
+
+    def _title_select(self) -> ui.Select:
+        """已解鎖的稱號 (等級高的在前) + 不戴稱號；一個都沒有時選單反灰"""
+        unlocked, equipped = self.title_state["unlocked"], self.title_state["equipped"]
+        options = [
+            discord.SelectOption(label=title_data.title_label(tid), value=tid, default=(tid == equipped),
+                                 description=title_data.TITLES[tid]["desc"][:100])
+            for tid in unlocked[:24]
+        ]
+        options.append(discord.SelectOption(label="不戴稱號", value="__none__", default=(equipped is None),
+                                            description="名字下面不顯示稱號"))
+        select = ui.Select(
+            placeholder="🏷️ 更換稱號…" if unlocked else "🏷️ 還沒有解鎖任何稱號 (祈願 10 抽就有第一個)",
+            options=options, disabled=not unlocked,
+        )
+        select.callback = self.on_title
+        return select
+
+    async def on_title(self, interaction: discord.Interaction):
+        value = interaction.data["values"][0]
+        tid = None if value == "__none__" else value
+        if not await set_equipped_title(interaction.user.id, tid):
+            await send_notice(interaction, "❌ 這個稱號還沒有解鎖。")
+            return
+        self.title_state = await get_title_state(interaction.user.id)
+        self.build(await get_or_create_user(interaction.user.id), await get_daily_status(interaction.user.id))
+        await interaction.response.edit_message(view=self)
 
     async def on_stamina(self, interaction: discord.Interaction):
         user_data = await get_or_create_user(interaction.user.id)
@@ -346,10 +375,9 @@ class Profile(commands.Cog):
             await interaction.response.send_message(view=make_view(container), ephemeral=True)
             return
 
-        # 5. 組出資料卡 (含今日簽到狀態與運勢)
-        dominant_color = await get_avatar_dominant_color(target_user)
+        # 5. 組出資料卡 (含今日簽到狀態、運勢、稱號)
         daily_status = await get_daily_status(target_user.id)
-        view = ProfileView(target_user, is_self, dominant_color, target_data, daily_status)
+        view = ProfileView(target_user, is_self, await get_title_state(target_user.id), target_data, daily_status)
 
         is_ephemeral = (visibility is not None) or (is_self and not target_is_public)
         await interaction.response.send_message(view=view, ephemeral=is_ephemeral)
@@ -379,9 +407,7 @@ class Profile(commands.Cog):
 
         user_data = await get_or_create_user(user.id)
         status = await get_daily_status(user.id)
-        dominant_color = await get_avatar_dominant_color(user)
-
-        view = ProfileView(user, True, dominant_color, user_data, status, reward=result)
+        view = ProfileView(user, True, await get_title_state(user.id), user_data, status, reward=result)
         view.message = await interaction.followup.send(view=view)
 
         if result["exp_result"].get("leveled_up"):

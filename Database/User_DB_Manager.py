@@ -42,7 +42,8 @@ SCHEMA_STATEMENTS = [
         is_public     INTEGER DEFAULT 1,
         stamina       INTEGER DEFAULT 240,
         stamina_updated_at TEXT DEFAULT NULL,
-        daily_count   INTEGER DEFAULT 0
+        daily_count   INTEGER DEFAULT 0,
+        equipped_title TEXT   DEFAULT NULL
     )
     """,
     """
@@ -174,6 +175,7 @@ USERS_EXTRA_COLUMNS = [
     ("stamina", "INTEGER DEFAULT 240"),
     ("stamina_updated_at", "TEXT DEFAULT NULL"),
     ("daily_count", "INTEGER DEFAULT 0"),   # 累積簽到天數 (滿 7 天開放市場與轉帳)
+    ("equipped_title", "TEXT DEFAULT NULL"),   # 戴著的稱號 id (Database/title_data.py)；NULL = 沒戴
 ]
 # 欄位剛補上時，現有玩家要填的值 (使用者 2026-11-05：現有玩家直接開通交易)
 USERS_BACKFILL = {"daily_count": "7"}
@@ -520,6 +522,37 @@ async def update_visibility(user_id: int, is_public: bool):
             (1 if is_public else 0, user_id)
         )
         await db.commit()
+
+
+# ---------------------------------------------------------
+# 🏷️ 稱號 (清單與條件在 Database/title_data.py)
+# ---------------------------------------------------------
+async def get_title_stats(user_id: int) -> dict:
+    """解鎖稱號用的玩家統計 (title_data 的 stat 鍵)"""
+    async with connect() as db:
+        async with db.execute("SELECT total_draws FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
+            row = await cursor.fetchone()
+    return {"total_draws": row["total_draws"] if row else 0}
+
+
+async def get_title_state(user_id: int) -> dict:
+    """{"equipped": 戴著的稱號 id (已不符條件或不存在 ➔ None), "unlocked": [已解鎖 id, ...]}"""
+    from Database import title_data
+    user = await get_or_create_user(user_id)
+    unlocked = title_data.unlocked_titles(await get_title_stats(user_id))
+    equipped = user.get("equipped_title")
+    return {"equipped": equipped if equipped in unlocked else None, "unlocked": unlocked}
+
+
+async def set_equipped_title(user_id: int, title_id: str | None) -> bool:
+    """戴上稱號 (None = 卸下)；沒解鎖或不存在回傳 False (使用者可能繞過選單，這裡再驗一次)"""
+    if title_id is not None and title_id not in (await get_title_state(user_id))["unlocked"]:
+        return False
+    async with connect() as db:
+        await _ensure_user(db, user_id)
+        await db.execute("UPDATE users SET equipped_title = ? WHERE user_id = ?", (title_id, user_id))
+        await db.commit()
+    return True
 
 
 # ---------------------------------------------------------

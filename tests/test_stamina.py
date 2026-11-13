@@ -70,7 +70,7 @@ async def main():
     data = await udm.get_or_create_user(2)
     stamina = c(data["stamina"], data["stamina_updated_at"])
     container = gc.build_profile_container(user, data, {"signed_today": False, "fortune_level": None},
-                                           discord.Color.blue(), is_self=True, stamina=stamina)
+                                           None, is_self=True, stamina=stamina)
     view = discord.ui.LayoutView(); view.add_item(container)
     t = "\n".join(i.content for i in view.walk_children() if isinstance(i, discord.ui.TextDisplay))
     check("profile shows stamina", "⚡ **體力**" in t and "`55 / 240`" in t)
