@@ -49,6 +49,9 @@ check("every title complete", all({"name", "rarity", "desc", "stat", "min"} <= s
 check("draw titles", [td.TITLES[f"draw_{n}"]["rarity"] for n in (10, 100, 500, 1000, 2000, 5000)] == ["N", "R", "SR", "SSR", "UR", "LR"])
 check("fusion titles", [td.TITLES[f"fusion_{n}"]["rarity"] for n in (1, 10, 50, 100, 500, 1000)] == ["N", "R", "SR", "SSR", "UR", "LR"])
 check("fusion unlock", td.unlocked_titles({"total_fusions": 500}) == ["fusion_500", "fusion_100", "fusion_50", "fusion_10", "fusion_1"])
+check("synth titles", [(td.TITLES[f"synth_{n}"]["rarity"], td.TITLES[f"synth_{n}"]["name"]) for n in (1, 10, 50, 100, 500, 1000)]
+      == [("N", "初次合成"), ("R", "修卡匠"), ("SR", "精益求精"), ("SSR", "完美主義者"), ("UR", "匠心獨具"), ("LR", "千錘百鍊")])
+check("synth condition", td.condition_text("synth_1") == "累計合成 1 次")
 check("condition text", td.condition_text("fusion_500") == "累計融合 500 次")
 check("unlock none", td.unlocked_titles({"total_draws": 9}) == [])
 check("unlock order high first", td.unlocked_titles({"total_draws": 600}) == ["draw_500", "draw_100", "draw_10"])
@@ -86,7 +89,8 @@ async def main():
             "title": "x", "completeness": 0.5, "obtained_at": "x"}
     await udm.add_gacha_cards(A, [card, dict(card, instance_id="s2")], draw_count=0)
     await udm.transform_cards(A, ["s1", "s2"], lambda cs: dict(cs[0], instance_id="s3"), count_synthesis=True)
-    check("synthesis counted", (await udm.get_title_stats(A))["total_synths"] == 1)
+    check("synthesis counted", (await udm.get_title_stats(A))["total_synths"] == 1
+          and "synth_1" in (await udm.get_title_state(A))["unlocked"])
     await udm.add_gacha_cards(A, [dict(card, instance_id="s4")], draw_count=0)
     await udm.transform_cards(A, ["s3", "s4"], lambda cs: dict(cs[0], instance_id="s5"))
     check("plain transform not counted", (await udm.get_title_stats(A))["total_synths"] == 1)
@@ -103,7 +107,7 @@ async def main():
     check("no title fixed color", accent(pv) == td.NO_TITLE_COLOR)
     sel = selects(pv)
     check("title select on own card", len(sel) == 1 and not sel[0].disabled
-          and [o.value for o in sel[0].options] == ["draw_100", "draw_10", "__none__"])
+          and [o.value for o in sel[0].options] == ["draw_100", "draw_10", "synth_1", "__none__"])
     check("select shows desc", sel[0].options[0].description == td.TITLES["draw_100"]["desc"])
 
     i2 = Interaction(uid=A, data={"values": ["draw_100"]}); await pv.on_title(i2)

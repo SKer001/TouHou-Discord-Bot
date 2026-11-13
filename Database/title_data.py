@@ -46,6 +46,19 @@ TITLES = {
                    "desc": "帕秋莉幫你在大圖書館保留了一張專用的書桌。"},
     "fusion_1000": {"name": "七曜的魔女", "rarity": "LR", "stat": "total_fusions", "min": 1000,
                     "desc": "你的融合造詣已經不輸給帕秋莉本人，可以自稱魔女了。"},
+    # ⚗️ 合成 (累計合成次數，0.31.002 起才開始記；2026-11-13 使用者選定 A 組)
+    "synth_1": {"name": "初次合成", "rarity": "N", "stat": "total_synths", "min": 1,
+                "desc": "把兩張卡疊在一起，發現它們變得更完整了。"},
+    "synth_10": {"name": "修卡匠", "rarity": "R", "stat": "total_synths", "min": 10,
+                 "desc": "卡角磨損、圖案褪色，交給你處理就對了。"},
+    "synth_50": {"name": "精益求精", "rarity": "SR", "stat": "total_synths", "min": 50,
+                 "desc": "一張卡要合成到滿意為止，絕不將就。"},
+    "synth_100": {"name": "完美主義者", "rarity": "SSR", "stat": "total_synths", "min": 100,
+                  "desc": "看到不完整的卡就渾身不對勁。"},
+    "synth_500": {"name": "匠心獨具", "rarity": "UR", "stat": "total_synths", "min": 500,
+                  "desc": "經你手合成的卡，連卡框的花紋都閃閃發亮。"},
+    "synth_1000": {"name": "千錘百鍊", "rarity": "LR", "stat": "total_synths", "min": 1000,
+                   "desc": "合成了上千次，你親手造就了無數張完美的卡。"},
 }
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
@@ -71,4 +84,5 @@ def condition_text(tid: str) -> str:
     """解鎖條件的文字 (選單說明、之後的稱號一覽用)"""
     t = TITLES[tid]
     return {"total_draws": f"累計祈願 {t['min']:,} 抽",
-            "total_fusions": f"累計融合 {t['min']:,} 次"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "total_fusions": f"累計融合 {t['min']:,} 次",
+            "total_synths": f"累計合成 {t['min']:,} 次"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")

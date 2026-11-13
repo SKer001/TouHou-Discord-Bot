@@ -25,6 +25,8 @@ NOTIFY_TYPES = {
                         "desc": "新的活動開始了 (只通知有神社的玩家)"},
     "event_end":       {"name": "活動結束", "emoji": "🏁", "dm": True,
                         "desc": "活動結束了，活動道具已清除 (只通知有神社的玩家)"},
+    "title_unlocked":  {"name": "獲得新稱號", "emoji": "🏷️", "dm": True,
+                        "desc": "解鎖了新的稱號，可以到 /profile 戴上"},
 }
 
 

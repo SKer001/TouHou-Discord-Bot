@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from Database import User_DB_Manager as udm
 from Database import Economy_DB_Manager as econ
 from Database.notify_data import NOTIFY_TYPES, can_dm
+from Database import title_data
 
 # =========================================================
 # ⏱️ 時間門檻 (要調整就改這裡)
@@ -253,6 +254,24 @@ def check_expired(previous: dict, current_ids: set[int], sold_instances: set[str
     return out
 
 
+def check_titles(user_id: int, unlocked: list[str], known: str | None) -> tuple[list[dict], str | None]:
+    """
+    稱號 (unlocked = title_data.unlocked_titles)：known = 上次看到的已解鎖稱號 (逗號分隔，存在 notify_watch，不會被清掉)
+    - 新解鎖的每個稱號通知一次 (key = 稱號 id)
+    - known 是 None = 系統剛上線時的第一輪 (由呼叫端決定)：只記錄、不通知，免得舊玩家一次收到一堆
+    回傳 (通知, 新的 known 值；沒變回傳 None)
+    """
+    cur = ",".join(sorted(unlocked))
+    if known is None:
+        return [], cur
+    before = set(filter(None, known.split(",")))
+    notices = [_notice(user_id, "title_unlocked", tid, title_id=tid, name=title_data.TITLES[tid]["name"],
+                       rarity=title_data.TITLES[tid]["rarity"], desc=title_data.TITLES[tid]["desc"],
+                       condition=title_data.condition_text(tid))
+               for tid in unlocked if tid not in before]
+    return notices, (cur if cur != known else None)
+
+
 def check_events(previous: dict, overview: list[dict]) -> tuple[list[tuple[str, dict, str]], dict]:
     """
     活動狀態變化 (overview = econ.get_events_overview)：previous = {活動 id: "status|started_at"}
@@ -303,6 +322,8 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             stamina_rows = [dict(r) for r in await cursor.fetchall()]
         async with db.execute("SELECT * FROM notify_listings") as cursor:
             prev_listings = {r["listing_id"]: dict(r) for r in await cursor.fetchall()}
+        async with db.execute("SELECT user_id, total_draws, total_fusions, total_synths FROM gacha_stats") as cursor:
+            title_rows = [dict(r) for r in await cursor.fetchall()]
 
     # ⛩️ 神社 (每座都結算一次)
     for uid in shrine_ids:
@@ -338,6 +359,18 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
     notices += check_sales(trades)
     notices += check_expired(prev_listings, {r["listing_id"] for r in listings},
                              {t["instance_id"] for t in trades if t["instance_id"]}, now)
+
+    # 🏷️ 稱號：第一次上線 (沒有 titles_baseline) 全部只記錄；之後新玩家沒有紀錄 = 之前一個都沒有
+    titles_first_run = watch.get(GLOBAL_ID, {}).get("titles_baseline") is None
+    for row in title_rows:
+        uid = row["user_id"]
+        known = None if titles_first_run else watch.get(uid, {}).get("titles", "")
+        found, value = check_titles(uid, title_data.unlocked_titles(row), known)
+        notices += found
+        if value is not None:
+            watch_updates.append((uid, "titles", value))
+    if titles_first_run:
+        watch_updates.append((GLOBAL_ID, "titles_baseline", now.isoformat()))
 
     # 🎪 活動 (只通知有神社的玩家)
     overview = await econ.get_events_overview(now)

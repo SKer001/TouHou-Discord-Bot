@@ -37,6 +37,9 @@ def notice_text(notice: dict) -> str:
         body = f"{d['emoji']} **{d['name']}** 開始了！限定地點、料理與客人登場。\n用 `/event` 看活動內容。"
     elif kind == "event_end":
         body = f"{d['emoji']} **{d['name']}** 結束了，活動道具已經清除。\n感謝參與！"
+    elif kind == "title_unlocked":
+        body = (f"恭喜獲得稱號 **[{d['rarity']}] {d['name']}**！（{d['condition']}）\n"
+                f"-# *{d['desc']}*\n用 `/profile` 的「🏷️ 更換稱號」戴上。")
     else:
         body = info.get("desc", "")
     return head + body

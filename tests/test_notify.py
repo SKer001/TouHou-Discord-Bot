@@ -74,6 +74,18 @@ class FakeInteraction:
 
 
 def pure_checks(now):
+    # 稱號：第一輪 (known=None) 只記錄；之後新解鎖的每個通知一次
+    n, v = ndm.check_titles(A, ["draw_100", "draw_10"], None)
+    check("titles first run silent", n == [] and v == "draw_10,draw_100")
+    n, v = ndm.check_titles(A, ["draw_500", "draw_100", "draw_10"], "draw_10,draw_100")
+    check("titles new one", [x["key"] for x in n] == ["draw_500"] and v == "draw_10,draw_100,draw_500")
+    check("titles notice data", n[0]["data"]["name"] == "博麗神社的常客" and n[0]["data"]["rarity"] == "SR")
+    check("titles unchanged", ndm.check_titles(A, ["draw_10"], "draw_10") == ([], None))
+    check("titles new player", [x["key"] for x in ndm.check_titles(A, ["draw_10"], "")[0]] == ["draw_10"])
+    from importlib import import_module
+    nc = import_module("Cogs.load-general.Components.notify_components")
+    t = nc.notice_text(n[0])
+    check("title dm text", "[SR] 博麗神社的常客" in t and "累計祈願 500 抽" in t and "-# *" in t and "/profile" in t)
     # 賽錢箱 / 妖怪：第一次看到就滿 ➔ 只記錄不通知；看過不滿再變滿 ➔ 通知；已經通知過 (watch=full) 不再通知
     n, up = ndm.check_shrine(A, summary(box=econ.SHRINE_BOX_MAX, youkai=5), now, {})
     check("box+youkai first seen full = silent", n == [])
@@ -235,6 +247,29 @@ async def main():
     got = dict(calls)
     check("event start to shrine owners", got.get(A) == ["event_start"] and got.get(C) == ["event_start"] and B not in got)
 
+    # 🏷️ 稱號：第 1 輪已經記好起點 (titles_baseline)；之後新解鎖的才通知，每個稱號一次
+    check("titles baseline", rows("SELECT COUNT(*) FROM notify_watch WHERE user_id = 0 AND kind = 'titles_baseline'") == [(1,)])
+    sql("INSERT INTO gacha_stats (user_id, total_draws, total_fusions, total_synths) VALUES (?, 120, 0, 1)", (B,))
+    calls.clear()
+    t3 = t2 + 3 * H
+    await cog_mod.run_notify_once(bot, t3, sender)
+    got = dict(calls)
+    check("B new titles", got.get(B) == ["title_unlocked", "title_unlocked", "title_unlocked"])
+    check("title keys", sorted(k for (k,) in rows("SELECT key FROM notifications_sent WHERE kind = 'title_unlocked'"))
+          == ["draw_10", "draw_100", "synth_1"])
+    calls.clear()
+    await cog_mod.run_notify_once(bot, t3 + H, sender)
+    check("titles once", B not in dict(calls))
+    # 發送紀錄 30 天後被清掉也不會再通知 (靠 notify_watch 的 titles 判斷)
+    sql("DELETE FROM notifications_sent WHERE kind = 'title_unlocked'")
+    calls.clear()
+    await cog_mod.run_notify_once(bot, t3 + 2 * H, sender)
+    check("titles not resent after prune", B not in dict(calls))
+    sql("UPDATE gacha_stats SET total_draws = 500 WHERE user_id = ?", (B,))
+    calls.clear()
+    await cog_mod.run_notify_once(bot, t3 + 3 * H, sender)
+    check("next tier", dict(calls).get(B) == ["title_unlocked"])
+
     # 傳送時丟例外也不會掛掉
     await ndm.claim(999, "x", "y", now)
     async def bad_sender(uid, items): raise RuntimeError("boom")
@@ -272,11 +307,12 @@ async def main():
         ("market_sold", {"name": "琪露諾", "emoji": "🧊", "rarity": "SR", "price": 1000, "buyer_id": B}),
         ("market_expired", {"name": "琪露諾", "emoji": "🧊", "rarity": "SR", "price": 1000}),
         ("event_start", {"name": "紅霧異變", "emoji": "🔴", "event_id": EVENT}), ("event_end", {"name": "紅霧異變", "emoji": "🔴", "event_id": EVENT}),
+        ("title_unlocked", {"title_id": "draw_10", "name": "初次祈願者", "rarity": "N", "desc": "說明", "condition": "累計祈願 10 抽"}),
     ] * 3)]
     comps = __import__("importlib").import_module("Cogs.load-general.Components.notify_components")
     dm = ui.LayoutView(); dm.add_item(comps.build_notice_dm(many))
     check("dm components <= 40", sum(count(i) for i in dm.children) <= 40)
-    check("dm footer", "/notify" in texts(dm) and "還有 12 則" in texts(dm))
+    check("dm footer", "/notify" in texts(dm) and "還有 15 則" in texts(dm))
     for k in notify_data.NOTIFY_TYPES:
         check(f"text {k}", notify_data.NOTIFY_TYPES[k]["name"] in comps.notice_text(next(n for n in many if n["kind"] == k)))
 
