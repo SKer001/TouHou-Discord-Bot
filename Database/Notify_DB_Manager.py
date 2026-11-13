@@ -13,7 +13,7 @@ from Database import User_DB_Manager as udm
 from Database import Economy_DB_Manager as econ
 from Database.notify_data import NOTIFY_TYPES, can_dm
 from Database import title_data
-from Utils.gacha_pools import collection_stats
+from Utils.gacha_pools import collection_stats, oshi_stats
 
 # =========================================================
 # ⏱️ 時間門檻 (要調整就改這裡)
@@ -333,12 +333,16 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             "GROUP BY user_id) k ON k.user_id = u.user_id"
         ) as cursor:
             title_rows = [dict(r) for r in await cursor.fetchall()]   # 欄位要跟 udm.get_title_stats 一致
-        async with db.execute("SELECT DISTINCT user_id, character_key, rarity FROM gacha_cards") as cursor:
-            owned_cards = {}
+        async with db.execute("SELECT user_id, character_key, rarity, COUNT(*) AS n FROM gacha_cards "
+                              "GROUP BY user_id, character_key, rarity") as cursor:
+            owned_cards, char_counts = {}, {}
             for r in await cursor.fetchall():
                 owned_cards.setdefault(r["user_id"], set()).add((r["character_key"], r["rarity"]))
-    for row in title_rows:   # 📚 卡池收集 (跟 udm.get_title_stats 一樣用 collection_stats)
+                cc = char_counts.setdefault(r["user_id"], {})
+                cc[r["character_key"]] = cc.get(r["character_key"], 0) + r["n"]
+    for row in title_rows:   # 📚 卡池收集、💕 推角 (跟 udm.get_title_stats 一樣)
         row.update(collection_stats(owned_cards.get(row["user_id"], set())))
+        row.update(oshi_stats(char_counts.get(row["user_id"], {})))
 
     # ⛩️ 神社 (每座都結算一次)
     for uid in shrine_ids:

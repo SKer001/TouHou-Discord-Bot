@@ -128,7 +128,29 @@ TITLE_GROUPS = {
     "rare":    {"name": "🌟 UR / LR 收藏", "stats": ("ur_kinds", "lr_kinds")},
     "perfect": {"name": "💎 完美卡", "stats": ("perfect_kinds",)},
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
+    # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
 }
+
+# 💕 推角 (2026-11-13 使用者選 A：每位角色一個，名稱「我是XXX的狗!!!」)
+#    卡冊「現在」有某位角色 OSHI_MIN 張卡 (階級不限) 就解鎖，賣掉就失去
+#    稱號從角色檔自動產生 (Utils.gacha_pools.load_gacha_pool)，新角色會自動多一個；角色檔改了要 /admin-sys reload
+OSHI_MIN = 10
+
+
+def _add_oshi_titles():
+    from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
+    for pool, info in GACHA_POOLS.items():
+        TITLE_GROUPS[f"oshi_{pool}"] = {"name": f"💕 推角・{info['name'].split(' ', 1)[-1].removesuffix('卡池')}",
+                                        "stats": (f"oshi:{pool}:",)}
+    for cid, c in load_gacha_pool().items():
+        TITLES[f"oshi_{cid}"] = {
+            "name": f"我是{c['name']}的狗!!!", "rarity": "SR", "stat": f"oshi:{c['pool']}:{cid}", "min": OSHI_MIN,
+            "character": c["name"],
+            "desc": f"最喜歡「{c['profile_title']}」{c['name']}了，卡冊裡塞滿了{c['name']}的卡，汪！",
+        }
+
+
+_add_oshi_titles()
 
 
 def title_group(tid: str) -> str | None:
@@ -178,6 +200,8 @@ def condition_text(tid: str) -> str:
 
 def _stat_text(t: dict) -> str:
     stat = t["stat"]
+    if stat.startswith("oshi:"):
+        return f"卡冊有 {t['min']:,} 張{t.get('character', stat.rsplit(':', 1)[-1])}的卡 (階級不限)"
     if stat.startswith(("pool_chars:", "pool_cards:")):
         from Utils.gacha_pools import GACHA_POOLS
         kind, pool = stat.split(":", 1)

@@ -34,6 +34,7 @@ def load_gacha_pool() -> dict:
                 "rarities": gacha["rarities"],
                 "titles": gacha["titles"],
                 "pool": pool_key,
+                "profile_title": char.get("profile", {}).get("title", ""),   # 角色稱號 (推角稱號的說明用)
             }
     return result
 
@@ -65,3 +66,8 @@ def collection_stats(owned: set) -> dict:
         stats[f"pool_cards:{key}"] = int(bool(members) and all((c, r) in owned for c, rs in members.items() for r in rs))
     stats["all_cards"] = int(all(stats[f"pool_cards:{key}"] for key in GACHA_POOLS))
     return stats
+
+
+def oshi_stats(counts: dict) -> dict:
+    """推角稱號用的統計 (counts = 卡冊現在每位角色幾張 {角色id: 張數}，階級不限)：oshi:<卡池>:<角色id> = 張數"""
+    return {f"oshi:{pool}:{cid}": counts.get(cid, 0) for pool, members in pool_members().items() for cid in members}

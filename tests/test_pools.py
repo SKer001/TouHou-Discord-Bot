@@ -34,7 +34,7 @@ async def main():
     await udm.init_db()
     pool = gacha.GACHA_POOL
     check("24 chars", len(pool) == 24)
-    check("pool fields", all(set(v) == {"name", "emoji", "uuid", "rarities", "titles", "pool"} and len(v["rarities"]) == 3 for v in pool.values()))
+    check("pool fields", all(set(v) == {"name", "emoji", "uuid", "rarities", "titles", "pool", "profile_title"} and len(v["rarities"]) == 3 for v in pool.values()))
     classic = {k for k, v in pool.items() if v["pool"] == "classic"}
     th06 = {k for k, v in pool.items() if v["pool"] == "th06"}
     check(f"classic {len(classic)}", len(classic) == 15 and {"reimu", "marisa", "mima", "shinki"} <= classic)
