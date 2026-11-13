@@ -59,6 +59,9 @@ check("ur/lr titles", [(td.TITLES[k]["rarity"], td.TITLES[k]["name"]) for k in (
       == [("SR", "金色的奇蹟"), ("SSR", "傳說收藏家"), ("UR", "黃金卡冊"), ("UR", "觸及傳說之人"), ("LR", "幻想的頂點")])
 check("lr needs 10 ur", td.unlocked_titles({"ur_kinds": 9, "lr_kinds": 3}) == ["ur_5", "ur_1"])
 check("lr chain", td.unlocked_titles({"ur_kinds": 10, "lr_kinds": 3}) == ["lr_3", "ur_10", "lr_1", "ur_5", "ur_1"])
+check("perfect titles", [(td.TITLES[f"perfect_{n}"]["rarity"], td.TITLES[f"perfect_{n}"]["name"]) for n in (1, 10, 30, 50)]
+      == [("R", "一絲不苟"), ("SR", "收藏家的堅持"), ("SSR", "無瑕的卡冊"), ("UR", "完美的瀟灑")])
+check("perfect condition", td.condition_text("perfect_10") == "卡冊有 10 種完美卡 (完整度 1.0000)")
 check("requires text", td.condition_text("lr_1") == "卡冊有 1 種角色的 LR 卡，且已獲得「黃金卡冊」")
 check("requires exist", all(t.get("requires", "ur_1") in td.TITLES for t in td.TITLES.values()))
 check("label", td.title_label("draw_2000") == "[UR] 賽錢箱的守護神")
@@ -77,12 +80,21 @@ async def main():
     U = 60
     await udm.get_or_create_user(U)
     for i, (ck, r) in enumerate([("reimu", "UR"), ("reimu", "UR"), ("marisa", "UR"), ("remilia", "LR"), ("cirno", "SSR")]):
-        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, ?, 'x', ?, 1)", (f"u{i}", U, ck, r))
+        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, ?, 'x', ?, 0.5)", (f"u{i}", U, ck, r))
     s = await udm.get_title_stats(U)
     check("ur/lr kinds", (s["ur_kinds"], s["lr_kinds"]) == (2, 1))
     check("lr locked without 10 ur", (await udm.get_title_state(U))["unlocked"] == ["ur_1"])
     sql("DELETE FROM gacha_cards WHERE user_id = ? AND character_key IN ('reimu', 'marisa')", (U,))
     check("sold ur lost", (await udm.get_title_stats(U))["ur_kinds"] == 0 and (await udm.get_title_state(U))["unlocked"] == [])
+
+    # 💎 完美卡：完整度 1.0000 (四捨五入 4 位)，角色 + 階級一樣只算一種
+    P = 61
+    await udm.get_or_create_user(P)
+    for i, (ck, r, c) in enumerate([("reimu", "SR", 1.0), ("reimu", "SR", 1.0), ("reimu", "SSR", 0.99996),
+                                    ("cirno", "SR", 0.9999), ("rumia", "R", 0.5)]):
+        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, ?, 'x', ?, ?)", (f"p{i}", P, ck, r, c))
+    check("perfect kinds", (await udm.get_title_stats(P))["perfect_kinds"] == 2)
+    check("perfect title", (await udm.get_title_state(P))["unlocked"] == ["perfect_1"])
 
     # 📅 簽到稱號 (累積天數) 與連續簽到 (daily_streak / best_streak)
     D = 50

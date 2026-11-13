@@ -550,7 +550,9 @@ async def update_visibility(user_id: int, is_public: bool):
 # 卡冊裡「現在」有幾種角色的 UR / LR (稱號用；上架中的卡不在 gacha_cards，不算)
 TITLE_CARD_KINDS_SQL = (
     "SELECT COUNT(DISTINCT CASE WHEN rarity = 'UR' THEN character_key END) AS ur_kinds, "
-    "COUNT(DISTINCT CASE WHEN rarity = 'LR' THEN character_key END) AS lr_kinds FROM gacha_cards"
+    "COUNT(DISTINCT CASE WHEN rarity = 'LR' THEN character_key END) AS lr_kinds, "
+    # 完美卡：完整度四捨五入到 4 位 = 1.0000 (跟 gacha.is_perfect 一樣)，角色 + 階級一樣只算一種
+    "COUNT(DISTINCT CASE WHEN completeness >= 0.99995 THEN character_key || ':' || rarity END) AS perfect_kinds FROM gacha_cards"
 )
 
 
@@ -569,6 +571,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats["best_streak"] = (user["best_streak"] or 0) if user else 0
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
+    stats["perfect_kinds"] = kinds["perfect_kinds"] or 0
     return stats
 
 

@@ -91,6 +91,15 @@ TITLES = {
              "desc": "拿到了只存在於傳說中的卡，連紫都從隙間探頭看了一眼。"},
     "lr_3": {"name": "幻想的頂點", "rarity": "LR", "stat": "lr_kinds", "min": 3, "requires": "lr_1",
              "desc": "三張傳說都在你手上，幻想鄉已經沒有你沒見過的奇蹟。"},
+    # 💎 完美卡 (卡冊「現在」有幾種完整度 1.0000 的卡，角色 + 階級一樣只算一種；2026-11-13 使用者選算種類)
+    "perfect_1": {"name": "一絲不苟", "rarity": "R", "stat": "perfect_kinds", "min": 1,
+                  "desc": "第一張完整度 1.0000 的卡，邊角連一點折痕都沒有。"},
+    "perfect_10": {"name": "收藏家的堅持", "rarity": "SR", "stat": "perfect_kinds", "min": 10,
+                   "desc": "卡冊裡的完美卡越排越多，你開始用手套翻頁了。"},
+    "perfect_30": {"name": "無瑕的卡冊", "rarity": "SSR", "stat": "perfect_kinds", "min": 30,
+                   "desc": "三十種完美的卡，連河童都想借去研究保存方法。"},
+    "perfect_50": {"name": "完美的瀟灑", "rarity": "UR", "stat": "perfect_kinds", "min": 50,
+                   "desc": "完美到這種程度，咲夜都要對你點頭致意。"},
 }
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
@@ -131,4 +140,5 @@ def _stat_text(t: dict) -> str:
             "daily_count": f"累積簽到 {t['min']:,} 天",
             "best_streak": f"連續簽到 {t['min']:,} 天",
             "ur_kinds": f"卡冊有 {t['min']:,} 種角色的 UR 卡",
-            "lr_kinds": f"卡冊有 {t['min']:,} 種角色的 LR 卡"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "lr_kinds": f"卡冊有 {t['min']:,} 種角色的 LR 卡",
+            "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
