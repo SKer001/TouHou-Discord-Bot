@@ -33,6 +33,19 @@ TITLES = {
                   "desc": "你的賽錢讓靈夢第一次吃飽了飯。在她心中，你的地位已經接近神明。"},
     "draw_5000": {"name": "幻想鄉第一信仰", "rarity": "LR", "stat": "total_draws", "min": 5000,
                   "desc": "信仰多到快要能自己開一間神社了，連守矢神社都在打聽你是誰。"},
+    # 🔮 融合 (累計融合次數；2026-11-13 使用者選定 B 組，UR 門檻 500)
+    "fusion_1": {"name": "見習鍊金術師", "rarity": "N", "stat": "total_fusions", "min": 1,
+                 "desc": "從帕秋莉的圖書館偷偷借了一本入門書，開始研究融合。"},
+    "fusion_10": {"name": "圖書館的常客", "rarity": "R", "stat": "total_fusions", "min": 10,
+                  "desc": "每天都來大圖書館翻書，小惡魔已經記得你常坐的位子。"},
+    "fusion_50": {"name": "七曜的弟子", "rarity": "SR", "stat": "total_fusions", "min": 50,
+                  "desc": "連帕秋莉都抬起頭，承認你的融合功力了。"},
+    "fusion_100": {"name": "魔法使的同好", "rarity": "SSR", "stat": "total_fusions", "min": 100,
+                   "desc": "愛麗絲和魔理沙都跑來找你討論融合的心得。"},
+    "fusion_500": {"name": "大圖書館的常駐研究員", "rarity": "UR", "stat": "total_fusions", "min": 500,
+                   "desc": "帕秋莉幫你在大圖書館保留了一張專用的書桌。"},
+    "fusion_1000": {"name": "七曜的魔女", "rarity": "LR", "stat": "total_fusions", "min": 1000,
+                    "desc": "你的融合造詣已經不輸給帕秋莉本人，可以自稱魔女了。"},
 }
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
@@ -57,4 +70,5 @@ def title_color(tid: str | None) -> int:
 def condition_text(tid: str) -> str:
     """解鎖條件的文字 (選單說明、之後的稱號一覽用)"""
     t = TITLES[tid]
-    return {"total_draws": f"累計祈願 {t['min']:,} 抽"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+    return {"total_draws": f"累計祈願 {t['min']:,} 抽",
+            "total_fusions": f"累計融合 {t['min']:,} 次"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")

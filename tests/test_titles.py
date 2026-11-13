@@ -47,6 +47,9 @@ def accent(v): return next(i for i in v.walk_children() if isinstance(i, discord
 check("every title complete", all({"name", "rarity", "desc", "stat", "min"} <= set(t) and t["rarity"] in td.RARITY_COLORS
                                   for t in td.TITLES.values()))
 check("draw titles", [td.TITLES[f"draw_{n}"]["rarity"] for n in (10, 100, 500, 1000, 2000, 5000)] == ["N", "R", "SR", "SSR", "UR", "LR"])
+check("fusion titles", [td.TITLES[f"fusion_{n}"]["rarity"] for n in (1, 10, 50, 100, 500, 1000)] == ["N", "R", "SR", "SSR", "UR", "LR"])
+check("fusion unlock", td.unlocked_titles({"total_fusions": 500}) == ["fusion_500", "fusion_100", "fusion_50", "fusion_10", "fusion_1"])
+check("condition text", td.condition_text("fusion_500") == "累計融合 500 次")
 check("unlock none", td.unlocked_titles({"total_draws": 9}) == [])
 check("unlock order high first", td.unlocked_titles({"total_draws": 600}) == ["draw_500", "draw_100", "draw_10"])
 check("label", td.title_label("draw_2000") == "[UR] 賽錢箱的守護神")
@@ -69,6 +72,9 @@ async def main():
     # 資料庫裡的稱號已不符條件 (例如之後改了門檻) ➔ 當成沒戴
     sql("UPDATE users SET equipped_title = 'draw_5000' WHERE user_id = ?", (A,))
     check("invalid equipped hidden", (await udm.get_title_state(A))["equipped"] is None)
+    sql("UPDATE gacha_stats SET total_fusions = 12 WHERE user_id = ?", (A,))
+    check("fusion stat read", (await udm.get_title_state(A))["unlocked"] == ["draw_100", "fusion_10", "draw_10", "fusion_1"])
+    sql("UPDATE gacha_stats SET total_fusions = 0 WHERE user_id = ?", (A,))
     check("unequip", await udm.set_equipped_title(A, None) and (await udm.get_title_state(A))["equipped"] is None)
 
     # --- /profile 畫面 ---

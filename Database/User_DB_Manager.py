@@ -530,9 +530,9 @@ async def update_visibility(user_id: int, is_public: bool):
 async def get_title_stats(user_id: int) -> dict:
     """解鎖稱號用的玩家統計 (title_data 的 stat 鍵)"""
     async with connect() as db:
-        async with db.execute("SELECT total_draws FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
+        async with db.execute("SELECT total_draws, total_fusions FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
-    return {"total_draws": row["total_draws"] if row else 0}
+    return {"total_draws": row["total_draws"] if row else 0, "total_fusions": row["total_fusions"] if row else 0}
 
 
 async def get_title_state(user_id: int) -> dict:
