@@ -98,6 +98,18 @@ async def main():
           == [("N", "小有積蓄"), ("R", "人里的有錢人"), ("SR", "香霖堂的大主顧"), ("SSR", "守財奴"), ("UR", "幻想鄉的財神"), ("LR", "比賽錢箱還有錢")])
     check("money condition", td.condition_text("money_1m") == "曾經持有 1,000,000 賽錢" and td.title_group("money_1b") == "money")
 
+    # 🔴 火力：現在的 P 點 (level / 10)
+    W = 65
+    await udm.get_or_create_user(W)
+    await udm.add_exp(W, udm.get_total_exp_for_level(100))   # 剛好 10.0 P
+    unlocked = (await udm.get_title_state(W))["unlocked"]
+    check("power 10P", "power_10" in unlocked and "power_1" in unlocked and "power_30" not in unlocked)
+    await udm.add_exp(W, -1)   # 掉回 9.9 P ➔ 失去 10P 稱號
+    check("power drop", "power_10" not in (await udm.get_title_state(W))["unlocked"])
+    check("power titles", [(td.TITLES[f"power_{p}"]["rarity"], td.TITLES[f"power_{p}"]["min"]) for p in (1, 10, 30, 50, 70, 99, 100)]
+          == [("N", 10), ("R", 100), ("SR", 300), ("SSR", 500), ("UR", 700), ("LR", 990), ("LR", 1000)])
+    check("power condition", td.condition_text("power_99") == "火力達到 99.0 P" and td.title_group("power_100") == "power")
+
     # 🌟 UR / LR：卡冊裡現在有幾種角色 (同角色多張只算一種，賣掉就沒了)
     U = 60
     await udm.get_or_create_user(U)

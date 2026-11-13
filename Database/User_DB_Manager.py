@@ -593,7 +593,7 @@ async def get_title_stats(user_id: int) -> dict:
     async with connect() as db:
         async with db.execute("SELECT total_draws, total_fusions, total_synths FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
-        async with db.execute("SELECT daily_count, best_streak, best_money FROM users WHERE user_id = ?", (user_id,)) as cursor:
+        async with db.execute("SELECT daily_count, best_streak, best_money, level FROM users WHERE user_id = ?", (user_id,)) as cursor:
             user = await cursor.fetchone()
         async with db.execute(TITLE_CARD_KINDS_SQL + " WHERE user_id = ?", (user_id,)) as cursor:
             kinds = await cursor.fetchone()
@@ -610,6 +610,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats["daily_count"] = (user["daily_count"] or 0) if user else 0
     stats["best_streak"] = (user["best_streak"] or 0) if user else 0
     stats["best_money"] = (user["best_money"] or 0) if user else 0
+    stats["power_level"] = (user["level"] or 0) if user else 0   # 火力：level 0～1000 = 0.0～100.0 P
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
     stats["perfect_kinds"] = kinds["perfect_kinds"] or 0

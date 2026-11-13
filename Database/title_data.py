@@ -113,6 +113,21 @@ TITLES = {
                    "desc": "靈夢看你的眼神，已經跟看賽錢箱一模一樣了。"},
     "money_1b": {"name": "比賽錢箱還有錢", "rarity": "LR", "stat": "best_money", "min": 1_000_000_000,
                  "desc": "博麗神社的賽錢箱加起來都比不上你的零頭。"},
+    # 🔴 火力 (現在的 P 點；統計是內部 level 0～1000 = 0.0～100.0 P，所以 min = P × 10；2026-11-13 使用者選 A 並指定門檻)
+    "power_1": {"name": "初次 Power Up", "rarity": "N", "stat": "power_level", "min": 10,
+                "desc": "撿到第一個 P 點，射出的彈幕好像變粗了一點。"},
+    "power_10": {"name": "火力漸增", "rarity": "R", "stat": "power_level", "min": 100,
+                 "desc": "子彈越來越多，終於有點自機的樣子了。"},
+    "power_30": {"name": "彈幕職人", "rarity": "SR", "stat": "power_level", "min": 300,
+                 "desc": "火力穩定成長，雜魚妖精已經不是對手。"},
+    "power_50": {"name": "符卡使", "rarity": "SSR", "stat": "power_level", "min": 500,
+                 "desc": "宣言符卡的聲音，連山上的天狗都聽得見。"},
+    "power_70": {"name": "異變解決者", "rarity": "UR", "stat": "power_level", "min": 700,
+                 "desc": "這份火力，足以獨自解決一場異變。"},
+    "power_99": {"name": "全力全開", "rarity": "LR", "stat": "power_level", "min": 990,
+                 "desc": "把火力開到極限，連魔理沙都要說一聲「火力就是正義」。"},
+    "power_100": {"name": "∞ INFINITE POWER ∞", "rarity": "LR", "stat": "power_level", "min": 1000,
+                  "desc": "FULL POWER 的盡頭不是終點，而是無限。彈幕已經多到看不見天空了。"},
     # 📚 卡池收集 (卡冊「現在」的卡；一個卡池兩個：角色到齊、全卡收集；2026-11-13 使用者選定)
     #    統計是 0 / 1 (Utils.gacha_pools.collection_stats)；開新卡池 ➔ 這裡補兩個，all_cards 會自動把新卡池算進去 (使用者選 1：LR 要所有卡池)
     "pool_classic_chars": {"name": "舊作巡禮者", "rarity": "SR", "stat": "pool_chars:classic", "min": 1,
@@ -141,6 +156,7 @@ TITLE_GROUPS = {
     "rare":    {"name": "🌟 UR / LR 收藏", "stats": ("ur_kinds", "lr_kinds")},
     "perfect": {"name": "💎 完美卡", "stats": ("perfect_kinds",)},
     "money":   {"name": "💰 財富", "stats": ("best_money",)},
+    "power":   {"name": "🔴 火力", "stats": ("power_level",)},
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
 }
@@ -230,4 +246,5 @@ def _stat_text(t: dict) -> str:
             "lr_kinds": f"卡冊有 {t['min']:,} 種角色的 LR 卡",
             "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)",
             "all_cards": "所有卡池的卡全部收集 (每個階級)",
-            "best_money": f"曾經持有 {t['min']:,} 賽錢"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "best_money": f"曾經持有 {t['min']:,} 賽錢",
+            "power_level": f"火力達到 {t['min'] / 10:.1f} P"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
