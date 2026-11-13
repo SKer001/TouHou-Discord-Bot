@@ -47,7 +47,8 @@ SCHEMA_STATEMENTS = [
         equipped_title TEXT   DEFAULT NULL,
         daily_streak  INTEGER DEFAULT 0,
         best_streak   INTEGER DEFAULT 0,
-        granted_titles TEXT   DEFAULT NULL
+        granted_titles TEXT   DEFAULT NULL,
+        best_money    INTEGER DEFAULT 0
     )
     """,
     """
@@ -185,6 +186,21 @@ USERS_EXTRA_COLUMNS = [
     ("daily_streak", "INTEGER DEFAULT 0"),     # 目前連續簽到天數 (0.31.005 起才開始記；昨天有簽 +1，否則重新從 1 算)
     ("best_streak", "INTEGER DEFAULT 0"),      # 最長連續簽到天數 (斷掉也不會變少；連續簽到稱號用)
     ("granted_titles", "TEXT DEFAULT NULL"),   # 管理員直接給的稱號 id (逗號分隔)；不用符合條件，/admin-user title 管理
+    ("best_money", "INTEGER DEFAULT 0"),       # 曾經持有過的最高賽錢 (財富稱號；觸發器自動更新，剛補欄位時用當下餘額當起點)
+]
+# 💰 best_money 由觸發器維護：任何地方改到 money (簽到、分解、市場、轉帳、神社…) 都會自動跟上，不用每個函式自己記
+#    (init_db 補完欄位之後才建，舊資料庫建觸發器時欄位已經在了)
+MONEY_TRIGGERS = [
+    """
+    CREATE TRIGGER IF NOT EXISTS trg_best_money_update AFTER UPDATE OF money ON users
+    WHEN NEW.money > COALESCE(NEW.best_money, 0)
+    BEGIN UPDATE users SET best_money = NEW.money WHERE user_id = NEW.user_id; END
+    """,
+    """
+    CREATE TRIGGER IF NOT EXISTS trg_best_money_insert AFTER INSERT ON users
+    WHEN NEW.money > COALESCE(NEW.best_money, 0)
+    BEGIN UPDATE users SET best_money = NEW.money WHERE user_id = NEW.user_id; END
+    """,
 ]
 # 舊版 gacha_stats 缺少的欄位 (init_db 自動補上)
 GACHA_STATS_EXTRA_COLUMNS = [
@@ -195,7 +211,7 @@ GACHA_CARDS_EXTRA_COLUMNS = [
     ("locked", "INTEGER NOT NULL DEFAULT 0"),   # 1 = 放在收藏冊 (/card album)：卡冊、合成、融合、分解、上架都看不到也用不到
 ]
 # 欄位剛補上時，現有玩家要填的值 (使用者 2026-11-05：現有玩家直接開通交易)
-USERS_BACKFILL = {"daily_count": "7"}
+USERS_BACKFILL = {"daily_count": "7", "best_money": "money"}   # best_money：從現在的餘額開始記 (之前的最高值查不到)
 
 
 @asynccontextmanager
@@ -244,6 +260,8 @@ async def init_db():
             if column not in columns:
                 await db.execute(f"ALTER TABLE gacha_stats ADD COLUMN {column} {definition}")
                 print(f"🔧 [Database] 已自動為 gacha_stats 資料表補上 `{column}` 欄位！")
+        for statement in MONEY_TRIGGERS:
+            await db.execute(statement)
         async with db.execute("PRAGMA table_info(gacha_cards)") as cursor:
             columns = [row["name"] for row in await cursor.fetchall()]
         for column, definition in GACHA_CARDS_EXTRA_COLUMNS:
@@ -575,7 +593,7 @@ async def get_title_stats(user_id: int) -> dict:
     async with connect() as db:
         async with db.execute("SELECT total_draws, total_fusions, total_synths FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
-        async with db.execute("SELECT daily_count, best_streak FROM users WHERE user_id = ?", (user_id,)) as cursor:
+        async with db.execute("SELECT daily_count, best_streak, best_money FROM users WHERE user_id = ?", (user_id,)) as cursor:
             user = await cursor.fetchone()
         async with db.execute(TITLE_CARD_KINDS_SQL + " WHERE user_id = ?", (user_id,)) as cursor:
             kinds = await cursor.fetchone()
@@ -591,6 +609,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats = {k: (row[k] if row else 0) for k in keys}
     stats["daily_count"] = (user["daily_count"] or 0) if user else 0
     stats["best_streak"] = (user["best_streak"] or 0) if user else 0
+    stats["best_money"] = (user["best_money"] or 0) if user else 0
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
     stats["perfect_kinds"] = kinds["perfect_kinds"] or 0

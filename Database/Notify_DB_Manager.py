@@ -327,7 +327,7 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
         async with db.execute(
             "SELECT u.user_id, COALESCE(g.total_draws, 0) AS total_draws, COALESCE(g.total_fusions, 0) AS total_fusions, "
             "COALESCE(g.total_synths, 0) AS total_synths, COALESCE(u.daily_count, 0) AS daily_count, "
-            "COALESCE(u.best_streak, 0) AS best_streak, COALESCE(k.ur_kinds, 0) AS ur_kinds, "
+            "COALESCE(u.best_streak, 0) AS best_streak, COALESCE(u.best_money, 0) AS best_money, COALESCE(k.ur_kinds, 0) AS ur_kinds, "
             "COALESCE(k.lr_kinds, 0) AS lr_kinds, COALESCE(k.perfect_kinds, 0) AS perfect_kinds FROM users u LEFT JOIN gacha_stats g ON g.user_id = u.user_id "
             f"LEFT JOIN ({udm.TITLE_CARD_KINDS_SQL.replace('SELECT ', 'SELECT user_id, ', 1)} "
             "GROUP BY user_id) k ON k.user_id = u.user_id"

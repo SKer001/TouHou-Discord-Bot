@@ -80,6 +80,24 @@ async def main():
     con = sqlite3.connect(udm.DB_PATH)
     check("migrated total_synths", con.execute("SELECT total_synths FROM gacha_stats WHERE user_id = 99").fetchone() == (0,)); con.close()
 
+    # 💰 財富：曾經持有過的最高賽錢 (觸發器維護，花掉不會變少)
+    M = 64
+    await udm.get_or_create_user(M)
+    def best():
+        con = sqlite3.connect(udm.DB_PATH); r = con.execute("SELECT money, best_money FROM users WHERE user_id = ?", (M,)).fetchone(); con.close(); return r
+    check("best money on insert", best() == (1000, 1000))
+    await udm.add_money(M, 200_000)
+    check("best money up", best() == (201_000, 201_000))
+    await udm.add_money(M, -150_000)
+    check("best money kept", best() == (51_000, 201_000))
+    sql("UPDATE users SET money = money + 5 WHERE user_id = ?", (M,))   # 任何地方改 money 都會跟上 (觸發器)
+    check("best money below best unchanged", best() == (51_005, 201_000))
+    unlocked = (await udm.get_title_state(M))["unlocked"]
+    check("money title", "money_100k" in unlocked and "money_1m" not in unlocked)
+    check("money titles", [(td.TITLES[k]["rarity"], td.TITLES[k]["name"]) for k in ("money_100k", "money_1m", "money_10m", "money_50m", "money_100m", "money_1b")]
+          == [("N", "小有積蓄"), ("R", "人里的有錢人"), ("SR", "香霖堂的大主顧"), ("SSR", "守財奴"), ("UR", "幻想鄉的財神"), ("LR", "比賽錢箱還有錢")])
+    check("money condition", td.condition_text("money_1m") == "曾經持有 1,000,000 賽錢" and td.title_group("money_1b") == "money")
+
     # 🌟 UR / LR：卡冊裡現在有幾種角色 (同角色多張只算一種，賣掉就沒了)
     U = 60
     await udm.get_or_create_user(U)

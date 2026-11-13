@@ -10,7 +10,7 @@
   - `gacha_stats(user_id PK → users ON DELETE CASCADE, total_draws, total_fusions)`
   - `gacha_cards(instance_id TEXT PK, user_id → users ON DELETE CASCADE, character_key, name, emoji, rarity, title, completeness REAL, obtained_at, locked INTEGER DEFAULT 0)`（`locked = 1` = 放在收藏冊；`get_user_cards(uid)` 預設不含，`include_locked=True` 才全部；`get_album_cards` / `set_cards_locked`），索引 `idx_gacha_cards_user`
     - (`gacha_stats` 有 `total_draws` / `total_fusions` / `total_synths`；合成次數 0.31.002 才開始記)
-    - (玩家稱號是另一回事：`users.equipped_title` 存戴著的稱號 id，清單在 `Database/title_data.py`；`get_title_stats` / `get_title_state` / `set_equipped_title`；`users.granted_titles` = 管理員給的稱號 (逗號分隔，不管條件，`get_title_state` 會一起列進已解鎖)，`get_granted_titles` / `set_granted_title`)
+    - (玩家稱號是另一回事：`users.equipped_title` 存戴著的稱號 id，清單在 `Database/title_data.py`；`get_title_stats` / `get_title_state` / `set_equipped_title`；`users.best_money` = 曾經持有過的最高賽錢 (財富稱號；由觸發器 `trg_best_money_update` / `trg_best_money_insert` 維護，任何地方改 money 都會跟上；剛補欄位時用當下餘額回填)；`users.granted_titles` = 管理員給的稱號 (逗號分隔，不管條件，`get_title_state` 會一起列進已解鎖)，`get_granted_titles` / `set_granted_title`)
     - `name` / `emoji` / `title` 只是寫入當下的副本：讀卡時 (`get_user_cards`、`transform_cards`、`econ.get_listings`、通知的上架清單) 一律用 `Utils.character_data.apply_current_names` 換成目前角色檔的內容，角色改名、改稱號後舊卡跟著變 (角色檔快取 60 秒；角色檔刪掉才顯示副本)。2026-11-13 起。
 - 缺欄位用 `USERS_EXTRA_COLUMNS` 自動補。
 - 主要函式：`get_or_create_user`、`add_money`、`add_exp`（升級回傳 `leveled_up/old_p/new_p/is_max`）、`get_required_exp_for_level`、`get_total_exp_for_level`、`reset_daily`、`update_daily_time`、`add_item`、`update_user_inventory`、`get_leaderboard_stats(user_ids)`、`update_visibility`。

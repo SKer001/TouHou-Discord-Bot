@@ -100,6 +100,19 @@ TITLES = {
                    "desc": "三十種完美的卡，連河童都想借去研究保存方法。"},
     "perfect_50": {"name": "完美的瀟灑", "rarity": "UR", "stat": "perfect_kinds", "min": 50,
                    "desc": "完美到這種程度，咲夜都要對你點頭致意。"},
+    # 💰 財富 (曾經持有過的最高賽錢 best_money，花掉也不會失去；2026-11-13 使用者選 A)
+    "money_100k": {"name": "小有積蓄", "rarity": "N", "stat": "best_money", "min": 100_000,
+                   "desc": "錢包終於有點重量了，可以奢侈地多抽幾次。"},
+    "money_1m": {"name": "人里的有錢人", "rarity": "R", "stat": "best_money", "min": 1_000_000,
+                 "desc": "走在人間之里，商家都會多看你一眼。"},
+    "money_10m": {"name": "香霖堂的大主顧", "rarity": "SR", "stat": "best_money", "min": 10_000_000,
+                  "desc": "霖之助看到你來，會默默把好貨擺上櫃台。"},
+    "money_50m": {"name": "守財奴", "rarity": "SSR", "stat": "best_money", "min": 50_000_000,
+                  "desc": "錢多到捨不得花，晚上數著賽錢才睡得著。"},
+    "money_100m": {"name": "幻想鄉的財神", "rarity": "UR", "stat": "best_money", "min": 100_000_000,
+                   "desc": "靈夢看你的眼神，已經跟看賽錢箱一模一樣了。"},
+    "money_1b": {"name": "比賽錢箱還有錢", "rarity": "LR", "stat": "best_money", "min": 1_000_000_000,
+                 "desc": "博麗神社的賽錢箱加起來都比不上你的零頭。"},
     # 📚 卡池收集 (卡冊「現在」的卡；一個卡池兩個：角色到齊、全卡收集；2026-11-13 使用者選定)
     #    統計是 0 / 1 (Utils.gacha_pools.collection_stats)；開新卡池 ➔ 這裡補兩個，all_cards 會自動把新卡池算進去 (使用者選 1：LR 要所有卡池)
     "pool_classic_chars": {"name": "舊作巡禮者", "rarity": "SR", "stat": "pool_chars:classic", "min": 1,
@@ -127,6 +140,7 @@ TITLE_GROUPS = {
     "streak":  {"name": "🔥 連續簽到", "stats": ("best_streak",)},
     "rare":    {"name": "🌟 UR / LR 收藏", "stats": ("ur_kinds", "lr_kinds")},
     "perfect": {"name": "💎 完美卡", "stats": ("perfect_kinds",)},
+    "money":   {"name": "💰 財富", "stats": ("best_money",)},
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
 }
@@ -215,4 +229,5 @@ def _stat_text(t: dict) -> str:
             "ur_kinds": f"卡冊有 {t['min']:,} 種角色的 UR 卡",
             "lr_kinds": f"卡冊有 {t['min']:,} 種角色的 LR 卡",
             "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)",
-            "all_cards": "所有卡池的卡全部收集 (每個階級)"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "all_cards": "所有卡池的卡全部收集 (每個階級)",
+            "best_money": f"曾經持有 {t['min']:,} 賽錢"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
