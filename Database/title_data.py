@@ -116,6 +116,37 @@ TITLES = {
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
 
+# 🗂️ 稱號分組 (/profile 先選分組再選稱號：Discord 選單最多 25 個選項，稱號全放一個選單會放不下)
+#    stats = 這組用哪些統計；結尾是「:」的是前綴 (卡池收集每個卡池一個統計)
+#    新增一組稱號 ➔ 這裡也要加一筆 (測試會檢查每個稱號都有分組)；分組最多 25 組、每組最多 24 個稱號
+TITLE_GROUPS = {
+    "draw":    {"name": "🎰 祈願", "stats": ("total_draws",)},
+    "fusion":  {"name": "🔮 融合", "stats": ("total_fusions",)},
+    "synth":   {"name": "⚗️ 合成", "stats": ("total_synths",)},
+    "daily":   {"name": "📅 簽到", "stats": ("daily_count",)},
+    "streak":  {"name": "🔥 連續簽到", "stats": ("best_streak",)},
+    "rare":    {"name": "🌟 UR / LR 收藏", "stats": ("ur_kinds", "lr_kinds")},
+    "perfect": {"name": "💎 完美卡", "stats": ("perfect_kinds",)},
+    "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
+}
+
+
+def title_group(tid: str) -> str | None:
+    """稱號屬於哪一組 (TITLE_GROUPS 的鍵)；找不到回傳 None"""
+    stat = TITLES[tid]["stat"]
+    for key, group in TITLE_GROUPS.items():
+        if any(stat == s or (s.endswith(":") and stat.startswith(s)) for s in group["stats"]):
+            return key
+    return None
+
+
+def group_titles(unlocked: list[str]) -> dict[str, list[str]]:
+    """已解鎖的稱號依分組排好：{分組: [稱號 id (等級高的在前)]}，只列有稱號的組，照 TITLE_GROUPS 順序"""
+    result = {key: [] for key in TITLE_GROUPS}
+    for tid in unlocked:
+        result.setdefault(title_group(tid) or "other", []).append(tid)
+    return {k: v for k, v in result.items() if v}
+
 
 def unlocked_titles(stats: dict) -> list[str]:
     """依玩家統計列出已解鎖的稱號 id (等級高的在前，同等級照 TITLES 順序)"""

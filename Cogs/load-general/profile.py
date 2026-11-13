@@ -215,6 +215,8 @@ class ProfileView(ui.LayoutView):
         self.target_user = target_user
         self.is_self = is_self
         self.title_state = title_state   # get_title_state()：{"equipped", "unlocked"}
+        self.title_group = None          # 稱號選單目前選的分組 (None = 戴著的稱號那組，沒戴就是最高等級那組)
+        self.data = None                 # 最近一次 build 的 (user_data, daily_status)，切換分組時重畫用
         self.reward = reward          # 剛簽到完的獎勵 (只顯示在這張卡片上)
         self.message = None           # 送出後由指令填入，供逾時時停用按鈕
         self.daily_button = None
@@ -222,6 +224,7 @@ class ProfileView(ui.LayoutView):
 
     def build(self, user_data: dict, daily_status: dict):
         """依最新資料重新組出整張卡片；只有本人的卡片才有簽到按鈕"""
+        self.data = (user_data, daily_status)
         button = None
         if self.is_self:
             if daily_status["signed_today"]:
@@ -239,7 +242,8 @@ class ProfileView(ui.LayoutView):
         # 🏷️ 更換稱號、⚡ 恢復體力：只有本人的卡片才有
         if self.is_self:
             container.add_item(ui.Separator())
-            container.add_item(ui.ActionRow(self._title_select()))
+            for select in self._title_selects():
+                container.add_item(ui.ActionRow(select))
             stamina_btn = ui.Button(label="⚡ 恢復體力", style=discord.ButtonStyle.primary)
             stamina_btn.callback = self.on_stamina
             shrine_btn = ui.Button(label="⛩️ 前往神社", style=discord.ButtonStyle.secondary)
@@ -249,22 +253,48 @@ class ProfileView(ui.LayoutView):
         self.clear_items()
         self.add_item(container)
 
-    def _title_select(self) -> ui.Select:
-        """已解鎖的稱號 (等級高的在前) + 不戴稱號；一個都沒有時選單反灰"""
+    def _title_selects(self) -> list[ui.Select]:
+        """
+        🏷️ 更換稱號：先選分組，再選那組已解鎖的稱號 (Discord 選單最多 25 個選項，稱號全放一起會放不下)
+        一個都沒解鎖 ➔ 只有一個反灰的選單
+        """
         unlocked, equipped = self.title_state["unlocked"], self.title_state["equipped"]
+        if not unlocked:
+            select = ui.Select(placeholder="🏷️ 還沒有解鎖任何稱號 (祈願 10 抽就有第一個)", disabled=True,
+                               options=[discord.SelectOption(label="不戴稱號", value="__none__")])
+            return [select]
+        groups = title_data.group_titles(unlocked)
+        current = self.title_group
+        if current not in groups:
+            current = title_data.title_group(equipped) if equipped in unlocked else None
+            if current not in groups:
+                current = title_data.title_group(unlocked[0]) or next(iter(groups))
+        self.title_group = current
+
+        group_select = ui.Select(placeholder="🗂️ 稱號分組…", options=[
+            discord.SelectOption(
+                label=title_data.TITLE_GROUPS.get(key, {}).get("name", "🏷️ 其他"), value=key, default=(key == current),
+                description=f"已解鎖 {len(tids)} 個" + ("・戴著的稱號在這組" if equipped in tids else ""))
+            for key, tids in list(groups.items())[:25]
+        ])
+        group_select.callback = self.on_title_group
+
         options = [
             discord.SelectOption(label=title_data.title_label(tid), value=tid, default=(tid == equipped),
                                  description=title_data.TITLES[tid]["desc"][:100])
-            for tid in unlocked[:24]
+            for tid in groups[current][:24]
         ]
         options.append(discord.SelectOption(label="不戴稱號", value="__none__", default=(equipped is None),
                                             description="名字下面不顯示稱號"))
-        select = ui.Select(
-            placeholder="🏷️ 更換稱號…" if unlocked else "🏷️ 還沒有解鎖任何稱號 (祈願 10 抽就有第一個)",
-            options=options, disabled=not unlocked,
-        )
-        select.callback = self.on_title
-        return select
+        title_select = ui.Select(placeholder="🏷️ 更換稱號…", options=options)
+        title_select.callback = self.on_title
+        return [group_select, title_select]
+
+    async def on_title_group(self, interaction: discord.Interaction):
+        """切換稱號分組：只換第二個選單的內容，不動資料"""
+        self.title_group = interaction.data["values"][0]
+        self.build(*self.data)
+        await interaction.response.edit_message(view=self)
 
     async def on_title(self, interaction: discord.Interaction):
         value = interaction.data["values"][0]

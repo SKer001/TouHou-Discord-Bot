@@ -64,6 +64,9 @@ check("perfect titles", [(td.TITLES[f"perfect_{n}"]["rarity"], td.TITLES[f"perfe
 check("perfect condition", td.condition_text("perfect_10") == "卡冊有 10 種完美卡 (完整度 1.0000)")
 check("requires text", td.condition_text("lr_1") == "卡冊有 1 種角色的 LR 卡，且已獲得「黃金卡冊」")
 check("requires exist", all(t.get("requires", "ur_1") in td.TITLES for t in td.TITLES.values()))
+check("every title grouped", all(td.title_group(t) for t in td.TITLES))
+check("group sizes ok", len(td.TITLE_GROUPS) <= 25 and all(len(v) <= 24 for v in td.group_titles(list(td.TITLES)).values()))
+check("group order", list(td.group_titles(["pool_all", "draw_10", "ur_1"])) == ["draw", "rare", "pool"])
 check("label", td.title_label("draw_2000") == "[UR] 賽錢箱的守護神")
 check("color", td.title_color("draw_5000") == 0xE74C3C and td.title_color(None) == td.NO_TITLE_COLOR == 0x5865F2)
 
@@ -189,9 +192,15 @@ async def main():
     pv = it.view
     check("no title fixed color", accent(pv) == td.NO_TITLE_COLOR)
     sel = selects(pv)
-    check("title select on own card", len(sel) == 1 and not sel[0].disabled
-          and [o.value for o in sel[0].options] == ["draw_100", "draw_10", "synth_1", "__none__"])
-    check("select shows desc", sel[0].options[0].description == td.TITLES["draw_100"]["desc"])
+    # 先選分組再選稱號 (Discord 選單最多 25 個，稱號全放一起放不下)；預設 = 最高等級稱號那組
+    check("group + title selects", len(sel) == 2 and [o.value for o in sel[0].options] == ["draw", "synth"]
+          and [o.label for o in sel[0].options] == ["🎰 祈願", "⚗️ 合成"] and sel[0].options[0].default)
+    check("title select on own card", not sel[1].disabled and [o.value for o in sel[1].options] == ["draw_100", "draw_10", "__none__"])
+    check("select shows desc", sel[1].options[0].description == td.TITLES["draw_100"]["desc"])
+    ig = Interaction(uid=A, data={"values": ["synth"]}); await pv.on_title_group(ig)
+    sel = selects(pv)
+    check("switch group", [o.value for o in sel[1].options] == ["synth_1", "__none__"] and sel[0].options[1].default)
+    ig = Interaction(uid=A, data={"values": ["draw"]}); await pv.on_title_group(ig)
 
     i2 = Interaction(uid=A, data={"values": ["draw_100"]}); await pv.on_title(i2)
     t = texts(pv)
