@@ -72,6 +72,13 @@ TITLES = {
                   "desc": "你來神社的日子，比靈夢打掃的日子還多。"},
     "daily_365": {"name": "四季的參拜者", "rarity": "LR", "stat": "daily_count", "min": 365,
                   "desc": "看過了神社的春櫻、夏祭、秋楓和冬雪，整整一年都沒有離開。"},
+    # 🔥 連續簽到 (最長連續紀錄 best_streak，0.31.005 起才開始記；2026-11-13 使用者選三個都做)
+    "streak_30": {"name": "一日不缺", "rarity": "SSR", "stat": "best_streak", "min": 30,
+                  "desc": "整整一個月每天都來，靈夢開始擔心你是不是住在神社了。"},
+    "streak_100": {"name": "百日不斷", "rarity": "UR", "stat": "best_streak", "min": 100,
+                   "desc": "連續一百天沒有缺席，這份毅力連神明都動容。"},
+    "streak_365": {"name": "永遠的參拜者", "rarity": "LR", "stat": "best_streak", "min": 365,
+                   "desc": "一年三百六十五天從未間斷，你就是博麗神社的一部分。"},
 }
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}

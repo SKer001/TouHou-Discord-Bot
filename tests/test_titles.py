@@ -86,6 +86,11 @@ async def main():
     check("daily titles unlocked", (await udm.get_title_state(D))["unlocked"] == ["daily_30", "daily_7"])
     check("daily stats", (await udm.get_title_stats(D))["daily_count"] == 30)
     check("daily condition", td.condition_text("daily_365") == "累積簽到 365 天")
+    check("streak titles", [(td.TITLES[t]["rarity"], td.TITLES[t]["min"]) for t in ("streak_30", "streak_100", "streak_365")]
+          == [("SSR", 30), ("UR", 100), ("LR", 365)])
+    sql("UPDATE users SET best_streak = 100, daily_streak = 1 WHERE user_id = ?", (D,))
+    check("streak uses best", (await udm.get_title_state(D))["unlocked"][:2] == ["streak_100", "streak_30"])
+    check("streak condition", td.condition_text("streak_30") == "連續簽到 30 天")
     A = 1
     st = await udm.get_title_state(A)
     check("new player no titles", st == {"equipped": None, "unlocked": []})
