@@ -259,12 +259,13 @@ def check_titles(user_id: int, unlocked: list[str], known: str | None) -> tuple[
     稱號 (unlocked = title_data.unlocked_titles)：known = 上次看到的已解鎖稱號 (逗號分隔，存在 notify_watch，不會被清掉)
     - 新解鎖的每個稱號通知一次 (key = 稱號 id)
     - known 是 None = 系統剛上線時的第一輪 (由呼叫端決定)：只記錄、不通知，免得舊玩家一次收到一堆
+    - known 只增不減：UR / LR 稱號賣卡會失去，之後再拿到不會重複私訊
     回傳 (通知, 新的 known 值；沒變回傳 None)
     """
-    cur = ",".join(sorted(unlocked))
     if known is None:
-        return [], cur
+        return [], ",".join(sorted(unlocked))
     before = set(filter(None, known.split(",")))
+    cur = ",".join(sorted(before | set(unlocked)))
     notices = [_notice(user_id, "title_unlocked", tid, title_id=tid, name=title_data.TITLES[tid]["name"],
                        rarity=title_data.TITLES[tid]["rarity"], desc=title_data.TITLES[tid]["desc"],
                        condition=title_data.condition_text(tid))
@@ -325,7 +326,10 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
         async with db.execute(
             "SELECT u.user_id, COALESCE(g.total_draws, 0) AS total_draws, COALESCE(g.total_fusions, 0) AS total_fusions, "
             "COALESCE(g.total_synths, 0) AS total_synths, COALESCE(u.daily_count, 0) AS daily_count, "
-            "COALESCE(u.best_streak, 0) AS best_streak FROM users u LEFT JOIN gacha_stats g ON g.user_id = u.user_id"
+            "COALESCE(u.best_streak, 0) AS best_streak, COALESCE(k.ur_kinds, 0) AS ur_kinds, "
+            "COALESCE(k.lr_kinds, 0) AS lr_kinds FROM users u LEFT JOIN gacha_stats g ON g.user_id = u.user_id "
+            f"LEFT JOIN ({udm.TITLE_CARD_KINDS_SQL.replace('SELECT ', 'SELECT user_id, ', 1)} "
+            "GROUP BY user_id) k ON k.user_id = u.user_id"
         ) as cursor:
             title_rows = [dict(r) for r in await cursor.fetchall()]   # 欄位要跟 udm.get_title_stats 一致
 

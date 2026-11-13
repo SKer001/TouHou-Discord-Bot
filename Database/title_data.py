@@ -2,7 +2,8 @@
 🏷️ 玩家稱號 (純資料，不碰資料庫)：在 /profile 選一個戴上，顯示在名字下面
 
 - 每個稱號：name 名稱、rarity 等級 (跟卡牌一樣 N～LR)、desc 說明 (顯示成灰色小斜體)、
-  stat + min = 解鎖條件 (玩家統計 >= min 就解鎖，不另外存「已解鎖」名單)
+  stat + min = 解鎖條件 (玩家統計 >= min 就解鎖，不另外存「已解鎖」名單)；
+  requires = 前一個稱號也要有才解鎖 (換統計的地方要寫，例如 LR 收藏要先有 10 種 UR)
 - 等級決定 /profile 色條的顏色 (沿用圖鑑的階級色)；沒戴稱號 = Discord 品牌色
 - 新增稱號：在 TITLES 加一筆即可；stat 要是 title_stats() (User_DB_Manager.get_title_stats) 有的鍵
 - 稱號清單、名稱、門檻都是使用者決定的 (2026-11-13 開始，一組一組加)
@@ -79,6 +80,17 @@ TITLES = {
                    "desc": "連續一百天沒有缺席，這份毅力連神明都動容。"},
     "streak_365": {"name": "永遠的參拜者", "rarity": "LR", "stat": "best_streak", "min": 365,
                    "desc": "一年三百六十五天從未間斷，你就是博麗神社的一部分。"},
+    # 🌟 UR / LR 收藏 (卡冊裡「現在」有幾種角色的 UR / LR，賣掉就會失去；2026-11-13 使用者選 B)
+    "ur_1": {"name": "金色的奇蹟", "rarity": "SR", "stat": "ur_kinds", "min": 1,
+             "desc": "第一次把 UR 卡握在手裡，手還在發抖。"},
+    "ur_5": {"name": "傳說收藏家", "rarity": "SSR", "stat": "ur_kinds", "min": 5,
+             "desc": "五位角色的 UR 卡排在卡冊裡，金光刺眼。"},
+    "ur_10": {"name": "黃金卡冊", "rarity": "UR", "stat": "ur_kinds", "min": 10,
+              "desc": "卡冊裡的金色多到靈夢想跟你借錢。"},
+    "lr_1": {"name": "觸及傳說之人", "rarity": "UR", "stat": "lr_kinds", "min": 1, "requires": "ur_10",
+             "desc": "拿到了只存在於傳說中的卡，連紫都從隙間探頭看了一眼。"},
+    "lr_3": {"name": "幻想的頂點", "rarity": "LR", "stat": "lr_kinds", "min": 3, "requires": "lr_1",
+             "desc": "三張傳說都在你手上，幻想鄉已經沒有你沒見過的奇蹟。"},
 }
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
@@ -86,7 +98,10 @@ RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
 
 def unlocked_titles(stats: dict) -> list[str]:
     """依玩家統計列出已解鎖的稱號 id (等級高的在前，同等級照 TITLES 順序)"""
-    ids = [tid for tid, t in TITLES.items() if stats.get(t["stat"], 0) >= t["min"]]
+    def ok(tid: str) -> bool:
+        t = TITLES[tid]
+        return stats.get(t["stat"], 0) >= t["min"] and (not t.get("requires") or ok(t["requires"]))
+    ids = [tid for tid in TITLES if ok(tid)]
     return sorted(ids, key=lambda tid: -RARITY_ORDER[TITLES[tid]["rarity"]])
 
 
@@ -103,8 +118,17 @@ def title_color(tid: str | None) -> int:
 def condition_text(tid: str) -> str:
     """解鎖條件的文字 (選單說明、之後的稱號一覽用)"""
     t = TITLES[tid]
+    text = _stat_text(t)
+    if t.get("requires"):   # 前一個稱號也要有 (2026-11-13 使用者：獲得稱號前必須先擁有前一個)
+        text += f"，且已獲得「{TITLES[t['requires']]['name']}」"
+    return text
+
+
+def _stat_text(t: dict) -> str:
     return {"total_draws": f"累計祈願 {t['min']:,} 抽",
             "total_fusions": f"累計融合 {t['min']:,} 次",
             "total_synths": f"累計合成 {t['min']:,} 次",
             "daily_count": f"累積簽到 {t['min']:,} 天",
-            "best_streak": f"連續簽到 {t['min']:,} 天"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "best_streak": f"連續簽到 {t['min']:,} 天",
+            "ur_kinds": f"卡冊有 {t['min']:,} 種角色的 UR 卡",
+            "lr_kinds": f"卡冊有 {t['min']:,} 種角色的 LR 卡"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")

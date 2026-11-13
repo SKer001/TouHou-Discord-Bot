@@ -547,6 +547,13 @@ async def update_visibility(user_id: int, is_public: bool):
 # ---------------------------------------------------------
 # 🏷️ 稱號 (清單與條件在 Database/title_data.py)
 # ---------------------------------------------------------
+# 卡冊裡「現在」有幾種角色的 UR / LR (稱號用；上架中的卡不在 gacha_cards，不算)
+TITLE_CARD_KINDS_SQL = (
+    "SELECT COUNT(DISTINCT CASE WHEN rarity = 'UR' THEN character_key END) AS ur_kinds, "
+    "COUNT(DISTINCT CASE WHEN rarity = 'LR' THEN character_key END) AS lr_kinds FROM gacha_cards"
+)
+
+
 async def get_title_stats(user_id: int) -> dict:
     """解鎖稱號用的玩家統計 (title_data 的 stat 鍵)"""
     async with connect() as db:
@@ -554,10 +561,14 @@ async def get_title_stats(user_id: int) -> dict:
             row = await cursor.fetchone()
         async with db.execute("SELECT daily_count, best_streak FROM users WHERE user_id = ?", (user_id,)) as cursor:
             user = await cursor.fetchone()
+        async with db.execute(TITLE_CARD_KINDS_SQL + " WHERE user_id = ?", (user_id,)) as cursor:
+            kinds = await cursor.fetchone()
     keys = ("total_draws", "total_fusions", "total_synths")
     stats = {k: (row[k] if row else 0) for k in keys}
     stats["daily_count"] = (user["daily_count"] or 0) if user else 0
     stats["best_streak"] = (user["best_streak"] or 0) if user else 0
+    stats["ur_kinds"] = kinds["ur_kinds"] or 0
+    stats["lr_kinds"] = kinds["lr_kinds"] or 0
     return stats
 
 

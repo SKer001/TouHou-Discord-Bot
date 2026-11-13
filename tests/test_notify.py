@@ -82,6 +82,9 @@ def pure_checks(now):
     check("titles notice data", n[0]["data"]["name"] == "博麗神社的常客" and n[0]["data"]["rarity"] == "SR")
     check("titles unchanged", ndm.check_titles(A, ["draw_10"], "draw_10") == ([], None))
     check("titles new player", [x["key"] for x in ndm.check_titles(A, ["draw_10"], "")[0]] == ["draw_10"])
+    # UR 卡賣掉 ➔ 稱號失去，但 known 保留；再拿到不會重複私訊
+    check("titles lost kept", ndm.check_titles(A, ["draw_10"], "draw_10,ur_1") == ([], None))
+    check("titles regained silent", ndm.check_titles(A, ["ur_1", "draw_10"], "draw_10,ur_1") == ([], None))
     from importlib import import_module
     nc = import_module("Cogs.load-general.Components.notify_components")
     t = nc.notice_text(n[0])
