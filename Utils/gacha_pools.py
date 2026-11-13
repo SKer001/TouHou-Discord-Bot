@@ -69,5 +69,5 @@ def collection_stats(owned: set) -> dict:
 
 
 def oshi_stats(counts: dict) -> dict:
-    """推角稱號用的統計 (counts = 卡冊現在每位角色幾張 {角色id: 張數}，階級不限)：oshi:<卡池>:<角色id> = 張數"""
+    """推角稱號用的統計 (counts = 卡冊現在每位角色有幾個階級有完美卡 {角色id: 階級數})：oshi:<卡池>:<角色id> = 階級數"""
     return {f"oshi:{pool}:{cid}": counts.get(cid, 0) for pool, members in pool_members().items() for cid in members}

@@ -126,25 +126,25 @@ async def main():
           and "pool_th06_chars" in unlocked and "pool_classic_cards" in unlocked)
     check("pool condition text", td.condition_text("pool_th06_chars") == "紅魔鄉卡池的角色全部到齊"
           and td.condition_text("pool_classic_cards") == "舊作卡池的卡全部收集 (每個階級)")
-    # 💕 推角：同一位角色 10 張 (階級不限)，名稱「我是XXX的狗!!!」，每位角色自動一個
+    # 💕 推角：那位角色每個階級各一張完美卡 (完整度 1.0000)，名稱「我是XXX的狗!!!」，每位角色自動一個
     O = 63
     await udm.get_or_create_user(O)
-    for i in range(10):
-        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, 'cirno', 'x', ?, 0.5)",
-            (f"o{i}", O, ["SR", "SSR", "UR"][i % 3]))
-    for i in range(9):
-        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, 'reimu', 'x', 'SR', 0.5)",
-            (f"q{i}", O))
+    cards = [("cirno", "SR", 1.0), ("cirno", "SR", 0.3), ("cirno", "SSR", 1.0), ("cirno", "UR", 0.99996),
+             ("reimu", "SR", 1.0), ("reimu", "SSR", 1.0), ("reimu", "UR", 0.9999)]   # 靈夢 UR 不完美
+    for i, (ck, r, c) in enumerate(cards):
+        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, ?, 'x', ?, ?)",
+            (f"o{i}", O, ck, r, c))
     st = await udm.get_title_stats(O)
-    check("oshi counts", st["oshi:th06:cirno"] == 10 and st["oshi:classic:reimu"] == 9 and st["oshi:th06:rumia"] == 0)
+    check("oshi counts", st["oshi:th06:cirno"] == 3 and st["oshi:classic:reimu"] == 2 and st["oshi:th06:rumia"] == 0)
     unlocked = (await udm.get_title_state(O))["unlocked"]
     check("oshi unlocked", "oshi_cirno" in unlocked and "oshi_reimu" not in unlocked)
     check("oshi name", td.TITLES["oshi_cirno"]["name"] == "我是琪露諾的狗!!!" and td.TITLES["oshi_cirno"]["rarity"] == "SR")
-    check("oshi every character", all(f"oshi_{cid}" in td.TITLES for m in members.values() for cid in m))
-    check("oshi condition", td.condition_text("oshi_cirno") == "卡冊有 10 張琪露諾的卡 (階級不限)")
+    check("oshi every character", all(f"oshi_{cid}" in td.TITLES and td.TITLES[f"oshi_{cid}"]["min"] == len(rs)
+                                      for m in members.values() for cid, rs in m.items()))
+    check("oshi condition", td.condition_text("oshi_cirno") == "卡冊有琪露諾每個階級 (SR / SSR / UR) 各一張完美卡 (完整度 1.0000)")
     check("oshi groups", td.title_group("oshi_reimu") == "oshi_classic" and td.title_group("oshi_cirno") == "oshi_th06"
           and td.TITLE_GROUPS["oshi_th06"]["name"] == "💕 推角・紅魔鄉")
-    sql("DELETE FROM gacha_cards WHERE instance_id = 'o0'")
+    sql("DELETE FROM gacha_cards WHERE instance_id = 'o2'")   # 賣掉琪露諾 SSR 完美卡
     check("oshi sold lost", "oshi_cirno" not in (await udm.get_title_state(O))["unlocked"])
     check("every pool has titles", all(any(t["stat"] == f"pool_{k}:{p}" for t in td.TITLES.values())
                                        for p in gp.GACHA_POOLS for k in ("chars", "cards")))

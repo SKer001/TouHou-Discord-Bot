@@ -333,13 +333,14 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             "GROUP BY user_id) k ON k.user_id = u.user_id"
         ) as cursor:
             title_rows = [dict(r) for r in await cursor.fetchall()]   # 欄位要跟 udm.get_title_stats 一致
-        async with db.execute("SELECT user_id, character_key, rarity, COUNT(*) AS n FROM gacha_cards "
+        async with db.execute("SELECT user_id, character_key, rarity, MAX(completeness) AS best FROM gacha_cards "
                               "GROUP BY user_id, character_key, rarity") as cursor:
             owned_cards, char_counts = {}, {}
             for r in await cursor.fetchall():
                 owned_cards.setdefault(r["user_id"], set()).add((r["character_key"], r["rarity"]))
-                cc = char_counts.setdefault(r["user_id"], {})
-                cc[r["character_key"]] = cc.get(r["character_key"], 0) + r["n"]
+                if r["best"] >= 0.99995:   # 推角：有完美卡的階級數
+                    cc = char_counts.setdefault(r["user_id"], {})
+                    cc[r["character_key"]] = cc.get(r["character_key"], 0) + 1
     for row in title_rows:   # 📚 卡池收集、💕 推角 (跟 udm.get_title_stats 一樣)
         row.update(collection_stats(owned_cards.get(row["user_id"], set())))
         row.update(oshi_stats(char_counts.get(row["user_id"], {})))

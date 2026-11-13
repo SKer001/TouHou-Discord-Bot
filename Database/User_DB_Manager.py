@@ -568,13 +568,14 @@ async def get_title_stats(user_id: int) -> dict:
             user = await cursor.fetchone()
         async with db.execute(TITLE_CARD_KINDS_SQL + " WHERE user_id = ?", (user_id,)) as cursor:
             kinds = await cursor.fetchone()
-        async with db.execute("SELECT character_key, rarity, COUNT(*) AS n FROM gacha_cards WHERE user_id = ? "
+        async with db.execute("SELECT character_key, rarity, MAX(completeness) AS best FROM gacha_cards WHERE user_id = ? "
                               "GROUP BY character_key, rarity", (user_id,)) as cursor:
             rows = await cursor.fetchall()
     owned = {(r["character_key"], r["rarity"]) for r in rows}
-    counts = {}
+    counts = {}   # 推角：每位角色有幾個階級有完美卡 (完整度 1.0000，同 TITLE_CARD_KINDS_SQL)
     for r in rows:
-        counts[r["character_key"]] = counts.get(r["character_key"], 0) + r["n"]
+        if r["best"] >= 0.99995:
+            counts[r["character_key"]] = counts.get(r["character_key"], 0) + 1
     keys = ("total_draws", "total_fusions", "total_synths")
     stats = {k: (row[k] if row else 0) for k in keys}
     stats["daily_count"] = (user["daily_count"] or 0) if user else 0
