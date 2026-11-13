@@ -1,7 +1,11 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from Database.User_DB_Manager import reset_daily, add_money, add_exp, update_user_inventory, add_stamina
+from Database.User_DB_Manager import (
+    reset_daily, add_money, add_exp, update_user_inventory, add_stamina,
+    get_title_state, get_granted_titles, set_granted_title, set_equipped_title,
+)
+from Database import title_data
 from Utils.config import is_admin
 from Utils.components import send_notice
 
@@ -83,6 +87,62 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
             interaction,
             f"⚡ 已{action} **{target.display_name}** 的體力 `{abs(amount)}` 點\n目前體力：`{info['stamina']} / {info['max']}`",
         )
+
+    # 6. 🏷️ /admin-user title 管理員直接給 / 收回 / 戴上稱號 (不用符合條件；2026-11-13 使用者要求)
+    TITLE_ACTIONS = [
+        app_commands.Choice(name="🏷️ 戴上 (順便給)", value="equip"),
+        app_commands.Choice(name="🎁 給稱號", value="grant"),
+        app_commands.Choice(name="🗑️ 收回稱號", value="revoke"),
+        app_commands.Choice(name="✖️ 卸下稱號", value="unequip"),
+        app_commands.Choice(name="📋 查看", value="list"),
+    ]
+
+    async def title_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        """稱號超過 25 個：依輸入的文字 (名稱 / id / 等級) 篩選，等級高的在前"""
+        cur = current.strip().lower()
+        tids = sorted(title_data.TITLES, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
+        return [app_commands.Choice(name=title_data.title_label(t), value=t) for t in tids
+                if not cur or cur in t.lower() or cur in title_data.title_label(t).lower()][:25]
+
+    @app_commands.command(name="title", description="【開發者專用】直接給、收回、戴上稱號 (不用符合解鎖條件)")
+    @app_commands.describe(action="要做什麼", title="稱號 (可以打名稱篩選；卸下 / 查看不用填)", target="【可選】目標成員 (留空 = 自己)")
+    @app_commands.choices(action=TITLE_ACTIONS)
+    @app_commands.autocomplete(title=title_autocomplete)
+    @app_commands.default_permissions(administrator=True)
+    async def title_cmd(self, interaction: discord.Interaction, action: app_commands.Choice[str],
+                        title: str | None = None, target: discord.User | discord.Member = None):
+        if not is_admin(interaction.user):
+            await send_notice(interaction, "❌ 無權限")
+            return
+        user = target or interaction.user
+        act = action.value
+        if act in ("equip", "grant", "revoke"):
+            if title not in title_data.TITLES:   # 可能繞過 autocomplete 亂打
+                await send_notice(interaction, "❌ 找不到這個稱號，請從選單選。")
+                return
+            label = title_data.title_label(title)
+        if act == "equip":
+            await set_granted_title(user.id, title, True)
+            await set_equipped_title(user.id, title)
+            msg = f"🏷️ **{user.display_name}** 戴上了 **{label}**"
+        elif act == "grant":
+            await set_granted_title(user.id, title, True)
+            msg = f"🎁 已給 **{user.display_name}** 稱號 **{label}** (到 /profile 可以戴上)"
+        elif act == "revoke":
+            await set_granted_title(user.id, title, False)
+            still = title in (await get_title_state(user.id))["unlocked"]
+            msg = f"🗑️ 已收回 **{user.display_name}** 的 **{label}**" + ("\n-# 他自己有達成條件，所以還是有這個稱號" if still else "")
+        elif act == "unequip":
+            await set_equipped_title(user.id, None)
+            msg = f"✖️ **{user.display_name}** 已卸下稱號"
+        else:
+            msg = f"📋 **{user.display_name}** 的稱號"
+        state = await get_title_state(user.id)
+        granted = await get_granted_titles(user.id)
+        equipped = title_data.title_label(state["equipped"]) if state["equipped"] else "沒戴"
+        given = "、".join(title_data.title_label(t) for t in granted if t in title_data.TITLES) or "無"
+        msg += f"\n戴著：`{equipped}`\n已解鎖 `{len(state['unlocked'])}` 個 (管理員給的：{given})"
+        await send_notice(interaction, msg)
 
 
 async def setup(bot: commands.Bot):

@@ -4,6 +4,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 專案根
 sys.path.insert(0, ROOT); os.chdir(ROOT)
 import discord
 from discord.ext import commands
+from discord import app_commands
 from Database import User_DB_Manager as udm
 from Database import Item_DB_Manager as idm
 from Database import title_data as td
@@ -229,6 +230,34 @@ async def main():
     # 沒有任何稱號 ➔ 選單反灰
     it = Interaction(uid=3); await cmds["profile"].callback(cog, it, None, None)
     check("disabled when none", selects(it.view)[0].disabled)
+
+    # 🛠️ /admin-user title：管理員直接給 / 戴上 / 收回稱號，不用符合條件
+    from Utils import config
+    config.ADMIN_IDS = config.ADMIN_IDS | {900}
+    await bot.load_extension("Cogs.load-general.Admin-user")
+    acog = bot.get_cog("UserAdmin")
+    title_cmd = next(c for c in acog.walk_app_commands() if c.name == "title")
+    act = lambda v: app_commands.Choice(name=v, value=v)
+    G = 70
+    it = Interaction(uid=900)
+    await title_cmd.callback(acog, it, act("equip"), "draw_5000", types.SimpleNamespace(id=G, display_name="g"))
+    st = await udm.get_title_state(G)
+    check("admin equip any title", st["equipped"] == "draw_5000" and st["unlocked"] == ["draw_5000"] and "戴上了" in texts(it.view))
+    await title_cmd.callback(acog, Interaction(uid=900), act("grant"), "streak_365", types.SimpleNamespace(id=G, display_name="g"))
+    check("admin grant", (await udm.get_title_state(G))["unlocked"] == ["draw_5000", "streak_365"])
+    await title_cmd.callback(acog, Interaction(uid=900), act("revoke"), "draw_5000", types.SimpleNamespace(id=G, display_name="g"))
+    st = await udm.get_title_state(G)
+    check("admin revoke drops equipped", st["unlocked"] == ["streak_365"] and st["equipped"] is None)
+    it = Interaction(uid=900); await title_cmd.callback(acog, it, act("grant"), "亂打", None)
+    check("admin bad title", "找不到這個稱號" in texts(it.view))
+    it = Interaction(uid=G); await title_cmd.callback(acog, it, act("grant"), "draw_10", None)
+    check("non-admin blocked", "無權限" in texts(it.view) and await udm.get_granted_titles(G) == ["streak_365"])
+    choices = await acog.title_autocomplete(Interaction(uid=900), "")
+    check("autocomplete ≤ 25", len(choices) == 25 and choices[0].name.startswith("[LR]"))
+    check("autocomplete filter", [c.value for c in await acog.title_autocomplete(Interaction(uid=900), "黃金")] == ["ur_10"])
+    # 自己達成條件的稱號收回也不會不見
+    await title_cmd.callback(acog, Interaction(uid=900), act("revoke"), "draw_100", types.SimpleNamespace(id=A, display_name="a"))
+    check("revoke earned keeps", "draw_100" in (await udm.get_title_state(A))["unlocked"])
 
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")

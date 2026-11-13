@@ -47,7 +47,7 @@
 - **help.py（v0.28.000）**：`/help` 依分類介紹指令（總覽 + 選單切分類頁，ephemeral）。指令說明與參數從 `bot.tree` 即時讀，管理員指令（`admin-` 開頭）不列；分類、玩法說明在 `help_components.CATEGORIES`，**新增頂層指令要記得分類**，沒分到的會出現在「📌 其他」。
 - **leaderboard.py**：`/leaderboard category`（賽錢、💎 資產總值 = 賽錢 + 卡牌市值（`econ.get_card_values`，含上架中的卡）、P點、收集角色、卡牌總數、祈願次數、融合次數），只比較「本伺服器成員（排除 bot）∩ 資料庫有資料的玩家」；私人資料卡的玩家計入名次但顯示「🔒 私人玩家」（本人除外）；前 10 名，自己不在前 10 時另外列出。畫面在 `general_components.build_leaderboard_container`。需要 members intent（`Main.py` 用 `Intents.all()`）。
 - **Admin-user.py / Admin-item.py / Admin-sys.py / Admin-gacha.py**：管理員由 `.env` 的 `ADMIN_IDS` 決定（目前 2 位：`403895664666214400`、`414789026189672449`），一律用 `Utils.config.is_admin(interaction.user)` 判斷，其他人回「無權限」。
-  - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）
+  - `/admin-user`：`reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`（可為負數）、`title`（0.31.013：直接戴上 / 給 / 收回 / 卸下 / 查看任何人的稱號，不用符合解鎖條件；稱號用 autocomplete 打字篩選，留空 target = 自己。給的稱號存在 `users.granted_titles`，收回時自己達成條件的還是有；給的稱號不會私訊）
   - `/admin-item`：`add_item`、`add_items_batch`、`edit_item`（V2 控制台：換分類、Modal 編輯、刪除確認）、`manage [target]`、`give_items`
     - `manage`（取代舊的 `give_item` 與 `/admin-user take_item`）：`ItemManageView` 分類選單（全部 / 各分類 / 🎒 只看對方持有的）+ 每頁 10 個的堆疊列表（顯示對方持有數）→ 選道具 → `ItemAmountModal` 輸入數量：正數給予、負數扣除、0 或非整數擋下；寫入用 `adjust_item`（扣完小於 0 拒絕、剛好 0 移除），完成後重新讀取並在畫面上方顯示結果。
   - `/admin-sys`：`reload`（V2 控制台，重載結果顯示在上方、選單保留可連續重載；v0.25.000 起：單一模組會一起重載它資料夾的 `Components/`；「🔁 全部重載」先重載 `Database/`、`Utils/`、全部 Components（保留 `DB_PATH`）再重載全部 Cog、載入新檔案、卸載已不存在的模組。**改了 Database / Utils 一定要用全部重載**，單獨重載會讓沒重載的 Cog 拿到新舊混用的類別（例如 `InsufficientFunds` 接不到）、`sync`、`shutdown`

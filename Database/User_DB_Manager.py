@@ -46,7 +46,8 @@ SCHEMA_STATEMENTS = [
         daily_count   INTEGER DEFAULT 0,
         equipped_title TEXT   DEFAULT NULL,
         daily_streak  INTEGER DEFAULT 0,
-        best_streak   INTEGER DEFAULT 0
+        best_streak   INTEGER DEFAULT 0,
+        granted_titles TEXT   DEFAULT NULL
     )
     """,
     """
@@ -182,6 +183,7 @@ USERS_EXTRA_COLUMNS = [
     ("equipped_title", "TEXT DEFAULT NULL"),   # 戴著的稱號 id (Database/title_data.py)；NULL = 沒戴
     ("daily_streak", "INTEGER DEFAULT 0"),     # 目前連續簽到天數 (0.31.005 起才開始記；昨天有簽 +1，否則重新從 1 算)
     ("best_streak", "INTEGER DEFAULT 0"),      # 最長連續簽到天數 (斷掉也不會變少；連續簽到稱號用)
+    ("granted_titles", "TEXT DEFAULT NULL"),   # 管理員直接給的稱號 id (逗號分隔)；不用符合條件，/admin-user title 管理
 ]
 # 舊版 gacha_stats 缺少的欄位 (init_db 自動補上)
 GACHA_STATS_EXTRA_COLUMNS = [
@@ -584,8 +586,33 @@ async def get_title_state(user_id: int) -> dict:
     from Database import title_data
     user = await get_or_create_user(user_id)
     unlocked = title_data.unlocked_titles(await get_title_stats(user_id))
+    granted = [t for t in _split_titles(user.get("granted_titles")) if t in title_data.TITLES and t not in unlocked]
+    if granted:   # 管理員給的稱號一起列 (照等級重新排)
+        unlocked = sorted(unlocked + granted, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
     equipped = user.get("equipped_title")
     return {"equipped": equipped if equipped in unlocked else None, "unlocked": unlocked}
+
+
+def _split_titles(value: str | None) -> list[str]:
+    return [t for t in (value or "").split(",") if t]
+
+
+async def get_granted_titles(user_id: int) -> list[str]:
+    """管理員給的稱號 id (不管條件)"""
+    return _split_titles((await get_or_create_user(user_id)).get("granted_titles"))
+
+
+async def set_granted_title(user_id: int, title_id: str, granted: bool) -> list[str]:
+    """管理員給 (granted=True) / 收回稱號，回傳之後的清單 (收回的話自己達成條件的還是會有)"""
+    titles = await get_granted_titles(user_id)
+    if granted and title_id not in titles:
+        titles.append(title_id)
+    elif not granted:
+        titles = [t for t in titles if t != title_id]
+    async with connect() as db:
+        await db.execute("UPDATE users SET granted_titles = ? WHERE user_id = ?", (",".join(titles) or None, user_id))
+        await db.commit()
+    return titles
 
 
 async def set_equipped_title(user_id: int, title_id: str | None) -> bool:
