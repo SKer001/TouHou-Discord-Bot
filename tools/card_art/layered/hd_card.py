@@ -804,16 +804,19 @@ LAYERS = {
         # SR「萬年修行的靈龜」(沿用舊 SCENES)：仙山雲海上的神龜，龜殼上古老的符文發著金光、靈氣環繞
         # 去背會把身邊的金色氣焰一起去掉 ➔ 光芒、光柱、金色光點都放背景，人物層只留龜殼上的發光符文 (是身體的一部分，去背會保留)
         # N～SSR 沒有彈幕 / 魔法陣，舊 SCENES 也沒有，維持
-        "bg": ("no humans, scenery, sea of clouds, chinese mountains, towering karst peaks, waterfall, pine trees on cliffs, "
-               "golden light rays, divine light, glowing golden particles, sparkles, mist, mystical, sacred, majestic, "
-               "daylight, highly detailed, intricate details"),
+        # 2026-11-12 使用者：第一輪背景 (懸崖、瀑布的空中視角) 跟站著的烏龜不搭 ➔ 平視、前景有一塊可以站的山頂岩地
+        "bg": ("no humans, scenery, eye level, flat rocky mountain summit in the foreground, mossy stone ground, ancient twisted pine tree, "
+               "sea of clouds below, distant chinese karst peaks, golden light rays, divine light, glowing golden particles, mist, "
+               "mystical, sacred, majestic, daylight, highly detailed, intricate details"),
         "bg_negative": "1girl, person, human, character, face, animal, turtle, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark, magic circle",
         "base": ("no humans, animal focus, genjii (touhou), touhou, minogame, tortoise, ancient divine tortoise, old tortoise, land tortoise, green shell, olive brown skin, "
                  "four legs, clawed feet, long white beard, bushy white eyebrows, half-closed eyes, "
                  "long fluffy white tail, flowing white hair-like tail, wise, flying tortoise"),
         # 2026-11-12 第一輪 C1～C4 都畫出整圈金光 / 雲 / 好幾隻烏龜 (去背會切掉) ➔ 拿掉發光、飄動、仰角，改成單隻烏龜安穩站著的側面全身
-        "char": ("solo, single tortoise, standing calmly, side view, three-quarter view, ancient patterns carved on shell, "
-                 "dignified, wise expression, gentle smile, simple background, white background, full body"),
+        # 2026-11-13 使用者：背景 B2 是浮空岩塊 ➔ 人物改漂浮版 (飛在空中、四腳放鬆垂著、鬍鬚尾巴往後飄)，仍然不要光暈 / 雲
+        "char": ("solo, single tortoise, floating in the air, flying, levitating, legs relaxed and dangling, from side, three-quarter view, "
+                 "beard and white tail trailing behind in the wind, ancient patterns carved on shell, "
+                 "dignified, wise expression, half-closed eyes, simple background, white background, full body"),
         "char_negative": ("1girl, human, humanization, anthropomorphic, girl, rider, multiple tortoises, "
                           "aura, glow, glowing, golden light, energy, smoke, clouds, swirl, runes, symbols, light particles, "
                           "wings, feathers, sea turtle, flippers, dragon, waterfall, magic circle, danmaku"),
@@ -823,8 +826,10 @@ LAYERS = {
         # N「戰車技師」(沿用舊 SCENES)：在草地上修理自製的小戰車 (野花、藍天白雲、白天柔光)；拿扳手跪在戰車旁、臉頰沾油污、開朗笑
         # 外觀照萌娘百科 (封魔錄 1 面)：棕色長髮綁兩條麻花辮、棕瞳、白襯衫 + 紫色領結；舊 base 的護目鏡 / 吊帶工作褲不是原作，拿掉
         # 戰車要跟人物一起留在去背圖裡，所以戰車寫在 char (人物層)，草地、天空寫在 bg
-        "bg": ("no humans, scenery, grassy field, meadow, wildflowers, blue sky, white clouds, distant hills, "
-               "daylight, soft lighting, peaceful, highly detailed"),
+        # 2026-11-12 使用者：草地背景跟人物 (吊著的齒輪機械、生鏽工作台) 不搭 ➔ 改成修車工坊室內，吊車、齒輪掛在天花板下
+        "bg": ("no humans, scenery, indoors, workshop, garage, machine shop, steampunk, workbenches, tools hanging on walls, "
+               "hanging chains, overhead crane, large gears, pipes, scattered spare parts, warm sunlight through windows, dust particles, "
+               "eye level, cozy, highly detailed"),
         "bg_negative": "1girl, person, human, character, face, tank, vehicle, military, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
         "base": ("1girl, rika (touhou), touhou, touhou (pc-98), brown hair, long hair, twin braids, brown eyes, "
                  "white shirt, collared shirt, purple bowtie, bowtie"),
@@ -846,7 +851,8 @@ LAYERS = {
                  "pointing forward, mischievous grin, smug, looking at viewer, hair blowing in wind, petals, dynamic angle, full body"),
         "char_negative": ("military uniform, soldier, gun, rifle, mecha, robot girl, goggles, overalls, short hair, helmet, "
                           "danmaku, bullets, explosion, fire, magic circle"),
-        "char_scale": 0.65,   # 戰車比人大，人物 + 戰車整組要放得進畫窗
+        "char_scale": 0.8,    # 戰車比人大；使用者 (2026-11-12)：0.65 置中時戰車像飛在天上 ➔ 放大、往下貼地
+        "offset": (0.0, 0.17),
     },
     ("rika", "SR"): {
         # SR「花樣戰車大師」(沿用舊 SCENES)：邪眼「Evil Eye Σ」— 飛行戰車；站在邪眼上張開雙手得意大笑，天空雲海、光線
@@ -879,7 +885,7 @@ LAYERS = {
         "char": ("carrying a stack of books, holding papers, papers flying, running, cheerful smile, open mouth, "
                  "looking at viewer, twintails swaying, dynamic pose, full body"),
         "char_negative": "blue eyes, short hair, long straight hair, skirt, pleated skirt, dress, school uniform, marisa, kirisame marisa, witch hat, danmaku, magic circle",
-        "char_scale": 0.6,   # 日常場景人物小一點、融入背景 (紅美鈴 R 0.49 / SR 0.56 的經驗)
+        "char_scale": 0.85,   # 使用者 (2026-11-12)：0.6 人太小
     },
     ("chiyuri", "R"): {
         # R「水手服科學家」(沿用舊 SCENES)：在船的甲板上做實驗，拿著發光燒瓶、得意地笑 + 眨眼
@@ -910,6 +916,7 @@ LAYERS = {
                  "hat ribbons flowing, twintails flowing, wind, dynamic angle, full body"),
         "char_negative": "blue eyes, short hair, long straight hair, skirt, pleated skirt, dress, school uniform, marisa, kirisame marisa, witch hat, ship's wheel, steering wheel, chair, sitting, danmaku, magic circle",
         "char_scale": 0.6,
+        "offset": (0.0, 0.14),   # 使用者 (2026-11-12)：人往下一點 (腳踩到船艙地板)
     },
     ("yumemi", "R"): {
         # R「比較物理學教授」(沿用舊 SCENES)：大學階梯教室，黑板寫滿物理公式、桌椅、書本、大窗戶白天光線；

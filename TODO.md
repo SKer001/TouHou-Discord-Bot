@@ -25,10 +25,10 @@
 | Main | 靈夢 reimu | SR / SSR / UR | ✅ 全部完成 (SR、SSR 2026-11-12 重生) |
 | Main | 魔理沙 marisa | SR / SSR / UR | ✅ 全部完成 (SR、SSR 2026-11-12 重生) |
 | TH01 | 魅魔 mima | SR / SSR / UR | ✅ 全部完成 (2026-11-12 重生，UR 用 twilight 彈幕) |
-| TH02 | 玄爺 genji | N / R / SR | 全部重生 (陸龜、白鬍子) |
-| TH02 | 里香 rika | N / R / SR | 全部重生 |
-| TH03 | 千百合 chiyuri | N / R / SR | 全部重生 |
-| TH03 | 夢美 yumemi | R / SR / SSR | 全部重生 |
+| TH02 | 玄爺 genji | N / R / SR | ✅ 0.31.009 N / R 重生；SR 使用者選回舊版 |
+| TH02 | 里香 rika | N / R / SR | ✅ 0.31.009 N / R 重生 (N 使用者 PhotoCraft 手修)；SR 使用者選回舊版 |
+| TH03 | 千百合 chiyuri | N / R / SR | ✅ 0.31.009 |
+| TH03 | 夢美 yumemi | R / SR / SSR | ✅ 0.31.009 (三張都使用者 PhotoCraft 手修) |
 | TH04 | 艾莉 elly | N / R / SR | 全部重生 |
 | TH04 | 幻月 gengetsu | R / SR / SSR | 全部重生 (有翅膀 ➔ 翅膀分層) |
 | TH04 | 夢月 mugetsu | N / R / SR | 全部重生 |
