@@ -43,7 +43,9 @@ SCHEMA_STATEMENTS = [
         stamina       INTEGER DEFAULT 240,
         stamina_updated_at TEXT DEFAULT NULL,
         daily_count   INTEGER DEFAULT 0,
-        equipped_title TEXT   DEFAULT NULL
+        equipped_title TEXT   DEFAULT NULL,
+        daily_streak  INTEGER DEFAULT 0,
+        best_streak   INTEGER DEFAULT 0
     )
     """,
     """
@@ -177,6 +179,8 @@ USERS_EXTRA_COLUMNS = [
     ("stamina_updated_at", "TEXT DEFAULT NULL"),
     ("daily_count", "INTEGER DEFAULT 0"),   # 累積簽到天數 (滿 7 天開放市場與轉帳)
     ("equipped_title", "TEXT DEFAULT NULL"),   # 戴著的稱號 id (Database/title_data.py)；NULL = 沒戴
+    ("daily_streak", "INTEGER DEFAULT 0"),     # 目前連續簽到天數 (0.31.005 起才開始記；昨天有簽 +1，否則重新從 1 算)
+    ("best_streak", "INTEGER DEFAULT 0"),      # 最長連續簽到天數 (斷掉也不會變少；連續簽到稱號用)
 ]
 # 舊版 gacha_stats 缺少的欄位 (init_db 自動補上)
 GACHA_STATS_EXTRA_COLUMNS = [
@@ -372,16 +376,21 @@ async def claim_daily(user_id: int, today: str, fortune_level: int) -> bool:
     """
     原子性地「搶」今天的簽到名額：只有 last_daily 不是今天時才會寫入成功。
     連點按鈕或兩個視窗同時簽到，也只會有一個人拿到 True，不會重複領獎。
+    連續簽到：上次簽到是昨天 ➔ daily_streak + 1，否則從 1 重新算；best_streak 記最長紀錄 (同一個 UPDATE)
     """
+    yesterday = (datetime.strptime(today, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
     async with connect() as db:
         await _ensure_user(db, user_id)
         cursor = await db.execute(
             """
             UPDATE users
-            SET last_daily = ?, fortune_level = ?, daily_count = COALESCE(daily_count, 0) + 1
+            SET last_daily = ?, fortune_level = ?, daily_count = COALESCE(daily_count, 0) + 1,
+                daily_streak = CASE WHEN last_daily = ? THEN COALESCE(daily_streak, 0) + 1 ELSE 1 END,
+                best_streak = MAX(COALESCE(best_streak, 0),
+                                  CASE WHEN last_daily = ? THEN COALESCE(daily_streak, 0) + 1 ELSE 1 END)
             WHERE user_id = ? AND (last_daily IS NULL OR last_daily != ?)
             """,
-            (today, fortune_level, user_id, today),
+            (today, fortune_level, yesterday, yesterday, user_id, today),
         )
         claimed = cursor.rowcount == 1
         await db.commit()
@@ -543,8 +552,13 @@ async def get_title_stats(user_id: int) -> dict:
     async with connect() as db:
         async with db.execute("SELECT total_draws, total_fusions, total_synths FROM gacha_stats WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
+        async with db.execute("SELECT daily_count, best_streak FROM users WHERE user_id = ?", (user_id,)) as cursor:
+            user = await cursor.fetchone()
     keys = ("total_draws", "total_fusions", "total_synths")
-    return {k: (row[k] if row else 0) for k in keys}
+    stats = {k: (row[k] if row else 0) for k in keys}
+    stats["daily_count"] = (user["daily_count"] or 0) if user else 0
+    stats["best_streak"] = (user["best_streak"] or 0) if user else 0
+    return stats
 
 
 async def get_title_state(user_id: int) -> dict:

@@ -59,6 +59,19 @@ TITLES = {
                   "desc": "經你手合成的卡，連卡框的花紋都閃閃發亮。"},
     "synth_1000": {"name": "千錘百鍊", "rarity": "LR", "stat": "total_synths", "min": 1000,
                    "desc": "合成了上千次，你親手造就了無數張完美的卡。"},
+    # 📅 簽到 (累積簽到天數，不用連續；2026-11-13 使用者選定 A 組)
+    "daily_7": {"name": "三日坊主不再", "rarity": "N", "stat": "daily_count", "min": 7,
+                "desc": "破天荒地參拜滿一個禮拜，靈夢有點驚訝。"},
+    "daily_30": {"name": "每日參拜", "rarity": "R", "stat": "daily_count", "min": 30,
+                 "desc": "一個月沒有缺席，參拜已經成了每天的習慣。"},
+    "daily_60": {"name": "風雨無阻", "rarity": "SR", "stat": "daily_count", "min": 60,
+                 "desc": "颳風下雨都照樣上山參拜，信仰非常堅定。"},
+    "daily_100": {"name": "百日參拜", "rarity": "SSR", "stat": "daily_count", "min": 100,
+                  "desc": "完成了百日參拜，聽說這樣願望一定會實現。"},
+    "daily_200": {"name": "神社的一份子", "rarity": "UR", "stat": "daily_count", "min": 200,
+                  "desc": "你來神社的日子，比靈夢打掃的日子還多。"},
+    "daily_365": {"name": "四季的參拜者", "rarity": "LR", "stat": "daily_count", "min": 365,
+                  "desc": "看過了神社的春櫻、夏祭、秋楓和冬雪，整整一年都沒有離開。"},
 }
 
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
@@ -85,4 +98,6 @@ def condition_text(tid: str) -> str:
     t = TITLES[tid]
     return {"total_draws": f"累計祈願 {t['min']:,} 抽",
             "total_fusions": f"累計融合 {t['min']:,} 次",
-            "total_synths": f"累計合成 {t['min']:,} 次"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
+            "total_synths": f"累計合成 {t['min']:,} 次",
+            "daily_count": f"累積簽到 {t['min']:,} 天",
+            "best_streak": f"連續簽到 {t['min']:,} 天"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")

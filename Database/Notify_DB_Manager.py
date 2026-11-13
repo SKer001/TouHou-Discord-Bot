@@ -322,8 +322,12 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             stamina_rows = [dict(r) for r in await cursor.fetchall()]
         async with db.execute("SELECT * FROM notify_listings") as cursor:
             prev_listings = {r["listing_id"]: dict(r) for r in await cursor.fetchall()}
-        async with db.execute("SELECT user_id, total_draws, total_fusions, total_synths FROM gacha_stats") as cursor:
-            title_rows = [dict(r) for r in await cursor.fetchall()]
+        async with db.execute(
+            "SELECT u.user_id, COALESCE(g.total_draws, 0) AS total_draws, COALESCE(g.total_fusions, 0) AS total_fusions, "
+            "COALESCE(g.total_synths, 0) AS total_synths, COALESCE(u.daily_count, 0) AS daily_count, "
+            "COALESCE(u.best_streak, 0) AS best_streak FROM users u LEFT JOIN gacha_stats g ON g.user_id = u.user_id"
+        ) as cursor:
+            title_rows = [dict(r) for r in await cursor.fetchall()]   # 欄位要跟 udm.get_title_stats 一致
 
     # ⛩️ 神社 (每座都結算一次)
     for uid in shrine_ids:

@@ -66,6 +66,26 @@ async def main():
     await udm.init_db()
     con = sqlite3.connect(udm.DB_PATH)
     check("migrated total_synths", con.execute("SELECT total_synths FROM gacha_stats WHERE user_id = 99").fetchone() == (0,)); con.close()
+
+    # 📅 簽到稱號 (累積天數) 與連續簽到 (daily_streak / best_streak)
+    D = 50
+    check("daily titles", [td.TITLES[f"daily_{n}"]["name"] for n in (7, 30, 60, 100, 200, 365)]
+          == ["三日坊主不再", "每日參拜", "風雨無阻", "百日參拜", "神社的一份子", "四季的參拜者"])
+    for day in ("2026-11-01", "2026-11-02", "2026-11-03"):
+        await udm.claim_daily(D, day, 3)
+    def streak():
+        con = sqlite3.connect(udm.DB_PATH); r = con.execute("SELECT daily_streak, best_streak, daily_count FROM users WHERE user_id = ?", (D,)).fetchone(); con.close(); return r
+    check("streak 3", streak() == (3, 3, 3))
+    check("same day twice", await udm.claim_daily(D, "2026-11-03", 3) is False and streak() == (3, 3, 3))
+    await udm.claim_daily(D, "2026-11-05", 3)   # 11/04 沒簽 ➔ 斷掉
+    check("streak broken, best kept", streak() == (1, 3, 4))
+    await udm.claim_daily(D, "2026-11-06", 3)
+    check("streak again", streak() == (2, 3, 5))
+    await udm.claim_daily(D, "2026-12-01", 3)   # 跨月也照日期算
+    sql("UPDATE users SET daily_count = 30, best_streak = 0 WHERE user_id = ?", (D,))
+    check("daily titles unlocked", (await udm.get_title_state(D))["unlocked"] == ["daily_30", "daily_7"])
+    check("daily stats", (await udm.get_title_stats(D))["daily_count"] == 30)
+    check("daily condition", td.condition_text("daily_365") == "累積簽到 365 天")
     A = 1
     st = await udm.get_title_state(A)
     check("new player no titles", st == {"equipped": None, "unlocked": []})
