@@ -68,7 +68,8 @@ SCHEMA_STATEMENTS = [
         rarity        TEXT NOT NULL,
         title         TEXT,
         completeness  REAL NOT NULL,
-        obtained_at   TEXT
+        obtained_at   TEXT,
+        locked        INTEGER NOT NULL DEFAULT 0
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_gacha_cards_user ON gacha_cards(user_id)",
@@ -189,6 +190,10 @@ USERS_EXTRA_COLUMNS = [
 GACHA_STATS_EXTRA_COLUMNS = [
     ("total_synths", "INTEGER NOT NULL DEFAULT 0"),   # 累計合成次數 (2026-11-13 起才開始記，之前的補不回來；合成稱號用)
 ]
+# 舊版 gacha_cards 缺少的欄位 (init_db 自動補上)
+GACHA_CARDS_EXTRA_COLUMNS = [
+    ("locked", "INTEGER NOT NULL DEFAULT 0"),   # 1 = 放在收藏冊 (/card album)：卡冊、合成、融合、分解、上架都看不到也用不到
+]
 # 欄位剛補上時，現有玩家要填的值 (使用者 2026-11-05：現有玩家直接開通交易)
 USERS_BACKFILL = {"daily_count": "7"}
 
@@ -239,6 +244,12 @@ async def init_db():
             if column not in columns:
                 await db.execute(f"ALTER TABLE gacha_stats ADD COLUMN {column} {definition}")
                 print(f"🔧 [Database] 已自動為 gacha_stats 資料表補上 `{column}` 欄位！")
+        async with db.execute("PRAGMA table_info(gacha_cards)") as cursor:
+            columns = [row["name"] for row in await cursor.fetchall()]
+        for column, definition in GACHA_CARDS_EXTRA_COLUMNS:
+            if column not in columns:
+                await db.execute(f"ALTER TABLE gacha_cards ADD COLUMN {column} {definition}")
+                print(f"🔧 [Database] 已自動為 gacha_cards 資料表補上 `{column}` 欄位！")
 
         await db.commit()
     print("✅ [Database] Users.db 連線成功並已完成表單初始化！")
@@ -636,18 +647,52 @@ async def set_equipped_title(user_id: int, title_id: str | None) -> bool:
 # ---------------------------------------------------------
 # 🎴 7. 抽卡 (Gacha)：卡牌與統計
 # ---------------------------------------------------------
-async def get_user_cards(user_id: int) -> list[dict]:
-    """取得玩家持有的所有卡牌 (依取得順序)"""
+async def get_user_cards(user_id: int, include_locked: bool = False) -> list[dict]:
+    """
+    取得玩家持有的卡牌 (依取得順序)
+    - 預設不含收藏冊裡的卡 (locked = 1)：卡冊、合成、融合、分解、上架、autocomplete 都用這個，看不到也選不到
+    - include_locked=True：全部 (管理員畫面、圖鑑的「已擁有」)；每張卡多一個 "locked"
+    """
+    where = "" if include_locked else " AND locked = 0"
     async with connect() as db:
         async with db.execute(
-            """
-            SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at
-            FROM gacha_cards WHERE user_id = ? ORDER BY rowid
+            f"""
+            SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at, locked
+            FROM gacha_cards WHERE user_id = ?{where} ORDER BY rowid
             """,
             (user_id,),
         ) as cursor:
             rows = await cursor.fetchall()
     return apply_current_names([dict(row) for row in rows])
+
+
+async def get_album_cards(user_id: int) -> list[dict]:
+    """收藏冊裡的卡 (locked = 1，依取得順序)"""
+    async with connect() as db:
+        async with db.execute(
+            """
+            SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at, locked
+            FROM gacha_cards WHERE user_id = ? AND locked = 1 ORDER BY rowid
+            """,
+            (user_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+    return apply_current_names([dict(row) for row in rows])
+
+
+async def set_cards_locked(user_id: int, instance_ids: list[str], locked: bool) -> int:
+    """放進 (locked=True) / 取出收藏冊，回傳實際改動的張數 (不屬於玩家或已經是那個狀態的不算)"""
+    if not instance_ids:
+        return 0
+    placeholders = ", ".join("?" for _ in instance_ids)
+    async with connect() as db:
+        cursor = await db.execute(
+            f"UPDATE gacha_cards SET locked = ? WHERE user_id = ? AND locked = ? AND instance_id IN ({placeholders})",
+            (int(locked), user_id, int(not locked), *instance_ids),
+        )
+        await db.commit()
+    card_cache.invalidate(user_id)
+    return cursor.rowcount
 
 
 async def get_gacha_stats(user_id: int) -> dict:
@@ -814,12 +859,12 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
             async with db.execute(
                 f"""
                 SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at
-                FROM gacha_cards WHERE user_id = ? AND instance_id IN ({placeholders})
+                FROM gacha_cards WHERE user_id = ? AND locked = 0 AND instance_id IN ({placeholders})
                 """,
                 (user_id, *instance_ids),
             ) as cursor:
                 rows = {row["instance_id"]: apply_current_names(dict(row)) for row in await cursor.fetchall()}
-            if len(rows) != len(instance_ids):
+            if len(rows) != len(instance_ids):   # 收藏冊裡的卡也算不在 (不能拿去合成 / 融合)
                 raise ValueError("部分卡牌已不在你的卡冊中")
             consumed = [rows[i] for i in instance_ids]   # 保持呼叫端給的順序
 

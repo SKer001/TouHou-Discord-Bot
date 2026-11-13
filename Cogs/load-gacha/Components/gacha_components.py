@@ -248,12 +248,34 @@ def build_card_detail_container(card_data: dict, user_name: str, thumbnails: dic
         f"**專屬稱號**：{card_data['title']}\n"
         f"**完整度 (Float) 品相**：{eval_str}\n"
         f"**卡牌識別號 (Instance ID)**：`{card_data['instance_id']}`\n"
-        f"**獲得時間**：`{card_data.get('obtained_at', '未知')}`\n\n"
-        f"-# 擁有者: {user_name}"
+        f"**獲得時間**：`{card_data.get('obtained_at', '未知')}`\n"
+        + ("**🔒 收藏中**：放在收藏冊，不能合成、融合、分解、上架\n" if card_data.get("locked") else "")
+        + f"\n-# 擁有者: {user_name}"
     )
 
     container = ui.Container(accent_color=color)
     container.add_item(_card_block(text, card_data.get("character_key"), thumbnails, card_data.get("rarity")))
+    return container
+
+
+ALBUM_PER_PAGE = 10   # 收藏冊每頁幾張 (選單一頁列完)
+
+
+def build_album_container(page_cards: list[dict], page: int, total_pages: int, total: int,
+                          user_name: str, start: int = 1, result: str | None = None) -> ui.Container:
+    """🔒 收藏冊：鎖住的卡 (卡冊、合成、融合、分解、上架都看不到)，點卡可以取出"""
+    head = f"{result}\n" if result else ""
+    head += f"## 🔒 {user_name} 的收藏冊\n收藏中 `{total}` 張。放在這裡的卡不會被合成、融合、分解或上架。"
+    container = ui.Container(accent_color=discord.Color.from_rgb(233, 30, 99))
+    container.add_item(ui.TextDisplay(head))
+    container.add_item(ui.Separator())
+    if page_cards:
+        lines = [f"**{start + i}.** {c.get('emoji') or '🎴'} `[{c['rarity']}]` **{c['name']}** · `{c['completeness']:.4f}`"
+                 for i, c in enumerate(page_cards)]
+        container.add_item(ui.TextDisplay("\n".join(lines)))
+    else:
+        container.add_item(ui.TextDisplay("收藏冊是空的。\n在 `/card inventory` 點開一張卡，按「🔒 放進收藏冊」就能收進來。"))
+    container.add_item(ui.TextDisplay(f"-# 第 {page} / {total_pages} 頁"))
     return container
 
 

@@ -12,6 +12,7 @@ from Database import Economy_DB_Manager as econ
 from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Database.User_DB_Manager import (
     get_user_cards, transform_cards, draw_gacha, get_gacha_pity, get_gacha_stats, InsufficientFunds,
+    get_album_cards, set_cards_locked,
 )
 from .Components.gacha_components import (
     STACKS_PER_PAGE,
@@ -22,12 +23,14 @@ from .Components.gacha_components import (
     build_stack_list_container,
     build_stack_cards_container,
     build_card_detail_container,
+    build_album_container,
+    ALBUM_PER_PAGE,
     build_synthesis_preview_container,
     build_synthesis_result_container,
     build_fusion_preview_container,
     build_fusion_result_container,
 )
-from Utils.components import send_notice
+from Utils.components import send_notice, notice_view
 from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -508,11 +511,35 @@ class InventoryView(ui.LayoutView):
     def _build_card_detail(self):
         container = build_card_detail_container(self.selected_card, self.user_name, THUMBNAILS)
         container.add_item(ui.Separator())
-        container.add_item(ui.ActionRow(
+        buttons = [
             self._button("🔙 返回這一疊", self.back_to_stack_callback, discord.ButtonStyle.secondary),
             self._button("🎒 返回卡冊", self.back_to_list_callback, discord.ButtonStyle.secondary),
-        ))
+        ]
+        # 🔒 放進收藏冊：只有卡冊主人本人 (管理員檢視別人卡冊時不顯示)
+        if self.user_id == self.owner_id and not self.selected_card.get("locked"):
+            buttons.append(self._button("🔒 放進收藏冊", self.lock_callback, discord.ButtonStyle.primary))
+        container.add_item(ui.ActionRow(*buttons))
         self.add_item(container)
+
+    async def lock_callback(self, interaction: discord.Interaction):
+        """放進收藏冊：之後卡冊、合成、融合、分解、上架都看不到這張卡"""
+        card = self.selected_card
+        if not await set_cards_locked(self.owner_id, [card["instance_id"]], True):
+            await send_notice(interaction, "❌ 這張卡已經不在卡冊裡了，請重新開啟 `/card inventory`。")
+            return
+        self.all_cards = sort_cards(await get_user_cards(self.owner_id))
+        self.all_stacks = build_stacks(self.all_cards)
+        self.selected_card = None
+        if self.get_stack(self.selected_stack) is None:   # 這一疊收完了 ➔ 回卡冊列表
+            self.selected_stack = None
+        if not self.all_cards:
+            self.stop()
+            await interaction.response.edit_message(view=notice_view(
+                f"🔒 已把 {card.get('emoji') or '🎴'} `[{card['rarity']}]` **{card['name']}** 放進收藏冊。卡冊已經沒有其他卡了，可以用 `/card album` 查看。"))
+            return
+        await self.refresh(interaction)
+        await send_notice(interaction, f"🔒 已把 {card.get('emoji') or '🎴'} `[{card['rarity']}]` **{card['name']}** "
+                                       f"(`{card['completeness']:.4f}`) 放進收藏冊，用 `/card album` 查看或取出。")
 
     # ---------------- 互動 ----------------
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -603,6 +630,104 @@ class InventoryView(ui.LayoutView):
             return
         self.stop()
         await interaction.response.edit_message(view=result)
+
+
+# ================= 🔒 收藏冊 View (Components V2) =================
+class AlbumView(ui.LayoutView):
+    """
+    /card album：收藏冊裡的卡 (locked = 1)，分頁列表 ➔ 選一張看詳情 ➔ 📤 取出 (回到卡冊)
+    放進去的入口在 /card inventory 的卡片詳情 (InventoryView.lock_callback)
+    """
+    def __init__(self, user_id: int, user_name: str, cards: list):
+        super().__init__(timeout=180)
+        self.user_id = user_id
+        self.user_name = user_name
+        self.cards = cards
+        self.page = 1
+        self.selected = None   # 正在看的卡
+        self.result = None     # 畫面最上面的結果訊息 (取出後顯示)
+        self.build()
+
+    def _button(self, label: str, callback, style=discord.ButtonStyle.primary, disabled: bool = False) -> ui.Button:
+        btn = ui.Button(label=label, style=style, disabled=disabled)
+        if callback is not None:
+            btn.callback = callback
+        return btn
+
+    def build(self):
+        self.clear_items()
+        if self.selected:
+            container = build_card_detail_container(self.selected, self.user_name, THUMBNAILS)
+            container.add_item(ui.Separator())
+            container.add_item(ui.ActionRow(
+                self._button("🔙 返回收藏冊", self.back_callback, discord.ButtonStyle.secondary),
+                self._button("📤 取出 (回到卡冊)", self.unlock_callback, discord.ButtonStyle.danger),
+            ))
+            self.add_item(container)
+            return
+        total_pages = max(1, (len(self.cards) + ALBUM_PER_PAGE - 1) // ALBUM_PER_PAGE)
+        self.page = min(self.page, total_pages)
+        start = (self.page - 1) * ALBUM_PER_PAGE
+        page_cards = self.cards[start:start + ALBUM_PER_PAGE]
+        container = build_album_container(page_cards, self.page, total_pages, len(self.cards), self.user_name, start + 1, self.result)
+        if page_cards:
+            container.add_item(ui.Separator())
+            select = ui.Select(placeholder="🎴 選擇一張卡查看或取出...", options=[
+                discord.SelectOption(
+                    label=f"{start + i}. [{c['rarity']}] {c['name']} · {c['completeness']:.4f}"[:100],
+                    description=f"ID: {c['instance_id']}"[:100], value=c["instance_id"], emoji=c.get("emoji") or "🎴",
+                )
+                for i, c in enumerate(page_cards, start=1)
+            ])
+            select.callback = self.select_callback
+            container.add_item(ui.ActionRow(select))
+            if total_pages > 1:
+                container.add_item(ui.ActionRow(
+                    self._button("◀️ 上一頁", self.prev_callback, disabled=(self.page <= 1)),
+                    self._button(f"📄 {self.page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
+                    self._button("下一頁 ▶️", self.next_callback, disabled=(self.page >= total_pages)),
+                ))
+        self.add_item(container)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await send_notice(interaction, "❌ 這不是你的收藏冊！")
+            return False
+        return True
+
+    async def refresh(self, interaction: discord.Interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
+
+    async def select_callback(self, interaction: discord.Interaction):
+        instance_id = interaction.data["values"][0]
+        self.selected = next((c for c in self.cards if c["instance_id"] == instance_id), None)
+        if self.selected is None:
+            await send_notice(interaction, "❌ 找不到這張卡，請重新開啟 `/card album`。")
+            return
+        self.result = None
+        await self.refresh(interaction)
+
+    async def back_callback(self, interaction: discord.Interaction):
+        self.selected = None
+        await self.refresh(interaction)
+
+    async def prev_callback(self, interaction: discord.Interaction):
+        self.page = max(1, self.page - 1)
+        await self.refresh(interaction)
+
+    async def next_callback(self, interaction: discord.Interaction):
+        self.page += 1
+        await self.refresh(interaction)
+
+    async def unlock_callback(self, interaction: discord.Interaction):
+        card = self.selected
+        ok = await set_cards_locked(self.user_id, [card["instance_id"]], False)
+        self.cards = await get_album_cards(self.user_id)
+        self.selected = None
+        self.result = (f"📤 已把 {card.get('emoji') or '🎴'} `[{card['rarity']}]` **{card['name']}** 取出，回到卡冊了。" if ok
+                       else "❌ 這張卡已經不在收藏冊裡了。")
+        await self.refresh(interaction)
 
 
 # ================= ✅ 合成 / 融合確認 View (Components V2) =================
@@ -921,6 +1046,12 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
 
         view = InventoryView(user_id, sort_cards(cards), interaction.user.display_name, self)
         await interaction.followup.send(view=view)
+
+    @app_commands.command(name="album", description="🔒 收藏冊：收進來的卡不會被合成、融合、分解或上架")
+    async def view_album(self, interaction: discord.Interaction):
+        cards = await get_album_cards(interaction.user.id)
+        view = AlbumView(interaction.user.id, interaction.user.display_name, cards)
+        await interaction.response.send_message(view=view)
 
     # ---------------- 共用：代數 / 角色 autocomplete ----------------
     def _pool_label(self, pool_key: str) -> str:

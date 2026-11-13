@@ -161,7 +161,7 @@ class CharacterProfileCog(commands.Cog):
             return
 
         owned = {}
-        for card in await get_user_cards(interaction.user.id):
+        for card in await get_user_cards(interaction.user.id, include_locked=True):   # 收藏冊的卡也算擁有
             per_char = owned.setdefault(card["character_key"], {})
             per_char[card["rarity"]] = per_char.get(card["rarity"], 0) + 1
 

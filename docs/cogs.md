@@ -8,7 +8,8 @@
   - 祈願 `/card gacha pool pull_type`：每抽 `DRAW_COST = 5000` 賽錢（十連 50,000 沒有折扣，2026-11-05 使用者指定）；稀有度權重 `RARITY_WEIGHTS = [75, 22, 3]`；完整度 `generate_completeness`（高斯平方，0.001–1.0）；擲卡在 `roll_pool_cards()`，寫入走 `draw_gacha`（單一交易）。結果畫面顯示卡池名稱與保底進度，可繼續單抽/十連（沿用同卡池）/查看卡庫；非本人點按鈕會被 `interaction_check` 擋下。
   - **保底**：每個卡池各自計數，連續 `PITY_THRESHOLD = 100` 抽沒有 UR 以上（`PITY_RESET_RARITIES = {UR, LR}`）時，第 100 抽強制換成卡池中有 UR 的角色的 UR；觸發的卡帶 `"pity": True`（只用於顯示「🎯 保底」）。十連會逐抽計算。
   - **`/card history`**：各卡池累計抽數、保底 `since_ur / 100` 與進度條、上次 UR 時間，加上總祈願與融合次數。
-  - **卡冊 `/card inventory`**（`InventoryView`）：疊卡列表（同角色同階級一疊，每頁 `STACKS_PER_PAGE = 7`）→ 單一疊（依完整度高到低，每頁 `STACK_CARDS_PER_PAGE = 8`）→ 單卡詳情；卡池篩選（含「其他」）、階級篩選、排序按鈕循環切換 `INVENTORY_SORTS`（階級 / 完整度 / 最新 / 數量）。
+  - **卡冊 `/card inventory`**（`InventoryView`）：疊卡列表（同角色同階級一疊，每頁 `STACKS_PER_PAGE = 7`）→ 單一疊（依完整度高到低，每頁 `STACK_CARDS_PER_PAGE = 8`）→ 單卡詳情；卡池篩選（含「其他」）、階級篩選、排序按鈕循環切換 `INVENTORY_SORTS`（階級 / 完整度 / 最新 / 數量）。單卡詳情（本人才有）有「🔒 放進收藏冊」。
+  - **🔒 收藏冊 `/card album`**（`AlbumView`，0.32.000）：卡片 `gacha_cards.locked = 1`。鎖住的卡不會出現在卡冊、合成、融合、分解、上架與它們的 autocomplete（`get_user_cards` 預設就不含）；資料層 `transform_cards` / `decompose_cards` / `list_card` 也只認 `locked = 0`，繞過選單打 ID 也用不到。稱號、排行榜卡牌價值、圖鑑「已擁有」照樣算（使用者 2026-11-13 選照建議：不設上限、放進取出免費）。收藏冊每頁 `ALBUM_PER_PAGE = 10`，選卡 ➔ 詳情 ➔「📤 取出」。管理員 `/admin-gacha` 看得到全部，鎖住的標「🔒 收藏中」。
   - **合成 `/card synthesis pool character`**：兩張不同的、同角色、同階級、完整度都未滿 1.0000 的卡 → 一張新卡。
     - `pool` / `character` autocomplete 只列出有可合成組合（`find_synthesis_groups`）的代數與角色；送出後開 `SynthesisPickerView`：步驟 1 選第一張 → 步驟 2 只列可配對的卡（皆可分頁）→ `make_synthesis_view()` 重新讀資料庫後交給 `CardActionConfirmView`。
     - 公式 `calc_synthesis` / `roll_synthesis`：新完整度 = 較高那張 + 增幅；相對差距 `d = |a-b| / 較高那張`。

@@ -11,7 +11,6 @@ from Database.User_DB_Manager import (
     clear_gacha_cards, update_cards_completeness,
 )
 from Utils.config import is_admin
-from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Utils.components import send_notice, notice_container
 
 AUTOCOMPLETE_LIMIT = 25
@@ -189,7 +188,7 @@ class CardPickerView(ui.LayoutView):
             max_values=len(page_cards),
             options=[
                 discord.SelectOption(
-                    label=f"{i}. [{c['rarity']}] {c['completeness']:.4f}",
+                    label=f"{i}. [{c['rarity']}] {c['completeness']:.4f}" + (" 🔒 收藏中" if c.get("locked") else ""),
                     description=c["instance_id"][:100],
                     value=c["instance_id"],
                 )
@@ -219,7 +218,7 @@ class CardPickerView(ui.LayoutView):
         """重新讀取，反映其他地方 (合成、融合、刪除等) 造成的變動"""
         g = gacha_mod()
         self.cards = self._sort([
-            c for c in await get_user_cards(self.target.id)
+            c for c in await get_user_cards(self.target.id, include_locked=True)
             if c["character_key"] == self.character_key and g.card_pool_key(c) == self.pool_key
         ])
 
@@ -317,7 +316,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
             return []
         g = gacha_mod()
         counts = {}
-        for card in await card_cache.cached_user_cards(target_id):
+        for card in await get_user_cards(target_id, include_locked=True):
             pool_key = g.card_pool_key(card)
             counts[pool_key] = counts.get(pool_key, 0) + 1
         choices = []
@@ -335,7 +334,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
             return []
         g = gacha_mod()
         owned = {}
-        for card in await card_cache.cached_user_cards(target_id):
+        for card in await get_user_cards(target_id, include_locked=True):
             if g.card_pool_key(card) != pool_key:
                 continue
             entry = owned.setdefault(card["character_key"], {"name": card["name"], "emoji": card.get("emoji", "🎴"), "count": 0})
@@ -365,7 +364,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
     async def view_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member):
         if await self._deny(interaction):
             return
-        cards = await get_user_cards(target.id)
+        cards = await get_user_cards(target.id, include_locked=True)
         if not cards:
             await send_notice(interaction, f"🎒 **{target.display_name}** 的卡冊空空如也。")
             return
@@ -435,7 +434,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
                            action: str, value: float | None = None):
         """remove / set_completeness 共用：找出對方該代數該角色的卡，開啟選卡畫面"""
         g = gacha_mod()
-        cards = [c for c in await get_user_cards(target.id)
+        cards = [c for c in await get_user_cards(target.id, include_locked=True)
                  if c["character_key"] == character and g.card_pool_key(c) == pool]
         if not cards:
             await send_notice(interaction, f"❌ **{target.display_name}** 在這個代數中沒有角色 `{character}` 的卡牌。")
@@ -482,7 +481,7 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
     async def clear_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member):
         if await self._deny(interaction):
             return
-        cards = await get_user_cards(target.id)
+        cards = await get_user_cards(target.id, include_locked=True)
         if not cards:
             await send_notice(interaction, f"🎒 **{target.display_name}** 的卡冊本來就是空的。")
             return
