@@ -1121,6 +1121,8 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
             )
             if pool.startswith(EVENT_POOL_PREFIX):   # 🎪 活動卡池祈願 ➔ 那個活動的任務計數
                 await add_quest_stats(db, user_id, now, per_event={pool[len(EVENT_POOL_PREFIX):]: {"gacha_event_pool": draw_count}})
+            else:   # 一般卡池 ➔ 進行中的活動都記 gacha_pool:<卡池> (任務 type gacha_pool)
+                await add_quest_stats(db, user_id, now, stats={f"gacha_pool:{pool}": draw_count})
             await db.commit()
         except BaseException:
             await db.rollback()

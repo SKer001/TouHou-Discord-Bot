@@ -52,6 +52,7 @@
 | `serve_event_dish` | — | 招待時端出**這個活動**的活動料理份數 (點的 + 額外招待都算) |
 | `serve_favorite` | — | 成功招待 (額外端上客人最愛的料理) 的次數 |
 | `gacha_event_pool` | — | 這個活動的活動限定卡池 (`gacha.pool`) 祈願抽數；活動沒有卡池時這個任務做不完 (畫面會提示) |
+| `gacha_pool` | 卡池 id (`classic` / `th06`) | 活動期間在那個一般卡池祈願的抽數 (紅霧異變算紅魔鄉卡池) |
 | `daily` | — | 活動期間簽到天數 |
 
 - `count` = 目標數字 (`cook_each` 除外)；`reward.money` / `reward.exp` = 領取的賽錢與經驗值。

@@ -160,6 +160,7 @@ QUEST_TYPES = {
     "serve_event_dish": None,               # 招待時端出這個活動的活動料理份數
     "serve_favorite": None,                 # 成功招待 (額外端上客人最愛的料理) 的次數
     "gacha_event_pool": None,               # 這個活動的活動限定卡池祈願抽數
+    "gacha_pool": "卡池 id (classic / th06)",  # 活動期間在那個一般卡池祈願的抽數 (2026-11-14：紅霧異變算紅魔鄉卡池)
     "daily": None,                          # 活動期間簽到天數
 }
 TITLE_RARITIES = ("N", "R", "SR", "SSR", "UR", "LR")
@@ -219,6 +220,8 @@ def quest_progress(quest: dict, stats: dict) -> int:
         cur = sum(1 for d in (target or []) if stats.get(f"cook:{d}", 0) >= each)
     elif t == "serve_guest":
         cur = stats.get(f"serve_guest:{target}", 0)
+    elif t == "gacha_pool":
+        cur = stats.get(f"gacha_pool:{target}", 0)
     elif t in ("serve_event_dish", "serve_favorite", "gacha_event_pool", "daily"):
         cur = stats.get(t, 0)
     else:
@@ -258,6 +261,9 @@ def quest_goal(quest: dict, event: dict, items: dict | None = None) -> str:
         if not event.get("gacha", {}).get("pool", {}).get("characters"):
             text += "\n-# ⚠️ 這個活動目前還沒有活動限定卡池"
         return text
+    if t == "gacha_pool":
+        from Utils.gacha_pools import GACHA_POOLS
+        return f"在「{GACHA_POOLS.get(target, {}).get('name', target)}」祈願 {{p}} 抽"
     if t == "daily":
         return "活動期間簽到 {p} 天"
     return "{p}"

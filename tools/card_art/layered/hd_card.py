@@ -1033,6 +1033,49 @@ LAYERS = {
         "char_negative": "wings, weapon, suitcase",
         "char_scale": 0.85,
     },
+    # 艾莉 N / R / SR (TH04 舊卡重生)：外觀沿用 make_workflow.BASE["elly"] (金色雙鑽頭捲髮、黃瞳、白色寬簷帽纏紅緞帶、深紅長裙白圍領、紅柄大鐮刀)；
+    # 夢幻館 (幽香的住所) 的門番；鐮刀一定要留在人物層 (拿在手上，去背才不會被切掉)；EXTRA_NEGATIVE["elly"] 已擋死神斗篷 / 小町
+    # N～SR 沒有彈幕：舊 SCENES 的地磚彈幕、迴旋光環拿掉，飛起的地磚 / 花瓣放背景
+    ("elly", "N"): {
+        # N「館門守衛」：悠閒 (浪費光陰) 的門番，白天在夢幻館的鐵門前靠著鐮刀打呵欠
+        # 背景 = 洋館大門 (鐵柵門、石柱、門後的洋館)、門前的向日葵花田、藍天白雲；平視、日常柔光
+        "bg": ("no humans, scenery, eye level, ornate western mansion gate, wrought iron gate, stone gate pillars, stone path, "
+               "western mansion in the distance behind the gate, sunflower field, sunflowers, blue sky, white clouds, "
+               "daylight, soft lighting, peaceful, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, scythe, weapon, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("standing, leaning on scythe, both hands resting on scythe handle, yawning, open mouth, one eye closed, sleepy, bored, relaxed, "
+                 "looking away, from side, three-quarter view, full body"),
+        "char_negative": "cleavage, revealing clothes, short dress, skirt lift, sunflowers, flowers, gate, sitting, multiple scythes",
+        "char_scale": 0.65,   # 日常卡人物小一點融入背景；鐮刀很長，要整支放得下
+        "offset": (0.0, 0.14),   # 使用者 (2026-11-14)：往下一點，腳要踩到地板 (石板路)
+    },
+    ("elly", "R"): {
+        # R「大鐮的守衛」：闖入者來了 ➔ 在館前石板廣場擺出迎擊架式，鐮刀橫在身前擋住去路、表情認真
+        # 背景 = 夢幻館正面 (階梯、大門)、石板廣場、被掀起飛在空中的碎地磚 (原作把地磚當彈幕，這裡只當背景的碎石)、風吹向日葵花瓣
+        "bg": ("no humans, scenery, eye level, front of a grand western mansion, stone stairs, large mansion doors, stone tiled plaza, "
+               "cracked floor tiles, broken stone tiles floating in the air, debris, sunflower petals flying in the wind, "
+               "sunflowers on both sides, blue sky, wind, dramatic, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, scythe, weapon, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("battle stance, holding scythe with both hands, scythe held horizontally in front of her, blocking the way, legs apart, "
+                 "determined expression, serious, looking at viewer, hat ribbon fluttering, hair and dress fluttering in the wind, "
+                 "dynamic pose, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, floor tiles, debris, rocks, slash effect, motion lines, "
+                          "danmaku, magic circle, multiple scythes"),
+        "char_scale": 0.75,
+    },
+    ("elly", "SR"): {
+        # SR「夢幻館的最後防線」：死鐮「迴旋斬擊」的起手 ── 鐮刀高舉過頭準備甩出去，自信的壞笑、眼睛發亮；微仰視更有氣勢
+        # 背景 = 夕陽下的夢幻館 (高聳的洋館剪影、大門敞開)、滿天捲起的向日葵花瓣、光線；SR 沒有彈幕，鐮刀不畫旋轉光環 (去背會切掉)
+        "bg": ("no humans, scenery, eye level, slightly from below, towering grand western mansion, open mansion gate, stone courtyard, "
+               "sunset, orange and crimson sky, dramatic clouds, sunflower petals swirling in the wind, sunflower field, "
+               "light rays, bloom, epic, majestic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, scythe, weapon, text, watermark, lowres, worst quality, low quality, blurry, frame, border, magic circle",
+        "char": ("from below, raising scythe overhead with both hands, about to throw the scythe, fierce grin, confident, glowing eyes, "
+                 "looking at viewer, hat ribbon flowing, hair flowing, dress fluttering in the wind, dynamic angle, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, spinning effect, energy rings, slash effect, "
+                          "motion lines, petals, danmaku, magic circle, multiple scythes"),
+        "char_scale": 0.8,
+    },
 }
 
 

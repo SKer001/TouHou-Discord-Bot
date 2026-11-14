@@ -29,7 +29,7 @@
 | TH02 | 里香 rika | N / R / SR | ✅ 0.31.009 N / R 重生 (N 使用者 PhotoCraft 手修)；SR 使用者選回舊版 |
 | TH03 | 千百合 chiyuri | N / R / SR | ✅ 0.31.009 |
 | TH03 | 夢美 yumemi | R / SR / SSR | ✅ 0.31.009 (三張都使用者 PhotoCraft 手修) |
-| TH04 | 艾莉 elly | N / R / SR | 全部重生 |
+| TH04 | 艾莉 elly | N / R / SR | ✅ 0.34.001 (N 人物往下移，腳踩到石板路) |
 | TH04 | 幻月 gengetsu | R / SR / SSR | 全部重生 (有翅膀 ➔ 翅膀分層) |
 | TH04 | 夢月 mugetsu | N / R / SR | 全部重生 |
 | TH05 | 愛麗絲 alice | SR / SSR / UR | 全部重生 (舊作外觀) |

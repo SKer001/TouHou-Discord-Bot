@@ -118,7 +118,7 @@ async def main():
     expect = [("初探紅魔館廚房", "explore_location", 10, 50000, 300), ("女僕長的食譜", "cook_each", 3, 50000, 300),
               ("款待妖精女僕", "serve_guest", 5, 50000, 300), ("使魔的晚餐", "serve_guest", 5, 50000, 300),
               ("紅色的午茶時間", "serve_event_dish", 30, 100000, 500), ("完美的款待", "serve_favorite", 10, 50000, 300),
-              ("紅霧中的祈願", "gacha_event_pool", 50, 100000, 500), ("異變調查", "daily", 7, 100000, 500)]
+              ("紅霧中的祈願", "gacha_pool", 50, 100000, 500), ("異變調查", "daily", 7, 100000, 500)]
     check("quest table", [(q["name"], q["type"], events.quest_need(q), q["reward"]["money"], q["reward"]["exp"])
                           for q in ev["quests"]] == expect)
     check("targets", ev["quests"][0]["target"] == "scarlet_kitchen" and ev["quests"][2]["target"] == "fairy_maid"
@@ -134,7 +134,8 @@ async def main():
     check(f"goal text {goal}", goal == "在「🏰紅魔館廚房」採集 {p} 次")
     check("goal guest", "妖精女僕" in events.quest_goal(ev["quests"][2], ev, items))
     check("goal cook", "草莓鮮奶油蛋糕" in events.quest_goal(ev["quests"][1], ev, items))
-    check("goal gacha warns no pool", "還沒有活動限定卡池" in events.quest_goal(ev["quests"][6], ev, items))
+    check("goal gacha pool", events.quest_goal(ev["quests"][6], ev, items) == "在「🔴 紅魔鄉卡池」祈願 {p} 抽")
+    check("goal event pool warns", "還沒有活動限定卡池" in events.quest_goal({"type": "gacha_event_pool", "count": 5}, ev, items))
 
     # 稱號資料
     check("event titles in TITLES", td.TITLES[VISITOR]["name"] == "紅霧中的參拜者" and td.TITLES[RESOLVER]["rarity"] == "SSR")
@@ -170,11 +171,13 @@ async def main():
     check(f"serve counted {st}", st.get("serve_guest:fairy_maid") == 1 and st.get("serve_guest:familiar_bat") == 1
           and st.get("serve_event_dish") == 2 and st.get("serve_favorite") == 1)
     await udm.draw_gacha(A, f"event_{EV}", 10, 0, roll_none, now=NOW)
-    await udm.draw_gacha(A, "th06", 10, 0, roll_none, now=NOW)   # 一般卡池不算
+    await udm.draw_gacha(A, "th06", 10, 0, roll_none, now=NOW)   # 一般卡池記 gacha_pool:th06 (紅霧異變算紅魔鄉卡池)
+    await udm.draw_gacha(A, "classic", 1, 0, roll_none, now=NOW)
     check("claim daily", await udm.claim_daily(A, "2026-11-14", 3, now=NOW))
     check("daily twice no", not await udm.claim_daily(A, "2026-11-14", 3, now=NOW))
     st = stats(A, AUTO)
-    check(f"gacha + daily counted {st}", st.get("gacha_event_pool") == 10 and st.get("daily") == 1)
+    check(f"gacha + daily counted {st}", st.get("gacha_event_pool") == 10 and st.get("gacha_pool:th06") == 10
+          and st.get("gacha_pool:classic") == 1 and st.get("daily") == 1)
 
     board = await qdm.get_quest_board(A, now=NOW)
     check("board one event", len(board) == 1 and board[0]["run"] == AUTO and board[0]["total"] == 8)
@@ -256,7 +259,7 @@ async def main():
         r = await qdm.claim_quest(A, EV, q, now=T2)
         check(f"run2 claim {q}", r["ok"] and r["new_titles"] == [] and r["claimed_all_runs"] == 4)
     set_stats(A, RUN2, cook__evt_napolitan=1, cook__evt_darjeeling_tea=1, cook__evt_strawberry_cake=1,
-              serve_event_dish=30, serve_favorite=10, gacha_event_pool=50)
+              serve_event_dish=30, serve_favorite=10, gacha_pool__th06=50)
     got = []
     for q in ("maid_recipes", "red_tea_time", "perfect_service", "mist_prayer"):
         got += (await qdm.claim_quest(A, EV, q, now=T2))["new_titles"]
