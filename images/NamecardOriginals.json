@@ -29,6 +29,11 @@
         "jpg": "mima_full.jpg",
         "full": "mima.png"
     },
+    "mugetsu": {
+        "message_id": 1571147988267442296,
+        "jpg": "mugetsu_full.jpg",
+        "full": "mugetsu.png"
+    },
     "reimu": {
         "message_id": 1571058151929937952,
         "jpg": "reimu_full.jpg",
