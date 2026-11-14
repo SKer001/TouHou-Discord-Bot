@@ -1076,6 +1076,51 @@ LAYERS = {
                           "motion lines, petals, danmaku, magic circle, multiple scythes"),
         "char_scale": 0.8,
     },
+    # 幻月 R / SR / SSR (TH04 舊卡重生)：外觀沿用 make_workflow.BASE["gengetsu"] (萌娘百科：過肩金色直髮、金瞳、紅色大蝴蝶結、
+    # 淡粉紅長裙 + 棕紅小背心、紅領結、背後白色天使羽翼)；翅膀照大妖精 / 芙蘭 / 小惡魔的做法 ➔ 人物直接帶翅膀一起生、一起去背
+    # (BASE 已經寫了翅膀，不用 inline_wings，char_negative 也不要擋翅膀)；EXTRA_NEGATIVE["gengetsu"] 已擋黑翼 / 蝙蝠翼 / 女僕 (夢月)
+    # R～SSR 沒有彈幕 (舊 SCENES 的金色子彈、發散彈幕、魔砲拿掉)；SSR 的閃光特效由程式加；翅膀很大，人物縮小一點免得翅膀被切
+    ("gengetsu", "R"): {
+        # R「夢幻館的主人」：天然呆 ── 在夢幻館的庭園裡歪頭、手指抵下巴，一臉困惑；翅膀半收、裙擺被風輕輕吹起 (稍有動作)
+        # 背景 = 夢幻世界的庭園 (花圃、白色涼亭、遠方的洋館夢幻館)、浮空小島、粉彩天空與粉紅雲；白天柔光
+        "bg": ("no humans, scenery, eye level, dreamlike garden, flower garden, white gazebo, western mansion in the distance, "
+               "floating islands in the sky, pastel sky, pink clouds, fluffy clouds, flower petals, "
+               "daylight, soft lighting, whimsical, fantasy, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, wings, feathers, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("standing, head tilt, index finger to chin, puzzled, confused, airhead, blank stare, slightly open mouth, "
+                 "wings half folded, wings slightly spread, skirt swaying, hair swaying, three-quarter view, from side, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, question mark, "
+                          "danmaku, magic circle, sitting, swing, flowers, multiple girls"),
+        "char_scale": 0.8,
+    },
+    ("gengetsu", "SR"): {
+        # SR「金翼的夢幻魔王」：姊姊的得意氣場 ── 浮在夢幻世界的雲海上抱胸挑眉、從上往下看，翅膀大大張開 (比 R 更有氣勢)
+        # 背景 = 雲海之上的夢幻世界、金色夕陽、遠方浮在雲上的洋館、光線、飄落的金白羽毛 (羽毛只放背景，去背會被切掉)
+        "bg": ("no humans, scenery, above the clouds, sea of clouds, dream world, western mansion floating on clouds in the distance, "
+               "golden sunset, golden sky, glowing white feathers drifting in the air, light rays, bloom, "
+               "majestic, fantasy, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("floating, arms crossed, smug, raised eyebrow, proud, confident smile, looking down at viewer, slightly from below, "
+                 "wings spread wide, large white wings fully spread, hair flowing, dress fluttering in the wind, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, "
+                          "danmaku, bullets, magic circle, multiple girls"),   # 不擋 feathers (會跟羽翼打架)
+        "char_scale": 0.8,
+    },
+    ("gengetsu", "SSR"): {
+        # SSR「漆黑夢幻之支配者」：鬼畜的本性 ── 施展「發狂發散彈幕」的起手：單手往前張開放出力量、狂笑、眼睛發光、
+        # 翅膀全開、頭髮衣服被魔力吹得狂舞，微仰視 (最有動態；彈幕只有 UR/LR，這裡不畫彈幕，閃光由程式加)
+        # 背景 = 崩壞扭曲的夢幻世界：紺色 / 紫色霧氣漩渦的天空、碎裂浮空的島嶼、遠方被紺霧籠罩的洋館、光線 (原作翅膀生氣時帶紺色霧氣)
+        "bg": ("no humans, scenery, distorted dream world, swirling indigo and violet mist, dark blue fog vortex in the sky, "
+               "cracked dreamlike sky, shattered floating islands, floating rubble, western mansion silhouette shrouded in blue mist, "
+               "twilight, purple and deep blue, light rays, bloom, epic, ominous, majestic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, danmaku, bullets",
+        "char": ("floating, dynamic pose, one arm outstretched forward, open palm, releasing power, casting magic, "
+                 "sadistic smile, evil grin, crazy laugh, glowing eyes, from below, "
+                 "wings spread wide, large white wings fully spread, hair flowing wildly, dress fluttering violently, dynamic angle, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, "
+                          "danmaku, bullets, magic circle, beam, energy ball, aura, mist, multiple girls"),
+        "char_scale": 0.8,
+    },
 }
 
 
