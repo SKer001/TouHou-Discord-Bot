@@ -5,6 +5,7 @@ import discord
 from discord import ui
 
 from Database import shrine_data
+from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 
 def ts(dt, style: str = "R") -> str:
@@ -47,7 +48,7 @@ def build_shrine_container(user_name: str, s: dict, notice: str | None = None, i
         container.add_item(ui.TextDisplay(notice))
         container.add_item(ui.Separator())
 
-    box_line = f"💰 **賽錢箱**　`{s['box']:,} / {s['box_max']:,}`\n{_bar(s['box'], s['box_max'])}"
+    box_line = f"💰 **賽錢箱**　`{fmt_money(s['box'])} / {fmt_money(s['box_max'])}`\n{_bar(s['box'], s['box_max'])}"
     if s["box"] >= s["box_max"]:
         box_line += "\n-# ⚠️ 賽錢箱滿了！不回收就不會再累積"
     elif s["box_full_at"]:
@@ -197,7 +198,7 @@ def build_shop_container(prices: dict, items: dict, inventory: dict, money: int,
     for m, p in prices.items():
         pick = "▶ " if m == selected else ""
         lines.append(f"{pick}{item_label(items, m)}　`{p:,}` 賽錢 / 個　（倉庫 {inventory.get(m, 0)}）")
-    lines.append(f"\n💰 你的賽錢 `{money:,}`\n-# 只賣人里的基本食材；八目鰻、冰晶這些要自己去採集")
+    lines.append(f"\n💰 你的賽錢 `{fmt_money(money)}`\n-# 只賣人里的基本食材；八目鰻、冰晶這些要自己去採集")
     container.add_item(ui.TextDisplay("\n".join(lines)))
     return container
 

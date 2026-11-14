@@ -108,6 +108,7 @@ async def setup(bot):
 - `send_notice(interaction, "❌ 賽錢不足", footer=...)`：自動判斷 response / followup，預設 ephemeral。
 - 色條依開頭 emoji 自動上色（❌ 紅、⚠️ 橘、✅🎁 綠、↩️ 灰、其他 blurple），所以**訊息開頭一定放 emoji**。
 - 要在通知裡加按鈕時用 `notice_container()` 自己組。
+- **金額顯示** (使用者 2026-11-14)：「持有 / 餘額 / 累計」這類大數字用 `Utils.numbers.fmt_money(n)` (一萬以上縮寫成 1.5M、12.35M，最多兩位小數；以下照常 5,000)；價格、花費、獎勵、轉帳金額、手續費這些要看清楚確切數字的地方照舊 `f"{n:,}"`。
 
 ### 3.4 管理員指令
 

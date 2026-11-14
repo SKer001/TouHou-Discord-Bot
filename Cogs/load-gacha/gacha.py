@@ -32,6 +32,7 @@ from .Components.gacha_components import (
 )
 from Utils.components import send_notice, notice_view
 from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
+from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
@@ -980,7 +981,7 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
                 expected=expected_cards(pool_key, draw_count, rules) if choice_key == EVENT_POOL else None,
             )
         except InsufficientFunds as e:
-            msg = f"❌ **賽錢不足！**\n祈願需要 `{total_cost:,}` 賽錢，但你的口袋裡只有 `{e.money:,}` 賽錢...\n*靈夢看了看空蕩蕩的賽錢箱，無奈地把你請出了神社。*"
+            msg = f"❌ **賽錢不足！**\n祈願需要 `{total_cost:,}` 賽錢，但你的口袋裡只有 `{fmt_money(e.money)}` 賽錢...\n*靈夢看了看空蕩蕩的賽錢箱，無奈地把你請出了神社。*"
             await send_notice(interaction, msg)
             return
 

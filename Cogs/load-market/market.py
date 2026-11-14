@@ -14,6 +14,7 @@ from Database import Economy_DB_Manager as econ
 from Database.User_DB_Manager import get_user_cards
 from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Utils.components import send_notice
+from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 from .Components.market_components import (
     build_price_container, build_listing_lines, card_label, short_id, simple_container,
     build_listing_announce,
@@ -88,7 +89,7 @@ def reason_text(r: dict, status: dict | None = None) -> str:
         "not_found": "❌ 這張卡已經賣出或下架了。",
         "own": "❌ 不能買自己上架的卡。",
         "expired": "❌ 這張卡已經超過 7 天，下架了。",
-        "not_enough": f"❌ 賽錢不足！需要 `{r.get('total', r.get('amount', 0)):,}`，你只有 `{r.get('money', 0):,}`。",
+        "not_enough": f"❌ 賽錢不足！需要 `{r.get('total', r.get('amount', 0)):,}`，你只有 `{fmt_money(r.get('money', 0))}`。",
         "limit": f"❌ 超過今天的轉帳額度！今天還能轉 `{r.get('left', 0):,}` 賽錢。",
         "self": "❌ 不能轉給自己。",
         "bad_amount": "❌ 金額要大於 0。",
@@ -166,7 +167,7 @@ class DecomposeView(OwnerView):
                 lines.append(f"…另外 `{len(r['cards']) - 15}` 張")
             self.add_item(simple_container(
                 f"## ♻️ 分解完成\n" + "\n".join(lines) +
-                f"\n\n💰 獲得 `{r['total']:,}` 賽錢，目前持有 `{r['money']:,}` 賽錢", discord.Color.green()))
+                f"\n\n💰 獲得 `{r['total']:,}` 賽錢，目前持有 `{fmt_money(r['money'])}` 賽錢", discord.Color.green()))
             return
         if self.mode == "confirm":
             chosen = [c for c in self.cards if c["instance_id"] in self.selected]
@@ -379,7 +380,7 @@ class ListingsView(OwnerView):
             if not r["ok"]:
                 await send_notice(interaction, reason_text(r, await econ.get_trade_status(self.user_id)))
                 return
-            self.notice = f"✅ 買到了 {card_label(l)}！付了 `{r['total']:,}` 賽錢，剩下 `{r['money']:,}`。"
+            self.notice = f"✅ 買到了 {card_label(l)}！付了 `{r['total']:,}` 賽錢，剩下 `{fmt_money(r['money'])}`。"
         else:
             r = await econ.cancel_listing(self.user_id, l["listing_id"])
             if not r["ok"]:

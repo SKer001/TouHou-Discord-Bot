@@ -260,13 +260,7 @@ def condition_text(tid: str) -> str:
     return text
 
 
-def short_number(n: int) -> str:
-    """數字縮寫 (使用者 2026-11-14：1000000 ➔ 1M，最多兩位小數)：999 / 1.5K / 12.35M / 1B"""
-    n = int(n)
-    for unit, size in (("B", 1_000_000_000), ("M", 1_000_000), ("K", 1_000)):
-        if abs(n) >= size:
-            return f"{n / size:.2f}".rstrip("0").rstrip(".") + unit
-    return str(n)
+from Utils.numbers import short_number   # noqa: E402  數字縮寫 (1.5M)
 
 
 def _number(t: dict, value) -> str:

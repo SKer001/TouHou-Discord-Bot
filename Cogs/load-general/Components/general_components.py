@@ -6,6 +6,7 @@ from Database.User_DB_Manager import get_required_exp_for_level
 from Database.Item_DB_Manager import CATEGORY_NAMES
 from Database.Economy_DB_Manager import TRADE_UNLOCK_DAILY
 from Database import title_data
+from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 
 # ---------------------------------------------------------
@@ -213,7 +214,7 @@ def build_profile_container(
     container.add_item(ui.Separator())
 
     container.add_item(ui.TextDisplay(
-        f"💰 **賽錢**　`{money:,}` 兩\n"
+        f"💰 **賽錢**　`{fmt_money(money)}` 兩\n"
         f"🔴 **P點**　`{p_power:.1f}` P\n"
         f"{_stamina_text(stamina)}"
         f"⛩️ **神社倉庫**　`{total_items}` 件道具\n"
@@ -370,7 +371,7 @@ def build_inventory_container(
 # ---------------------------------------------------------
 # 排行項目：key ➔ (顯示名稱, 統計欄位, 數值格式)
 LEADERBOARD_TYPES = {
-    "money":    ("💰 賽錢",     "money",         lambda v: f"{v:,} 兩"),
+    "money":    ("💰 賽錢",     "money",         lambda v: f"{fmt_money(v)} 兩"),
     "assets":   ("💎 資產總值", "assets",        lambda v: f"{v:,} 兩"),
     "level":    ("🔴 P點",      "level",         lambda v: f"{v / 10:.1f} P"),
     "chars":    ("📚 收集角色", "char_count",    lambda v: f"{v} 位"),

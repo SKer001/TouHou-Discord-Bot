@@ -9,6 +9,7 @@ from discord.ext import commands
 from Database import Economy_DB_Manager as econ
 from Utils.components import send_notice
 from .Components.trade_components import simple_container, build_transfer_dm
+from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 
 def reason_text(r: dict, status: dict | None = None) -> str:
@@ -18,7 +19,7 @@ def reason_text(r: dict, status: dict | None = None) -> str:
         return f"🔒 累積簽到 `{econ.TRADE_UNLOCK_DAILY}` 天才能使用市場與轉帳（目前 `{n}` 天）。"
     return {
         "target_locked": f"🔒 對方還沒開通交易（要累積簽到 `{econ.TRADE_UNLOCK_DAILY}` 天）。",
-        "not_enough": f"❌ 賽錢不足！要轉 `{r.get('amount', 0):,}`，你只有 `{r.get('money', 0):,}`。",
+        "not_enough": f"❌ 賽錢不足！要轉 `{r.get('amount', 0):,}`，你只有 `{fmt_money(r.get('money', 0))}`。",
         "limit": f"❌ 超過今天的轉帳額度！今天還能轉 `{r.get('left', 0):,}` 賽錢。",
         "self": "❌ 不能轉給自己。",
         "bad_amount": "❌ 金額要大於 0。",
@@ -68,7 +69,7 @@ class TransferView(ui.LayoutView):
         self.clear_items()
         self.add_item(simple_container(
             f"✅ 已轉給 **{self.target.display_name}** `{self.amount:,}` 賽錢（對方實收 `{r['received']:,}`，手續費 `{r['fee']:,}`）\n"
-            f"你剩下 `{r['money']:,}` 賽錢 · 今天還能轉 `{r['left_today']:,}`" +
+            f"你剩下 `{fmt_money(r['money'])}` 賽錢 · 今天還能轉 `{r['left_today']:,}`" +
             ("\n-# 📨 已私訊通知對方" if dm_ok else "\n-# ⚠️ 對方關閉了私訊，沒有收到通知"), discord.Color.green()))
         await interaction.response.edit_message(view=self)
 

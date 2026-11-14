@@ -18,6 +18,7 @@ from .Components.shrine_components import (
     build_shrine_container, build_serve_container, build_explore_container, build_cook_container, build_shop_container,
 )
 from .Components.general_components import get_inventory_view_data, build_inventory_container
+from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 
 THUMBNAILS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "images", "Thumbnails.json")
@@ -382,7 +383,7 @@ class ShrineView(ui.LayoutView):
     # ---------------- 神社 ----------------
     async def on_collect(self, interaction):
         r = await econ.shrine_collect(self.user.id)
-        notice = f"💰 回收了 `{r['collected']:,}` 賽錢！目前持有 `{r['money']:,}` 賽錢。" if r["collected"] else "⚠️ 賽錢箱裡還沒有錢。"
+        notice = f"💰 回收了 `{r['collected']:,}` 賽錢！目前持有 `{fmt_money(r['money'])}` 賽錢。" if r["collected"] else "⚠️ 賽錢箱裡還沒有錢。"
         await self._show(interaction, "main", notice, r)
 
     async def on_clean(self, interaction):
@@ -433,7 +434,7 @@ class ShrineView(ui.LayoutView):
         if rw["event_count"]:
             extras.append(f"🎪 活動料理 ×{self.rules['event_dish_bonus']:g}^{rw['event_count']}")
         notice = (f"🍵 **{name}** 吃得心滿意足地離開了！獲得 `{rw['total']:,}` 賽錢"
-                  + (f"（{'、'.join(extras)}）" if extras else "") + f"\n-# 目前持有 `{r['money']:,}` 賽錢")
+                  + (f"（{'、'.join(extras)}）" if extras else "") + f"\n-# 目前持有 `{fmt_money(r['money'])}` 賽錢")
         self.guest_id, self.extra = None, None
         await self._show(interaction, "main", notice, r)
 
@@ -501,7 +502,7 @@ class ShrineView(ui.LayoutView):
         r = await econ.shop_buy(self.user.id, self.shop_sel, n)
         name = self.items.get(self.shop_sel, {}).get("name", self.shop_sel)
         notice = (f"🛒 買了 **{name}** ×{n}，花了 `{r['cost']:,}` 賽錢。" if r["ok"]
-                  else f"❌ 賽錢不足！需要 `{r.get('cost', 0):,}`，你只有 `{r.get('money', 0):,}`。")
+                  else f"❌ 賽錢不足！需要 `{r.get('cost', 0):,}`，你只有 `{fmt_money(r.get('money', 0))}`。")
         await self._show(interaction, "shop", notice)
 
     async def on_buy_1(self, interaction):
@@ -543,7 +544,7 @@ class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩�
     @app_commands.command(name="collect", description="💰 回收神社賽錢箱裡的賽錢")
     async def collect(self, interaction: discord.Interaction):
         r = await econ.shrine_collect(interaction.user.id)
-        notice = f"💰 回收了 `{r['collected']:,}` 賽錢！目前持有 `{r['money']:,}` 賽錢。" if r["collected"] else "⚠️ 賽錢箱裡還沒有錢。"
+        notice = f"💰 回收了 `{r['collected']:,}` 賽錢！目前持有 `{fmt_money(r['money'])}` 賽錢。" if r["collected"] else "⚠️ 賽錢箱裡還沒有錢。"
         await self._open(interaction, "main", notice, r)
 
 

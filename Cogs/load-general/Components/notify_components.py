@@ -5,6 +5,7 @@ import discord
 from discord import ui
 
 from Database.notify_data import NOTIFY_TYPES
+from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 DM_MAX_NOTICES = 12      # 一則私訊最多列幾則 (其餘併成「還有 N 則」，避免超過 40 個元件)
 
@@ -19,7 +20,7 @@ def notice_text(notice: dict) -> str:
     info = NOTIFY_TYPES.get(kind, {"name": kind, "emoji": "🔔"})
     head = f"### {info['emoji']} {info['name']}\n"
     if kind == "shrine_box_full":
-        body = f"賽錢箱存滿了 `{d['box']:,} / {d['box_max']:,}`，不回收就不會再累積。\n用 `/shrine collect` 回收。"
+        body = f"賽錢箱存滿了 `{fmt_money(d['box'])} / {fmt_money(d['box_max'])}`，不回收就不會再累積。\n用 `/shrine collect` 回收。"
     elif kind == "guest_leaving":
         body = (f"{d['emoji']} **{d['name']}** 心情剩 `{d['mood']}%`，{_ts(d['leave_at'])} 就要離開了。\n"
                 f"用 `/shrine manage` 招待客人。")

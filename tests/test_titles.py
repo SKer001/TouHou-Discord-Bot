@@ -127,6 +127,8 @@ async def main():
                                for k in ("shrine_serve", "shrine_explore", "shrine_youkai", "shrine_cook", "shrine_clean", "shrine_collect", "shrine_shop")))
     check("shrine condition", td.condition_text("shrine_collect") == "從賽錢箱累計回收 10M 賽錢"
           and td.condition_text("shrine_serve") == "成功招待 100 位客人 (額外端上最愛的料理)")
+    from Utils.numbers import fmt_money
+    check("fmt_money", [fmt_money(x) for x in (5000, 9999, 10_000, 200_000, 12_345_678)] == ["5,000", "9,999", "10K", "200K", "12.35M"])
     check("short numbers", [td.short_number(x) for x in (999, 1000, 1500, 1_234_567, 10_000_000, 2_555_000_000)]
           == ["999", "1K", "1.5K", "1.23M", "10M", "2.56B"])
 
