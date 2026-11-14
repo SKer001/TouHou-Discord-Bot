@@ -1,4 +1,9 @@
 {
+    "genji": {
+        "message_id": 1571078458463752294,
+        "jpg": "genji_full.jpg",
+        "full": "genji.png"
+    },
     "marisa": {
         "message_id": 1571062119942848532,
         "jpg": "marisa_full.jpg",
