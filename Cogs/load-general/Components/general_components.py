@@ -173,6 +173,7 @@ def build_profile_container(
     daily_button: ui.Button | None = None,
     stamina: dict | None = None,
     namecard_url: str | None = None,
+    namecard_caption: str | None = None,
 ) -> ui.Container:
     """
     個人資料卡：(角色名片) / 頭像標題 (+ 稱號與說明) / 賽錢・P點・體力・背包 / 經驗值進度條 / 今日簽到與運勢。
@@ -180,6 +181,7 @@ def build_profile_container(
     daily_button 不為 None 時，會放在「今日運勢」區塊的右側 (只有本人的卡片才會有)。
     stamina = calc_stamina() 的結果；None 時不顯示體力。
     namecard_url = 戴著的角色名片圖片網址 (Utils.namecards.namecard_url)；有的話放在最上面，None = 不放圖。
+    namecard_caption = 名片圖下面那行字 (Database.namecard_data.namecard_caption)，有圖才顯示。
     """
     money = user_data.get("money", 1000)
     current_level = user_data.get("level", 0)  # level 0~1000 (對應 0.0 P ~ 100.0 P)
@@ -194,6 +196,8 @@ def build_profile_container(
     container = ui.Container(accent_color=discord.Color(title_data.title_color(title_id)))
     if namecard_url:   # 🖼️ 角色名片 (19:9 橫幅)
         container.add_item(ui.MediaGallery(discord.MediaGalleryItem(namecard_url)))
+        if namecard_caption:   # 名片名稱｜說明 (2026-11-14 使用者要求)
+            container.add_item(ui.TextDisplay(namecard_caption))
 
     title_text = f"**{title_data.title_label(title_id)}**\n-# *{title['desc']}*\n" if title else ""
     container.add_item(ui.Section(

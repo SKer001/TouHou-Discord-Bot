@@ -13,6 +13,12 @@
 
 ---
 
+## 0.33.004 — 2026-11-14：魔理沙角色名片，名片加上名稱與說明 (桌機)
+- **🖼️ 魔理沙名片「深夜的魔法研究」**：半夜在魔法店裡，打著哈欠還硬撐著寫筆記 (使用者選 4 張候選的第 4 張，種子 72404)。顯示用 `marisa.jpg` 寫進 `Namecards.json`；原圖 `marisa_full.jpg` 1.3MB + `marisa.png` 7.4MB 傳到私人頻道，記在 `NamecardOriginals.json`。
+- **名片說明 (使用者要求「每個名片都要有 desc」)**：新資料檔 `Database/namecard_data.py` (`NAMECARDS = {角色: {name, desc}}`)。`/profile` 名片圖下面多一行灰色小字「🖼️ **名稱**｜說明」；更換名片選單的選項說明改成「「名稱」說明」(截到 100 字)。還沒寫說明的名片照舊只有圖。靈夢「夏日午睡」、魔理沙「深夜的魔法研究」的說明是 Claude 先擬的，使用者可以再改。
+- 使用者決定：之後每張名片定案就直接跑 `upload_namecard.py` 上傳原圖，不用再問。
+- 測試：test_namecards 加 5 項 (每張名片資料角色存在、有 name / desc，圖下說明，選單說明截 100 字)。
+
 ## 0.33.003 — 2026-11-14：靈夢名片原圖上傳到私人頻道 (桌機)
 - 桌機 `.env` 補上 `NAMECARD_CHANNEL_ID`，跑 `upload_namecard.py`：`reimu_full.jpg` (3840×1820，quality 95，1.5MB) + `reimu.png` (原檔 7.0MB，沒超過上限所以不用改 WebP) 傳到私人頻道，訊息 id 寫進 `images/NamecardOriginals.json`。
 - 顯示用 `reimu.jpg` 重做的結果跟 0.33.001 一樣 (雜湊沒變)。

@@ -160,6 +160,22 @@ async def main():
     check("gallery shown", len(g) == 1 and g[0].items[0].media.url == url)
     check("gallery on top", container.children[0] is g[0])
     check("option has art", namecard_select(pv).options[0].description is None)
+    check("no caption without data", "🖼️ **" not in texts(pv))
+
+    # 名片名稱 + 說明 (2026-11-14)：圖下面一行字、選單選項說明；資料檔裡每張都要有 name / desc 且角色存在
+    from Database import namecard_data as nd
+    for cid, card in nd.NAMECARDS.items():
+        check(f"namecard data {cid}", cid in POOL and card.get("name") and card.get("desc"))
+    saved = dict(nd.NAMECARDS)
+    nd.NAMECARDS["cirno"] = {"name": "測試名片", "desc": "說" * 150}
+    it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
+    pv = it.view
+    container = next(i for i in pv.walk_children() if isinstance(i, discord.ui.Container))
+    check("caption under gallery", isinstance(container.children[1], discord.ui.TextDisplay)
+          and container.children[1].content.startswith("-# 🖼️ **測試名片**｜"))
+    d = namecard_select(pv).options[0].description
+    check("option shows namecard desc", d.startswith("「測試名片」") and len(d) == 100)
+    nd.NAMECARDS.clear(); nd.NAMECARDS.update(saved)
 
     # 別人看得到名片圖，但沒有選單；私人卡本人看也有圖
     it = Interaction(uid=2); await cmds["profile"].callback(cog, it, member(A), None)

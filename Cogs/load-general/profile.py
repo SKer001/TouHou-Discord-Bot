@@ -13,7 +13,7 @@ from Database.User_DB_Manager import (
     add_item, use_stamina_item, get_title_state, set_equipped_title,
     get_namecard_state, set_equipped_namecard,
 )
-from Database import title_data
+from Database import title_data, namecard_data
 from Utils.gacha_pools import load_gacha_pool
 from Utils.namecards import namecard_url, namecard_original, fetch_original_file
 from Database.Item_DB_Manager import get_all_items, get_item, DAILY_REWARD_ITEM
@@ -248,6 +248,7 @@ class ProfileView(ui.LayoutView):
             self.target_user, user_data, daily_status, self.title_state["equipped"],
             is_self=self.is_self, reward=self.reward, daily_button=button, stamina=stamina,
             namecard_url=namecard_url(self.namecard_state["equipped"]),
+            namecard_caption=namecard_data.namecard_caption(self.namecard_state["equipped"]),
         )
         # 🏷️ 更換稱號、🖼️ 更換名片、⚡ 恢復體力：只有本人的卡片才有
         if self.is_self:
@@ -323,9 +324,12 @@ class ProfileView(ui.LayoutView):
         for cid in shown:
             info = pool.get(cid, {})
             has_art = namecard_url(cid) is not None
+            card = namecard_data.namecard_info(cid)
             options.append(discord.SelectOption(
                 label=f"{info.get('name', cid)}的名片"[:100], value=cid, emoji=info.get("emoji") or "🖼️",
-                default=(cid == equipped), description=None if has_art else "名片圖還在製作中，戴上暫時不會顯示圖片"))
+                default=(cid == equipped),
+                description=((f"「{card['name']}」{card['desc']}"[:100] if card else None) if has_art
+                             else "名片圖還在製作中，戴上暫時不會顯示圖片")))
         options.append(discord.SelectOption(label="不放名片", value="__none__", default=(equipped is None),
                                             description="資料卡最上面不放圖"))
         select = ui.Select(placeholder="🖼️ 更換名片…", options=options)
