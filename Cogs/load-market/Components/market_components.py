@@ -4,6 +4,8 @@
 import discord
 from discord import ui
 
+from Database import title_data   # 公告裡賣家名字後面的稱號 (純資料)
+
 
 
 def get_thumbnail_url(char_key: str | None, thumbnails: dict | None, rarity: str | None = None) -> str | None:
@@ -65,10 +67,12 @@ def simple_container(text: str, color: discord.Color | None = None) -> ui.Contai
     return container
 
 
-def build_listing_announce(user_name: str, listing: dict, buyer_total: int, expires_ts: int, thumbnails: dict | None) -> ui.Container:
-    """上架成功後公開在頻道的公告"""
+def build_listing_announce(user_name: str, listing: dict, buyer_total: int, expires_ts: int, thumbnails: dict | None,
+                           title_id: str | None = None) -> ui.Container:
+    """上架成功後公開在頻道的公告；title_id = 賣家戴著的稱號 (名字後面顯示)"""
+    title = f" · *{title_data.title_label(title_id)}*" if title_id in title_data.TITLES else ""
     text = (
-        f"## 🏷️ 市場新上架\n**{user_name}** 上架了 {card_label(listing)}\n"
+        f"## 🏷️ 市場新上架\n**{user_name}**{title} 上架了 {card_label(listing)}\n"
         f"*{listing.get('title') or ''}*\n售價 `{buyer_total:,}` 賽錢\n"
         f"-# 用 `/market browse` 購買 · <t:{expires_ts}:R>下架"
     )

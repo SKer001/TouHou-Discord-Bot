@@ -11,7 +11,7 @@ from discord import app_commands, ui
 from discord.ext import commands
 
 from Database import Economy_DB_Manager as econ
-from Database.User_DB_Manager import get_user_cards
+from Database.User_DB_Manager import get_user_cards, get_title_state
 from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Utils.components import send_notice
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
@@ -301,7 +301,9 @@ class SellView(OwnerView):
         await self.refresh(interaction)
         l = r["listing"]
         announce = ui.LayoutView()
-        announce.add_item(build_listing_announce(self.user_name, l, econ.buyer_total(l["price"]), _expires_ts(l), self.thumbnails))
+        seller_title = (await get_title_state(self.user_id))["equipped"]   # 🏷️ 賣家戴著的稱號
+        announce.add_item(build_listing_announce(self.user_name, l, econ.buyer_total(l["price"]), _expires_ts(l), self.thumbnails,
+                                                 seller_title))
         try:   # 上架要公開：在頻道發一則所有人看得到的公告
             await interaction.followup.send(view=announce)
         except discord.HTTPException:

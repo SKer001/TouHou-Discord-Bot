@@ -385,8 +385,8 @@ MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
 
 def build_leaderboard_container(guild: discord.Guild, type_key: str, rows: list[dict], viewer_id: int) -> ui.Container:
     """
-    rows 已依該項目由高到低排序，每筆含 "member"。
-    私人資料卡的玩家仍會計入名次，但不顯示名字 (本人除外)。
+    rows 已依該項目由高到低排序，每筆含 "member"；有戴稱號的再含 "title" (稱號 id，名字後面顯示)。
+    私人資料卡的玩家仍會計入名次，但不顯示名字和稱號 (本人除外)。
     """
     title, field, fmt = LEADERBOARD_TYPES[type_key]
     container = ui.Container(accent_color=discord.Color.gold())
@@ -398,9 +398,11 @@ def build_leaderboard_container(guild: discord.Guild, type_key: str, rows: list[
 
     def line(rank: int, row: dict) -> str:
         is_viewer = row["user_id"] == viewer_id
-        name = row["member"].display_name if (row["is_public"] or is_viewer) else "🔒 私人玩家"
+        shown = row["is_public"] or is_viewer
+        name = row["member"].display_name if shown else "🔒 私人玩家"
         mark = "　⬅️ 你" if is_viewer else ""
-        return f"{MEDALS.get(rank, f'`#{rank}`')} **{name}**　`{fmt(row[field])}`{mark}"
+        title = f" · *{title_data.title_label(row['title'])}*" if shown and row.get("title") in title_data.TITLES else ""
+        return f"{MEDALS.get(rank, f'`#{rank}`')} **{name}**{title}　`{fmt(row[field])}`{mark}"
 
     if rows:
         lines = [line(rank, row) for rank, row in enumerate(rows[:TOP_N], start=1)]

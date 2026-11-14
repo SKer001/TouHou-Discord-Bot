@@ -3,10 +3,10 @@ from discord import ui
 from discord import app_commands
 from discord.ext import commands
 
-from Database.User_DB_Manager import get_leaderboard_stats
+from Database.User_DB_Manager import get_leaderboard_stats, get_title_state
 from Database.Economy_DB_Manager import get_card_values
 from Utils.components import send_notice
-from .Components.general_components import LEADERBOARD_TYPES, build_leaderboard_container
+from .Components.general_components import LEADERBOARD_TYPES, TOP_N, build_leaderboard_container
 
 
 class LeaderboardCog(commands.Cog):
@@ -33,6 +33,10 @@ class LeaderboardCog(commands.Cog):
         rows = sorted(stats, key=lambda r: (-r[field], r["user_id"]))
         for row in rows:
             row["member"] = members[row["user_id"]]
+        # 🏷️ 會顯示的那幾行 (前 N 名 + 自己) 補上戴著的稱號 (get_title_state 會檢查還符不符合條件)
+        shown = rows[:TOP_N] + [r for r in rows[TOP_N:] if r["user_id"] == interaction.user.id]
+        for row in shown:
+            row["title"] = (await get_title_state(row["user_id"]))["equipped"]
 
         view = ui.LayoutView()
         view.add_item(build_leaderboard_container(guild, category.value, rows, interaction.user.id))

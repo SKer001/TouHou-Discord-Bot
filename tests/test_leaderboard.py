@@ -56,6 +56,29 @@ async def main():
     it = Interaction(12, guild); await cmd.callback(cog, it, cat("money"))
     check("private self sees own name", "玩家12" in texts(it.view))
 
+    # 🏷️ 戴著的稱號顯示在名字後面；私人玩家不顯示；已經不符合的稱號不顯示
+    for uid, tid in ((11, "draw_5000"), (12, "money_1b")):
+        await udm.set_granted_title(uid, tid, True); await udm.set_equipped_title(uid, tid)
+    sql_db = __import__("sqlite3").connect(udm.DB_PATH)
+    sql_db.execute("UPDATE users SET equipped_title = 'draw_10' WHERE user_id = 10"); sql_db.commit(); sql_db.close()   # 10 號沒解鎖 draw_10
+    it = Interaction(1, guild); await cmd.callback(cog, it, cat("money"))
+    t = texts(it.view)
+    check("title on leaderboard", "**玩家11** · *[LR] 幻想鄉第一信仰*" in t)
+    check("private title hidden", "比賽錢箱還有錢" not in t)
+    check("invalid title hidden", "初次祈願者" not in t)
+    it = Interaction(12, guild); await cmd.callback(cog, it, cat("money"))
+    check("private self sees own title", "比賽錢箱還有錢" in texts(it.view))
+
+    from importlib import import_module
+    mc = import_module("Cogs.load-market.Components.market_components")
+    listing = {"character_key": "reimu", "rarity": "SR", "name": "博麗靈夢", "emoji": "⛩️", "title": "t", "completeness": 1.0}
+    ann = mc.build_listing_announce("賣家", listing, 1050, 0, None, "draw_5000")
+    check("market announce title", "**賣家** · *[LR] 幻想鄉第一信仰* 上架了" in "\n".join(
+        i.content for i in ann.walk_children() if isinstance(i, discord.ui.TextDisplay)))
+    ann = mc.build_listing_announce("賣家", listing, 1050, 0, None, None)
+    check("market announce no title", "**賣家** 上架了" in "\n".join(
+        i.content for i in ann.walk_children() if isinstance(i, discord.ui.TextDisplay)))
+
     it = Interaction(3, guild); await cmd.callback(cog, it, cat("chars"))
     t = texts(it.view)
     check("chars", t.index("玩家4") < t.index("玩家3") and "`4 位`" in t and "`2 位`" in t)
