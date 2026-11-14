@@ -13,6 +13,12 @@
 
 ---
 
+## 0.33.002 — 2026-11-14：名片原圖下載
+- 使用者決定：repo 維持公開 (改成不公開的話卡面 raw 連結會全部失效)，名片原圖放只有機器人看得到的私人頻道 (`.env` 的 `NAMECARD_CHANNEL_ID`)。
+- `tools/card_art/upload_namecard.py <原圖> <角色id>`：一次做完顯示用壓縮版 + 用 REST 上傳原尺寸高畫質 JPG (q95) 與 PNG (超過 9.5MB 改無損 WebP) 到私人頻道，訊息 id 記進 `images/NamecardOriginals.json`。
+- `/profile`：本人戴著的名片有原圖時多一個「📥 下載名片原圖」，按了把高畫質 JPG 私訊給本人 (V2 畫面要用 `ui.File` 放附件才會顯示)；私訊關著、名片已換掉、訊息被刪都有提示。管理員 `/admin-user namecard` 多「📥 原檔 (私訊給我)」拿 PNG。
+- 新測試 `tests/test_namecard_download.py` (14 項，假的私人頻道)。靈夢的原圖在桌機，要在桌機跑上傳腳本。
+
 ## 0.33.001 — 2026-11-14：靈夢角色名片 (桌機)
 - **🖼️ 靈夢名片**「夏日午睡」：神社和室榻榻米上側躺抱著枕頭睡著，旁邊有西瓜，紙拉門透進午後陽光 (使用者選 v2 第 1 張，種子 71101，直接定案)。`build_namecards.py` 縮成 `images/Namecards/reimu.jpg` (1920×910)，寫進 `Namecards.json`。
 - 生圖：Animagine XL 4.0 整張一次生 1536×728 ➔ 4x-UltraSharp 放大再縮到 2304×1092、denoise 0.4 重繪 ➔ 4x-UltraSharp 放大到 3840×1820 原圖 (RTX 5060 Ti 一張約 1 分鐘)。原圖留在本機 `images/Original/Namecards/<角色>/`，已加進 `.gitignore`。

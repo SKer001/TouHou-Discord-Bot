@@ -89,7 +89,8 @@
 - [ ] 稱號要不要顯示在排行榜、市場公告 (還沒問)
 - [x] 推角稱號改成只算收藏冊 + 🖼️ 角色名片 (第一次拿到推角稱號就永久獲得，/profile 最上面顯示，`/admin-user namecard`) ➔ 0.33.000
 - [ ] 角色名片圖 (19:9、影畫風)：一位角色都還沒做 (`tools/card_art/build_namecards.py`，見 `docs/card-art.md`)
-- [ ] 名片「下載原圖」按鈕：原圖存放位置還沒決定 (使用者 2026-11-14：repo 改成不公開也可以；更高畫質可以用機器人私訊給玩家)
+- [x] 名片「下載原圖」➔ 0.33.002：原圖放私人頻道 (`NAMECARD_CHANNEL_ID`)，`/profile`「📥 下載名片原圖」私訊高畫質 JPG；管理員 `/admin-user namecard`「📥 原檔」私訊 PNG
+- [ ] 靈夢名片原圖還沒上傳到私人頻道 (原圖在桌機)：桌機跑 `python tools/card_art/upload_namecard.py <原圖> reimu` 後推 `images/NamecardOriginals.json`
 
 ## 5. 經濟系統
 v0.23.000 (2026-11-05) 已完成：神社經營 (賽錢箱 / 清掃 / 治退妖怪 / 參拜客)、浮動市值、分解、市場、轉帳、簽到 7 天開通交易。

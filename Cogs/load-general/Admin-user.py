@@ -9,7 +9,8 @@ from Database.User_DB_Manager import (
 from Database import title_data
 from Utils.config import is_admin
 from Utils.gacha_pools import load_gacha_pool
-from Utils.namecards import namecard_url
+from Utils.namecards import namecard_url, fetch_original_file
+from .Components.general_components import build_namecard_dm_view
 from Utils.components import send_notice
 
 
@@ -153,6 +154,7 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         app_commands.Choice(name="🗑️ 收回名片", value="revoke"),
         app_commands.Choice(name="🖼️ 戴上 (順便給)", value="equip"),
         app_commands.Choice(name="📋 查看", value="list"),
+        app_commands.Choice(name="📥 原檔 (私訊給我)", value="full"),
     ]
 
     async def namecard_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
@@ -174,11 +176,24 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         user = target or interaction.user
         act = action.value
         pool = load_gacha_pool()
-        if act in ("grant", "revoke", "equip"):
+        if act in ("grant", "revoke", "equip", "full"):
             if character not in pool:   # 可能繞過 autocomplete 亂打
                 await send_notice(interaction, "❌ 找不到這位角色，請從選單選。")
                 return
             name = f"{pool[character]['emoji']} {pool[character]['name']}"
+        if act == "full":   # 📥 名片原檔 (PNG / 無損 WebP) 私訊給下指令的管理員本人
+            await interaction.response.defer(ephemeral=True, thinking=True)
+            file = await fetch_original_file(self.bot, character, "full")
+            if file is None:
+                await send_notice(interaction, f"⚠️ {name} 的名片原圖還沒上傳 (tools/card_art/upload_namecard.py)，或私人頻道抓不到。")
+                return
+            try:
+                await interaction.user.send(view=build_namecard_dm_view(pool[character]["name"], file, full=True), file=file)
+            except discord.Forbidden:
+                await send_notice(interaction, "❌ 沒辦法私訊你：請打開伺服器的「私人訊息」設定。")
+                return
+            await send_notice(interaction, f"📥 已把 {name} 的名片原檔 `{file.filename}` 私訊給你")
+            return
         if act == "grant":
             added = await grant_namecard(user.id, character, "admin")
             msg = (f"🎁 已給 **{user.display_name}** {name} 的名片 (到 /profile 可以換上)" if added

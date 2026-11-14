@@ -15,7 +15,7 @@ from Database.User_DB_Manager import (
 )
 from Database import title_data
 from Utils.gacha_pools import load_gacha_pool
-from Utils.namecards import namecard_url
+from Utils.namecards import namecard_url, namecard_original, fetch_original_file
 from Database.Item_DB_Manager import get_all_items, get_item, DAILY_REWARD_ITEM
 from .Components.general_components import (
     build_profile_container,
@@ -23,6 +23,7 @@ from .Components.general_components import (
     build_power_up_container,
     build_notice_container,
     build_stamina_item_container,
+    build_namecard_dm_view,
 )
 from Utils.components import send_notice
 
@@ -258,8 +259,13 @@ class ProfileView(ui.LayoutView):
             stamina_btn.callback = self.on_stamina
             shrine_btn = ui.Button(label="⛩️ 前往神社", style=discord.ButtonStyle.secondary)
             shrine_btn.callback = self.on_shrine
+            row = [stamina_btn, shrine_btn]
+            if namecard_original(self.namecard_state["equipped"]):   # 📥 戴著的名片有原圖 ➔ 可以下載
+                download_btn = ui.Button(label="📥 下載名片原圖", style=discord.ButtonStyle.secondary)
+                download_btn.callback = self.on_download_namecard
+                row.append(download_btn)
             container.add_item(ui.Separator())
-            container.add_item(ui.ActionRow(stamina_btn, shrine_btn))
+            container.add_item(ui.ActionRow(*row))
         self.clear_items()
         self.add_item(container)
 
@@ -335,6 +341,26 @@ class ProfileView(ui.LayoutView):
         self.namecard_state = await get_namecard_state(interaction.user.id)
         self.build(await get_or_create_user(interaction.user.id), await get_daily_status(interaction.user.id))
         await interaction.response.edit_message(view=self)
+
+    async def on_download_namecard(self, interaction: discord.Interaction):
+        """📥 把戴著的名片原圖 (高畫質 JPG) 私訊給本人 (原圖在私人頻道，見 Utils/namecards.py)"""
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        state = await get_namecard_state(interaction.user.id)   # 重新讀：可能已經換掉 / 被收回
+        cid = state["equipped"]
+        if cid is None or cid not in state["owned"]:
+            await send_notice(interaction, "❌ 你現在沒有戴名片，先用「🖼️ 更換名片」換上要下載的那張。")
+            return
+        file = await fetch_original_file(interaction.client, cid, "jpg")
+        if file is None:
+            await send_notice(interaction, "⚠️ 這張名片的原圖還沒準備好，請稍後再試或通知管理員。")
+            return
+        name = load_gacha_pool().get(cid, {}).get("name", cid)
+        try:
+            await interaction.user.send(view=build_namecard_dm_view(name, file), file=file)
+        except discord.Forbidden:
+            await send_notice(interaction, "❌ 沒辦法私訊你：請在伺服器的隱私設定打開「私人訊息」再試一次。")
+            return
+        await send_notice(interaction, f"📥 已經把 **{name}** 的名片原圖私訊給你了！")
 
     async def on_title_group(self, interaction: discord.Interaction):
         """切換稱號分組：只換第二個選單的內容，不動資料"""

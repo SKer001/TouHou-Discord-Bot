@@ -96,6 +96,7 @@ pip install -r requirements.txt
 ```env
 DISCORD_TOKEN=你的機器人 Token
 LOG_CHANNEL_ID=接收重大事件通知的頻道 ID
+NAMECARD_CHANNEL_ID=放角色名片原圖的私人頻道 ID (只有機器人看得到)
 ADMIN_IDS=管理員的 Discord 使用者 ID (多位用逗號分隔)
 ```
 

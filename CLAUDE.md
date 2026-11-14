@@ -70,7 +70,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - Main.py 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Components.x import ...`（命名空間套件）。
 - **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾或專案根的 `Utils/`。
 - 畫面產生器的資料夾與檔名一律叫 `Components` / `*_components.py`（舊名 `Embeds` / `*_embeds.py` 已全部改掉）。
-- `.env` 需要 `DISCORD_TOKEN`、`LOG_CHANNEL_ID`、`ADMIN_IDS`（管理員 ID，逗號分隔；沒設定時所有管理員指令都不能用）。`.env` 不進 git，換電腦要手動複製。`.gitignore` 有 `/.env`、`/Logger/Logs/`、`__pycache__/`、`/.vscode` 等。
+- `.env` 需要 `DISCORD_TOKEN`、`LOG_CHANNEL_ID`、`ADMIN_IDS`（管理員 ID，逗號分隔；沒設定時所有管理員指令都不能用）、`NAMECARD_CHANNEL_ID`（名片原圖的私人頻道，2026-11-14 起）。`.env` 不進 git，換電腦要手動複製。`.gitignore` 有 `/.env`、`/Logger/Logs/`、`__pycache__/`、`/.vscode` 等。
 - 專案換行符為 **LF**（Windows 上 `core.autocrlf=true`，工作目錄可能是 CRLF，git 內部仍是 LF）。
 - Windows 主控台是 cp950，印 emoji 會 `UnicodeEncodeError`：執行 Python 時設 `PYTHONIOENCODING=utf-8`（例如 PowerShell：`$env:PYTHONIOENCODING = 'utf-8'; python Main.py`）。
 - CodeGraph（程式碼索引 MCP）安裝見 `docs/setup.md`；筆電已裝，桌機還沒裝。改了很多檔案後可以跑 `codegraph sync` 更新索引。

@@ -409,3 +409,15 @@ def build_leaderboard_container(guild: discord.Guild, type_key: str, rows: list[
     elif my_rank > TOP_N:
         container.add_item(ui.TextDisplay(line(my_rank, rows[my_rank - 1])))
     return container
+
+
+def build_namecard_dm_view(character_name: str, file: discord.File, full: bool = False) -> ui.LayoutView:
+    """📥 名片原圖的私訊：說明文字 + 附件 (V2 的附件要用 ui.File 放進畫面才會顯示)"""
+    container = ui.Container(accent_color=discord.Color.from_rgb(233, 30, 99))
+    kind = "原檔" if full else "原圖 (高畫質 JPG)"
+    container.add_item(ui.TextDisplay(f"## 🖼️ {character_name}的角色名片\n這是你的名片{kind}，可以下載保存。"))
+    container.add_item(ui.File(media=f"attachment://{file.filename}"))
+    container.add_item(ui.TextDisplay("-# 僅供個人收藏，請勿轉載"))
+    view = ui.LayoutView()
+    view.add_item(container)
+    return view

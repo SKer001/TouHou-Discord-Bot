@@ -17,7 +17,8 @@
 
 ## 🖼️ 角色名片 (0.33.000，2026-11-14 使用者決定)
 - 推角稱號 (收藏冊集齊某位角色每個階級的完美卡) 第一次解鎖時，玩家永久拿到那位角色的名片，戴上後顯示在 `/profile` 資料卡最上面 (`ui.MediaGallery`)。
-- 規格：**19:9 左右的橫幅、影畫風** (像動畫的一幕)；高解析**原圖另外存，不放進 repo** (存放位置還沒決定，「下載原圖」按鈕之後再做；使用者：更高畫質可以用機器人私訊)。
+- 規格：**19:9 左右的橫幅、影畫風** (像動畫的一幕)；高解析**原圖另外存，不放進 repo** (repo 是公開的；使用者 2026-11-14 決定 repo 維持公開，原圖放只有機器人看得到的私人 Discord 頻道)。
+- **原圖上傳 (定案後跑一次就好)**：`python tools/card_art/upload_namecard.py <原圖路徑> <角色id>` ➔ 先做顯示用壓縮版 (同 build_namecards.py)，再用 REST 把 `<角色id>_full.jpg` (原尺寸 quality 95) + `<角色id>.png` (超過 9.5MB 改無損 WebP，再大就只傳 JPG) 傳到 `.env` 的 `NAMECARD_CHANNEL_ID`，訊息 id 記進 `images/NamecardOriginals.json` (要 commit)。機器人執行中也能跑 (只用 REST)。玩家在 `/profile` 按「📥 下載名片原圖」= 私訊戴著那張的高畫質 JPG；管理員 `/admin-user namecard action:📥 原檔` = 私訊 PNG 給自己 (`Utils/namecards.fetch_original_file`)。
 - 顯示用的壓縮版：`python tools/card_art/build_namecards.py <原圖路徑> <角色id>` ➔ 縮成寬 1920 的 JPG (quality 88，保持比例；比例跟 19:9 差超過 8% 會提醒) 存到 `images/Namecards/<角色id>.jpg`，並把 raw.githubusercontent.com 網址 + `?v=<檔案雜湊>` 寫進 `images/Namecards.json` (跟 Thumbnails.json 一樣，push 後 Discord 才抓得到；repo 改成不公開的話 raw 連結會失效，要換放圖的方式)。
 - 程式端：`Utils/namecards.namecard_url(角色id)`，沒檔案 / 沒那位角色就回 None，資料卡就不放圖 (名片照樣能戴，選單會寫「名片圖還在製作中」)。
 - 已完成：靈夢 (0.33.001)。
