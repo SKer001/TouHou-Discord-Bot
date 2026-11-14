@@ -1,4 +1,9 @@
 {
+    "alice": {
+        "message_id": 1571151581867675698,
+        "jpg": "alice_full.jpg",
+        "full": "alice.png"
+    },
     "chiyuri": {
         "message_id": 1571089436697952312,
         "jpg": "chiyuri_full.jpg",
