@@ -255,12 +255,13 @@ def check_expired(previous: dict, current_ids: set[int], sold_instances: set[str
     return out
 
 
-def check_titles(user_id: int, unlocked: list[str], known: str | None) -> tuple[list[dict], str | None]:
+def check_titles(user_id: int, unlocked: list[str], known: str | None, stats: dict | None = None) -> tuple[list[dict], str | None]:
     """
     稱號 (unlocked = title_data.unlocked_titles)：known = 上次看到的已解鎖稱號 (逗號分隔，存在 notify_watch，不會被清掉)
     - 新解鎖的每個稱號通知一次 (key = 稱號 id)
     - known 是 None = 系統剛上線時的第一輪 (由呼叫端決定)：只記錄、不通知，免得舊玩家一次收到一堆
     - known 只增不減：UR / LR 稱號賣卡會失去，之後再拿到不會重複私訊
+    - stats = 玩家統計 (說明裡有 {n} 的稱號會換成目前的數字)
     回傳 (通知, 新的 known 值；沒變回傳 None)
     """
     if known is None:
@@ -269,7 +270,7 @@ def check_titles(user_id: int, unlocked: list[str], known: str | None) -> tuple[
     cur = ",".join(sorted(before | set(unlocked)))
     # namecard = 推角稱號一起拿到的角色名片 (角色名字)；其他稱號是 None
     notices = [_notice(user_id, "title_unlocked", tid, title_id=tid, name=title_data.TITLES[tid]["name"],
-                       rarity=title_data.TITLES[tid]["rarity"], desc=title_data.TITLES[tid]["desc"],
+                       rarity=title_data.TITLES[tid]["rarity"], desc=title_data.title_desc(tid, stats),
                        condition=title_data.condition_text(tid),
                        namecard=title_data.TITLES[tid].get("character") if tid.startswith(udm.OSHI_PREFIX) else None)
                for tid in unlocked if tid not in before]
@@ -337,6 +338,12 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             "GROUP BY user_id) k ON k.user_id = u.user_id"
         ) as cursor:
             title_rows = [dict(r) for r in await cursor.fetchall()]   # 欄位要跟 udm.get_title_stats 一致
+        async with db.execute("SELECT user_id, stat, value FROM player_stats") as cursor:   # 📊 神社動作計數
+            player_stats = {}
+            for r in await cursor.fetchall():
+                player_stats.setdefault(r["user_id"], {})[f"ps:{r['stat']}"] = r["value"]
+        for row in title_rows:
+            row.update(player_stats.get(row["user_id"], {}))
         async with db.execute("SELECT user_id, granted_titles FROM users WHERE granted_titles IS NOT NULL") as cursor:
             granted_titles = {r["user_id"]: udm._split_titles(r["granted_titles"]) for r in await cursor.fetchall()}
         async with db.execute(udm.TITLE_OWNED_CARDS_SQL + " GROUP BY user_id, character_key, rarity") as cursor:
@@ -392,7 +399,7 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
         uid = row["user_id"]
         unlocked = title_data.unlocked_titles(row)
         known = None if titles_first_run else watch.get(uid, {}).get("titles", "")
-        found, value = check_titles(uid, unlocked, known)
+        found, value = check_titles(uid, unlocked, known, row)
         notices += found
         if value is not None:
             watch_updates.append((uid, "titles", value))

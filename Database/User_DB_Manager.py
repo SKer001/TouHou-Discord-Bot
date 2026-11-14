@@ -86,6 +86,16 @@ SCHEMA_STATEMENTS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_gacha_cards_user ON gacha_cards(user_id)",
+    # 📊 玩家統計 (通用計數器，一筆 = 玩家 + 項目 + 數字；2026-11-14 起記神社動作，稱號用)
+    #    項目見 PLAYER_STATS；以後要多記什麼直接多一個項目名稱，不用改資料表
+    """
+    CREATE TABLE IF NOT EXISTS player_stats (
+        user_id INTEGER NOT NULL,
+        stat    TEXT NOT NULL,
+        value   INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, stat)
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS gacha_pity (
         user_id     INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -606,6 +616,38 @@ TITLE_OWNED_CARDS_SQL = (
 )
 
 
+# 📊 player_stats 的項目 (2026-11-14 起才開始記，之前的補不回來)
+PLAYER_STATS = {
+    "serve": "招待客人次數",
+    "serve_favorite": "成功招待次數 (額外端上客人最愛的料理)",
+    "explore": "採集趟數",
+    "youkai": "治退妖怪隻數",
+    "cook": "料理次數 (鍋數)",
+    "clean": "清掃次數",
+    "collect_money": "從賽錢箱累計回收的賽錢",
+    "shop": "雜貨店購買次數",
+}
+
+
+async def add_player_stat(db, user_id: int, stat: str, amount: int = 1):
+    """(在呼叫端的交易裡) 玩家統計 + amount；amount <= 0 不記"""
+    if amount <= 0:
+        return
+    await db.execute(
+        "INSERT INTO player_stats (user_id, stat, value) VALUES (?, ?, ?) "
+        "ON CONFLICT(user_id, stat) DO UPDATE SET value = value + excluded.value",
+        (user_id, stat, int(amount)),
+    )
+
+
+async def get_player_stats(user_id: int) -> dict:
+    """{項目: 數字} (沒記過的項目是 0)"""
+    async with connect() as db:
+        async with db.execute("SELECT stat, value FROM player_stats WHERE user_id = ?", (user_id,)) as cursor:
+            rows = {r["stat"]: r["value"] for r in await cursor.fetchall()}
+    return {k: rows.get(k, 0) for k in PLAYER_STATS} | rows
+
+
 async def get_title_stats(user_id: int) -> dict:
     """解鎖稱號用的玩家統計 (title_data 的 stat 鍵)"""
     async with connect() as db:
@@ -631,6 +673,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats["best_money"] = (user["best_money"] or 0) if user else 0
     stats["power_level"] = (user["level"] or 0) if user else 0   # 火力：level 0～1000 = 0.0～100.0 P
     stats["market_sold"] = sold
+    stats.update({f"ps:{k}": v for k, v in (await get_player_stats(user_id)).items()})   # 📊 神社動作計數
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
     stats["perfect_kinds"] = kinds["perfect_kinds"] or 0
@@ -640,16 +683,18 @@ async def get_title_stats(user_id: int) -> dict:
 
 
 async def get_title_state(user_id: int) -> dict:
-    """{"equipped": 戴著的稱號 id (已不符條件或不存在 ➔ None), "unlocked": [已解鎖 id, ...]}"""
+    """{"equipped": 戴著的稱號 id (已不符條件或不存在 ➔ None), "unlocked": [已解鎖 id, ...], "stats": 玩家統計}"""
     from Database import title_data
     user = await get_or_create_user(user_id)
-    unlocked = title_data.unlocked_titles(await get_title_stats(user_id))
+    stats = await get_title_stats(user_id)
+    unlocked = title_data.unlocked_titles(stats)
     granted = [t for t in _split_titles(user.get("granted_titles")) if t in title_data.TITLES and t not in unlocked]
     if granted:   # 管理員給的稱號一起列 (照等級重新排)
         unlocked = sorted(unlocked + granted, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
     await sync_oshi_namecards(user_id, unlocked)   # 🖼️ 第一次有推角稱號 ➔ 永久拿到那位角色的名片
     equipped = user.get("equipped_title")
-    return {"equipped": equipped if equipped in unlocked else None, "unlocked": unlocked}
+    return {"equipped": equipped if equipped in unlocked else None, "unlocked": unlocked,
+            "stats": stats}   # stats：說明裡有 {n} 的稱號要用 (title_data.title_desc)
 
 
 def _split_titles(value: str | None) -> list[str]:

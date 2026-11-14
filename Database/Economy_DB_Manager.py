@@ -11,7 +11,7 @@ import math
 import random
 from datetime import date, datetime, timedelta, timezone
 
-from Database.User_DB_Manager import connect, _ensure_user, _insert_cards, _load_inventory, tw_day, calc_stamina, STAMINA_MAX
+from Database.User_DB_Manager import connect, _ensure_user, _insert_cards, _load_inventory, tw_day, calc_stamina, STAMINA_MAX, add_player_stat
 from Database import shrine_data
 from Utils import card_cache   # 卡冊有變動時讓 autocomplete 的快取失效
 from Utils.character_data import apply_current_names   # 卡名 / 稱號一律用目前的角色檔
@@ -295,6 +295,7 @@ async def shrine_collect(user_id: int, now: datetime | None = None, rng=random) 
         amount = int(state["box"])
         state["box"] -= amount
         await db.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (amount, user_id))
+        await add_player_stat(db, user_id, "collect_money", amount)   # 📊 累計回收金額
         async with db.execute("SELECT money FROM users WHERE user_id = ?", (user_id,)) as cursor:
             money = (await cursor.fetchone())["money"]
         return {"collected": amount, "money": money}
@@ -309,6 +310,7 @@ async def shrine_clean(user_id: int, now: datetime | None = None, rng=random) ->
         before = shrine_dirt(state, now)
         state["clean_at"] = now.isoformat()
         state["dirt_extra"] = 0
+        await add_player_stat(db, user_id, "clean")   # 📊
         return {"before": before}
     return await _shrine_tx(user_id, action, now, rng)
 
@@ -321,6 +323,7 @@ async def shrine_defeat(user_id: int, now: datetime | None = None, rng=random) -
         if state["youkai"] <= 0:
             return {"ok": False}
         state["youkai"] -= 1
+        await add_player_stat(db, user_id, "youkai")   # 📊
         if shrine_dirt(state, now) < DIRT_MAX:
             state["dirt_extra"] += 1
         low, high = YOUKAI_REWARD
@@ -571,6 +574,7 @@ async def explore(user_id: int, location_id: str, times: int = 1, now: datetime 
             updated_at = now.isoformat() if info["stamina"] >= STAMINA_MAX else info["updated_at"]
             new_stamina = info["stamina"] - runs * cost
             await db.execute("UPDATE users SET stamina = ?, stamina_updated_at = ? WHERE user_id = ?", (new_stamina, updated_at, user_id))
+            await add_player_stat(db, user_id, "explore", runs)   # 📊 實際採集的趟數
             await db.commit()
         except BaseException:
             await db.rollback()
@@ -602,6 +606,7 @@ async def cook(user_id: int, dish_id: str, times: int = 1, now: datetime | None 
             made = shrine_data.COOK_YIELD * times
             inv[dish_id] = inv.get(dish_id, 0) + made
             await _write_inventory(db, user_id, inv)
+            await add_player_stat(db, user_id, "cook", times)   # 📊 鍋數
             await db.commit()
         except BaseException:
             await db.rollback()
@@ -630,6 +635,7 @@ async def shop_buy(user_id: int, material_id: str, qty: int, now: datetime | Non
             inv[material_id] = inv.get(material_id, 0) + qty
             await _write_inventory(db, user_id, inv)
             await db.execute("UPDATE users SET money = money - ? WHERE user_id = ?", (cost, user_id))
+            await add_player_stat(db, user_id, "shop")   # 📊
             await db.commit()
         except BaseException:
             await db.rollback()
@@ -665,6 +671,9 @@ async def serve_guest(user_id: int, guest_id: str, extra: str | None = None, now
             inv[d] -= k
         await _write_inventory(db, user_id, inv)
         await db.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (reward["total"], user_id))
+        await add_player_stat(db, user_id, "serve")   # 📊
+        if reward["favorite_hit"]:   # 成功招待 = 額外端上客人最愛的料理
+            await add_player_stat(db, user_id, "serve_favorite")
         state["guests"] = [g for g in state["guests"] if g.get("id") != guest_id]
         return {"ok": True, "reward": reward, "mood": mood, "guest": guest, "extra": extra,
                 "money": user["money"] + reward["total"]}

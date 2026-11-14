@@ -249,6 +249,7 @@ class ProfileView(ui.LayoutView):
             is_self=self.is_self, reward=self.reward, daily_button=button, stamina=stamina,
             namecard_url=namecard_url(self.namecard_state["equipped"]),
             namecard_caption=namecard_data.namecard_caption(self.namecard_state["equipped"]),
+            title_stats=self.title_state.get("stats"),
         )
         # 🏷️ 更換稱號、🖼️ 更換名片、⚡ 恢復體力：只有本人的卡片才有
         if self.is_self:
@@ -298,7 +299,7 @@ class ProfileView(ui.LayoutView):
 
         options = [
             discord.SelectOption(label=title_data.title_label(tid), value=tid, default=(tid == equipped),
-                                 description=title_data.TITLES[tid]["desc"][:100])
+                                 description=title_data.title_desc(tid, self.title_state.get("stats"))[:100])
             for tid in groups[current][:24]
         ]
         options.append(discord.SelectOption(label="不戴稱號", value="__none__", default=(equipped is None),

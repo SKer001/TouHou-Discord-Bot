@@ -174,6 +174,7 @@ def build_profile_container(
     stamina: dict | None = None,
     namecard_url: str | None = None,
     namecard_caption: str | None = None,
+    title_stats: dict | None = None,
 ) -> ui.Container:
     """
     個人資料卡：(角色名片) / 頭像標題 (+ 稱號與說明) / 賽錢・P點・體力・背包 / 經驗值進度條 / 今日簽到與運勢。
@@ -182,6 +183,7 @@ def build_profile_container(
     stamina = calc_stamina() 的結果；None 時不顯示體力。
     namecard_url = 戴著的角色名片圖片網址 (Utils.namecards.namecard_url)；有的話放在最上面，None = 不放圖。
     namecard_caption = 名片圖下面那行字 (Database.namecard_data.namecard_caption)，有圖才顯示。
+    title_stats = 玩家統計 (稱號說明裡有 {n} 的換成目前的累計數字，例如神社稱號)。
     """
     money = user_data.get("money", 1000)
     current_level = user_data.get("level", 0)  # level 0~1000 (對應 0.0 P ~ 100.0 P)
@@ -199,7 +201,7 @@ def build_profile_container(
         if namecard_caption:   # 名片名稱｜說明 (2026-11-14 使用者要求)
             container.add_item(ui.TextDisplay(namecard_caption))
 
-    title_text = f"**{title_data.title_label(title_id)}**\n-# *{title['desc']}*\n" if title else ""
+    title_text = f"**{title_data.title_label(title_id)}**\n-# *{title_data.title_desc(title_id, title_stats)}*\n" if title else ""
     container.add_item(ui.Section(
         ui.TextDisplay(
             f"## 🌸 {user.display_name} 的幻想鄉通行證\n"

@@ -96,7 +96,39 @@ async def main():
     check("money title", "money_100k" in unlocked and "money_1m" not in unlocked)
     check("money titles", [(td.TITLES[k]["rarity"], td.TITLES[k]["name"]) for k in ("money_100k", "money_1m", "money_10m", "money_50m", "money_100m", "money_1b")]
           == [("N", "小有積蓄"), ("R", "人里的有錢人"), ("SR", "香霖堂的大主顧"), ("SSR", "守財奴"), ("UR", "幻想鄉的財神"), ("LR", "比賽錢箱還有錢")])
-    check("money condition", td.condition_text("money_1m") == "曾經持有 1,000,000 賽錢" and td.title_group("money_1b") == "money")
+    check("money condition", td.condition_text("money_1m") == "曾經持有 1M 賽錢" and td.title_group("money_1b") == "money")
+
+    # ⛩️ 神社動作計數 (player_stats) + 神社稱號 (SSR，說明帶目前的累計數字)
+    from Database import Economy_DB_Manager as econ
+    from datetime import datetime, timezone
+    K = 67
+    await udm.get_or_create_user(K)
+    await udm.add_money(K, 10_000_000)
+    t0 = datetime(2026, 11, 20, tzinfo=timezone.utc)
+    check("shop counted", (await econ.shop_buy(K, "mat_rice", 4, now=t0))["ok"])
+    await econ.shop_buy(K, "mat_seasoning", 2, now=t0)
+    check("cook counted", (await econ.cook(K, "ran_inari", 2, now=t0))["ok"])
+    await econ.shrine_clean(K, now=t0)
+    await econ.admin_set_shrine(K, box=12_345_678, youkai=2, now=t0)
+    await econ.shrine_defeat(K, now=t0)
+    await econ.shrine_collect(K, now=t0)
+    await econ.shrine_collect(K, now=t0)   # 箱子空了 ➔ 不加
+    ps = await udm.get_player_stats(K)
+    check("player stats", (ps["shop"], ps["cook"], ps["clean"], ps["youkai"], ps["collect_money"], ps["explore"])
+          == (2, 2, 1, 1, 200_000, 0))   # 賽錢箱上限 20 萬
+    async with udm.connect() as db:   # 直接補到 12,345,678 (一次回收最多 20 萬)
+        await udm.add_player_stat(db, K, "collect_money", 12_145_678); await db.commit()
+    unlocked = (await udm.get_title_state(K))["unlocked"]
+    check("collect title", "shrine_collect" in unlocked and "shrine_shop" not in unlocked)
+    st = await udm.get_title_state(K)
+    check("desc short number", td.title_desc("shrine_collect", st["stats"]) == "已經從賽錢箱回收了 12.35M 賽錢，靈夢看你的眼神越來越複雜。")
+    check("desc count", td.title_desc("shrine_cook", st["stats"]).startswith("已經做了 2 道料理"))
+    check("shrine titles", all(td.TITLES[k]["rarity"] == "SSR" and td.title_group(k) == "shrine"
+                               for k in ("shrine_serve", "shrine_explore", "shrine_youkai", "shrine_cook", "shrine_clean", "shrine_collect", "shrine_shop")))
+    check("shrine condition", td.condition_text("shrine_collect") == "從賽錢箱累計回收 10M 賽錢"
+          and td.condition_text("shrine_serve") == "成功招待 100 位客人 (額外端上最愛的料理)")
+    check("short numbers", [td.short_number(x) for x in (999, 1000, 1500, 1_234_567, 10_000_000, 2_555_000_000)]
+          == ["999", "1K", "1.5K", "1.23M", "10M", "2.56B"])
 
     # 🔴 火力：現在的 P 點 (level / 10)
     W = 65
@@ -222,7 +254,7 @@ async def main():
     check("streak condition", td.condition_text("streak_30") == "連續簽到 30 天")
     A = 1
     st = await udm.get_title_state(A)
-    check("new player no titles", st == {"equipped": None, "unlocked": []})
+    check("new player no titles", st["equipped"] is None and st["unlocked"] == [])
     check("cannot equip locked", await udm.set_equipped_title(A, "draw_10") is False)
     check("cannot equip unknown", await udm.set_equipped_title(A, "nope") is False)
 

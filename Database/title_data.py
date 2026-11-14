@@ -141,6 +141,22 @@ TITLES = {
                  "desc": "從人里到妖怪之山，大家都知道找你買卡就對了。"},
     "sold_500": {"name": "卡牌市場的支配者", "rarity": "LR", "stat": "market_sold", "min": 500,
                  "desc": "市場的價格由你決定，連紫都想跟你談生意。"},
+    # ⛩️ 神社 (玩家統計 player_stats，2026-11-14 起才開始記；使用者：每種一個 SSR，說明裡帶目前的累計數字 {n})
+    #    desc 有 {n} ➔ 顯示時用 title_desc() 換成數字；short=True 的用縮寫 (1.5M)
+    "shrine_serve": {"name": "幻想鄉的胃袋支配者", "rarity": "SSR", "stat": "ps:serve_favorite", "min": 100,
+                     "desc": "已經成功招待了 {n} 位客人，整個幻想鄉的胃都被你抓住了……"},
+    "shrine_explore": {"name": "採集達人", "rarity": "SSR", "stat": "ps:explore", "min": 300,
+                       "desc": "已經採集了 {n} 次，連妖怪之山哪棵樹下長蘑菇都一清二楚。"},
+    "shrine_youkai": {"name": "妖怪退治專家", "rarity": "SSR", "stat": "ps:youkai", "min": 300,
+                      "desc": "已經治退了 {n} 隻妖怪，靈夢開始擔心自己的飯碗了。"},
+    "shrine_cook": {"name": "神社的大廚", "rarity": "SSR", "stat": "ps:cook", "min": 300,
+                    "desc": "已經做了 {n} 道料理，夜雀食堂都想來挖角你。"},
+    "shrine_clean": {"name": "一塵不染", "rarity": "SSR", "stat": "ps:clean", "min": 100,
+                     "desc": "已經打掃神社 {n} 次，石階亮到可以當鏡子照。"},
+    "shrine_collect": {"name": "賽錢箱的好朋友", "rarity": "SSR", "stat": "ps:collect_money", "min": 10_000_000, "short": True,
+                       "desc": "已經從賽錢箱回收了 {n} 賽錢，靈夢看你的眼神越來越複雜。"},
+    "shrine_shop": {"name": "雜貨店的常客", "rarity": "SSR", "stat": "ps:shop", "min": 100,
+                    "desc": "已經在雜貨店買了 {n} 次東西，老闆都會幫你留好貨。"},
     # 📚 卡池收集 (卡冊「現在」的卡；一個卡池兩個：角色到齊、全卡收集；2026-11-13 使用者選定)
     #    統計是 0 / 1 (Utils.gacha_pools.collection_stats)；開新卡池 ➔ 這裡補兩個，all_cards 會自動把新卡池算進去 (使用者選 1：LR 要所有卡池)
     "pool_classic_chars": {"name": "舊作巡禮者", "rarity": "SR", "stat": "pool_chars:classic", "min": 1,
@@ -171,6 +187,7 @@ TITLE_GROUPS = {
     "money":   {"name": "💰 財富", "stats": ("best_money",)},
     "power":   {"name": "🔴 火力", "stats": ("power_level",)},
     "market":  {"name": "💹 市場賣出", "stats": ("market_sold",)},
+    "shrine":  {"name": "⛩️ 神社", "stats": ("ps:",)},
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
 }
@@ -243,8 +260,37 @@ def condition_text(tid: str) -> str:
     return text
 
 
+def short_number(n: int) -> str:
+    """數字縮寫 (使用者 2026-11-14：1000000 ➔ 1M，最多兩位小數)：999 / 1.5K / 12.35M / 1B"""
+    n = int(n)
+    for unit, size in (("B", 1_000_000_000), ("M", 1_000_000), ("K", 1_000)):
+        if abs(n) >= size:
+            return f"{n / size:.2f}".rstrip("0").rstrip(".") + unit
+    return str(n)
+
+
+def _number(t: dict, value) -> str:
+    return short_number(value) if t.get("short") else f"{int(value):,}"
+
+
+def title_desc(tid: str, stats: dict | None = None) -> str:
+    """稱號說明；有 {n} 的換成目前的累計數字 (沒有統計就顯示 0)"""
+    t = TITLES[tid]
+    desc = t["desc"]
+    if "{n}" in desc:
+        desc = desc.replace("{n}", _number(t, (stats or {}).get(t["stat"], 0)))
+    return desc
+
+
+SHRINE_STAT_TEXT = {"ps:serve_favorite": "成功招待 {} 位客人 (額外端上最愛的料理)", "ps:explore": "採集 {} 次",
+                    "ps:youkai": "治退 {} 隻妖怪", "ps:cook": "料理 {} 次", "ps:clean": "打掃神社 {} 次",
+                    "ps:collect_money": "從賽錢箱累計回收 {} 賽錢", "ps:shop": "在雜貨店買 {} 次東西"}
+
+
 def _stat_text(t: dict) -> str:
     stat = t["stat"]
+    if stat in SHRINE_STAT_TEXT:
+        return SHRINE_STAT_TEXT[stat].format(_number(t, t["min"]))
     if stat.startswith("oshi:"):
         rars = " / ".join(t.get("rarities", []))
         return f"收藏冊裡有{t.get('character', stat.rsplit(':', 1)[-1])}每個階級 ({rars}) 各一張完美卡 (完整度 1.0000)"
@@ -262,6 +308,6 @@ def _stat_text(t: dict) -> str:
             "lr_kinds": f"卡冊有 {t['min']:,} 種角色的 LR 卡",
             "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)",
             "all_cards": "所有卡池的卡全部收集 (每個階級)",
-            "best_money": f"曾經持有 {t['min']:,} 賽錢",
+            "best_money": f"曾經持有 {short_number(t['min'])} 賽錢",
             "power_level": f"火力達到 {t['min'] / 10:.1f} P",
             "market_sold": f"在市場賣出 {t['min']:,} 張卡"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")
