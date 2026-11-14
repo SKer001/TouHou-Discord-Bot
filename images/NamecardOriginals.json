@@ -18,5 +18,10 @@
         "message_id": 1571058151929937952,
         "jpg": "reimu_full.jpg",
         "full": "reimu.png"
+    },
+    "rika": {
+        "message_id": 1571083633140433017,
+        "jpg": "rika_full.jpg",
+        "full": "rika.webp"
     }
 }

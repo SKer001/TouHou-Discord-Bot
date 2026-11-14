@@ -21,7 +21,7 @@
 - **原圖上傳 (定案後跑一次就好)**：`python tools/card_art/upload_namecard.py <原圖路徑> <角色id>` ➔ 先做顯示用壓縮版 (同 build_namecards.py)，再用 REST 把 `<角色id>_full.jpg` (原尺寸 quality 95) + `<角色id>.png` (超過 9.5MB 改無損 WebP，再大就只傳 JPG) 傳到 `.env` 的 `NAMECARD_CHANNEL_ID`，訊息 id 記進 `images/NamecardOriginals.json` (要 commit)。機器人執行中也能跑 (只用 REST)。玩家在 `/profile` 按「📥 下載名片原圖」= 私訊戴著那張的高畫質 JPG；管理員 `/admin-user namecard action:📥 原檔` = 私訊 PNG 給自己 (`Utils/namecards.fetch_original_file`)。
 - 顯示用的壓縮版：`python tools/card_art/build_namecards.py <原圖路徑> <角色id>` ➔ 縮成寬 1920 的 JPG (quality 88，保持比例；比例跟 19:9 差超過 8% 會提醒) 存到 `images/Namecards/<角色id>.jpg`，並把 raw.githubusercontent.com 網址 + `?v=<檔案雜湊>` 寫進 `images/Namecards.json` (跟 Thumbnails.json 一樣，push 後 Discord 才抓得到；repo 改成不公開的話 raw 連結會失效，要換放圖的方式)。
 - 程式端：`Utils/namecards.namecard_url(角色id)`，沒檔案 / 沒那位角色就回 None，資料卡就不放圖 (名片照樣能戴，選單會寫「名片圖還在製作中」)。
-- 已完成：靈夢「夏日午睡」(0.33.001)、魔理沙「深夜的魔法研究」(0.33.004)、魅魔「月夜屋頂的惡靈」(0.33.009)、玄爺「池邊的日光浴」(0.33.010)。
+- 已完成：靈夢「夏日午睡」(0.33.001)、魔理沙「深夜的魔法研究」(0.33.004)、魅魔「月夜屋頂的惡靈」(0.33.009)、玄爺「池邊的日光浴」(0.33.010)、里香「黃昏的花田」(0.34.002)。
 - **定案流程 (2026-11-14 使用者決定)**：使用者挑好 ➔ 直接 `python tools/card_art/upload_namecard.py <原圖> <角色id>` (做顯示用 JPG + 原圖傳私人頻道，**不用再問**) ➔ 在 `Database/namecard_data.py` 加那張名片的 `name` / `desc` (**每張名片都要有說明**，使用者要求) ➔ commit + push `images/Namecards/`、`Namecards.json`、`NamecardOriginals.json`、`namecard_data.py`。
 - **幻想鄉睡顏圖鑑 (2026-11-14 使用者決定)**：24 位名片**全部畫睡著的樣子**。每張從角色個性長出三個不同點：睡在哪、怎麼睡、一個看得出睡前在幹嘛的小細節；時間 / 光線要分散。使用者已審過的設定表：
 
@@ -31,7 +31,7 @@
   | 魔理沙 | 被魔法書淹沒、臉埋在書裡 | 實驗鍋還在冒煙 | 深夜燭光 (✅ 0.33.004 打哈欠硬撐版，使用者決定保留不重做) |
   | 魅魔 | 飄在神社屋頂抱著新月杖、帽子滑下來蓋住臉 | 本來在看星星 | 月夜 (✅ 0.33.009：仰躺屋頂、旁邊放發光新月杖) |
   | 玄爺 | 池邊石頭上縮進龜殼曬太陽 | 背上停一隻小鳥 | 午後暖陽 (✅ 0.33.010：照使用者參考圖，池邊草地打盹、殼頂麻雀) |
-  | 里香 | 窩在戰車駕駛座、臉沾機油 | 手裡握著扳手 | 黃昏 |
+  | 里香 | ~~窩在戰車駕駛座~~ ➔ 側趴在花田裡縮成一團 | (不放戰車，使用者決定) | 黃昏 (✅ 0.34.002) |
   | 千百合 | 趴在時空船控制台上 | 抱著航海日誌、儀表板閃 | 宇宙星光 (藍) |
   | 夢美 | 熬夜後仰躺椅子、臉上蓋論文 | 黑板寫滿算式、咖啡涼了 | 清晨窗光 |
   | 艾莉 | 躺在花田草地上 | 大鐮刀插在旁邊遮陽 | 午後花田 |
@@ -54,6 +54,7 @@
 
 - **名片畫風 (2026-11-14 使用者決定)**：畫「角色平常看不到的另一面」的反差日常，主題固定是睡顏 (見上表)，**不是**戰鬥影畫風；可愛 / 慵懶，**不要性感或擦邊** (衣服完整蓋住，負面提示詞擋 nsfw, cleavage, underwear, panties, suggestive, upskirt, thighs, bare legs, midriff…)。
 - **名片生圖 (桌機)**：Animagine XL 4.0 整張一次生 1536×728 ➔ 4x-UltraSharp 放大再縮 2304×1092、denoise 0.4 重繪 ➔ 4x-UltraSharp 放大到 3840×1820。正面加 painterly, soft shading, warm colors, dappled sunlight。RTX 5060 Ti 一張約 1 分鐘，一次出 4 張候選給使用者挑。原圖存 `images/Original/Namecards/<角色>/` (gitignore)。小道具 (蝴蝶結掉在旁邊、團扇、賽錢箱) 一次生常常畫不出來。**補道具**：直接局部重繪 (高 denoise) 只會畫出很小的東西 ➔ 先在原圖上手畫草稿 (形狀 + 顏色 + 光暈)，遮罩內 img2img denoise 0.5～0.65 給使用者挑 (2026-11-14 魅魔新月杖，腳本範例 `SetLatentNoiseMask` + 裁切區 1920×1000 縮到 1536×800 重繪再 4x-UltraSharp 放回)。
+- **道具不用硬塞 (2026-11-14 里香，使用者)**：「不一定要戰車元素，名片本來就是跟角色平常的 vibe 不同」— 設定表的道具只是參考，模型畫不好 (里香的戰車畫成箱子) 就拿掉，以睡顏反差感為主。
 - **角色畫不像 (2026-11-14 玄爺)**：模型不認得的角色 (玄爺這種 PC-98 冷門角色) 純文字生出來會走樣 ➔ 請使用者給參考圖，去背後 (必要時手改表情、加道具草稿) 貼進候選場景當草稿，整張 img2img denoise 0.45～0.6。denoise 越低越像參考圖；0.55 以上會開始亂改 (鬍子被畫成另一隻小動物)。參考圖只放本機 (gitignore)。細節想再提升：分塊重繪 (Ultimate SD Upscale 節點) 或換模型，都要先問使用者。
 
 ## ⭐ 現行規則 (2026-11-11 使用者指定，取代下面舊的「UR / LR 才分層」說法)
