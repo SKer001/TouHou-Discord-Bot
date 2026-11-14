@@ -13,6 +13,10 @@
 
 ---
 
+## 0.33.003 — 2026-11-14：靈夢名片原圖上傳到私人頻道 (桌機)
+- 桌機 `.env` 補上 `NAMECARD_CHANNEL_ID`，跑 `upload_namecard.py`：`reimu_full.jpg` (3840×1820，quality 95，1.5MB) + `reimu.png` (原檔 7.0MB，沒超過上限所以不用改 WebP) 傳到私人頻道，訊息 id 寫進 `images/NamecardOriginals.json`。
+- 顯示用 `reimu.jpg` 重做的結果跟 0.33.001 一樣 (雜湊沒變)。
+
 ## 0.33.002 — 2026-11-14：名片原圖下載
 - 使用者決定：repo 維持公開 (改成不公開的話卡面 raw 連結會全部失效)，名片原圖放只有機器人看得到的私人頻道 (`.env` 的 `NAMECARD_CHANNEL_ID`)。
 - `tools/card_art/upload_namecard.py <原圖> <角色id>`：一次做完顯示用壓縮版 + 用 REST 上傳原尺寸高畫質 JPG (q95) 與 PNG (超過 9.5MB 改無損 WebP) 到私人頻道，訊息 id 記進 `images/NamecardOriginals.json`。
