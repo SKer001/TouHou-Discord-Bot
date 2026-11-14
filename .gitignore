@@ -20,3 +20,4 @@ __pycache__/
 
 # CodeGraph 程式碼索引 (每台電腦各自 codegraph init)
 /.codegraph/
+/images/Original/Namecards/

@@ -20,7 +20,9 @@
 - 規格：**19:9 左右的橫幅、影畫風** (像動畫的一幕)；高解析**原圖另外存，不放進 repo** (存放位置還沒決定，「下載原圖」按鈕之後再做；使用者：更高畫質可以用機器人私訊)。
 - 顯示用的壓縮版：`python tools/card_art/build_namecards.py <原圖路徑> <角色id>` ➔ 縮成寬 1920 的 JPG (quality 88，保持比例；比例跟 19:9 差超過 8% 會提醒) 存到 `images/Namecards/<角色id>.jpg`，並把 raw.githubusercontent.com 網址 + `?v=<檔案雜湊>` 寫進 `images/Namecards.json` (跟 Thumbnails.json 一樣，push 後 Discord 才抓得到；repo 改成不公開的話 raw 連結會失效，要換放圖的方式)。
 - 程式端：`Utils/namecards.namecard_url(角色id)`，沒檔案 / 沒那位角色就回 None，資料卡就不放圖 (名片照樣能戴，選單會寫「名片圖還在製作中」)。
-- 目前還沒有任何名片圖 (`Namecards.json` = `{}`)。
+- 已完成：靈夢 (0.33.001)。
+- **名片畫風 (2026-11-14 使用者決定)**：畫「角色平常看不到的另一面」的反差日常 (例如靈夢在神社榻榻米上午睡)，**不是**戰鬥影畫風；可愛 / 慵懶，**不要性感或擦邊** (衣服完整蓋住，負面提示詞擋 nsfw, cleavage, underwear, panties, suggestive, upskirt, thighs, bare legs, midriff…)。
+- **名片生圖 (桌機)**：Animagine XL 4.0 整張一次生 1536×728 ➔ 4x-UltraSharp 放大再縮 2304×1092、denoise 0.4 重繪 ➔ 4x-UltraSharp 放大到 3840×1820。正面加 painterly, soft shading, warm colors, dappled sunlight。RTX 5060 Ti 一張約 1 分鐘，一次出 4 張候選給使用者挑。原圖存 `images/Original/Namecards/<角色>/` (gitignore)。小道具 (蝴蝶結掉在旁邊、團扇、賽錢箱) 一次生常常畫不出來，要的話用局部重繪補。細節想再提升：分塊重繪 (Ultimate SD Upscale 節點) 或換模型，都要先問使用者。
 
 ## ⭐ 現行規則 (2026-11-11 使用者指定，取代下面舊的「UR / LR 才分層」說法)
 - **N～LR 全部階級都走高清分層流程** `tools/card_art/layered/hd_card.py`，步驟一樣、也都放大 16 倍再壓縮：
