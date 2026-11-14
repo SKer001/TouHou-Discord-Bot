@@ -199,6 +199,7 @@ TITLE_GROUPS = {
     "transfer": {"name": "💸 轉帳", "stats": ("transfer_sent",)},
     "shrine":  {"name": "⛩️ 神社", "stats": ("ps:",)},
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
+    "event":   {"name": "🎪 活動", "stats": ("evq:",)},   # 活動任務稱號 (下面 _add_event_titles() 從 Events/*.json 自動加)
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
 }
 
@@ -225,6 +226,31 @@ def _add_oshi_titles():
 _add_oshi_titles()
 
 
+# 🎪 活動任務稱號 (2026-11-14 使用者)：活動檔的 quest_titles，「領取」的任務數 >= min_quests 就「永久」獲得
+#    (Quest_DB_Manager.claim_quest 寫進 earned_titles 表，活動結束也保留；get_title_state 會把 earned_titles 列進已解鎖)
+#    stat = evq:<活動 id> 只用來分組與條件文字，玩家統計裡沒有這個鍵 (earned=True ➔ unlocked_titles 不用條件判斷)
+#    稱號 id = event_<活動 id>_<稱號 id>；改了活動檔要 /admin-sys reload (全部重載)
+EVENT_TITLE_PREFIX = "event_"
+
+
+def event_title_id(event_id: str, title_id: str) -> str:
+    return f"{EVENT_TITLE_PREFIX}{event_id}_{title_id}"
+
+
+def _add_event_titles():
+    from Database.events import load_events
+    for eid, ev in load_events().items():
+        for t in ev.get("quest_titles", []):
+            TITLES[event_title_id(eid, t["id"])] = {
+                "name": t["name"], "rarity": t["rarity"], "desc": t.get("desc", ""),
+                "stat": f"evq:{eid}", "min": int(t["min_quests"]), "earned": True,
+                "event": eid, "event_name": ev.get("name", eid),
+            }
+
+
+_add_event_titles()
+
+
 def title_group(tid: str) -> str | None:
     """稱號屬於哪一組 (TITLE_GROUPS 的鍵)；找不到回傳 None"""
     stat = TITLES[tid]["stat"]
@@ -246,6 +272,8 @@ def unlocked_titles(stats: dict) -> list[str]:
     """依玩家統計列出已解鎖的稱號 id (等級高的在前，同等級照 TITLES 順序)"""
     def ok(tid: str) -> bool:
         t = TITLES[tid]
+        if t.get("earned"):   # 🎪 永久獲得類 (earned_titles 表)，不看統計
+            return False
         return stats.get(t["stat"], 0) >= t["min"] and (not t.get("requires") or ok(t["requires"]))
     ids = [tid for tid in TITLES if ok(tid)]
     return sorted(ids, key=lambda tid: -RARITY_ORDER[TITLES[tid]["rarity"]])
@@ -295,6 +323,8 @@ def _stat_text(t: dict) -> str:
     stat = t["stat"]
     if stat in SHRINE_STAT_TEXT:
         return SHRINE_STAT_TEXT[stat].format(_number(t, t["min"]))
+    if stat.startswith("evq:"):   # 🎪 活動任務稱號
+        return f"{t.get('event_name', stat[4:])}完成 {t['min']:,} 項活動任務"
     if stat.startswith("oshi:"):
         rars = " / ".join(t.get("rarities", []))
         return f"收藏冊裡有{t.get('character', stat.rsplit(':', 1)[-1])}每個階級 ({rars}) 各一張完美卡 (完整度 1.0000)"

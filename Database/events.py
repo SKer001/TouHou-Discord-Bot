@@ -149,6 +149,120 @@ def pick_line(guest: dict, tier: str, seed: str = "") -> str:
     return pool[sum(map(ord, seed)) % len(pool)]
 
 
+# =========================================================
+# 📜 活動任務 (活動檔的 "quests" / "quest_titles"；計數、領取在 Database/Quest_DB_Manager.py)
+# =========================================================
+# type ➔ target 要填什麼 (None = 不用填)
+QUEST_TYPES = {
+    "explore_location": "地點 id",          # 在那個地點採集的趟數
+    "cook_each": "[料理 id, ...]",          # 每種至少做 count 鍋 (預設 1)；進度 = 做過幾種 / 幾種
+    "serve_guest": "客人種類 id",           # 招待那種客人的位數
+    "serve_event_dish": None,               # 招待時端出這個活動的活動料理份數
+    "serve_favorite": None,                 # 成功招待 (額外端上客人最愛的料理) 的次數
+    "gacha_event_pool": None,               # 這個活動的活動限定卡池祈願抽數
+    "daily": None,                          # 活動期間簽到天數
+}
+TITLE_RARITIES = ("N", "R", "SR", "SSR", "UR", "LR")
+
+
+def validate_quests(event: dict) -> list[str]:
+    """活動檔的任務 / 任務稱號格式檢查 ➔ 問題清單 (空的 = 沒問題)"""
+    problems, ids = [], set()
+    for q in event.get("quests", []):
+        qid = q.get("id")
+        if not qid or qid in ids:
+            problems.append(f"任務 id 重複或沒填：{qid}")
+        ids.add(qid)
+        for key in ("name", "desc", "type"):
+            if not q.get(key):
+                problems.append(f"{qid}：缺少 {key}")
+        if q.get("type") not in QUEST_TYPES:
+            problems.append(f"{qid}：不認識的 type {q.get('type')}")
+        elif QUEST_TYPES[q["type"]] and not q.get("target"):
+            problems.append(f"{qid}：{q['type']} 要填 target ({QUEST_TYPES[q['type']]})")
+        if q.get("type") == "cook_each" and not isinstance(q.get("target"), list):
+            problems.append(f"{qid}：cook_each 的 target 要是料理 id 清單")
+        if q.get("type") != "cook_each" and not (isinstance(q.get("count"), int) and q["count"] >= 1):
+            problems.append(f"{qid}：count 要是 >= 1 的整數")
+        reward = q.get("reward", {})
+        if not all(isinstance(reward.get(k, 0), int) and reward.get(k, 0) >= 0 for k in ("money", "exp")):
+            problems.append(f"{qid}：reward 的 money / exp 要是 >= 0 的整數")
+    tids = set()
+    for t in event.get("quest_titles", []):
+        if not t.get("id") or t["id"] in tids:
+            problems.append(f"任務稱號 id 重複或沒填：{t.get('id')}")
+        tids.add(t.get("id"))
+        if t.get("rarity") not in TITLE_RARITIES:
+            problems.append(f"任務稱號 {t.get('id')}：rarity 要是 N～LR")
+        if not (isinstance(t.get("min_quests"), int) and 1 <= t["min_quests"] <= len(ids)):
+            problems.append(f"任務稱號 {t.get('id')}：min_quests 要在 1～任務數之間")
+    return problems
+
+
+def quest_need(quest: dict) -> int:
+    """完成要多少 (cook_each = 料理種類數)"""
+    if quest["type"] == "cook_each":
+        return len(quest.get("target") or [])
+    return int(quest.get("count", 1))
+
+
+def quest_progress(quest: dict, stats: dict) -> int:
+    """
+    (純計算) 任務進度 (stats = 這一輪的計數 {項目: 數量}，Database/User_DB_Manager.add_quest_stats 記的)
+    回傳目前的數字 (不會超過 quest_need)
+    """
+    t, target = quest["type"], quest.get("target")
+    if t == "explore_location":
+        cur = stats.get(f"explore:{target}", 0)
+    elif t == "cook_each":
+        each = int(quest.get("count", 1) or 1)
+        cur = sum(1 for d in (target or []) if stats.get(f"cook:{d}", 0) >= each)
+    elif t == "serve_guest":
+        cur = stats.get(f"serve_guest:{target}", 0)
+    elif t in ("serve_event_dish", "serve_favorite", "gacha_event_pool", "daily"):
+        cur = stats.get(t, 0)
+    else:
+        cur = 0
+    return min(cur, quest_need(quest))
+
+
+def quest_goal(quest: dict, event: dict, items: dict | None = None) -> str:
+    """
+    任務目標的文字，進度的位置留 {p} (畫面換成 `3 / 10`)
+    items = Item.db 的道具 {id: {name, emoji}} (料理名稱用；沒有就找活動檔的 items)
+    """
+    items = items or {}
+    ev_items = {i["id"]: i for i in event.get("items", [])}
+
+    def dish(d):
+        info = items.get(d) or ev_items.get(d) or {}
+        return f"{info.get('emoji', '')}{info.get('name', d)}"
+
+    t, target = quest["type"], quest.get("target")
+    if t == "explore_location":
+        locs = {loc["id"]: loc for loc in _as_list(event.get("location")) + list(event.get("locations", []))}
+        loc = locs.get(target) or base.LOCATIONS.get(target) or {}
+        return f"在「{loc.get('emoji', '')}{loc.get('name', target)}」採集 {{p}} 次"
+    if t == "cook_each":
+        each = int(quest.get("count", 1) or 1)
+        return f"{'、'.join(dish(d) for d in target or [])}各做 {each} 鍋 · {{p}} 種"
+    if t == "serve_guest":
+        g = event.get("guests", {}).get(target) or base.GUESTS.get(target) or {}
+        return f"招待{g.get('emoji', '')}{g.get('name', target)} {{p}} 位"
+    if t == "serve_event_dish":
+        return "招待時端出活動料理 {p} 份"
+    if t == "serve_favorite":
+        return "成功招待 (額外端上客人最愛的料理) {p} 次"
+    if t == "gacha_event_pool":
+        text = "在活動限定卡池祈願 {p} 抽"
+        if not event.get("gacha", {}).get("pool", {}).get("characters"):
+            text += "\n-# ⚠️ 這個活動目前還沒有活動限定卡池"
+        return text
+    if t == "daily":
+        return "活動期間簽到 {p} 天"
+    return "{p}"
+
+
 def all_guests() -> dict:
     """包含所有活動 (不管有沒有進行中) 的客人資料：顯示已在神社裡的活動客人時用"""
     guests = {k: {**v, "event": None} for k, v in base.GUESTS.items()}

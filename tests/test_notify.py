@@ -311,11 +311,12 @@ async def main():
         ("market_expired", {"name": "琪露諾", "emoji": "🧊", "rarity": "SR", "price": 1000}),
         ("event_start", {"name": "紅霧異變", "emoji": "🔴", "event_id": EVENT}), ("event_end", {"name": "紅霧異變", "emoji": "🔴", "event_id": EVENT}),
         ("title_unlocked", {"title_id": "draw_10", "name": "初次祈願者", "rarity": "N", "desc": "說明", "condition": "累計祈願 10 抽"}),
+        ("event_quest_reminder", {"name": "紅霧異變", "emoji": "🔴", "event_id": EVENT, "count": 2, "ends_at": now}),
     ] * 3)]
     comps = __import__("importlib").import_module("Cogs.load-general.Components.notify_components")
     dm = ui.LayoutView(); dm.add_item(comps.build_notice_dm(many))
     check("dm components <= 40", sum(count(i) for i in dm.children) <= 40)
-    check("dm footer", "/notify" in texts(dm) and "還有 15 則" in texts(dm))
+    check("dm footer", "/notify" in texts(dm) and f"還有 {len(many) - 12} 則" in texts(dm))
     for k in notify_data.NOTIFY_TYPES:
         check(f"text {k}", notify_data.NOTIFY_TYPES[k]["name"] in comps.notice_text(next(n for n in many if n["kind"] == k)))
 

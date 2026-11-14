@@ -59,5 +59,38 @@
                 "low": "{order}！吱！再曬下去我要變成烤蝙蝠了！"
             }
         }
-    }
+    },
+    "quests": [
+        {"id": "kitchen_explore", "name": "初探紅魔館廚房", "type": "explore_location", "target": "scarlet_kitchen", "count": 10,
+         "desc": "趁著紅霧，紅魔館的廚房對外開放了。去看看那些西洋食材長什麼樣子吧——記得別被門番發現。",
+         "reward": {"money": 50000, "exp": 300}},
+        {"id": "maid_recipes", "name": "女僕長的食譜", "type": "cook_each",
+         "target": ["evt_napolitan", "evt_darjeeling_tea", "evt_strawberry_cake"], "count": 1,
+         "desc": "從廚房「借」來了女僕長的食譜筆記，字跡工整得像是在時間停止時慢慢寫的。照著每道都做一次吧。",
+         "reward": {"money": 50000, "exp": 300}},
+        {"id": "serve_fairy_maid", "name": "款待妖精女僕", "type": "serve_guest", "target": "fairy_maid", "count": 5,
+         "desc": "偷溜出來的妖精女僕跑到神社喘口氣。好好招待她們，千萬別讓女僕長知道。",
+         "reward": {"money": 50000, "exp": 300}},
+        {"id": "serve_familiar_bat", "name": "使魔的晚餐", "type": "serve_guest", "target": "familiar_bat", "count": 5,
+         "desc": "大小姐的蝙蝠使魔明明怕曬太陽，還是飛來了神社。端點像樣的東西給牠們吧。",
+         "reward": {"money": 50000, "exp": 300}},
+        {"id": "red_tea_time", "name": "紅色的午茶時間", "type": "serve_event_dish", "count": 30,
+         "desc": "在神社重現紅魔館的午茶時間。端出越多西洋料理，客人就越像被請進了洋館。",
+         "reward": {"money": 100000, "exp": 500}},
+        {"id": "perfect_service", "name": "完美的款待", "type": "serve_favorite", "count": 10,
+         "desc": "像那位完美瀟灑的女僕一樣，在客人開口之前就端上他心裡最想吃的那一道。",
+         "reward": {"money": 50000, "exp": 300}},
+        {"id": "mist_prayer", "name": "紅霧中的祈願", "type": "gacha_event_pool", "count": 50,
+         "desc": "紅霧遮住了天空，賽錢箱卻比平常更熱鬧。向活動卡池祈願，說不定能遇見洋館的住人。",
+         "reward": {"money": 100000, "exp": 500}},
+        {"id": "incident_survey", "name": "異變調查", "type": "daily", "count": 7,
+         "desc": "異變期間每天都到神社報到。靈夢說這叫「調查」，其實只是在等紅霧自己散掉。",
+         "reward": {"money": 100000, "exp": 500}}
+    ],
+    "quest_titles": [
+        {"id": "visitor", "name": "紅霧中的參拜者", "rarity": "R", "min_quests": 4,
+         "desc": "在遮蔽天空的紅霧裡，依然來到了博麗神社。"},
+        {"id": "resolver", "name": "紅霧異變的解決者", "rarity": "SSR", "min_quests": 8,
+         "desc": "在紅霧散去之前，你見證了整場異變的始末。"}
+    ]
 }

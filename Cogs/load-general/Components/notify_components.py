@@ -35,7 +35,7 @@ def notice_text(notice: dict) -> str:
         body = (f"{d['emoji']} **{d['name']}** [{d['rarity']}] 上架 7 天沒有賣出，已經退回你的卡冊。\n"
                 f"可以用 `/market sell` 重新上架。")
     elif kind == "event_start":
-        body = f"{d['emoji']} **{d['name']}** 開始了！限定地點、料理與客人登場。\n用 `/event` 看活動內容。"
+        body = f"{d['emoji']} **{d['name']}** 開始了！限定地點、料理與客人登場。\n用 `/event info` 看活動內容、`/event quest` 看活動任務。"
     elif kind == "event_end":
         body = f"{d['emoji']} **{d['name']}** 結束了，活動道具已經清除。\n感謝參與！"
     elif kind == "title_unlocked":
@@ -43,6 +43,9 @@ def notice_text(notice: dict) -> str:
                 f"-# *{d['desc']}*\n用 `/profile` 的「🏷️ 更換稱號」戴上。")
         if d.get("namecard"):   # 💕 推角稱號：同時永久拿到那位角色的名片
             body += f"\n🖼️ 還獲得了 **{d['namecard']}** 的角色名片！用 `/profile` 的「🖼️ 更換名片」換上。"
+    elif kind == "event_quest_reminder":
+        body = (f"{d['emoji']} **{d['name']}** {_ts(d['ends_at'])} 就要結束了，你還有 `{d['count']}` 項完成的任務沒有領獎勵。\n"
+                f"用 `/event quest` 領取，活動結束後沒領的就沒了。")
     else:
         body = info.get("desc", "")
     return head + body
@@ -70,14 +73,14 @@ def build_notify_settings(settings: dict, buttons: dict, result: str | None = No
     container = ui.Container(accent_color=discord.Color.gold())
     on = sum(settings.values())
     dm_kinds = sum(1 for i in NOTIFY_TYPES.values() if i["dm"])
-    text = f"## 🔔 通知設定\n機器人會在這些事情發生時私訊你。目前開啟 `{on} / {dm_kinds}` 種。"
+    # 每種通知 3 個元件 (Section + 文字 + 按鈕)；為了塞得下更多種類 (40 個元件上限)，提示寫在標題裡、不放分隔線
+    #    (0.34.000：10 種 + 外框 + 標題 + 全部開關那排 = 35 個)
+    text = (f"## 🔔 通知設定\n機器人會在這些事情發生時私訊你。目前開啟 `{on} / {dm_kinds}` 種。\n"
+            "-# 私訊要能收到，伺服器的「私人訊息」設定要開著。")
     if result:
         text = f"{result}\n" + text
     container.add_item(ui.TextDisplay(text))
-    container.add_item(ui.Separator())
     for kind, info in NOTIFY_TYPES.items():
         line = f"**{info['emoji']} {info['name']}**\n-# {info['desc']}"
         container.add_item(ui.Section(ui.TextDisplay(line), accessory=buttons[kind]))
-    container.add_item(ui.Separator())
-    container.add_item(ui.TextDisplay("-# 私訊要能收到，伺服器的「私人訊息」設定要開著。"))
     return container

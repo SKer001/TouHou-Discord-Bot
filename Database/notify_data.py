@@ -27,6 +27,8 @@ NOTIFY_TYPES = {
                         "desc": "活動結束了，活動道具已清除 (只通知有神社的玩家)"},
     "title_unlocked":  {"name": "獲得新稱號", "emoji": "🏷️", "dm": True,
                         "desc": "解鎖了新的稱號，可以到 /profile 戴上"},
+    "event_quest_reminder": {"name": "活動任務快結束", "emoji": "⏰", "dm": True,
+                             "desc": "活動結束前 24 小時內，還有完成但沒領的任務 (每次活動提醒一次)"},
 }
 
 

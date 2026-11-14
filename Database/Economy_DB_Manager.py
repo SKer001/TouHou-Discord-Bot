@@ -11,7 +11,7 @@ import math
 import random
 from datetime import date, datetime, timedelta, timezone
 
-from Database.User_DB_Manager import connect, _ensure_user, _insert_cards, _load_inventory, tw_day, calc_stamina, STAMINA_MAX, add_player_stat
+from Database.User_DB_Manager import connect, _ensure_user, _insert_cards, _load_inventory, tw_day, calc_stamina, STAMINA_MAX, add_player_stat, add_quest_stats
 from Database import shrine_data
 from Utils import card_cache   # 卡冊有變動時讓 autocomplete 的快取失效
 from Utils.character_data import apply_current_names   # 卡名 / 稱號一律用目前的角色檔
@@ -418,7 +418,7 @@ async def _active_events(db, now: datetime) -> list[dict]:
 
 
 async def get_events_overview(now: datetime | None = None) -> list[dict]:
-    """/event 用：每個活動 + 狀態 [{"event", "status" (active / ended / upcoming), "started_at", "ends_at"}]"""
+    """/event info 用：每個活動 + 狀態 [{"event", "status" (active / ended / upcoming), "started_at", "ends_at"}]"""
     now = now or datetime.now(timezone.utc)
     async with connect() as db:
         await db.execute("BEGIN IMMEDIATE")
@@ -575,6 +575,7 @@ async def explore(user_id: int, location_id: str, times: int = 1, now: datetime 
             new_stamina = info["stamina"] - runs * cost
             await db.execute("UPDATE users SET stamina = ?, stamina_updated_at = ? WHERE user_id = ?", (new_stamina, updated_at, user_id))
             await add_player_stat(db, user_id, "explore", runs)   # 📊 實際採集的趟數
+            await add_quest_stats(db, user_id, now, {f"explore:{location_id}": runs})   # 🎪 活動任務：在這個地點採集的趟數
             await db.commit()
         except BaseException:
             await db.rollback()
@@ -607,6 +608,7 @@ async def cook(user_id: int, dish_id: str, times: int = 1, now: datetime | None 
             inv[dish_id] = inv.get(dish_id, 0) + made
             await _write_inventory(db, user_id, inv)
             await add_player_stat(db, user_id, "cook", times)   # 📊 鍋數
+            await add_quest_stats(db, user_id, now, {f"cook:{dish_id}": times})   # 🎪 活動任務：做過哪些料理 (鍋數)
             await db.commit()
         except BaseException:
             await db.rollback()
@@ -674,6 +676,15 @@ async def serve_guest(user_id: int, guest_id: str, extra: str | None = None, now
         await add_player_stat(db, user_id, "serve")   # 📊
         if reward["favorite_hit"]:   # 成功招待 = 額外端上客人最愛的料理
             await add_player_stat(db, user_id, "serve_favorite")
+        # 🎪 活動任務：招待哪種客人、成功招待、端出「那個活動的」活動料理份數
+        served = guest["order"] + ([extra] if extra else [])
+        per_event = {}
+        for d in served:
+            eid = rules["event_dishes"].get(d)
+            if eid:
+                per_event.setdefault(eid, {"serve_event_dish": 0})["serve_event_dish"] += 1
+        await add_quest_stats(db, user_id, now, {f"serve_guest:{guest['kind']}": 1,
+                                                 "serve_favorite": 1 if reward["favorite_hit"] else 0}, per_event)
         state["guests"] = [g for g in state["guests"] if g.get("id") != guest_id]
         return {"ok": True, "reward": reward, "mood": mood, "guest": guest, "extra": extra,
                 "money": user["money"] + reward["total"]}

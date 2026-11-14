@@ -96,6 +96,37 @@ SCHEMA_STATEMENTS = [
         PRIMARY KEY (user_id, stat)
     )
     """,
+    # 🎪 活動任務 (Database/Quest_DB_Manager.py)：活動進行中才記的計數，一輪 (run) = 活動 id + 這次開始時間
+    #    stat 例：explore:<地點>、cook:<料理>、serve_guest:<客人>、serve_event_dish、serve_favorite、gacha_event_pool、daily
+    """
+    CREATE TABLE IF NOT EXISTS event_quest_stats (
+        user_id INTEGER NOT NULL,
+        run     TEXT NOT NULL,
+        stat    TEXT NOT NULL,
+        value   INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, run, stat)
+    )
+    """,
+    # 誰在哪一輪領了哪個任務 (主鍵防重複領取)
+    """
+    CREATE TABLE IF NOT EXISTS event_quest_claims (
+        user_id    INTEGER NOT NULL,
+        run        TEXT NOT NULL,
+        quest_id   TEXT NOT NULL,
+        event_id   TEXT NOT NULL,
+        claimed_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, run, quest_id)
+    )
+    """,
+    # 🏷️ 永久獲得的稱號 (活動任務稱號；活動結束也保留)
+    """
+    CREATE TABLE IF NOT EXISTS earned_titles (
+        user_id   INTEGER NOT NULL,
+        title_id  TEXT NOT NULL,
+        earned_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, title_id)
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS gacha_pity (
         user_id     INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -354,9 +385,26 @@ async def add_exp(user_id: int, exp_amount: int) -> dict:
     - 最低 0.0 P (0 EXP)，最高 100.0 P (FULL POWER)
     """
     user_data = await get_or_create_user(user_id)
-    current_level = user_data.get("level", 0)  # 內部 level: 0 ~ 1000
-    current_exp = user_data.get("exp", 0)
+    result = calc_exp_change(user_data.get("level", 0), user_data.get("exp", 0), exp_amount)
 
+    # 寫回資料庫
+    async with connect() as db:
+        await db.execute(
+            "UPDATE users SET level = ?, exp = ? WHERE user_id = ?",
+            (result["new_level"], result["current_exp"], user_id)
+        )
+        await db.commit()
+    return result
+
+
+def calc_exp_change(current_level: int, current_exp: int, exp_amount: int) -> dict:
+    """
+    (純計算) 目前 level / exp + 變動量 ➔ 新的 level / exp 與升降級資訊
+    add_exp 用；要跟其他東西在同一個交易裡給經驗時 (活動任務領取) 也用這個，自己 UPDATE users
+    回傳 {"leveled_up", "is_degraded", "old_p", "new_p", "current_exp", "is_max", "new_level"}
+    """
+    current_level = current_level or 0  # 內部 level: 0 ~ 1000
+    current_exp = current_exp or 0
     old_p = current_level / 10.0
 
     # 1. 換算出當前的「歷史累積總經驗值」並加上變動量
@@ -388,21 +436,14 @@ async def add_exp(user_id: int, exp_amount: int) -> dict:
     leveled_up = (new_p > old_p)
     is_degraded = (new_p < old_p)
 
-    # 4. 寫回資料庫
-    async with connect() as db:
-        await db.execute(
-            "UPDATE users SET level = ?, exp = ? WHERE user_id = ?",
-            (new_level, new_exp, user_id)
-        )
-        await db.commit()
-
     return {
         "leveled_up": leveled_up,
         "is_degraded": is_degraded,
         "old_p": old_p,
         "new_p": new_p,
         "current_exp": new_exp,
-        "is_max": (new_level >= 1000)
+        "is_max": (new_level >= 1000),
+        "new_level": new_level,
     }
 
 
@@ -427,11 +468,12 @@ async def get_daily_status(user_id: int, today: str) -> dict:
     return {"signed_today": False, "fortune_level": None}
 
 
-async def claim_daily(user_id: int, today: str, fortune_level: int) -> bool:
+async def claim_daily(user_id: int, today: str, fortune_level: int, now: datetime | None = None) -> bool:
     """
     原子性地「搶」今天的簽到名額：只有 last_daily 不是今天時才會寫入成功。
     連點按鈕或兩個視窗同時簽到，也只會有一個人拿到 True，不會重複領獎。
     連續簽到：上次簽到是昨天 ➔ daily_streak + 1，否則從 1 重新算；best_streak 記最長紀錄 (同一個 UPDATE)
+    🎪 活動任務：簽到成功時，進行中的活動各記 daily +1 (同一個交易)
     """
     yesterday = (datetime.strptime(today, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
     async with connect() as db:
@@ -448,6 +490,8 @@ async def claim_daily(user_id: int, today: str, fortune_level: int) -> bool:
             (today, fortune_level, yesterday, yesterday, user_id, today),
         )
         claimed = cursor.rowcount == 1
+        if claimed:
+            await add_quest_stats(db, user_id, now, {"daily": 1})
         await db.commit()
     return claimed
 
@@ -648,6 +692,70 @@ async def get_player_stats(user_id: int) -> dict:
     return {k: rows.get(k, 0) for k in PLAYER_STATS} | rows
 
 
+# ---------------------------------------------------------
+# 🎪 活動任務的計數 (領取、畫面在 Database/Quest_DB_Manager.py)
+#    只在活動「進行中」時記；一輪 (run) = 「活動 id:這次開始時間」(auto_start 沒有紀錄 = 「活動 id:auto」)，
+#    同一個活動之後重開 (admin_start_event) 開始時間不同 ➔ 新的一輪，進度從 0 開始
+# ---------------------------------------------------------
+EVENT_POOL_PREFIX = "event_"   # 活動限定卡池的 pool key = event_<活動 id> (Database/events.game_rules)
+
+
+def event_run_id(event_id: str, started_at: str | None) -> str:
+    return f"{event_id}:{started_at or 'auto'}"
+
+
+async def _event_runs(db, now: datetime | None = None) -> dict:
+    """
+    (在呼叫端的連線裡，唯讀) 進行中、而且有任務的活動 ➔ {活動 id: {"run", "event", "started_at", "ends_at"}}
+    判斷跟 Economy_DB_Manager._active_events 一樣 (沒有紀錄 + auto_start = 進行中；過了 ends_at = 已結束)，
+    但這裡不會去結束活動 (那個留給 _active_events)
+    """
+    from Database.events import load_events   # events 只讀 Events/*.json + shrine_data，不會循環匯入
+    now = now or datetime.now(timezone.utc)
+    runs = {}
+    for eid, ev in load_events().items():
+        if not ev.get("quests"):
+            continue
+        async with db.execute("SELECT value FROM economy_meta WHERE key = ?", (f"event:{eid}",)) as cursor:
+            row = await cursor.fetchone()
+        st = json.loads(row["value"]) if row and row["value"] else None
+        if st is None:
+            if not ev.get("auto_start"):
+                continue
+            st = {}
+        elif st.get("status") != "active" or (st.get("ends_at") and now >= datetime.fromisoformat(st["ends_at"])):
+            continue
+        runs[eid] = {"run": event_run_id(eid, st.get("started_at")), "event": ev,
+                     "started_at": st.get("started_at"), "ends_at": st.get("ends_at")}
+    return runs
+
+
+async def add_quest_stats(db, user_id: int, now: datetime | None = None, stats: dict | None = None,
+                          per_event: dict | None = None):
+    """
+    (在呼叫端的交易裡) 活動任務計數：進行中的每個有任務的活動，這一輪的 stats {項目: 數量} 各 + 數量
+    per_event = {活動 id: {項目: 數量}}：只加給那個活動 (活動卡池抽數、那個活動的活動料理份數)
+    數量 <= 0 不記；沒有進行中的活動什麼都不做
+    """
+    for eid, info in (await _event_runs(db, now)).items():
+        items = {**(stats or {}), **(per_event or {}).get(eid, {})}
+        for stat, n in items.items():
+            if n and n > 0:
+                await db.execute(
+                    "INSERT INTO event_quest_stats (user_id, run, stat, value) VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(user_id, run, stat) DO UPDATE SET value = value + excluded.value",
+                    (user_id, info["run"], stat, int(n)),
+                )
+
+
+async def get_earned_titles(user_id: int) -> list[str]:
+    """永久獲得的稱號 id (earned_titles 表；活動任務稱號)"""
+    async with connect() as db:
+        async with db.execute("SELECT title_id FROM earned_titles WHERE user_id = ? ORDER BY earned_at, rowid",
+                              (user_id,)) as cursor:
+            return [r["title_id"] for r in await cursor.fetchall()]
+
+
 async def get_title_stats(user_id: int) -> dict:
     """解鎖稱號用的玩家統計 (title_data 的 stat 鍵)"""
     async with connect() as db:
@@ -692,9 +800,13 @@ async def get_title_state(user_id: int) -> dict:
     user = await get_or_create_user(user_id)
     stats = await get_title_stats(user_id)
     unlocked = title_data.unlocked_titles(stats)
-    granted = [t for t in _split_titles(user.get("granted_titles")) if t in title_data.TITLES and t not in unlocked]
-    if granted:   # 管理員給的稱號一起列 (照等級重新排)
-        unlocked = sorted(unlocked + granted, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
+    # 已解鎖 = 條件達成 ∪ 管理員給的 ∪ 永久獲得的 (活動任務稱號，earned_titles)
+    extra = []
+    for t in _split_titles(user.get("granted_titles")) + await get_earned_titles(user_id):
+        if t in title_data.TITLES and t not in unlocked and t not in extra:
+            extra.append(t)
+    if extra:   # 一起列 (照等級重新排)
+        unlocked = sorted(unlocked + extra, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
     await sync_oshi_namecards(user_id, unlocked)   # 🖼️ 第一次有推角稱號 ➔ 永久拿到那位角色的名片
     equipped = user.get("equipped_title")
     return {"equipped": equipped if equipped in unlocked else None, "unlocked": unlocked,
@@ -950,12 +1062,14 @@ class InsufficientFunds(Exception):
         self.money = money
 
 
-async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_cards, expected: dict | None = None) -> dict:
+async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_cards, expected: dict | None = None,
+                     now: datetime | None = None) -> dict:
     """
     祈願：扣款 ➔ 依保底計數擲卡 ➔ 寫入卡牌 ➔ 累加統計與該卡池的保底，全部同一個交易
     - roll_cards(since_ur) 回傳 (cards, new_since_ur, got_ur)；since_ur = 該卡池距離上次 UR 的抽數
     - expected {(角色, 階級): 預期張數}：活動卡池用，記進 daily_draws 的 `card:<角色>:<階級>` (浮動市值的預期抽到量)
     - 賽錢不足丟出 InsufficientFunds (什麼都不會寫入)
+    - 🎪 活動卡池 (event_<活動 id>) 的抽數記進那個活動這一輪的任務計數 gacha_event_pool
     回傳 {"cards", "money", "pool_draws", "since_ur"}
     """
     async with connect() as db:
@@ -1005,6 +1119,8 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
                 """,
                 (user_id, pool, pool_draws, since_ur, last_ur_at),
             )
+            if pool.startswith(EVENT_POOL_PREFIX):   # 🎪 活動卡池祈願 ➔ 那個活動的任務計數
+                await add_quest_stats(db, user_id, now, per_event={pool[len(EVENT_POOL_PREFIX):]: {"gacha_event_pool": draw_count}})
             await db.commit()
         except BaseException:
             await db.rollback()

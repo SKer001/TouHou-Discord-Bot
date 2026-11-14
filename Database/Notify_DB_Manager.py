@@ -13,6 +13,7 @@ from Database import User_DB_Manager as udm
 from Database import Economy_DB_Manager as econ
 from Database.notify_data import NOTIFY_TYPES, can_dm
 from Database import title_data
+from Database import Quest_DB_Manager as qdm
 from Utils.gacha_pools import collection_stats, oshi_stats
 
 # =========================================================
@@ -277,6 +278,14 @@ def check_titles(user_id: int, unlocked: list[str], known: str | None, stats: di
     return notices, (cur if cur != known else None)
 
 
+def check_quest_reminders(pending: list[dict]) -> list[dict]:
+    """活動任務快結束 (pending = qdm.pending_reminders)：每位玩家每一輪 (run) 只提醒一次"""
+    return [_notice(p["user_id"], "event_quest_reminder", p["run"], name=p["event"].get("name", p["event"]["id"]),
+                    emoji=p["event"].get("emoji", "🎪"), event_id=p["event"]["id"], count=p["count"],
+                    ends_at=datetime.fromisoformat(p["ends_at"]))
+            for p in pending]
+
+
 def check_events(previous: dict, overview: list[dict]) -> tuple[list[tuple[str, dict, str]], dict]:
     """
     活動狀態變化 (overview = econ.get_events_overview)：previous = {活動 id: "status|started_at"}
@@ -347,6 +356,10 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             row.update(player_stats.get(row["user_id"], {}))
         async with db.execute("SELECT user_id, granted_titles FROM users WHERE granted_titles IS NOT NULL") as cursor:
             granted_titles = {r["user_id"]: udm._split_titles(r["granted_titles"]) for r in await cursor.fetchall()}
+        async with db.execute("SELECT user_id, title_id FROM earned_titles ORDER BY earned_at, rowid") as cursor:
+            earned_titles = {}   # 🎪 永久獲得的稱號 (活動任務)：算進已解鎖，才會發「獲得稱號」私訊
+            for r in await cursor.fetchall():
+                earned_titles.setdefault(r["user_id"], []).append(r["title_id"])
         async with db.execute(udm.TITLE_OWNED_CARDS_SQL + " GROUP BY user_id, character_key, rarity") as cursor:
             owned_cards, char_counts = {}, {}
             for r in await cursor.fetchall():
@@ -399,6 +412,9 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
     for row in title_rows:
         uid = row["user_id"]
         unlocked = title_data.unlocked_titles(row)
+        earned = [t for t in earned_titles.get(uid, []) if t in title_data.TITLES and t not in unlocked]
+        if earned:   # 跟 udm.get_title_state 一樣：已解鎖 = 條件達成 ∪ 永久獲得 (管理員給的不私訊，下面另外算)
+            unlocked = sorted(unlocked + earned, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
         known = None if titles_first_run else watch.get(uid, {}).get("titles", "")
         found, value = check_titles(uid, unlocked, known, row)
         notices += found
@@ -424,6 +440,9 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
         notices += [_notice(uid, kind, key, name=ev.get("name", ev["id"]), emoji=ev.get("emoji", "🎪"),
                             event_id=ev["id"]) for uid in shrine_ids]
     watch_updates += [(GLOBAL_ID, f"event:{eid}", v) for eid, v in event_state.items() if prev_events.get(eid) != v]
+
+    # ⏰ 活動任務快結束：結束前 24 小時內還有完成但沒領的任務 (每輪每人一次，key = 那一輪)
+    notices += check_quest_reminders(await qdm.pending_reminders(now))
 
     # 寫回 watch 與上架快照，再套用開關與去重
     async with udm.connect() as db:
