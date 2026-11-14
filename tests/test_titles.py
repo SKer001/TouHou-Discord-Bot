@@ -156,6 +156,13 @@ async def main():
     check("market titles", "sold_10" in unlocked and "sold_1" in unlocked and "sold_50" not in unlocked)
     check("market names", [td.TITLES[f"sold_{n}"]["name"] for n in (1, 10, 50, 100, 300, 500)]
           == ["第一筆生意", "跳蚤市場的攤主", "河童的生意夥伴", "霧雨道具店的競爭對手", "幻想鄉的大商人", "卡牌市場的支配者"])
+    for _ in range(3):   # 💸 轉帳：kind = 'transfer' 的 price 加總 (賣出、分解不算)
+        sql("INSERT INTO market_trades (kind, seller_id, buyer_id, price, fee, day, created_at) VALUES ('transfer', ?, 990, 400000, 20000, 'd', 'c')", (S,))
+    check("transfer sent", (await udm.get_title_stats(S))["transfer_sent"] == 1_200_000)
+    unlocked = (await udm.get_title_state(S))["unlocked"]
+    check("transfer titles", "transfer_1m" in unlocked and "transfer_100k" in unlocked and "transfer_10m" not in unlocked)
+    check("transfer condition", td.condition_text("transfer_10m") == "累計轉出 10M 賽錢" and td.title_group("transfer_50m") == "transfer"
+          and [td.TITLES[k]["rarity"] for k in ("transfer_100k", "transfer_1m", "transfer_10m", "transfer_50m")] == ["R", "SR", "SSR", "UR"])
     check("market condition", td.condition_text("sold_300") == "在市場賣出 300 張卡" and td.title_group("sold_1") == "market")
 
     # 🌟 UR / LR：卡冊裡現在有幾種角色 (同角色多張只算一種，賣掉就沒了)

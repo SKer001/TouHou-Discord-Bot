@@ -332,6 +332,7 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             "COALESCE(g.total_synths, 0) AS total_synths, COALESCE(u.daily_count, 0) AS daily_count, "
             "COALESCE(u.best_streak, 0) AS best_streak, COALESCE(u.best_money, 0) AS best_money, COALESCE(u.level, 0) AS power_level, "
             "(SELECT COUNT(*) FROM market_trades t WHERE t.kind = 'market' AND t.seller_id = u.user_id) AS market_sold, "
+            "(SELECT COALESCE(SUM(t.price), 0) FROM market_trades t WHERE t.kind = 'transfer' AND t.seller_id = u.user_id) AS transfer_sent, "
             "COALESCE(k.ur_kinds, 0) AS ur_kinds, "
             "COALESCE(k.lr_kinds, 0) AS lr_kinds, COALESCE(k.perfect_kinds, 0) AS perfect_kinds FROM users u LEFT JOIN gacha_stats g ON g.user_id = u.user_id "
             f"LEFT JOIN ({udm.TITLE_CARD_KINDS_SQL.replace('SELECT ', 'SELECT user_id, ', 1)} "

@@ -141,6 +141,15 @@ TITLES = {
                  "desc": "從人里到妖怪之山，大家都知道找你買卡就對了。"},
     "sold_500": {"name": "卡牌市場的支配者", "rarity": "LR", "stat": "market_sold", "min": 500,
                  "desc": "市場的價格由你決定，連紫都想跟你談生意。"},
+    # 💸 轉帳 (累計轉出金額，market_trades kind = 'transfer' 的 price，不扣手續費、不會失去；2026-11-14 使用者選 A)
+    "transfer_100k": {"name": "樂於分享", "rarity": "R", "stat": "transfer_sent", "min": 100_000,
+                      "desc": "第一次把賽錢分給別人，心裡暖暖的。"},
+    "transfer_1m": {"name": "慷慨解囊", "rarity": "SR", "stat": "transfer_sent", "min": 1_000_000,
+                    "desc": "有人缺錢時，大家第一個想到的就是你。"},
+    "transfer_10m": {"name": "幻想鄉的散財童子", "rarity": "SSR", "stat": "transfer_sent", "min": 10_000_000,
+                     "desc": "錢對你來說只是用來讓大家開心的東西。"},
+    "transfer_50m": {"name": "比神明還大方", "rarity": "UR", "stat": "transfer_sent", "min": 50_000_000,
+                     "desc": "靈夢看到你送出去的金額，羨慕得說不出話。"},
     # ⛩️ 神社 (玩家統計 player_stats，2026-11-14 起才開始記；使用者：每種一個 SSR，說明裡帶目前的累計數字 {n})
     #    desc 有 {n} ➔ 顯示時用 title_desc() 換成數字；short=True 的用縮寫 (1.5M)
     "shrine_serve": {"name": "幻想鄉的胃袋支配者", "rarity": "SSR", "stat": "ps:serve_favorite", "min": 100,
@@ -187,6 +196,7 @@ TITLE_GROUPS = {
     "money":   {"name": "💰 財富", "stats": ("best_money",)},
     "power":   {"name": "🔴 火力", "stats": ("power_level",)},
     "market":  {"name": "💹 市場賣出", "stats": ("market_sold",)},
+    "transfer": {"name": "💸 轉帳", "stats": ("transfer_sent",)},
     "shrine":  {"name": "⛩️ 神社", "stats": ("ps:",)},
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
@@ -303,5 +313,6 @@ def _stat_text(t: dict) -> str:
             "perfect_kinds": f"卡冊有 {t['min']:,} 種完美卡 (完整度 1.0000)",
             "all_cards": "所有卡池的卡全部收集 (每個階級)",
             "best_money": f"曾經持有 {short_number(t['min'])} 賽錢",
+            "transfer_sent": f"累計轉出 {short_number(t['min'])} 賽錢",
             "power_level": f"火力達到 {t['min'] / 10:.1f} P",
             "market_sold": f"在市場賣出 {t['min']:,} 張卡"}.get(t["stat"], f"{t['stat']} ≥ {t['min']:,}")

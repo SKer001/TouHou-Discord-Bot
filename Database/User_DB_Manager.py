@@ -659,6 +659,9 @@ async def get_title_stats(user_id: int) -> dict:
             kinds = await cursor.fetchone()
         async with db.execute("SELECT COUNT(*) AS n FROM market_trades WHERE kind = 'market' AND seller_id = ?", (user_id,)) as cursor:
             sold = (await cursor.fetchone())["n"]   # 💹 市場賣出 (被別人買走的張數)
+        async with db.execute("SELECT COALESCE(SUM(price), 0) AS s FROM market_trades WHERE kind = 'transfer' AND seller_id = ?",
+                              (user_id,)) as cursor:
+            sent = (await cursor.fetchone())["s"]   # 💸 累計轉出金額
         async with db.execute(TITLE_OWNED_CARDS_SQL + " WHERE user_id = ? GROUP BY character_key, rarity", (user_id,)) as cursor:
             rows = await cursor.fetchall()
     owned = {(r["character_key"], r["rarity"]) for r in rows}
@@ -673,6 +676,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats["best_money"] = (user["best_money"] or 0) if user else 0
     stats["power_level"] = (user["level"] or 0) if user else 0   # 火力：level 0～1000 = 0.0～100.0 P
     stats["market_sold"] = sold
+    stats["transfer_sent"] = sent
     stats.update({f"ps:{k}": v for k, v in (await get_player_stats(user_id)).items()})   # 📊 神社動作計數
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
