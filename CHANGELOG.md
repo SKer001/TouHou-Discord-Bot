@@ -13,6 +13,18 @@
 
 ---
 
+## 0.33.000 — 2026-11-14：🖼️ 角色名片，推角稱號改成只算收藏冊
+- **💕 推角稱號只算收藏冊** (使用者 2026-11-14)：要把那位角色每個階級的完美卡都放進 `/card album` 才算，卡冊裡的不算；拿出收藏冊或賣掉就失去 (戴著的自動當沒戴)。條件文字改成「收藏冊裡有琪露諾每個階級 (SR / SSR / UR) 各一張完美卡」。完美卡、UR / LR、卡池收集稱號照舊卡冊 + 收藏冊都算。
+- **🖼️ 角色名片 (新功能)**：第一次拿到某位角色的推角稱號時，同時永久獲得那位角色的名片 (新表 `namecards`，之後稱號沒了名片還在)。`/profile` 戴著名片且有圖時，資料卡最上面放一張 19:9 的名片圖 (`ui.MediaGallery`)，別人看、私人卡都顯示；本人資料卡多一個「🖼️ 更換名片」選單 (最多 24 張 + 不放名片，一張都沒有時反灰並寫怎麼拿)。推角稱號的獲得私訊多一句「還獲得了 XXX 的角色名片」。
+- 新欄位 `users.equipped_namecard` (舊資料庫自動補)、資料層 `sync_oshi_namecards` / `get_namecards` / `grant_namecard` / `revoke_namecard` / `set_equipped_namecard` / `get_namecard_state`；`get_title_state` 與通知 loop 都會補名片。
+- **`/admin-user namecard`**：給 / 收回 / 戴上 (順便給) / 查看，角色用 autocomplete 篩選，不存在的角色擋下。
+- 圖片：`tools/card_art/build_namecards.py <原圖> <角色id>` 把原圖縮成寬 1920 的 JPG 放 `images/Namecards/`，網址 (+ `?v=` 雜湊) 寫進 `images/Namecards.json` (目前 `{}`，還沒有任何名片圖)；程式用 `Utils/namecards.namecard_url()` 讀，沒圖就不放。下載原圖按鈕這次沒做 (存放位置未定)。
+- 坑：推角統計原本跟卡池收集共用同一個 `MAX(completeness)` 查詢，改成另外算 `MAX(CASE WHEN locked = 1 …)` (`TITLE_OWNED_CARDS_SQL`)，`get_title_stats` 和 `collect_notices` 共用同一段 SQL，兩邊不會算得不一樣。
+- 坑：管理員收回名片後，如果那個人還有推角稱號，下次看資料卡會被 `sync_oshi_namecards` 補回來 ➔ 照規格保留這個行為，收回訊息會提醒。
+- 坑：本人資料卡多一個選單後 test_titles 的「選單數量」預期從 2 改成 3；最多名片 + 稱號 + 名片圖 + 剛簽到時整張卡 22 個元件 (≤ 40)。
+- 坑：通知 loop 原本只看玩家自己達成的稱號，管理員給的推角稱號 (`granted_titles`) 要等那個人打開 `/profile` 才補名片 ➔ loop 另外讀 `granted_titles` 一起補 (跟 `get_title_state` 一樣，只補名片不私訊)。改稱號後資料卡也會重讀名片 (改稱號時可能剛補到名片)。
+- 測試：新增 `tests/test_namecards.py` (68 項)，test_titles 推角那段改成收藏冊；全部 944 項通過。
+
 ## 0.32.003 — 2026-11-13：市場賣出稱號 6 個
 - **💹 市場賣出稱號** (使用者選 A：累計賣出張數)：第一筆生意 (N, 1) → 跳蚤市場的攤主 (R, 10) → 河童的生意夥伴 (SR, 50) → 霧雨道具店的競爭對手 (SSR, 100) → 幻想鄉的大商人 (UR, 300) → 卡牌市場的支配者 (LR, 500)。
 - 統計直接數 `market_trades` 裡 kind = 'market' 的賣家筆數 (成交紀錄不會被清，所以不會失去)；分解、轉帳不算。

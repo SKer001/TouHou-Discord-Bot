@@ -161,6 +161,8 @@ async def setup(bot):
 ```
 images/Thumbnails.json        {"角色_階級": URL, "角色": URL, "fill": 預設圖 URL}
 images/Thumbnails/*.png       Discord 顯示用縮圖 460×640 (raw.githubusercontent.com 連結 ➔ 要 push 才看得到)
+images/Namecards.json         {"角色": URL?v=雜湊}：角色名片 (Utils/namecards.namecard_url 讀，tools/card_art/build_namecards.py 寫)
+images/Namecards/*.jpg        名片顯示用的壓縮版 (寬 1920、19:9 左右)；原圖不放 repo
 images/Original/Art/          沒加框的角色原圖 <角色>_<階級>.png
 images/Original/Thumbnails/   卡框素材 (fill、empty、綠幕原圖)
 tools/card_art/               卡面產生工具 (不會被機器人載入)

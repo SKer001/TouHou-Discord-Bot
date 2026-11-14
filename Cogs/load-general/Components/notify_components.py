@@ -40,6 +40,8 @@ def notice_text(notice: dict) -> str:
     elif kind == "title_unlocked":
         body = (f"恭喜獲得稱號 **[{d['rarity']}] {d['name']}**！（{d['condition']}）\n"
                 f"-# *{d['desc']}*\n用 `/profile` 的「🏷️ 更換稱號」戴上。")
+        if d.get("namecard"):   # 💕 推角稱號：同時永久拿到那位角色的名片
+            body += f"\n🖼️ 還獲得了 **{d['namecard']}** 的角色名片！用 `/profile` 的「🖼️ 更換名片」換上。"
     else:
         body = info.get("desc", "")
     return head + body

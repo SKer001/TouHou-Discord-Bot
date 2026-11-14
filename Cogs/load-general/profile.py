@@ -11,8 +11,11 @@ from Database.User_DB_Manager import (
     get_or_create_user, update_visibility, add_money, add_exp,
     get_daily_status as db_get_daily_status, claim_daily, calc_stamina,
     add_item, use_stamina_item, get_title_state, set_equipped_title,
+    get_namecard_state, set_equipped_namecard,
 )
 from Database import title_data
+from Utils.gacha_pools import load_gacha_pool
+from Utils.namecards import namecard_url
 from Database.Item_DB_Manager import get_all_items, get_item, DAILY_REWARD_ITEM
 from .Components.general_components import (
     build_profile_container,
@@ -208,13 +211,18 @@ class StaminaItemView(ui.LayoutView):
 # ---------------------------------------------------------
 # 🎛️ 資料卡 View (Components V2)：卡片內含「投賽錢簽到」按鈕
 # ---------------------------------------------------------
+NAMECARD_OPTIONS = 24   # 名片選單最多列幾張 (再加「不放名片」= Discord 上限 25)
+
+
 class ProfileView(ui.LayoutView):
     def __init__(self, target_user, is_self: bool, title_state: dict,
-                 user_data: dict, daily_status: dict, reward: dict | None = None):
+                 user_data: dict, daily_status: dict, reward: dict | None = None,
+                 namecard_state: dict | None = None):
         super().__init__(timeout=180)
         self.target_user = target_user
         self.is_self = is_self
         self.title_state = title_state   # get_title_state()：{"equipped", "unlocked"}
+        self.namecard_state = namecard_state or {"equipped": None, "owned": []}   # get_namecard_state()
         self.title_group = None          # 稱號選單目前選的分組 (None = 戴著的稱號那組，沒戴就是最高等級那組)
         self.data = None                 # 最近一次 build 的 (user_data, daily_status)，切換分組時重畫用
         self.reward = reward          # 剛簽到完的獎勵 (只顯示在這張卡片上)
@@ -238,12 +246,14 @@ class ProfileView(ui.LayoutView):
         container = build_profile_container(
             self.target_user, user_data, daily_status, self.title_state["equipped"],
             is_self=self.is_self, reward=self.reward, daily_button=button, stamina=stamina,
+            namecard_url=namecard_url(self.namecard_state["equipped"]),
         )
-        # 🏷️ 更換稱號、⚡ 恢復體力：只有本人的卡片才有
+        # 🏷️ 更換稱號、🖼️ 更換名片、⚡ 恢復體力：只有本人的卡片才有
         if self.is_self:
             container.add_item(ui.Separator())
             for select in self._title_selects():
                 container.add_item(ui.ActionRow(select))
+            container.add_item(ui.ActionRow(self._namecard_select()))
             stamina_btn = ui.Button(label="⚡ 恢復體力", style=discord.ButtonStyle.primary)
             stamina_btn.callback = self.on_stamina
             shrine_btn = ui.Button(label="⛩️ 前往神社", style=discord.ButtonStyle.secondary)
@@ -290,6 +300,42 @@ class ProfileView(ui.LayoutView):
         title_select.callback = self.on_title
         return [group_select, title_select]
 
+    def _namecard_select(self) -> ui.Select:
+        """
+        🖼️ 更換名片：擁有的名片 (角色 emoji + 名字，最多 24 張) + 「不放名片」
+        一張都沒有 ➔ 反灰，placeholder 寫怎麼拿
+        """
+        owned, equipped = self.namecard_state["owned"], self.namecard_state["equipped"]
+        if not owned:
+            return ui.Select(placeholder="🖼️ 還沒有角色名片 (收藏冊集齊某位角色每個階級的完美卡就有)", disabled=True,
+                             options=[discord.SelectOption(label="不放名片", value="__none__")])
+        shown = owned[:NAMECARD_OPTIONS]
+        if equipped and equipped not in shown:   # 戴著的那張一定要列出來
+            shown = shown[:NAMECARD_OPTIONS - 1] + [equipped]
+        pool = load_gacha_pool()
+        options = []
+        for cid in shown:
+            info = pool.get(cid, {})
+            has_art = namecard_url(cid) is not None
+            options.append(discord.SelectOption(
+                label=f"{info.get('name', cid)}的名片"[:100], value=cid, emoji=info.get("emoji") or "🖼️",
+                default=(cid == equipped), description=None if has_art else "名片圖還在製作中，戴上暫時不會顯示圖片"))
+        options.append(discord.SelectOption(label="不放名片", value="__none__", default=(equipped is None),
+                                            description="資料卡最上面不放圖"))
+        select = ui.Select(placeholder="🖼️ 更換名片…", options=options)
+        select.callback = self.on_namecard
+        return select
+
+    async def on_namecard(self, interaction: discord.Interaction):
+        value = interaction.data["values"][0]
+        cid = None if value == "__none__" else value
+        if not await set_equipped_namecard(interaction.user.id, cid):
+            await send_notice(interaction, "❌ 你還沒有這張名片。")
+            return
+        self.namecard_state = await get_namecard_state(interaction.user.id)
+        self.build(await get_or_create_user(interaction.user.id), await get_daily_status(interaction.user.id))
+        await interaction.response.edit_message(view=self)
+
     async def on_title_group(self, interaction: discord.Interaction):
         """切換稱號分組：只換第二個選單的內容，不動資料"""
         self.title_group = interaction.data["values"][0]
@@ -303,6 +349,7 @@ class ProfileView(ui.LayoutView):
             await send_notice(interaction, "❌ 這個稱號還沒有解鎖。")
             return
         self.title_state = await get_title_state(interaction.user.id)
+        self.namecard_state = await get_namecard_state(interaction.user.id)   # get_title_state 可能剛補了名片
         self.build(await get_or_create_user(interaction.user.id), await get_daily_status(interaction.user.id))
         await interaction.response.edit_message(view=self)
 
@@ -407,7 +454,9 @@ class Profile(commands.Cog):
 
         # 5. 組出資料卡 (含今日簽到狀態、運勢、稱號)
         daily_status = await get_daily_status(target_user.id)
-        view = ProfileView(target_user, is_self, await get_title_state(target_user.id), target_data, daily_status)
+        title_state = await get_title_state(target_user.id)   # 先算稱號 (會順便補推角名片)，再讀名片
+        view = ProfileView(target_user, is_self, title_state, target_data, daily_status,
+                           namecard_state=await get_namecard_state(target_user.id))
 
         is_ephemeral = (visibility is not None) or (is_self and not target_is_public)
         await interaction.response.send_message(view=view, ephemeral=is_ephemeral)
@@ -437,7 +486,9 @@ class Profile(commands.Cog):
 
         user_data = await get_or_create_user(user.id)
         status = await get_daily_status(user.id)
-        view = ProfileView(user, True, await get_title_state(user.id), user_data, status, reward=result)
+        title_state = await get_title_state(user.id)
+        view = ProfileView(user, True, title_state, user_data, status, reward=result,
+                           namecard_state=await get_namecard_state(user.id))
         view.message = await interaction.followup.send(view=view)
 
         if result["exp_result"].get("leveled_up"):

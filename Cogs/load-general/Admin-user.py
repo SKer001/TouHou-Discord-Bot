@@ -4,9 +4,12 @@ from discord.ext import commands
 from Database.User_DB_Manager import (
     reset_daily, add_money, add_exp, update_user_inventory, add_stamina,
     get_title_state, get_granted_titles, set_granted_title, set_equipped_title,
+    get_namecard_state, grant_namecard, revoke_namecard, set_equipped_namecard,
 )
 from Database import title_data
 from Utils.config import is_admin
+from Utils.gacha_pools import load_gacha_pool
+from Utils.namecards import namecard_url
 from Utils.components import send_notice
 
 
@@ -142,6 +145,63 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         equipped = title_data.title_label(state["equipped"]) if state["equipped"] else "沒戴"
         given = "、".join(title_data.title_label(t) for t in granted if t in title_data.TITLES) or "無"
         msg += f"\n戴著：`{equipped}`\n已解鎖 `{len(state['unlocked'])}` 個 (管理員給的：{given})"
+        await send_notice(interaction, msg)
+
+    # 7. 🖼️ /admin-user namecard 管理員直接給 / 收回 / 戴上角色名片 (2026-11-14 使用者要求)
+    NAMECARD_ACTIONS = [
+        app_commands.Choice(name="🎁 給名片", value="grant"),
+        app_commands.Choice(name="🗑️ 收回名片", value="revoke"),
+        app_commands.Choice(name="🖼️ 戴上 (順便給)", value="equip"),
+        app_commands.Choice(name="📋 查看", value="list"),
+    ]
+
+    async def namecard_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        """角色超過 25 位：依輸入的文字 (名字 / id) 篩選"""
+        cur = current.strip().lower()
+        return [app_commands.Choice(name=f"{c['name']} ({cid})"[:100], value=cid) for cid, c in load_gacha_pool().items()
+                if not cur or cur in cid.lower() or cur in c["name"].lower()][:25]
+
+    @app_commands.command(name="namecard", description="【開發者專用】直接給、收回、戴上角色名片 (不用推角稱號)")
+    @app_commands.describe(action="要做什麼", character="角色 (可以打名字篩選；查看不用填)", target="【可選】目標成員 (留空 = 自己)")
+    @app_commands.choices(action=NAMECARD_ACTIONS)
+    @app_commands.autocomplete(character=namecard_autocomplete)
+    @app_commands.default_permissions(administrator=True)
+    async def namecard_cmd(self, interaction: discord.Interaction, action: app_commands.Choice[str],
+                           character: str | None = None, target: discord.User | discord.Member = None):
+        if not is_admin(interaction.user):
+            await send_notice(interaction, "❌ 無權限")
+            return
+        user = target or interaction.user
+        act = action.value
+        pool = load_gacha_pool()
+        if act in ("grant", "revoke", "equip"):
+            if character not in pool:   # 可能繞過 autocomplete 亂打
+                await send_notice(interaction, "❌ 找不到這位角色，請從選單選。")
+                return
+            name = f"{pool[character]['emoji']} {pool[character]['name']}"
+        if act == "grant":
+            added = await grant_namecard(user.id, character, "admin")
+            msg = (f"🎁 已給 **{user.display_name}** {name} 的名片 (到 /profile 可以換上)" if added
+                   else f"⚠️ **{user.display_name}** 本來就有 {name} 的名片")
+        elif act == "equip":
+            await grant_namecard(user.id, character, "admin")
+            await set_equipped_namecard(user.id, character)
+            msg = f"🖼️ **{user.display_name}** 換上了 {name} 的名片"
+            if namecard_url(character) is None:
+                msg += "\n-# 這位角色的名片圖還沒做，資料卡暫時不會顯示圖片"
+        elif act == "revoke":
+            removed = await revoke_namecard(user.id, character)
+            msg = (f"🗑️ 已收回 **{user.display_name}** 的 {name} 名片" if removed
+                   else f"⚠️ **{user.display_name}** 沒有 {name} 的名片")
+            if f"oshi_{character}" in (await get_title_state(user.id))["unlocked"]:
+                msg += "\n-# 他現在還有這位角色的推角稱號，名片已經自動補回來了"
+        else:
+            msg = f"📋 **{user.display_name}** 的角色名片"
+        state = await get_namecard_state(user.id)
+        label = lambda cid: pool[cid]["name"] if cid in pool else cid
+        equipped = label(state["equipped"]) if state["equipped"] else "沒放"
+        owned = "、".join(label(c) for c in state["owned"]) or "無"
+        msg += f"\n戴著：`{equipped}`\n擁有 `{len(state['owned'])}` 張：{owned}"
         await send_notice(interaction, msg)
 
 

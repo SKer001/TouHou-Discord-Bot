@@ -64,7 +64,7 @@
 ### 🌸 個人與道具
 | 指令 | 說明 |
 |---|---|
-| `/profile` | 個人資料卡，可以設定公開 / 私人，包含體力、今日簽到狀態與運勢 |
+| `/profile` | 個人資料卡，可以設定公開 / 私人，包含體力、今日簽到狀態與運勢；可以戴稱號、換上角色名片 (收藏冊集齊某位角色每個階級的完美卡就能拿到) |
 | `/daily` | 每日簽到：抽今日運勢，獲得賽錢與經驗值（台灣時間每天 00:00 重置） |
 | `/leaderboard category` | 本伺服器排行榜：賽錢、資產總值（賽錢 + 卡牌市值）、P點、收集角色、卡牌總數、祈願次數、融合次數 |
 
@@ -76,7 +76,7 @@
 |---|---|
 | `/admin-gacha` | `view` 檢視卡冊、`give` 發放卡牌、`remove` 刪除卡牌、`set_completeness` 修改完整度、`clear` 清空卡冊 |
 | `/admin-item` | `add_item`、`add_items_batch`、`edit_item`（編輯控制台）、`manage`（給予 / 扣除道具：分類 + 分頁列表，選道具後輸入數量，正數給予、負數扣除）、`give_items` |
-| `/admin-user` | `reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina` |
+| `/admin-user` | `reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`、`title`（給 / 收回 / 戴上稱號）、`namecard`（給 / 收回 / 戴上角色名片） |
 | `/admin-sys` | `reload`（重載模組控制台）、`sync`、`shutdown` |
 | `/admin-shrine` | `view` 查看、`set` 調整賽錢箱 / 清潔度 / 妖怪 / 參拜客、`reset` 重置指定玩家的神社 |
 | `/admin-market` | `set_price` 設定特定角色特定階級的市值、`reset_price` 改回官方價 |

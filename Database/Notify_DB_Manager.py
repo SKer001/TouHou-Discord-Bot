@@ -267,9 +267,11 @@ def check_titles(user_id: int, unlocked: list[str], known: str | None) -> tuple[
         return [], ",".join(sorted(unlocked))
     before = set(filter(None, known.split(",")))
     cur = ",".join(sorted(before | set(unlocked)))
+    # namecard = 推角稱號一起拿到的角色名片 (角色名字)；其他稱號是 None
     notices = [_notice(user_id, "title_unlocked", tid, title_id=tid, name=title_data.TITLES[tid]["name"],
                        rarity=title_data.TITLES[tid]["rarity"], desc=title_data.TITLES[tid]["desc"],
-                       condition=title_data.condition_text(tid))
+                       condition=title_data.condition_text(tid),
+                       namecard=title_data.TITLES[tid].get("character") if tid.startswith(udm.OSHI_PREFIX) else None)
                for tid in unlocked if tid not in before]
     return notices, (cur if cur != known else None)
 
@@ -335,12 +337,13 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             "GROUP BY user_id) k ON k.user_id = u.user_id"
         ) as cursor:
             title_rows = [dict(r) for r in await cursor.fetchall()]   # 欄位要跟 udm.get_title_stats 一致
-        async with db.execute("SELECT user_id, character_key, rarity, MAX(completeness) AS best FROM gacha_cards "
-                              "GROUP BY user_id, character_key, rarity") as cursor:
+        async with db.execute("SELECT user_id, granted_titles FROM users WHERE granted_titles IS NOT NULL") as cursor:
+            granted_titles = {r["user_id"]: udm._split_titles(r["granted_titles"]) for r in await cursor.fetchall()}
+        async with db.execute(udm.TITLE_OWNED_CARDS_SQL + " GROUP BY user_id, character_key, rarity") as cursor:
             owned_cards, char_counts = {}, {}
             for r in await cursor.fetchall():
                 owned_cards.setdefault(r["user_id"], set()).add((r["character_key"], r["rarity"]))
-                if r["best"] >= 0.99995:   # 推角：有完美卡的階級數
+                if (r["album_best"] or 0) >= 0.99995:   # 推角：收藏冊裡有完美卡的階級數
                     cc = char_counts.setdefault(r["user_id"], {})
                     cc[r["character_key"]] = cc.get(r["character_key"], 0) + 1
     for row in title_rows:   # 📚 卡池收集、💕 推角 (跟 udm.get_title_stats 一樣)
@@ -384,15 +387,26 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
 
     # 🏷️ 稱號：第一次上線 (沒有 titles_baseline) 全部只記錄；之後新玩家沒有紀錄 = 之前一個都沒有
     titles_first_run = watch.get(GLOBAL_ID, {}).get("titles_baseline") is None
+    oshi_unlocked: dict[int, list[str]] = {}   # 🖼️ 有推角稱號的玩家 ➔ 下面補名片
     for row in title_rows:
         uid = row["user_id"]
+        unlocked = title_data.unlocked_titles(row)
         known = None if titles_first_run else watch.get(uid, {}).get("titles", "")
-        found, value = check_titles(uid, title_data.unlocked_titles(row), known)
+        found, value = check_titles(uid, unlocked, known)
         notices += found
         if value is not None:
             watch_updates.append((uid, "titles", value))
+        # 管理員給的推角稱號 (granted_titles) 也算，跟 udm.get_title_state 一樣 (不私訊，只補名片)
+        owned_titles = unlocked + [t for t in granted_titles.get(uid, []) if t in title_data.TITLES and t not in unlocked]
+        if any(t.startswith(udm.OSHI_PREFIX) for t in owned_titles):
+            oshi_unlocked[uid] = owned_titles
     if titles_first_run:
         watch_updates.append((GLOBAL_ID, "titles_baseline", now.isoformat()))
+    if oshi_unlocked:   # 第一次有推角稱號就永久拿到名片 (跟 udm.get_title_state 一樣；私訊會提到)
+        async with udm.connect() as db:
+            for uid, unlocked in oshi_unlocked.items():
+                await udm._sync_oshi_namecards(db, uid, unlocked, now.isoformat())
+            await db.commit()
 
     # 🎪 活動 (只通知有神社的玩家)
     overview = await econ.get_events_overview(now)

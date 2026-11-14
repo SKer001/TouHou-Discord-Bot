@@ -170,22 +170,25 @@ async def main():
           and "pool_th06_chars" in unlocked and "pool_classic_cards" in unlocked)
     check("pool condition text", td.condition_text("pool_th06_chars") == "紅魔鄉卡池的角色全部到齊"
           and td.condition_text("pool_classic_cards") == "舊作卡池的卡全部收集 (每個階級)")
-    # 💕 推角：那位角色每個階級各一張完美卡 (完整度 1.0000)，名稱「我是XXX的狗!!!」，每位角色自動一個
+    # 💕 推角：收藏冊裡有那位角色每個階級各一張完美卡 (完整度 1.0000)，名稱「我是XXX的狗!!!」，每位角色自動一個
+    #    (2026-11-14 起只算收藏冊 locked = 1；卡冊裡的完美卡不算)
     O = 63
     await udm.get_or_create_user(O)
-    cards = [("cirno", "SR", 1.0), ("cirno", "SR", 0.3), ("cirno", "SSR", 1.0), ("cirno", "UR", 0.99996),
-             ("reimu", "SR", 1.0), ("reimu", "SSR", 1.0), ("reimu", "UR", 0.9999)]   # 靈夢 UR 不完美
-    for i, (ck, r, c) in enumerate(cards):
-        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness) VALUES (?, ?, ?, 'x', ?, ?)",
-            (f"o{i}", O, ck, r, c))
+    cards = [("cirno", "SR", 1.0, 1), ("cirno", "SR", 0.3, 1), ("cirno", "SSR", 1.0, 1), ("cirno", "UR", 0.99996, 1),
+             ("reimu", "SR", 1.0, 1), ("reimu", "SSR", 1.0, 1), ("reimu", "UR", 0.9999, 1),   # 靈夢 UR 不完美
+             ("rumia", "R", 1.0, 0), ("rumia", "SR", 1.0, 0), ("rumia", "SSR", 1.0, 0)]       # 露米婭全在卡冊 ➔ 不算
+    for i, (ck, r, c, lk) in enumerate(cards):
+        sql("INSERT INTO gacha_cards (instance_id, user_id, character_key, name, rarity, completeness, locked) VALUES (?, ?, ?, 'x', ?, ?, ?)",
+            (f"o{i}", O, ck, r, c, lk))
     st = await udm.get_title_stats(O)
     check("oshi counts", st["oshi:th06:cirno"] == 3 and st["oshi:classic:reimu"] == 2 and st["oshi:th06:rumia"] == 0)
+    check("oshi ignores card book", st["perfect_kinds"] == 8)   # 完美卡稱號還是卡冊 + 收藏冊都算
     unlocked = (await udm.get_title_state(O))["unlocked"]
     check("oshi unlocked", "oshi_cirno" in unlocked and "oshi_reimu" not in unlocked)
     check("oshi name", td.TITLES["oshi_cirno"]["name"] == "我是琪露諾的狗!!!" and td.TITLES["oshi_cirno"]["rarity"] == "SR")
     check("oshi every character", all(f"oshi_{cid}" in td.TITLES and td.TITLES[f"oshi_{cid}"]["min"] == len(rs)
                                       for m in members.values() for cid, rs in m.items()))
-    check("oshi condition", td.condition_text("oshi_cirno") == "卡冊有琪露諾每個階級 (SR / SSR / UR) 各一張完美卡 (完整度 1.0000)")
+    check("oshi condition", td.condition_text("oshi_cirno") == "收藏冊裡有琪露諾每個階級 (SR / SSR / UR) 各一張完美卡 (完整度 1.0000)")
     check("oshi groups", td.title_group("oshi_reimu") == "oshi_classic" and td.title_group("oshi_cirno") == "oshi_th06"
           and td.TITLE_GROUPS["oshi_th06"]["name"] == "💕 推角・紅魔鄉")
     sql("DELETE FROM gacha_cards WHERE instance_id = 'o2'")   # 賣掉琪露諾 SSR 完美卡
@@ -258,7 +261,7 @@ async def main():
     check("no title fixed color", accent(pv) == td.NO_TITLE_COLOR)
     sel = selects(pv)
     # 先選分組再選稱號 (Discord 選單最多 25 個，稱號全放一起放不下)；預設 = 最高等級稱號那組
-    check("group + title selects", len(sel) == 2 and [o.value for o in sel[0].options] == ["draw", "synth"]
+    check("group + title selects", len(sel) == 3 and sel[2].placeholder.startswith("🖼️") and [o.value for o in sel[0].options] == ["draw", "synth"]
           and [o.label for o in sel[0].options] == ["🎰 祈願", "⚗️ 合成"] and sel[0].options[0].default)
     check("title select on own card", not sel[1].disabled and [o.value for o in sel[1].options] == ["draw_100", "draw_10", "__none__"])
     check("select shows desc", sel[1].options[0].description == td.TITLES["draw_100"]["desc"])
