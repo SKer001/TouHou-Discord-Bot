@@ -199,6 +199,7 @@ TITLE_GROUPS = {
     "transfer": {"name": "💸 轉帳", "stats": ("transfer_sent",)},
     "shrine":  {"name": "⛩️ 神社", "stats": ("ps:",)},
     "guest":   {"name": "🙏 客人", "stats": ()},   # 一般客人的稱號 (下面 _add_guest_titles() 產生，稱號本身帶 group)；活動客人每個活動一組
+    "trek":    {"name": "🗺️ 足跡", "stats": ()},   # 一般採集地點的稱號 + 幻想鄉踏破 (_add_trek_titles())；活動地點每個活動一組
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     "event":   {"name": "🎪 活動", "stats": ("evq:",)},   # 活動任務稱號 (下面 _add_event_titles() 從 Events/*.json 自動加)
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
@@ -321,6 +322,102 @@ def _add_guest_titles():
 _add_guest_titles()
 
 
+def _insert_groups_after(key: str, groups: dict):
+    """把新的分組插在 TITLE_GROUPS 的 key 後面 (選單照這個順序)"""
+    items = list(TITLE_GROUPS.items())
+    at = next(i for i, (k, _) in enumerate(items) if k == key) + 1
+    TITLE_GROUPS.clear()
+    TITLE_GROUPS.update(items[:at] + list(groups.items()) + items[at:])
+
+
+# 🗺️ 足跡稱號 (0.35.003，使用者 2026-11-16 定案)：每個採集地點兩個
+#    SR = 在那個地點採集 200 趟、UR = 1000 趟 (ps:explore:<地點>，一般採集和快速採集都算)
+#    活動地點也算、門檻一樣，每個活動一組「🗺️ 足跡・<活動名>」(活動檔 location.titles，沒寫就用預設名稱)；次數跨活動累積
+#    踏破：「幻想鄉踏破」SR = 一般地點每個都採過 1 趟 (活動地點不算)；每個活動另有「<活動名> • 踏破」SSR = 那個活動的地點都採過 1 趟
+#    踏破有 keep=True：第一次達成就寫進 earned_titles 永久保留 (之後新增地點，已經拿到的人不會失去)
+TREK_SR_MIN, TREK_UR_MIN = 200, 1000
+TREK_TITLE_TEXT = {   # 地點 ➔ (SR 名稱, SR 說明, UR 名稱, UR 說明)；說明的 {n} 換成目前的趟數
+    "village": ("人里的熟面孔", "在人間之里採集了 {n} 次，攤販都會主動跟你打招呼。",
+                "人里的活地圖", "在人間之里採集了 {n} 次，哪家店幾點打烊你都背得出來。"),
+    "misty_lake": ("霧中的漁夫", "在霧之湖採集了 {n} 次，八目鰻看到你都會游遠一點。",
+                   "冰精的老朋友", "在霧之湖採集了 {n} 次，琪露諾已經把你當成手下了（她自稱的）。"),
+    "youkai_mountain": ("山道的常客", "在妖怪之山採集了 {n} 次，巡邏的白狼天狗懶得趕你了。",
+                        "天狗也認可的登山家", "在妖怪之山採集了 {n} 次，天狗新聞專門幫你開了登山專欄。"),
+    "bamboo_forest": ("不再迷路的人", "在迷途竹林採集了 {n} 次，終於記得回去的路了。",
+                      "竹林的嚮導", "在迷途竹林採集了 {n} 次，連月兔都跑來問你永遠亭怎麼走。"),
+    "sunflower_field": ("花田的訪客", "在太陽花田採集了 {n} 次，花田的主人開始記得你的名字了。",
+                        "活著走出花田的人", "在太陽花田採集了 {n} 次還毫髮無傷，這本身就是奇蹟。"),
+    "magic_forest": ("蘑菇獵人", "在魔法森林採集了 {n} 次，已經分得出哪些蘑菇會讓人看到幻覺。",
+                     "瘴氣免疫者", "在魔法森林採集了 {n} 次，森林的瘴氣對你已經完全沒用了。"),
+    "kourindou": ("香霖堂的熟客", "在香霖堂翻找了 {n} 次，店主開始幫你留「非賣品」。",
+                  "外界道具鑑定士", "在香霖堂翻找了 {n} 次，你比店主還清楚那些外界道具怎麼用。"),
+    "hakugyokurou": ("冥界的訪客", "在白玉樓採集了 {n} 次，庭師已經不會對你拔刀了（大部分時候）。",
+                     "白玉樓的編外庭師", "在白玉樓採集了 {n} 次，掃落葉的速度快追上半人半靈了。"),
+    "old_hell_onsen": ("溫泉街的常客", "在舊地獄溫泉採集了 {n} 次，鬼族會幫你留一池熱水。",
+                       "泡不暈的人", "在舊地獄溫泉採集了 {n} 次，連鬼都泡不過你。"),
+}
+TREK_BASE_ID = "trek_all"
+TREK_EVENT_LOCATIONS: dict[str, list[str]] = {}   # 活動 id ➔ 那個活動的採集地點 (踏破統計用)
+
+
+def trek_title_id(loc_id: str, tier: str) -> str:
+    return f"trek_{loc_id}_{tier}"
+
+
+def _trek_titles(loc_id: str, loc: dict, group: str, text: tuple | None):
+    name = loc.get("name", loc_id)
+    sr_name, sr_desc, ur_name, ur_desc = text or (
+        f"{name}的熟客", f"在{name}採集了 {{n}} 次，那裡的路你閉著眼睛都會走。",
+        f"{name}的活地圖", f"在{name}採集了 {{n}} 次，哪裡有什麼你比誰都清楚。")
+    common = {"group": group, "location": loc_id, "location_name": name, "stat": f"ps:explore:{loc_id}"}
+    TITLES[trek_title_id(loc_id, "sr")] = {**common, "name": sr_name, "rarity": "SR", "desc": sr_desc, "min": TREK_SR_MIN}
+    TITLES[trek_title_id(loc_id, "ur")] = {**common, "name": ur_name, "rarity": "UR", "desc": ur_desc, "min": TREK_UR_MIN}
+
+
+def _add_trek_titles():
+    from Database import shrine_data
+    from Database.events import load_events
+    for loc_id, loc in shrine_data.LOCATIONS.items():
+        _trek_titles(loc_id, loc, "trek", TREK_TITLE_TEXT.get(loc_id))
+    TITLES[TREK_BASE_ID] = {"name": "幻想鄉踏破", "rarity": "SR", "group": "trek", "stat": "trek_base",
+                            "min": len(shrine_data.LOCATIONS), "keep": True,
+                            "desc": "幻想鄉的每一個地方都留下了你的腳印。"}
+    groups = {}
+    TREK_EVENT_LOCATIONS.clear()
+    for eid, ev in load_events().items():
+        locs = [loc for loc in ([ev["location"]] if ev.get("location") else []) + list(ev.get("locations", []))]
+        if not locs:
+            continue
+        group, ev_name = f"trek_{eid}", ev.get("name", eid)
+        for loc in locs:
+            t = loc.get("titles") or {}
+            text = (t["sr"]["name"], t["sr"]["desc"], t["ur"]["name"], t["ur"]["desc"]) if t.get("sr") and t.get("ur") else None
+            _trek_titles(loc["id"], loc, group, text)
+        TREK_EVENT_LOCATIONS[eid] = [loc["id"] for loc in locs]
+        TITLES[f"trek_{eid}_all"] = {"name": f"{ev_name} • 踏破", "rarity": "SSR", "group": group, "stat": f"trek_ev:{eid}",
+                                     "min": len(locs), "keep": True, "event_name": ev_name,
+                                     "desc": f"{ev_name}期間開放的地方，你全都去過了。"}
+        groups[group] = {"name": f"🗺️ 足跡・{ev_name}", "stats": ()}
+    _insert_groups_after("trek", groups)
+
+
+_add_trek_titles()
+
+
+def trek_stats(stats: dict) -> dict:
+    """(純計算) 踏破用的統計：trek_base = 採集過的一般地點數、trek_ev:<活動> = 採集過的那個活動地點數 (stats 要有 ps:explore:<地點>)"""
+    from Database import shrine_data
+    out = {"trek_base": sum(1 for loc in shrine_data.LOCATIONS if stats.get(f"ps:explore:{loc}", 0) >= 1)}
+    for eid, locs in TREK_EVENT_LOCATIONS.items():
+        out[f"trek_ev:{eid}"] = sum(1 for loc in locs if stats.get(f"ps:explore:{loc}", 0) >= 1)
+    return out
+
+
+def keep_titles(unlocked: list[str]) -> list[str]:
+    """已解鎖裡「第一次達成就永久保留」的稱號 (keep=True，例如踏破)；呼叫端寫進 earned_titles"""
+    return [t for t in unlocked if TITLES.get(t, {}).get("keep")]
+
+
 def title_group(tid: str) -> str | None:
     """稱號屬於哪一組 (TITLE_GROUPS 的鍵)；稱號有寫 group 就用它，不然看 stat 對到哪一組；找不到回傳 None"""
     t = TITLES[tid]
@@ -396,6 +493,12 @@ def _stat_text(t: dict) -> str:
     stat = t["stat"]
     if stat in SHRINE_STAT_TEXT:
         return SHRINE_STAT_TEXT[stat].format(_number(t, t["min"]))
+    if stat.startswith("ps:explore:"):   # 🗺️ 足跡稱號
+        return f"在{t.get('location_name', stat.rsplit(':', 1)[-1])}採集 {t['min']:,} 趟"
+    if stat == "trek_base":
+        return f"{t['min']} 個一般採集地點都至少採集過 1 趟 (活動地點不算)"
+    if stat.startswith("trek_ev:"):
+        return f"{t.get('event_name', stat[8:])}的採集地點都至少採集過 1 趟"
     if stat.startswith("ps:serve_guest:"):   # 🙏 客人稱號
         return f"招待{t.get('guest_name', stat.rsplit(':', 1)[-1])} {t['min']:,} 次"
     if stat.startswith("ps:serve_fav:"):

@@ -272,6 +272,18 @@ async def main():
     calls.clear()
     await cog_mod.run_notify_once(bot, t3 + 3 * H, sender)
     check("next tier", dict(calls).get(B) == ["title_unlocked"])
+    # 🗺️ 踏破 (keep 稱號)：通知 loop 也會寫進 earned_titles，只私訊一次
+    from Database import shrine_data as sd
+    for loc in sd.LOCATIONS:
+        sql("INSERT INTO player_stats (user_id, stat, value) VALUES (?, ?, 1)", (B, f"explore:{loc}"))
+    calls.clear()
+    await cog_mod.run_notify_once(bot, t3 + 4 * H, sender)
+    check(f"trek notice {dict(calls).get(B)}", dict(calls).get(B) == ["title_unlocked"]
+          and rows("SELECT title_id FROM earned_titles WHERE user_id = ? AND title_id = 'trek_all'", (B,)) == [("trek_all",)])
+    sql("DELETE FROM player_stats WHERE user_id = ? AND stat LIKE 'explore:%'", (B,))
+    calls.clear()
+    await cog_mod.run_notify_once(bot, t3 + 5 * H, sender)
+    check("trek kept, not resent", B not in dict(calls))
 
     # 傳送時丟例外也不會掛掉
     await ndm.claim(999, "x", "y", now)

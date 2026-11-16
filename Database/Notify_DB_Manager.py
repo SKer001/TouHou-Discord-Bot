@@ -354,6 +354,7 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
                 player_stats.setdefault(r["user_id"], {})[f"ps:{r['stat']}"] = r["value"]
         for row in title_rows:
             row.update(player_stats.get(row["user_id"], {}))
+            row.update(title_data.trek_stats(row))   # 🗺️ 踏破 (跟 udm.get_title_stats 一樣)
         async with db.execute("SELECT user_id, granted_titles FROM users WHERE granted_titles IS NOT NULL") as cursor:
             granted_titles = {r["user_id"]: udm._split_titles(r["granted_titles"]) for r in await cursor.fetchall()}
         async with db.execute("SELECT user_id, title_id FROM earned_titles ORDER BY earned_at, rowid") as cursor:
@@ -409,9 +410,11 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
     # 🏷️ 稱號：第一次上線 (沒有 titles_baseline) 全部只記錄；之後新玩家沒有紀錄 = 之前一個都沒有
     titles_first_run = watch.get(GLOBAL_ID, {}).get("titles_baseline") is None
     oshi_unlocked: dict[int, list[str]] = {}   # 🖼️ 有推角稱號的玩家 ➔ 下面補名片
+    keep_new: list[tuple[int, str]] = []       # 🗺️ 踏破這類 keep 稱號第一次達成 ➔ 寫進 earned_titles 永久保留
     for row in title_rows:
         uid = row["user_id"]
         unlocked = title_data.unlocked_titles(row)
+        keep_new += [(uid, t) for t in title_data.keep_titles(unlocked) if t not in earned_titles.get(uid, [])]
         earned = [t for t in earned_titles.get(uid, []) if t in title_data.TITLES and t not in unlocked]
         if earned:   # 跟 udm.get_title_state 一樣：已解鎖 = 條件達成 ∪ 永久獲得 (管理員給的不私訊，下面另外算)
             unlocked = sorted(unlocked + earned, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
@@ -426,6 +429,7 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
             oshi_unlocked[uid] = owned_titles
     if titles_first_run:
         watch_updates.append((GLOBAL_ID, "titles_baseline", now.isoformat()))
+    await udm.save_earned_titles(keep_new)
     if oshi_unlocked:   # 第一次有推角稱號就永久拿到名片 (跟 udm.get_title_state 一樣；私訊會提到)
         async with udm.connect() as db:
             for uid, unlocked in oshi_unlocked.items():

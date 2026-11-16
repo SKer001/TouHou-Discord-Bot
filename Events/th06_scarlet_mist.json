@@ -15,7 +15,11 @@
         "desc": "紅魔館的大廚房，妖精女僕們忙進忙出，偶爾能「借」到一些西洋食材。",
         "drops": ["evt_strawberry", "evt_egg", "evt_butter", "evt_tomato", "evt_darjeeling"],
         "good": {"text": "女僕長剛好在整理食材庫，說這些「放到時間停止也會壞」，全部塞給了你。", "effect": {"add": {"evt_strawberry": 2, "evt_egg": 2}}},
-        "bad": {"text": "被門口的門番發現了——她醒著的時候還挺盡責的……", "effect": {"lose": 2}}
+        "bad": {"text": "被門口的門番發現了——她醒著的時候還挺盡責的……", "effect": {"lose": 2}},
+        "titles": {
+            "sr": {"name": "紅魔館廚房的小偷", "desc": "從紅魔館廚房「借」了 {n} 次食材，門番好像一次都沒發現。"},
+            "ur": {"name": "女僕長的頭號通緝犯", "desc": "從紅魔館廚房「借」了 {n} 次食材，女僕長的飛刀上已經刻好你的名字了。"}
+        }
     },
     "items": [
         {"id": "evt_strawberry", "name": "草莓", "emoji": "🍓", "category": "material",

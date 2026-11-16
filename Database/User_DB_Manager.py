@@ -673,6 +673,7 @@ PLAYER_STATS = {
     "collect_money": "從賽錢箱累計回收的賽錢",
     "shop": "雜貨店購買次數",
     # 另外還有每種客人一個的 serve_guest:<客人> (招待次數) / serve_fav:<客人> (成功招待次數)，0.35.001 起 (客人稱號用)
+    # 以及每個採集地點一個的 explore:<地點> (趟數)，0.35.003 起 (足跡稱號用)
 }
 
 
@@ -751,6 +752,17 @@ async def add_quest_stats(db, user_id: int, now: datetime | None = None, stats: 
                 )
 
 
+async def save_earned_titles(pairs: list[tuple[int, str]]):
+    """[(user_id, 稱號 id), ...] 寫進 earned_titles (已經有的不動)；踏破這類 keep 稱號第一次達成時用"""
+    if not pairs:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    async with connect() as db:
+        await db.executemany("INSERT OR IGNORE INTO earned_titles (user_id, title_id, earned_at) VALUES (?, ?, ?)",
+                             [(u, t, now) for u, t in pairs])
+        await db.commit()
+
+
 async def get_earned_titles(user_id: int) -> list[str]:
     """永久獲得的稱號 id (earned_titles 表；活動任務稱號)"""
     async with connect() as db:
@@ -789,6 +801,8 @@ async def get_title_stats(user_id: int) -> dict:
     stats["market_sold"] = sold
     stats["transfer_sent"] = sent
     stats.update({f"ps:{k}": v for k, v in (await get_player_stats(user_id)).items()})   # 📊 神社動作計數
+    from Database import title_data
+    stats.update(title_data.trek_stats(stats))   # 🗺️ 踏破：採集過幾個地點
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
     stats["perfect_kinds"] = kinds["perfect_kinds"] or 0
@@ -803,9 +817,13 @@ async def get_title_state(user_id: int) -> dict:
     user = await get_or_create_user(user_id)
     stats = await get_title_stats(user_id)
     unlocked = title_data.unlocked_titles(stats)
-    # 已解鎖 = 條件達成 ∪ 管理員給的 ∪ 永久獲得的 (活動任務稱號，earned_titles)
+    earned = await get_earned_titles(user_id)
+    keep = [t for t in title_data.keep_titles(unlocked) if t not in earned]
+    if keep:   # 🗺️ 踏破這類「第一次達成就永久保留」的稱號 ➔ 寫進 earned_titles
+        await save_earned_titles([(user_id, t) for t in keep])
+    # 已解鎖 = 條件達成 ∪ 管理員給的 ∪ 永久獲得的 (活動任務稱號、踏破，earned_titles)
     extra = []
-    for t in _split_titles(user.get("granted_titles")) + await get_earned_titles(user_id):
+    for t in _split_titles(user.get("granted_titles")) + earned:
         if t in title_data.TITLES and t not in unlocked and t not in extra:
             extra.append(t)
     if extra:   # 一起列 (照等級重新排)

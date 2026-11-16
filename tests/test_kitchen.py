@@ -147,6 +147,12 @@ async def main():
     stat = con.execute("SELECT value FROM player_stats WHERE user_id = 5 AND stat = 'explore'").fetchone()
     con.close()
     check(f"quick counts explore stat {stat}", stat and stat[0] == 3)
+    ps5 = await udm.get_player_stats(5)
+    check(f"per-location stats", ps5.get("explore:magic_forest") == 1 and ps5.get("explore:kourindou") == 1
+          and ps5.get("explore:old_hell_onsen") == 1)
+    ps1 = await udm.get_player_stats(1)
+    check(f"explore per-location {ps1}", ps1.get("explore:misty_lake") == 2 and ps1.get("explore:village") == 9
+          and ps1.get("explore:bamboo_forest") == 1)
     # 🏪 買齊人里素材
     await udm.get_or_create_user(6); sql("UPDATE users SET money = 10000, inventory = '{}' WHERE user_id = 6")
     scone = sd.STAMINA_RECIPES["sakuya_scone_tea"]

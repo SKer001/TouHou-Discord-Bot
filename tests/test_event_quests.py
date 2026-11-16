@@ -264,7 +264,9 @@ async def main():
     for q in ("maid_recipes", "red_tea_time", "perfect_service", "mist_prayer"):
         got += (await qdm.claim_quest(A, EV, q, now=T2))["new_titles"]
     check(f"8 distinct ➔ SSR {got}", got == [RESOLVER])
-    check("earned rows", sorted(r[0] for r in rows("SELECT title_id FROM earned_titles WHERE user_id = ?", (A,))) == sorted([VISITOR, RESOLVER]))
+    # (在紅魔館廚房採集過 ➔ 還會有「紅霧異變 • 踏破」，這裡只看活動任務稱號)
+    check("earned rows", sorted(r[0] for r in rows("SELECT title_id FROM earned_titles WHERE user_id = ? AND title_id LIKE 'event_%'", (A,)))
+          == sorted([VISITOR, RESOLVER]))
     state = await udm.get_title_state(A)
     check("both unlocked, high first", state["unlocked"].index(RESOLVER) < state["unlocked"].index(VISITOR))
     # 補發：稱號紀錄不見了 (例如之後才加的稱號 / 門檻改低) ➔ 打開 /event quest 時已達標的補進 earned_titles

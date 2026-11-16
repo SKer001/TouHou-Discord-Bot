@@ -398,6 +398,38 @@ async def main():
     st = await udm.get_title_state(C)
     check("guest unlocked from stats", {"guest_kappa_sr", "guest_kappa_ur"} <= set(st["unlocked"]))
 
+    # --- 🗺️ 足跡稱號 (0.35.002)：每個地點 SR 200 趟 / UR 1000 趟；幻想鄉踏破 SR、活動踏破 SSR (永久保留) ---
+    ev_locs = {eid: [l["id"] for l in ([ev["location"]] if ev.get("location") else []) + list(ev.get("locations", []))]
+               for eid, ev in load_events().items()}
+    all_locs = set(sd.LOCATIONS) | {l for ls in ev_locs.values() for l in ls}
+    check(f"trek titles {len(all_locs)}", all(td.trek_title_id(l, t) in td.TITLES for l in all_locs for t in ("sr", "ur"))
+          and td.TITLES[td.trek_title_id("village", "sr")]["min"] == 200 and td.TITLES[td.trek_title_id("village", "ur")]["min"] == 1000)
+    check("trek groups", td.title_group("trek_village_sr") == "trek" and td.title_group("trek_scarlet_kitchen_sr") == "trek_th06_scarlet_mist"
+          and td.title_group("trek_all") == "trek" and td.title_group("trek_th06_scarlet_mist_all") == "trek_th06_scarlet_mist"
+          and td.TITLE_GROUPS["trek_th06_scarlet_mist"]["name"] == "🗺️ 足跡・紅霧異變")
+    check("trek names", td.TITLES["trek_kourindou_ur"]["name"] == "外界道具鑑定士" and td.TITLES["trek_scarlet_kitchen_sr"]["name"] == "紅魔館廚房的小偷"
+          and td.TITLES["trek_all"]["rarity"] == "SR" and td.TITLES["trek_th06_scarlet_mist_all"]["name"] == "紅霧異變 • 踏破"
+          and td.TITLES["trek_th06_scarlet_mist_all"]["rarity"] == "SSR")
+    check("trek condition", td.condition_text("trek_misty_lake_sr") == "在霧之湖採集 200 趟"
+          and td.condition_text("trek_all") == "9 個一般採集地點都至少採集過 1 趟 (活動地點不算)")
+    base_visits = {f"ps:explore:{l}": 1 for l in sd.LOCATIONS}
+    check("trek base needs all", td.trek_stats({**base_visits, "ps:explore:village": 0})["trek_base"] == 8
+          and td.trek_stats(base_visits)["trek_base"] == 9)
+    check("event loc not in base", td.trek_stats({"ps:explore:scarlet_kitchen": 5}) == {"trek_base": 0, "trek_ev:th06_scarlet_mist": 1})
+    check("names still unique", len({td.TITLES[t]["name"] for t in td.TITLES}) == len(td.TITLES))
+    # 踏破第一次達成 ➔ earned_titles 永久保留 (之後統計變了 / 新增地點也不會失去)
+    D = 4040
+    await udm.get_or_create_user(D)
+    con = sqlite3.connect(udm.DB_PATH)
+    con.executemany("INSERT INTO player_stats (user_id, stat, value) VALUES (?, ?, 1)",
+                    [(D, f"explore:{l}") for l in list(sd.LOCATIONS) + ["scarlet_kitchen"]])
+    con.commit(); con.close()
+    st = await udm.get_title_state(D)
+    check("trek unlocked", {"trek_all", "trek_th06_scarlet_mist_all"} <= set(st["unlocked"])
+          and {"trek_all", "trek_th06_scarlet_mist_all"} <= set(await udm.get_earned_titles(D)))
+    sql("DELETE FROM player_stats WHERE user_id = ?", (D,))
+    check("trek kept", {"trek_all", "trek_th06_scarlet_mist_all"} <= set((await udm.get_title_state(D))["unlocked"]))
+
     # --- 稱號選單分頁 (參考 /card inventory：分主題 + 分頁) ---
     import importlib
     prof = importlib.import_module("Cogs.load-general.profile")

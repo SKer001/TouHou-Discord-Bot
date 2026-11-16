@@ -575,6 +575,7 @@ async def explore(user_id: int, location_id: str, times: int = 1, now: datetime 
             new_stamina = info["stamina"] - runs * cost
             await db.execute("UPDATE users SET stamina = ?, stamina_updated_at = ? WHERE user_id = ?", (new_stamina, updated_at, user_id))
             await add_player_stat(db, user_id, "explore", runs)   # 📊 實際採集的趟數
+            await add_player_stat(db, user_id, f"explore:{location_id}", runs)   # 🗺️ 每個地點的趟數 (足跡稱號；0.35.003 起)
             await add_quest_stats(db, user_id, now, {f"explore:{location_id}": runs})   # 🎪 活動任務：在這個地點採集的趟數
             await db.commit()
         except BaseException:
@@ -689,6 +690,8 @@ async def quick_explore(user_id: int, recipe: dict, times: int, pots: int = 1,
             updated_at = now.isoformat() if info["stamina"] >= STAMINA_MAX else info["updated_at"]
             await db.execute("UPDATE users SET stamina = ?, stamina_updated_at = ? WHERE user_id = ?", (stamina, updated_at, user_id))
             await add_player_stat(db, user_id, "explore", len(runs))   # 📊 跟一般採集一樣算趟數
+            for k, n in per_loc.items():
+                await add_player_stat(db, user_id, f"explore:{k}", n)   # 🗺️ 每個地點的趟數 (足跡稱號)
             await add_quest_stats(db, user_id, now, {f"explore:{k}": n for k, n in per_loc.items()})   # 🎪 活動任務
             await db.commit()
         except BaseException:
