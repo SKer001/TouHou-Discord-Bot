@@ -1121,6 +1121,53 @@ LAYERS = {
                           "danmaku, bullets, magic circle, beam, energy ball, aura, mist, multiple girls"),
         "char_scale": 0.8,
     },
+    # 夢月 N / R / SR (TH04 舊卡重生)：外觀沿用 make_workflow.BASE["mugetsu"] (萌娘百科：齊頸金色鮑伯短髮、黃瞳、女僕頭飾、
+    # 粉藍女僕裝 + 白圍裙、大紅蝴蝶結；沒有翅膀)；EXTRA_NEGATIVE["mugetsu"] 已擋翅膀 / 幻月 / 長髮 / 微笑 (撲克臉)
+    # 個性：冷靜的撲克臉女僕，其實比姊姊還強；N～SR 沒有彈幕 (舊 SCENES 的白藍彈幕拿掉)；全部站姿 / 浮空，不要坐姿
+    ("mugetsu", "N"): {
+        # N「夢幻館的女僕」：日常 ── 撲克臉端著銀托盤送上冰淇淋聖代 (主題曲 Icemilk Magic)，站在夢幻館的洋館餐廳裡
+        # 背景 = 洋館內的餐廳 (長桌、白桌布、茶具、甜點架、大窗戶灑進陽光、吊燈)；平視、白天柔光
+        "bg": ("no humans, scenery, eye level, western mansion interior, elegant dining room, long table, white tablecloth, "
+               "tea set, cake stand, desserts on the table, large arched windows, sunlight through windows, chandelier, "
+               "curtains, daylight, soft lighting, peaceful, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("standing, expressionless, poker face, half-closed eyes, holding a silver tray with one hand, ice cream sundae on tray, "
+                 "parfait glass, other hand at side, elegant posture, three-quarter view, from side, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, sitting, chair, table, "
+                          "multiple trays, danmaku, magic circle"),
+        "char_scale": 0.7,   # 日常卡人物小一點融入背景
+        "offset": (0.0, 0.1),   # 往下一點，腳踩到地板
+    },
+    ("mugetsu", "R"): {
+        # R「夢幻的仙境女僕」：有動作 ── 在夢幻世界的空中輕飄飄浮著，一手揮動讓茶具飛起來 (支配夢境的能力)，
+        # 冷淡地撇頭、微微臉紅 (對姊姊的傲嬌)；裙擺、圍裙被風吹起
+        # 背景 = 夢幻世界：粉彩天空、棉花雲、浮空小島、飄在空中的茶杯 / 茶壺 / 蛋糕 (飄浮物只放背景，人物層不要畫)、閃光點點
+        "bg": ("no humans, scenery, dream world, pastel sky, pink and blue sky, fluffy clouds, floating islands, "
+               "floating teacups, floating teapot, floating cakes and sweets in the air, sparkles, "
+               "daylight, soft lighting, whimsical, fantasy, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("floating, mid-air, one arm extended, waving hand, casting magic, looking away, turning head, "
+                 "slight blush, annoyed, expressionless, apron fluttering, dress fluttering in the wind, hair swaying, "
+                 "dynamic pose, three-quarter view, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, sitting, "
+                          "teacup, teapot, cake, tray, danmaku, magic circle, wings"),
+        "char_scale": 0.75,
+    },
+    ("mugetsu", "SR"): {
+        # SR「惡夢之女補佐」：有氣勢 ── 「惡夢侵蝕」的起手：浮在崩壞的夢幻世界上空，面無表情、冷冽俯視、眼睛發光，
+        # 單手往前抬起；原作攻擊前身上閃乳白色光芒 ➔ 光放背景 (去背會切掉)，人物不畫光環；微仰視
+        # 背景 = 被惡夢侵蝕的夢幻世界：碎裂的天空、深藍與紫色的漩渦雲、崩落的浮空島、遠方洋館剪影、乳白色光線 (沒有彈幕)
+        "bg": ("no humans, scenery, slightly from below, nightmare, distorted dream world, cracked sky, shattered sky, "
+               "swirling dark blue and violet clouds, crumbling floating islands, floating rubble, western mansion silhouette in the distance, "
+               "milky white light rays, glowing white light, bloom, epic, ominous, majestic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, danmaku, bullets",
+        "char": ("floating, from below, expressionless, cold eyes, glowing eyes, looking down at viewer, arm outstretched toward viewer, one hand raised forward, open palm, "
+                 "other arm at side, calm, intimidating, hair flowing, apron fluttering, dress fluttering in the wind, "
+                 "dynamic angle, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, sitting, "
+                          "danmaku, bullets, magic circle, aura, energy ball, beam, wings, smile, swirl, wind effect, ribbon, halo, chair"),
+        "char_scale": 0.8,
+    },
 }
 
 
