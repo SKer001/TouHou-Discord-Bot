@@ -30,10 +30,10 @@
   ★ 是重建卡面需要的檔案 (build_cards.py 會優先用它們)；*_hd.png 太大不進 git，只留在本機
 
 用法：
-  python hd_card.py wf <角色> <階級> bg|char <種子> <輸出.json>   產生 ComfyUI 工作流程 (生成 → 重繪 → 放大一次做完)
+  python hd_card.py wf <角色> <階級> bg|char|orb <種子> <輸出.json>   產生 ComfyUI 工作流程 (生成 → 重繪 → 放大一次做完；orb = LAYERS 的 orbs.prompt)
   python hd_card.py wf-up <角色> <階級> <ComfyUI/input 裡的圖> <種子> <輸出.json>  拿現成人物圖走重繪 → 高清
   python hd_card.py wf-outpaint <角色> <階級> <ComfyUI/input 裡的圖> <種子> <輸出.json>  往外擴圖 (神綺翅膀試過會長出多餘的翅膀，不建議)
-  python hd_card.py collect <角色> <階級> bg|char <種子>            把 ComfyUI 的輸出複製成 01~03 / 06~08
+  python hd_card.py collect <角色> <階級> bg|char|orb <種子>        把 ComfyUI 的輸出複製成 01~03 / 06~08 / O1
   python hd_card.py bg <角色> <階級>                                 04、05
   python hd_card.py char <角色> <階級>                               09、10 (去背用 comfy venv 的 python)
   python hd_card.py light <角色> <階級>                              10b (打光，LAYERS 的 light)
@@ -70,6 +70,7 @@ HD = 4                                             # 長寬各 4 倍 = 16 倍像
 SIZES = {   # 生成尺寸、重繪倍率
     "bg": {"base": (864, 1200), "hires": (1728, 2400)},
     "char": {"base": (936, 1128), "hires": (1400, 1688)},
+    "orb": {"base": (832, 1152), "hires": (1248, 1728)},   # 環繞物件 (LAYERS 的 orbs.prompt)，只用 2hires 當 O1；正方形容易畫出一整排
 }
 # 共用構圖不提翅膀 (會讓沒有翅膀的角色長出翅膀)；有翅膀的角色寫在 LAYERS 的 "char"，或改用翅膀分層
 CHAR_COMPOSITION = ("solo, full body, entire body visible, head to toe, "
@@ -1168,6 +1169,59 @@ LAYERS = {
                           "danmaku, bullets, magic circle, aura, energy ball, beam, wings, smile, swirl, wind effect, ribbon, halo, chair"),
         "char_scale": 0.8,
     },
+    # 愛麗絲 SR / SSR / UR (TH05 舊卡重生)：**舊作外觀** (怪綺談)，沿用 make_workflow.BASE["alice"] (萌娘百科「愛麗絲(東方Project舊作)」：
+    # 齊頸金色短髮、金瞳、藍緞帶髮卡、粉紅連衣裙 + 藍色圍裙、白襪、個子矮)；EXTRA_NEGATIVE["alice"] 已擋新作愛麗絲 (藍裙披肩、長髮)
+    # 個性：浪漫天真、一臉正氣擋路 (三面) ➔ 輸了拿究極魔導書回來報仇、邊看邊打 (EX 面)；「死之少女」= 女神轉生抱人偶的屍鬼少女
+    # 不擦邊：三張都不用仰角，負面提示擋裙底 / 走光
+    ("alice", "SR"): {
+        # SR「魔界的人形使」：日常 ── 在魔界的街道上抱緊小人偶、鼓著臉擋在路中間，倔強地瞪著闖入者 (三面的「浩然正氣」)
+        # 背景 = 魔界的城鎮 (奇形怪狀的房子、石板路、飄浮的燈籠)、淡紫色天空；平視、柔光
+        "bg": ("no humans, scenery, eye level, demon world town, makai, strange whimsical buildings, crooked houses, cobblestone street, "
+               "floating lanterns, pastel purple sky, pink clouds, soft lighting, fantasy, whimsical, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, doll, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "char": ("standing, blocking the way, legs together, hugging a small doll, holding doll tightly with both arms, "
+                 "pout, puffed cheeks, glaring at viewer, frown, stubborn, determined, front view, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, from below, sitting, "
+                          "lantern, multiple dolls, danmaku, magic circle, multiple girls"),
+        "char_scale": 0.85,   # 使用者 (2026-11-16)：B2C1 第一版 0.65 太小、像浮在屋頂上 ➔ 放大
+    },
+    ("alice", "SSR"): {
+        # SSR「死之少女」：EX 面復仇 ── 浮在黃昏的魔界上空，單手攤開發光的究極魔導書邊讀邊施法，「這次一定贏」的得意壞笑，
+        # 頭髮、緞帶、裙擺被魔力吹起；書頁 / 符文 / 光線放背景 (去背會切掉)，SSR 沒有彈幕、閃光由程式加
+        "bg": ("no humans, scenery, high in the sky above the demon world, makai, twilight, purple and deep blue sky, "
+               "dark castle silhouette in the distance, floating islands, glowing blue magic runes floating in the air, "
+               "blue magic light rays, sparkles, bloom, epic, majestic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, book, text, watermark, lowres, worst quality, low quality, blurry, frame, border, danmaku, bullets",
+        "char": ("floating, holding open book in one hand, reading book, glowing book, glowing pages, other hand raised, index finger raised, "
+                 "casting spell, smug, confident grin, looking at viewer, hair ribbon fluttering, hair flowing, "
+                 "dress fluttering, apron fluttering, dynamic pose, three-quarter view, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, from below, "
+                          "flying papers, scattered pages, magic circle, danmaku, beam, aura, multiple books, multiple girls"),
+        "char_scale": 0.8,
+    },
+    ("alice", "UR"): {
+        # UR「魔法之國的死靈法師」人形「Little Legion」：浮在暗紫色的魔界夜空，雙手張開、指尖拉出發光絲線指揮人偶，眼睛發光、表情認真
+        # 人偶軍團模型畫不好 ➔ 試過環繞物件圈 (orbs + wf orb 單獨生人偶)，最後拿掉，只留彈幕
+        # 彈幕 legion：粉紅 / 藍大玉交錯環 + 藍米粒彈螺旋 (舊作愛麗絲的粉紅 + 藍配色)；背景偏暗紫黑
+        "bg": ("no humans, scenery, night sky above the demon world, makai, dark violet and deep navy sky, starry sky, "
+               "dark castle silhouette far below, faint purple mist, ominous, dark, dramatic, cinematic, majestic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, doll, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime, blue sky, sun",
+        # 第一輪 (種子 3303～6606)：「puppeteer / strings」讓模型畫出吊著的紅球、眼球裝飾、桿子 ➔ 拿掉，負面擋吊飾 / 球 / 桿子 / 翅膀 / 燈籠褲
+        "char": ("floating in the air, both arms spread outward, open hands, fingers spread, "
+                 "serious expression, glowing eyes, looking at viewer, facing viewer, hair ribbon fluttering, hair flowing, "
+                 "long dress, dress fluttering, apron fluttering, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, bloomers, from below, "
+                          "doll, dolls, doll army, book, magic circle, danmaku, aura, multiple girls, "
+                          "ball, sphere, bauble, ornament, hanging objects, string, puppet strings, pole, staff, eyeball, "
+                          "floating objects, standing on object, wings, feathers"),
+        "style": "legion",
+        "density": 0.72,
+        "glow": 0.55,
+        "char_scale": 0.8,
+        "light": {"dark": 0.35, "glow_red": 0,   # 沒有翅膀 ➔ glow_red 0
+                  "eyes": [(670, 512), (737, 512)], "eye_color": (255, 210, 90), "eye": 1.3, "eye_size": 3},   # 金瞳發光 (B1C4 的 10_char 量的)
+        # 人偶環 (orbs.py，D3 素材 = orb 種子 9919、anchor (540, 690)) 做過一版，使用者 (2026-11-16) 決定拿掉 ➔ 不放 orbs
+    },
 }
 
 
@@ -1204,6 +1258,10 @@ def workflow(char_id: str, rarity: str, layer: str, seed: int) -> dict:
         positive = ", ".join([spec["bg"], QUALITY])
         negative = spec["bg_negative"]
         denoise, hd = 0.4, (1748 * HD, 2432 * HD)
+    elif layer == "orb":   # 環繞物件 (例如愛麗絲 UR 的人偶)：提示寫在 LAYERS 的 orbs.prompt / negative
+        positive = ", ".join([spec["orbs"]["prompt"], QUALITY])
+        negative = spec["orbs"].get("negative", NEGATIVE)
+        denoise, hd = 0.35, (1248 * 2, 1728 * 2)
     else:
         positive, negative = char_prompts(char_id, spec)
         l, t, r, b = window_box()
@@ -1289,6 +1347,13 @@ def upscale_workflow(char_id: str, rarity: str, src: str, seed: int) -> dict:
 
 def collect(char_id, rarity, layer, seed):
     d = stage_dir(char_id, rarity)
+    if layer == "orb":   # 環繞物件只要 2hires ➔ O1_orb.png
+        files = sorted(glob.glob(os.path.join(COMFY_OUT, "touhou_card", "hd", f"{char_id}_{rarity}_orb_s{seed}_2hires_*.png")))
+        if not files:
+            raise SystemExit(f"找不到 ComfyUI 輸出：orb s{seed} 2hires")
+        shutil.copy(files[-1], os.path.join(d, "O1_orb.png"))
+        print("✅ O1_orb")
+        return
     names = {"bg": ["01_bg_base", "02_bg_hires", "03_bg_hd"], "char": ["06_char_base", "07_char_hires", "08_char_hd"]}[layer]
     for step, name in zip(["1base", "2hires", "3hd"], names):
         files = sorted(glob.glob(os.path.join(COMFY_OUT, "touhou_card", "hd", f"{char_id}_{rarity}_{layer}_s{seed}_{step}_*.png")))

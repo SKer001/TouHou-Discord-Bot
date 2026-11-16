@@ -1,4 +1,4 @@
-"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用；starbow 是紅色大玉環 + 七彩水晶米粒彈 + 七彩菱形水晶彈雨，芙蘭「星弓破碎」用；scarlet 全部紅色系大玉 + 米粒彈，蕾米莉亞用；elements 是七曜色 (日月火水木金土) 大玉環 + 七色螺旋 + 七個元素魔法陣，帕秋莉用；knives 銀藍飛刀環 + 飛刀螺旋 + 時停飛刀陣，咲夜用)
+"""程式畫的彈幕層 (分層合成用)：環狀光球、螺旋米粒彈、星形彈、散落小玉 (freeze 風格再加六角冰晶；stars 風格全部換成星彈，魔理沙用；seal 風格是七彩大光球 + 紅白符札 + 小陰陽玉，靈夢用；starbow 是紅色大玉環 + 七彩水晶米粒彈 + 七彩菱形水晶彈雨，芙蘭「星弓破碎」用；scarlet 全部紅色系大玉 + 米粒彈，蕾米莉亞用；elements 是七曜色 (日月火水木金土) 大玉環 + 七色螺旋 + 七個元素魔法陣，帕秋莉用；knives 銀藍飛刀環 + 飛刀螺旋 + 時停飛刀陣，咲夜用；legion 粉紅 / 藍大玉交錯環 + 藍米粒彈螺旋，舊作愛麗絲「Little Legion」用)
 draw_danmaku(size, seed, style) 回傳 (glow 光暈 RGB, core 清楚彈體 RGBA)；
 座標以 1344 寬的畫窗為基準，依 size 等比放大，所以可以直接畫在 4 倍高清的畫布上。"""
 import colorsys
@@ -151,6 +151,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
     TWILIGHT = [(110, 90, 255), (150, 110, 255), (90, 140, 255), (180, 130, 255)]   # 魅魔：藍紫色月牙
     MIMA_GREEN = (150, 255, 190)
     STARLIGHT = [(255, 255, 255), (255, 250, 200), (240, 240, 255)]   # 魅魔：白、淡黃星光
+    LEGION_PINK = [(255, 120, 190), (255, 160, 215)]   # 愛麗絲 (舊作)：粉紅連衣裙 + 藍圍裙的配色
+    LEGION_BLUE = [(80, 140, 255), (120, 180, 255), (60, 110, 240)]
 
     def crescent(x, y, r, ang, color):
         """月牙刃彈：外圓扣掉偏移的內圓，開口朝行進方向的反方向"""
@@ -206,6 +208,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                         orb(x, y, r * 1.2, STARBOW[k % 7] if k % 3 == 0 else (230, 25, 45))
                     elif style == "elements":   # 帕秋莉：一圈一種元素色的大玉
                         orb(x, y, r * 1.4, ELEMENTS[(ring + int(base_h * 7)) % 7])
+                    elif style == "legion":   # 愛麗絲 (舊作)：粉紅 / 藍大玉交錯的環
+                        orb(x, y, r * 1.5, LEGION_PINK[ring % 2] if k % 2 == 0 else LEGION_BLUE[ring % 3])
                     elif style == "twilight":   # 魅魔：藍紫月牙刃環，每五顆夾一顆淡綠大玉
                         if k % 5 == 0:
                             orb(x, y, r * 1.7, MIMA_GREEN)
@@ -233,6 +237,8 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
                     rice(x, y, a + 0.35, 17 * s, STARBOW[arm])
                 elif style == "elements":   # 帕秋莉：七條手臂 = 七曜
                     rice(x, y, a + 0.35, 18 * s, ELEMENTS[arm])
+                elif style == "legion":   # 愛麗絲 (舊作)：藍色米粒彈螺旋
+                    rice(x, y, a + 0.35, 18 * s, LEGION_BLUE[arm % 3])
                 elif style == "twilight":   # 魅魔：藍紫米粒彈
                     rice(x, y, a + 0.35, 18 * s, TWILIGHT[arm % 4])
                 else:
@@ -256,7 +262,7 @@ def draw_danmaku(size, seed=1, style="rainbow", scale=None, density=1.0, origins
             knife(rnd.uniform(0, W), rnd.uniform(0, H), math.pi * 0.62 + rnd.uniform(-0.15, 0.15), rnd.uniform(26, 40) * s, rnd.choice(KNIFE))
     red = style == "scarlet"   # 蕾米莉亞：散落的彈也都是紅色系
     blue = style == "knives"   # 咲夜：散落的彈是藍白色系
-    palette = SCARLET if red else ELEMENTS if style == "elements" else KNIFE if blue else STARLIGHT if style == "twilight" else None   # 帕秋莉：七曜色；咲夜：銀藍；魅魔：白 / 淡黃星光
+    palette = SCARLET if red else ELEMENTS if style == "elements" else KNIFE if blue else STARLIGHT if style == "twilight" else LEGION_PINK + LEGION_BLUE + [(255, 255, 255)] if style == "legion" else None   # 帕秋莉：七曜色；咲夜：銀藍；魅魔：白 / 淡黃星光
     for _ in range(260 if style == "stars" else 60 if blue else 110):
         star(rnd.uniform(0, W), rnd.uniform(0, H), rnd.uniform(9, 17) * s, rnd.random() * 6, rnd.choice(palette) if palette else hue(rnd.random(), 0.6))
     for _ in range(260):

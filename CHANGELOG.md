@@ -13,6 +13,13 @@
 
 ---
 
+## 0.35.015 — 2026-11-16：愛麗絲 (舊作) SR / SSR / UR 卡面 (筆電，卡面 session)
+- **高清分層重生**，舊作外觀 (齊頸金髮、藍緞帶、粉紅連衣裙 + 藍圍裙)：SR「魔界的人形使」魔界街道抱人偶擋路 (B2C1，人物放大到 0.85)、SSR「死之少女」浮在魔界上空邊讀魔導書邊施法 (B1C1)、UR「魔法之國的死靈法師」暗紫魔界城堡 + 雙手張開 + 金瞳發光 (B1C4)。
+- **新彈幕風格 `legion`** (`danmaku.py`)：粉紅 / 藍大玉交錯環 + 藍米粒彈螺旋。
+- **`hd_card.py wf / collect` 多了 `orb` 圖層**：環繞物件可以用 `LAYERS["orbs"]["prompt"]` 單獨生 (直長畫布，正方形會畫成一整排)。
+- 坑：UR 人物提示寫「puppeteer / strings」會畫出吊著的紅球、眼球裝飾、桿子 ➔ 拿掉，負面擋球 / 吊飾 / 桿子 / 燈籠褲，重生一輪才可用。人偶環 (D3 人偶 7 隻) 做出來使用者決定拿掉，步驟圖留在本機 `_old_orbs/`。
+- 去背把 C4 身後的粉紅殘影當成半透明布保留下來，看起來像披風，使用者接受。
+
 ## 0.35.014 — 2026-11-16：📄 共用分頁 (一)：卡冊、收藏冊、合成選卡、卡冊管理、道具管理 (筆電，統整 session)
 - 新增 `Utils/pagination.py`：`paginate()` (切頁 + 頁數限制在範圍內)、`nav_buttons()` (上一頁 / 頁碼 / 下一頁，回傳 list 可以跟其他按鈕同一排)、`PageJumpModal` (輸入頁數跳頁)、`step()`。按鈕樣式用 preset 保留各畫面原本的樣子 (default / compact / simple / jump)，玩家看到的不變。
 - 這次換掉：`/card inventory` 的卡冊列表與一疊卡、`/card album`、`/card synthesis` 選卡、`/admin-gacha` 選卡、`/admin-item` 管理畫面。View 的 `prev_callback` / `next_callback` 改成一個 `set_page(interaction, page)`。

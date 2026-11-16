@@ -32,7 +32,7 @@
 | TH04 | 艾莉 elly | N / R / SR | ✅ 0.34.001 (N 人物往下移，腳踩到石板路) |
 | TH04 | 幻月 gengetsu | R / SR / SSR | ✅ 0.34.006 (人物直接帶翅膀；SR / SSR 翅膀補邊) |
 | TH04 | 夢月 mugetsu | N / R / SR | ✅ 0.34.010 (N 圍裙紅色亂碼塗白；SR 人物重生一輪) |
-| TH05 | 愛麗絲 alice | SR / SSR / UR | 全部重生 (舊作外觀) |
+| TH05 | 愛麗絲 alice | SR / SSR / UR | ✅ 0.35.015 (舊作外觀；UR 彈幕 legion、人偶環試過拿掉) |
 | TH05 | 露易絲 luize | N / R / SR | ✅ 0.30.015 (桌機) |
 | TH05 | 神綺 shinki | SSR / UR / LR | LR 已是分層 (同上)；SSR、UR 重生 (UR 構圖要跟 LR 拉開) |
 | TH05 | 雪與舞 yuki_mai | N / R / SR | 全部重生 (雙人：兩人各自生成去背再合成) |
