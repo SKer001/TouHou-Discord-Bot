@@ -524,11 +524,11 @@ async def main():
     guest_n = len(td.group_titles((await udm.get_title_state(C))["unlocked"])["guest"])
     check(f"title page 1 ({guest_n})", len(sel[1].options) == 4 and "第 1 / " in sel[1].placeholder
           and btns["◀️ 上一頁"].disabled and not btns["下一頁 ▶️"].disabled and any(l.startswith("📄 1 / ") for l in btns))
-    await pv.on_title_next(Interaction(uid=C))
+    await next(b for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "下一頁 ▶️").callback(Interaction(uid=C))   # 按共用分頁的按鈕
     sel = selects(pv)
     check("title page 2", "第 2 / " in sel[1].placeholder and sel[1].options[-1].value == "__none__"
           and len(sel[1].options) == min(3, guest_n - 3) + 1)
-    await pv.on_title_prev(Interaction(uid=C))
+    await next(b for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "◀️ 上一頁").callback(Interaction(uid=C))
     check("title page back", "第 1 / " in selects(pv)[1].placeholder)
     # 戴著的稱號在第 2 頁 ➔ 切到那組時直接打開第 2 頁
     page2 = td.group_titles((await udm.get_title_state(C))["unlocked"])["guest"][3]

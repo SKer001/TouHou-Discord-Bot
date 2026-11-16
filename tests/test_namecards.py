@@ -201,7 +201,7 @@ async def main():
     sel = namecard_select(it.view)
     check("disabled when none", sel.disabled and "收藏冊" in sel.placeholder and "完美卡" in sel.placeholder)
 
-    # 最多名片 + 稱號 + 名片圖 + 剛簽到 ➔ 元件 ≤ 40；選單 ≤ 25 (超過 24 張時戴著的那張一定列出)
+    # 名片超過 24 張 ➔ 分頁 (0.35.017 共用分頁)：打開時在戴著的那張那頁；名片 + 稱號 + 名片圖 + 剛簽到 + 換頁按鈕 ➔ 元件 ≤ 40
     M = 5
     for i, cid in enumerate(POOL):
         sql("INSERT INTO namecards (user_id, character_key, obtained_at, source) VALUES (?, ?, ?, 'admin')", (M, cid, f"2026-01-01T00:{i:02d}"))
@@ -214,10 +214,29 @@ async def main():
     it = Interaction(uid=M); await cmds["daily"].callback(cog, it)   # 簽到 ➔ 有獎勵那張卡
     pv = it.view
     sel = namecard_select(pv)
-    check("max options 25", len(sel.options) == 25 and sel.options[-1].value == "__none__")
+    n_owned = len(POOL) + 10
+    last = n_owned - 24
+    check(f"namecard page 2 ({n_owned})", "第 2 / 2 頁" in sel.placeholder and len(sel.options) == last + 1
+          and sel.options[-1].value == "__none__")
     check("equipped listed", "fake9" in [o.value for o in sel.options] and next(o for o in sel.options if o.value == "fake9").default)
     check("unknown character label", next(o for o in sel.options if o.value == "fake9").label == "fake9的名片")
     check(f"component count {count(pv)} ≤ 40", count(pv) <= 40 and len(galleries(pv)) == 1 and len(selects(pv)) == 3)
+    prev = next(b for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "◀️ 上一頁")
+    await prev.callback(Interaction(uid=M))
+    sel = namecard_select(pv)
+    check("namecard page 1", "第 1 / 2 頁" in sel.placeholder and len(sel.options) == 25 and sel.options[-1].value == "__none__"
+          and "fake9" not in [o.value for o in sel.options])
+    check(f"component count page 1 {count(pv)} ≤ 40", count(pv) <= 40)
+    # 最壞情況：稱號也要換頁 (稱號換頁 + 名片換頁兩排按鈕同時出現)
+    import importlib
+    prof = importlib.import_module("Cogs.load-general.profile")
+    keep_per = prof.TITLES_PER_PAGE
+    prof.TITLES_PER_PAGE = 1
+    pv.build(*pv.data)
+    navs = sum(1 for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "下一頁 ▶️")
+    print(f"worst case components: {count(pv)}")
+    check(f"worst case {count(pv)} ≤ 40 (navs {navs})", navs == 2 and count(pv) <= 40)
+    prof.TITLES_PER_PAGE = keep_per
 
     # --- 🛠️ /admin-user namecard ---
     from Utils import config

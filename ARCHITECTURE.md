@@ -101,6 +101,7 @@ async def setup(bot):
   - 只允許本人操作：覆寫 `interaction_check`，非本人用 `send_notice` 回「❌ 這不是你的畫面」並回傳 False。
 - **單則訊息最多 40 個元件**（每個 Section/TextDisplay/Button 都算）；列表類畫面要先算好每頁筆數（例：卡冊每頁 7 疊）。
 - **選單最多 25 個選項、autocomplete 最多 25 筆**：選項可能變多就分層（先選代數 pool → 再選角色 → 分頁選卡，每頁 20 張）。
+- **分頁一律用 `Utils/pagination.py`**（0.35.014 起，不要再自己寫上一頁 / 下一頁）：`paginate(清單, 頁數, 每頁幾筆)` 切頁並把頁數限制在範圍內；`nav_buttons(頁數, 總頁數, self.set_page, preset)` 回傳按鈕 list（可跟其他按鈕放同一排）；View 只要寫一個 `async def set_page(self, interaction, page)`。樣式 `default`（大部分畫面）/ `compact`（市場）/ `simple`（活動任務）/ `jump`（道具倉庫，可跳頁）。測試要翻頁就按畫面上的按鈕。
 
 ### 3.3 通知 / 錯誤訊息
 

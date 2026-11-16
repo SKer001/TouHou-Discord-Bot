@@ -25,6 +25,7 @@ from .Components.general_components import (
     build_namecard_dm_view,
 )
 from Utils.components import send_notice
+from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 from Utils.stamina_modal import open_stamina_modal
 
 # ---------------------------------------------------------
@@ -107,7 +108,7 @@ async def perform_daily(user_id: int) -> dict | None:
 # ---------------------------------------------------------
 # 🎛️ 資料卡 View (Components V2)：卡片內含「投賽錢簽到」按鈕
 # ---------------------------------------------------------
-NAMECARD_OPTIONS = 24   # 名片選單最多列幾張 (再加「不放名片」= Discord 上限 25)
+NAMECARD_OPTIONS = 24   # 名片選單一頁幾張 (再加「不放名片」= Discord 上限 25)；超過一頁才有換頁按鈕 (0.35.017)
 TITLES_PER_PAGE = 24    # 稱號選單一頁幾個 (再加「不戴稱號」= 25)
 GROUP_SELECT_MAX = 25   # 分組選單一次最多列幾組 (Discord 上限)
 GROUPS_PER_PAGE = 23    # 分組超過 25 個時，分組選單一頁幾組 (再加上一頁 / 下一頁兩個選項 = 25)
@@ -125,6 +126,7 @@ class ProfileView(ui.LayoutView):
         self.title_group = None          # 稱號選單目前選的分組 (None = 戴著的稱號那組，沒戴就是最高等級那組)
         self.title_page = 1              # 那組稱號的第幾頁 (一頁 TITLES_PER_PAGE 個)
         self.group_page = None           # 分組選單的第幾頁 (分組超過 25 個才會用到；None = 目前那組在的那頁)
+        self.namecard_page = None        # 名片選單的第幾頁 (超過 NAMECARD_OPTIONS 張才會用到；None = 戴著的那張在的那頁)
         self.data = None                 # 最近一次 build 的 (user_data, daily_status)，切換分組時重畫用
         self.reward = reward          # 剛簽到完的獎勵 (只顯示在這張卡片上)
         self.message = None           # 送出後由指令填入，供逾時時停用按鈕
@@ -156,7 +158,8 @@ class ProfileView(ui.LayoutView):
             container.add_item(ui.Separator())
             for row in self._title_rows():
                 container.add_item(row)
-            container.add_item(ui.ActionRow(self._namecard_select()))
+            for row in self._namecard_rows():
+                container.add_item(row)
             stamina_btn = ui.Button(label="⚡ 恢復體力", style=discord.ButtonStyle.primary)
             stamina_btn.callback = self.on_stamina
             shrine_btn = ui.Button(label="⛩️ 前往神社", style=discord.ButtonStyle.secondary)
@@ -220,9 +223,8 @@ class ProfileView(ui.LayoutView):
 
         # ② 稱號選單 (這組的這一頁)
         tids = groups[current]
-        total = max(1, (len(tids) + TITLES_PER_PAGE - 1) // TITLES_PER_PAGE)
-        self.title_page = min(max(1, self.title_page), total)
-        page = tids[(self.title_page - 1) * TITLES_PER_PAGE:self.title_page * TITLES_PER_PAGE]
+        pg = paginate(tids, self.title_page, TITLES_PER_PAGE)
+        self.title_page, total, page = pg.page, pg.total, pg.items
         options = [
             discord.SelectOption(label=title_data.title_label(tid), value=tid, default=(tid == equipped),
                                  description=title_data.title_desc(tid, self.title_state.get("stats"))[:100])
@@ -237,25 +239,23 @@ class ProfileView(ui.LayoutView):
 
         # ③ 這組超過一頁才有換頁按鈕
         if total > 1:
-            prev_btn = ui.Button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, disabled=self.title_page <= 1)
-            prev_btn.callback = self.on_title_prev
-            page_btn = ui.Button(label=f"📄 {self.title_page} / {total} 頁", style=discord.ButtonStyle.secondary, disabled=True)
-            next_btn = ui.Button(label="下一頁 ▶️", style=discord.ButtonStyle.primary, disabled=self.title_page >= total)
-            next_btn.callback = self.on_title_next
-            rows.append(ui.ActionRow(prev_btn, page_btn, next_btn))
+            rows.append(ui.ActionRow(*nav_buttons(self.title_page, total, self.set_title_page)))
         return rows
 
-    def _namecard_select(self) -> ui.Select:
+    def _namecard_rows(self) -> list[ui.ActionRow]:
         """
-        🖼️ 更換名片：擁有的名片 (角色 emoji + 名字，最多 24 張) + 「不放名片」
+        🖼️ 更換名片：擁有的名片 (角色 emoji + 名字，一頁 24 張) + 「不放名片」；超過一頁才多一排換頁按鈕
         一張都沒有 ➔ 反灰，placeholder 寫怎麼拿
         """
         owned, equipped = self.namecard_state["owned"], self.namecard_state["equipped"]
         if not owned:
-            return ui.Select(placeholder="🖼️ 還沒有角色名片 (收藏冊集齊某位角色每個階級的完美卡就有)", disabled=True,
-                             options=[discord.SelectOption(label="不放名片", value="__none__")])
-        shown = owned[:NAMECARD_OPTIONS]
-        if equipped and equipped not in shown:   # 戴著的那張一定要列出來
+            return [ui.ActionRow(ui.Select(placeholder="🖼️ 還沒有角色名片 (收藏冊集齊某位角色每個階級的完美卡就有)", disabled=True,
+                                           options=[discord.SelectOption(label="不放名片", value="__none__")]))]
+        if self.namecard_page is None:   # 第一次打開：翻到戴著的那張在的那頁
+            self.namecard_page = owned.index(equipped) // NAMECARD_OPTIONS + 1 if equipped in owned else 1
+        pg = paginate(owned, self.namecard_page, NAMECARD_OPTIONS)
+        self.namecard_page, shown = pg.page, pg.items
+        if pg.total == 1 and equipped and equipped not in shown:   # 戴著的那張一定要列出來 (例如已經被收回)
             shown = shown[:NAMECARD_OPTIONS - 1] + [equipped]
         pool = load_gacha_pool()
         options = []
@@ -270,9 +270,18 @@ class ProfileView(ui.LayoutView):
                              else "名片圖還在製作中，戴上暫時不會顯示圖片")))
         options.append(discord.SelectOption(label="不放名片", value="__none__", default=(equipped is None),
                                             description="資料卡最上面不放圖"))
-        select = ui.Select(placeholder="🖼️ 更換名片…", options=options)
+        select = ui.Select(placeholder="🖼️ 更換名片…" + (f" (第 {pg.page} / {pg.total} 頁)" if pg.total > 1 else ""),
+                           options=options)
         select.callback = self.on_namecard
-        return select
+        rows = [ui.ActionRow(select)]
+        if pg.total > 1:
+            rows.append(ui.ActionRow(*nav_buttons(pg.page, pg.total, self.set_namecard_page)))
+        return rows
+
+    async def set_namecard_page(self, interaction: discord.Interaction, page: int):
+        self.namecard_page = page
+        self.build(*self.data)
+        await interaction.response.edit_message(view=self)
 
     async def on_namecard(self, interaction: discord.Interaction):
         value = interaction.data["values"][0]
@@ -317,13 +326,8 @@ class ProfileView(ui.LayoutView):
         self.build(*self.data)
         await interaction.response.edit_message(view=self)
 
-    async def on_title_prev(self, interaction: discord.Interaction):
-        self.title_page -= 1
-        self.build(*self.data)
-        await interaction.response.edit_message(view=self)
-
-    async def on_title_next(self, interaction: discord.Interaction):
-        self.title_page += 1
+    async def set_title_page(self, interaction: discord.Interaction, page: int):
+        self.title_page = page
         self.build(*self.data)
         await interaction.response.edit_message(view=self)
 
