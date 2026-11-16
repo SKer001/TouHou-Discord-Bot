@@ -105,6 +105,15 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **完成並測試通過後直接 commit + push 到 `main`，不用先問**（2026-10-28 使用者指示）。只有重大事件才先問，例如要開分支、改寫 git 歷史、刪除大量資料等。`Database/Users.db`、`Item.db` 有變動時也一起推。
 - **卡面：一個角色（或一張卡）定案後才 commit + push**（2026-10-30 使用者指示，避免 git 歷史塞滿試作圖）。試作、調參數、使用者還在挑圖或要求調整時都只留在本機；使用者說「定案」「推送」或明確表示這版 OK 才推。程式碼改動也跟著那次定案一起推。
 
+- **多 session 分工（2026-11-16 使用者決定）**：每個 session 只改自己負責的範圍，跨範圍的共用工具先跟統整 session 說一聲。
+  | session | 負責 | 主要檔案 |
+  |---|---|---|
+  | 統整（筆電，原本的 TouHou Bot design 對話） | 巡視整個系統、找各分支重複的系統改成共用、分派任務、整合測試 | `ARCHITECTURE.md`、`Utils/` 共用工具、`CLAUDE.md` / `docs/` |
+  | 卡面（筆電，用主資料夾，要 ComfyUI 與 gitignore 的字型） | 剩下的卡面 | `tools/card_art/`、`images/`（名片除外）、`TODO.md` 第 1 節 |
+  | 名片（桌機） | 角色名片「幻想鄉睡顏圖鑑」 | `images/Namecards*`、`Database/namecard_data.py`、`tools/card_art/upload_namecard.py` |
+  | 遊戲 / 關卡設計（筆電，自己的 worktree） | 玩法、經濟、活動、稱號 | `Cogs/`、`Database/`、`Events/`、`tests/` |
+  - 各 session 推 main 前都先 `git pull --rebase`；CHANGELOG / 版本號衝突兩邊都保留，版本號接最新的往上編。推完跟統整 session 報一聲新增了什麼系統。
+
 ## 6. 給 Claude Code 的工作守則
 - 動資料前先備份；遷移類工作**不得刪除或改動舊檔**。
 - 修改後保持 LF 換行；沿用既有的程式風格與繁體中文註解/文案（emoji 標題風格）。
