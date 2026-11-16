@@ -13,6 +13,10 @@
 
 ---
 
+## 0.35.025 — 2026-11-16：📝 整理過時的雙人卡說明 (筆電，統整 session)
+- `docs/card-art.md`「使用者偏好與踩過的坑」：雙人卡改寫成「一律分開生再合成 (`hd_card.py` 的 `duo`)」，`make_workflow.py` 的 `DUO` / `DUO_GIRLS` 標成舊做法 (只剩玄爺 R 這種人 + 坐騎適用)；小瑕疵修圖補上高清分層卡改用 `fix_region.py`。
+- 統整巡視：卡面的雙人工具 (`hd_card` duo、`pc_layers` / `pc_apply`、`fix_region`) 跟名片的雙人做法 (手動合成 + img2img 統一畫風，程式不在 repo) 沒有重複的程式碼，暫不共用。
+
 ## 0.35.024 — 2026-11-16：雪與舞 N / R / SR 雙人卡面 (筆電，卡面 session)
 - **雙人卡的分層流程**：`LAYERS` 加 `duo` (`hd_card.py`)。兩人各自單獨生成 (`char_a` = 雪、`char_b` = 舞，各自的外觀 / 負面提示 / 純色底在 `YUKI_MAI_DUO`)，`make_duo` 各自去背，再依腳底對齊、下半身中心排在左右，合成一張人物層，之後照單人流程。`candidate_sheets.py` 對雙人卡排 B1 B2 + Y1～Y4 + M1～M4。
 - **N「魔界魔法使二人組」** B1Y1M3、**R「極寒與狂舞之魔女」** B2Y1M1、**SR「黑白交織之魔界禁忌」** B1Y1M4。三張都由使用者在 PhotoCraft 調整兩人位置、大小、翻轉，以及背景縮放。
