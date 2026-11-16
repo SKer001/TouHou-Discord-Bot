@@ -13,6 +13,12 @@
 
 ---
 
+## 0.35.014 — 2026-11-16：📄 共用分頁 (一)：卡冊、收藏冊、合成選卡、卡冊管理、道具管理 (筆電，統整 session)
+- 新增 `Utils/pagination.py`：`paginate()` (切頁 + 頁數限制在範圍內)、`nav_buttons()` (上一頁 / 頁碼 / 下一頁，回傳 list 可以跟其他按鈕同一排)、`PageJumpModal` (輸入頁數跳頁)、`step()`。按鈕樣式用 preset 保留各畫面原本的樣子 (default / compact / simple / jump)，玩家看到的不變。
+- 這次換掉：`/card inventory` 的卡冊列表與一疊卡、`/card album`、`/card synthesis` 選卡、`/admin-gacha` 選卡、`/admin-item` 管理畫面。View 的 `prev_callback` / `next_callback` 改成一個 `set_page(interaction, page)`。
+- 測試改成按畫面上真的「下一頁 ▶️」按鈕 (`press_next`)，不再直接呼叫回呼。
+- 版本號改用 `bump.py` 類的做法：讀檔指定 UTF-8、檢查格式 `X.XX.XXX` 才寫入 (上一筆 0.35.013 就是沒檢查才推出空版號)。
+
 ## 0.35.013 — 2026-11-16：🏭 自動稱號共用產生器 (筆電，統整 session)
 - 客人、足跡、運氣、美食家四組自動稱號原本各寫一套 (組名接活動名、插在基本組後面、自訂名稱沒寫用預設)，抽成 `title_data` 的共用工具：`_add_title_rows`、`_add_tier_titles`、`_sub_group`、`_insert_groups_after`、`_sr_ur_text`、`_json_text`。
 - 玩家看到的完全不變：改前改後把全部 199 個稱號和 24 個分組存成 JSON 逐筆比對，一模一樣。
