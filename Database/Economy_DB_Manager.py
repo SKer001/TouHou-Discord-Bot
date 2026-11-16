@@ -584,8 +584,154 @@ async def explore(user_id: int, location_id: str, times: int = 1, now: datetime 
             "stamina": calc_stamina(new_stamina, updated_at, now), "requested": times}
 
 
+# ---------------------------------------------------------
+# 🧺 快速採集 (料理畫面缺素材時，0.35.000)：總共 N 趟，每趟去「最缺」的地點，夠了換下一個、全部夠了提早停
+# ---------------------------------------------------------
+def expected_per_trip(location: dict, material: str) -> float:
+    """一趟平均帶回幾個這種素材 (不算好壞事件)：平均掉落數 × 這種素材在掉落表的比例"""
+    drops = location.get("drops") or []
+    if material not in drops:
+        return 0.0
+    lo, hi = shrine_data.EXPLORE_DROPS
+    return (lo + hi) / 2 * drops.count(material) / len(drops)
+
+
+def best_location(material: str, rules: dict) -> str | None:
+    """最容易採到這種素材的地點 (一趟平均拿最多)；一樣多時照地點的順序；沒有地點採得到 ➔ None"""
+    best, best_e = None, 0.0
+    for key, loc in rules["locations"].items():
+        e = expected_per_trip(loc, material)
+        if e > best_e:
+            best, best_e = key, e
+    return best
+
+
+def missing_materials(recipe: dict, inventory: dict, pots: int = 1) -> dict:
+    """做 pots 鍋還差的素材 {素材: 還差幾個}"""
+    return {m: k * pots - inventory.get(m, 0) for m, k in recipe.items() if inventory.get(m, 0) < k * pots}
+
+
+def plan_gather(missing: dict, rules: dict) -> dict:
+    """
+    (純計算) 缺的素材 ➔ 要去哪裡、大概要幾趟 (畫面上的「計算過程」)
+    {"stops": [{"location", "materials" {素材: 還差}, "per_trip" {素材: 一趟平均幾個}, "trips" 預估趟數}, ...]  ← 最缺 (要跑最多趟) 的在前
+     "unavailable": {素材: 還差} (現在沒有地點採得到，例如活動素材), "trips": 預估總趟數}
+    """
+    stops, unavailable = {}, {}
+    for m, n in missing.items():
+        loc = best_location(m, rules)
+        if loc is None:
+            unavailable[m] = n
+            continue
+        stop = stops.setdefault(loc, {"location": loc, "materials": {}, "per_trip": {}, "trips": 0})
+        e = expected_per_trip(rules["locations"][loc], m)
+        stop["materials"][m] = n
+        stop["per_trip"][m] = e
+        stop["trips"] = max(stop["trips"], math.ceil(n / e))
+    ordered = sorted(stops.values(), key=lambda s: -s["trips"])
+    return {"stops": ordered, "unavailable": unavailable, "trips": sum(s["trips"] for s in ordered)}
+
+
+def shop_missing(missing: dict, rules: dict) -> tuple[dict, int]:
+    """(純計算) 缺的素材裡雜貨店有賣的 ➔ ({素材: 數量}, 總價)"""
+    buy = {m: n for m, n in missing.items() if m in rules["shop"]}
+    return buy, sum(rules["shop"][m] * n for m, n in buy.items())
+
+
+async def quick_explore(user_id: int, recipe: dict, times: int, pots: int = 1,
+                        now: datetime | None = None, rng=random) -> dict:
+    """
+    快速採集：為了做 pots 鍋 recipe，總共最多採 times 趟
+    每趟都重新算還差什麼，去最缺的地點；全部夠了就提早停，體力不夠一趟也會停 (stopped = done / times / no_stamina / unavailable)
+    失敗 reason：nothing_missing (素材已經夠了) / unavailable (缺的素材現在都採不到) / no_stamina
+    成功：runs [{location, drops, event}], total, missing (採完還差的), stopped, stamina, requested
+    """
+    now = now or datetime.now(timezone.utc)
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            rules = game_rules(await _active_events(db, now))
+            cost = explore_cost(rules)
+            user = await _read_user(db, user_id)
+            inv = user["inventory"]
+            info = calc_stamina(user["stamina"], user["stamina_updated_at"], now)
+            missing = missing_materials(recipe, inv, pots)
+            if not missing:
+                await db.rollback()
+                return {"ok": False, "reason": "nothing_missing"}
+            if not plan_gather(missing, rules)["stops"]:
+                await db.rollback()
+                return {"ok": False, "reason": "unavailable", "missing": missing}
+            if info["stamina"] < cost:
+                await db.rollback()
+                return {"ok": False, "reason": "no_stamina", "stamina": info["stamina"], "cost": cost}
+            stamina, runs, total, per_loc, stopped = info["stamina"], [], {}, {}, "times"
+            for _ in range(max(1, times)):
+                plan = plan_gather(missing_materials(recipe, inv, pots), rules)
+                if not plan["stops"]:
+                    stopped = "unavailable" if plan["unavailable"] else "done"
+                    break
+                if stamina < cost:
+                    stopped = "no_stamina"
+                    break
+                loc_id = plan["stops"][0]["location"]
+                r = roll_explore(rules["locations"][loc_id], rng, rules["special_chance"])
+                runs.append({**r, "location": loc_id})
+                for m, k in r["drops"].items():
+                    total[m] = total.get(m, 0) + k
+                    inv[m] = inv.get(m, 0) + k
+                stamina -= cost
+                per_loc[loc_id] = per_loc.get(loc_id, 0) + 1
+            left = missing_materials(recipe, inv, pots)
+            if not left:
+                stopped = "done"
+            await _write_inventory(db, user_id, inv)
+            updated_at = now.isoformat() if info["stamina"] >= STAMINA_MAX else info["updated_at"]
+            await db.execute("UPDATE users SET stamina = ?, stamina_updated_at = ? WHERE user_id = ?", (stamina, updated_at, user_id))
+            await add_player_stat(db, user_id, "explore", len(runs))   # 📊 跟一般採集一樣算趟數
+            await add_quest_stats(db, user_id, now, {f"explore:{k}": n for k, n in per_loc.items()})   # 🎪 活動任務
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {"ok": True, "runs": runs, "total": total, "missing": left, "stopped": stopped,
+            "stamina": calc_stamina(stamina, updated_at, now), "requested": times}
+
+
+async def shop_buy_missing(user_id: int, recipe: dict, pots: int = 1, now: datetime | None = None) -> dict:
+    """
+    🏪 用賽錢買齊：只買做 pots 鍋還缺、而且雜貨店有賣的素材 (同一個交易)
+    失敗 reason：nothing_to_buy / not_enough (money, cost)
+    """
+    now = now or datetime.now(timezone.utc)
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            rules = game_rules(await _active_events(db, now))
+            user = await _read_user(db, user_id)
+            inv = user["inventory"]
+            buy, cost = shop_missing(missing_materials(recipe, inv, pots), rules)
+            if not buy:
+                await db.rollback()
+                return {"ok": False, "reason": "nothing_to_buy"}
+            if user["money"] < cost:
+                await db.rollback()
+                return {"ok": False, "reason": "not_enough", "money": user["money"], "cost": cost}
+            for m, n in buy.items():
+                inv[m] = inv.get(m, 0) + n
+            await _write_inventory(db, user_id, inv)
+            await db.execute("UPDATE users SET money = money - ? WHERE user_id = ?", (cost, user_id))
+            await add_player_stat(db, user_id, "shop")   # 📊
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {"ok": True, "bought": buy, "cost": cost, "money": user["money"] - cost,
+            "missing": missing_materials(recipe, inv, pots)}
+
+
 async def cook(user_id: int, dish_id: str, times: int = 1, now: datetime | None = None) -> dict:
-    """料理 times 鍋 (每鍋 COOK_YIELD 份)；素材不夠 ➔ reason=not_enough + missing {素材: 還差幾個}"""
+    """料理 times 鍋 (每鍋 COOK_YIELD 份，體力料理 STAMINA_COOK_YIELD 份)；素材不夠 ➔ reason=not_enough + missing {素材: 還差幾個}"""
     now = now or datetime.now(timezone.utc)
     times = max(1, times)
     async with connect() as db:
@@ -604,7 +750,7 @@ async def cook(user_id: int, dish_id: str, times: int = 1, now: datetime | None 
                 return {"ok": False, "reason": "not_enough", "missing": missing}
             for m, k in recipe.items():
                 inv[m] -= k * times
-            made = shrine_data.COOK_YIELD * times
+            made = shrine_data.cook_yield(dish_id, rules) * times
             inv[dish_id] = inv.get(dish_id, 0) + made
             await _write_inventory(db, user_id, inv)
             await add_player_stat(db, user_id, "cook", times)   # 📊 鍋數

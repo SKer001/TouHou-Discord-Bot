@@ -40,7 +40,7 @@ async def main():
     items = await idm.get_all_items()
     # ---------------- 資料完整性 ----------------
     rules = game_rules(list(load_events().values()))
-    check("15 base dishes", len(sd.RECIPES) == 15 and sorted(sd.DISH_TYPES.values()).count("food") == 5)
+    check("28 base dishes", len(sd.RECIPES) == 28 and list(sd.DISH_TYPES.values()).count("food") == 9 and set(sd.RECIPES) == set(sd.DISH_TYPES))
     check("all recipe items exist", all(d in items and all(m in items for m in r) for d, r in rules["recipes"].items()))
     check("all drops exist", all(m in items for loc in rules["locations"].values() for m in loc["drops"]))
     check("guest favorites exist", all(g["favorite"] in rules["dish_types"] for g in rules["guests"].values()))
@@ -99,6 +99,64 @@ async def main():
     r = await econ.cook(3, "ran_inari", times=2)
     check(f"cook {r}", r["ok"] and r["made"] == 4 and inv(3).get("ran_inari") == 4 and "mat_rice" not in inv(3))
 
+    # ---------------- 0.35.000：新地點 / 料理 / 體力料理 ----------------
+    new_locs = {"magic_forest", "kourindou", "hakugyokurou", "old_hell_onsen"}
+    check("9 locations", len(sd.LOCATIONS) == 9 and new_locs <= set(sd.LOCATIONS))
+    check("every material droppable", all(any(m in loc["drops"] for loc in sd.LOCATIONS.values()) for m, *_ in sd.MATERIAL_ITEMS))
+    stamina_ids = {"marisa_mushroom_soup", "yuyuko_dango", "sakuya_scone_tea", "onsen_zosui", "hell_nabe"}
+    check("stamina recipes", set(sd.STAMINA_RECIPES) == stamina_ids and all(items[d]["effect"].get("stamina") for d in stamina_ids))
+    check("stamina dishes not servable", not stamina_ids & set(rules["dish_types"]) and stamina_ids <= set(rules["recipes"])
+          and rules["stamina_dishes"] == stamina_ids)
+    new_ids = [i for i, *_ in sd.MATERIAL_ITEMS[15:]] + [i for i, *_ in sd.DISH_ITEMS[6:]] + [i for i, *_ in sd.STAMINA_DISH_ITEMS]
+    check(f"new items {len(new_ids)}", len(new_ids) == 27 and all(items[i]["desc"] and items[i]["emoji"] for i in new_ids))
+    check("cook yield", sd.cook_yield("hell_nabe", rules) == 1 and sd.cook_yield("ran_inari", rules) == 2)
+    sql("UPDATE users SET inventory = ? WHERE user_id = 3", (json.dumps({"mat_glow_mushroom": 2, "mat_milk": 1, "mat_butter": 1}),))
+    r = await econ.cook(3, "marisa_mushroom_soup")
+    check(f"cook stamina dish 1 portion {r}", r["ok"] and r["made"] == 1 and inv(3) == {"marisa_mushroom_soup": 1})
+
+    # ---------------- 🧺 快速採集：預估、總共 N 趟、先去最缺的、夠了提早停 ----------------
+    base = game_rules([])
+    check("per trip", abs(econ.expected_per_trip(base["locations"]["magic_forest"], "mat_glow_mushroom") - 4 / 3) < 1e-9
+          and econ.expected_per_trip(base["locations"]["village"], "mat_glow_mushroom") == 0)
+    check("rice best at bamboo", econ.best_location("mat_rice", base) == "bamboo_forest")   # 竹林 3 種 > 人里 5 種
+    p = econ.plan_gather({"mat_glow_mushroom": 2, "mat_milk": 1, "mat_rice": 2, "evt_egg": 1}, base)
+    check(f"plan {p}", [s["location"] for s in p["stops"]] == ["magic_forest", "bamboo_forest", "kourindou"]
+          and [s["trips"] for s in p["stops"]] == [2, 2, 1] and p["trips"] == 5 and p["unavailable"] == {"evt_egg": 1})
+    check("shop missing", econ.shop_missing({"mat_rice": 2, "mat_milk": 1}, base) == ({"mat_rice": 2}, 1200))
+    soup = sd.STAMINA_RECIPES["marisa_mushroom_soup"]
+
+    class CycleRng(Rng):   # choice 輪流拿 (讓一趟拿到不同素材)
+        i = 0
+        def choice(s, seq):
+            seq = list(seq); s.i += 1; return seq[(s.i - 1) % len(seq)]
+    await udm.get_or_create_user(5)
+    r = await econ.quick_explore(5, soup, 1, now=T0, rng=Rng(last=0.99))   # 最缺 = 蘑菇 (要 2 趟) ➔ 魔法森林
+    check(f"quick 1 {r['runs']}", r["ok"] and [x["location"] for x in r["runs"]] == ["magic_forest"] and r["stopped"] == "times"
+          and r["missing"] == {"mat_milk": 1, "mat_butter": 1} and r["stamina"]["stamina"] == 220)
+    r = await econ.quick_explore(5, soup, 10, now=T0, rng=CycleRng(last=0.99))
+    check(f"quick done early {r['runs']}", r["ok"] and len(r["runs"]) == 1 and r["runs"][0]["location"] == "kourindou"
+          and r["stopped"] == "done" and r["missing"] == {} and r["stamina"]["stamina"] == 200)
+    check("nothing missing", (await econ.quick_explore(5, soup, 1, now=T0))["reason"] == "nothing_missing")
+    check("unavailable", (await econ.quick_explore(5, {"mat_nowhere": 1}, 1, now=T0))["reason"] == "unavailable")
+    sql("UPDATE users SET stamina = 30, stamina_updated_at = ? WHERE user_id = 5", (T0.isoformat(),))
+    r = await econ.quick_explore(5, {"mat_hell_pepper": 10}, 5, now=T0, rng=Rng(last=0.99))   # 只拿到溫泉蛋，體力只夠 1 趟
+    check(f"quick no stamina {r['stopped']}", r["ok"] and len(r["runs"]) == 1 and r["stopped"] == "no_stamina"
+          and r["missing"] == {"mat_hell_pepper": 10} and r["stamina"]["stamina"] == 10)
+    check("quick no stamina at start", (await econ.quick_explore(5, {"mat_hell_pepper": 10}, 1, now=T0))["reason"] == "no_stamina")
+    con = sqlite3.connect(udm.DB_PATH)
+    stat = con.execute("SELECT value FROM player_stats WHERE user_id = 5 AND stat = 'explore'").fetchone()
+    con.close()
+    check(f"quick counts explore stat {stat}", stat and stat[0] == 3)
+    # 🏪 買齊人里素材
+    await udm.get_or_create_user(6); sql("UPDATE users SET money = 10000, inventory = '{}' WHERE user_id = 6")
+    scone = sd.STAMINA_RECIPES["sakuya_scone_tea"]
+    r = await econ.shop_buy_missing(6, scone)
+    check(f"buy missing {r}", r["ok"] and r["bought"] == {"mat_flour": 2} and r["cost"] == 1400 and money(6) == 8600
+          and set(r["missing"]) == {"mat_butter", "mat_milk", "mat_tea_leaf"})
+    check("nothing to buy", (await econ.shop_buy_missing(6, scone))["reason"] == "nothing_to_buy")
+    sql("UPDATE users SET money = 0 WHERE user_id = 6")
+    check("buy poor", (await econ.shop_buy_missing(6, {"mat_rice": 1}))["reason"] == "not_enough" and inv(6) == {"mat_flour": 2})
+
     # ---------------- 招待 ----------------
     sql("DELETE FROM shrines")
     s = (await econ.admin_set_shrine(3, guests=1, guest_mood=100, now=T0, rng=Rng(last=0.0)))["summary"]
@@ -115,6 +173,77 @@ async def main():
     check(f"serve ok {r.get('reward')}", r["ok"] and r["reward"]["favorite_hit"] and money(3) == before + expect)
     check("guest left", r["summary"]["guests"] == [] and inv(3) == {})
     check("serve twice", (await econ.serve_guest(3, g["id"], now=T0))["reason"] == "not_found")
+
+    # ---------------- 🖥️ 畫面連動：招待缺菜 ➔ 料理 ➔ 快速採集 ➔ 回去料理 ➔ 做完回去招待 ----------------
+    import importlib, types, discord
+    ShrineView = importlib.import_module("Cogs.load-general.shrine").ShrineView
+
+    class Resp:
+        def __init__(s, it): s.it = it; s.done = False
+        def is_done(s): return s.done
+        async def edit_message(s, content=None, **kw): assert content is None; s.done = True; s.it.view = kw.get("view")
+        async def send_message(s, content=None, **kw): assert content is None; s.done = True; s.it.view = kw.get("view")
+        async def send_modal(s, m): s.done = True; s.it.modal = m
+    class Followup:
+        def __init__(s, it): s.it = it
+        async def send(s, content=None, **kw): assert content is None; s.it.view = kw.get("view")
+    class It:
+        def __init__(s, uid=8, data=None):
+            s.user = types.SimpleNamespace(id=uid, display_name="t"); s.data = data or {}
+            s.response, s.followup, s.view, s.modal = Resp(s), Followup(s), None, None
+    def btns(v): return {b.label: b for b in v.walk_children() if isinstance(b, discord.ui.Button)}
+    def btn(v, prefix): return next((b for label, b in btns(v).items() if label.startswith(prefix)), None)
+    def vtext(v): return "\n".join(i.content for i in v.walk_children() if isinstance(i, discord.ui.TextDisplay))
+
+    await udm.get_or_create_user(8)
+    shrine = await econ.admin_set_shrine(8, guests=1, guest_mood=100, rng=Rng(last=0.99))   # 點 3 道
+    g = shrine["summary"]["guests"][0]
+    sql("UPDATE users SET inventory = '{}', stamina = 240 WHERE user_id = 8")
+    user8 = types.SimpleNamespace(id=8, display_name="t")
+    view = await ShrineView.create(user8, shrine, mode="serve")
+    view.guest_id, view.mode = g["id"], "serve"; view.build()
+    go = btn(view, "🍳 去做")
+    check(f"serve to cook button {list(btns(view))}", len(g["order"]) == 3 and go is not None and btns(view)["🍵 端上桌"].disabled)
+    await go.callback(It())
+    check(f"cook preselected {view.cook_sel}", view.mode == "cook" and view.cook_sel == g["order"][0]
+          and view.serve_queue == list(g["order"]) and "客人還在等" in vtext(view))
+    check("cook has gather + back", btn(view, "🧺 快速採集") and btn(view, "🍵 回去招待"))
+    await btn(view, "🧺 快速採集").callback(It())
+    check(f"gather screen", view.mode == "gather" and "📐 **預估**" in vtext(view) and "合計約" in vtext(view)
+          and all(btn(view, f"🧺 {n} 趟") for n in (1, 3, 5, 10)) and btn(view, "⚡ 恢復體力"))
+    await btn(view, "🧺 1 趟").callback(It())
+    check("gather result", "剛剛採了 1 趟" in vtext(view) and view.stamina["stamina"] == 220)
+    # ⚡ 恢復體力按鈕開彈窗 (有道具時)
+    sql("UPDATE users SET inventory = ? WHERE user_id = 8", (json.dumps({"reimu_onigiri": 1}),))
+    it = It(); await btn(view, "⚡ 恢復體力").callback(it)
+    check("stamina modal from shrine", it.modal is not None)
+    it.modal.item_select._values, it.modal.qty_select._values = ["reimu_onigiri"], ["1"]
+    it2 = It(); await it.modal.on_submit(it2)
+    check("back to gather after eating", it2.view is view and view.mode == "gather" and "`220` ➔ `280`" in vtext(view))
+    # 素材給齊 ➔ 回去料理 ➔ 一道一道做 ➔ 都齊了回去招待
+    need = {}
+    for d in g["order"]:
+        for m, k in rules["recipes"][d].items():
+            need[m] = need.get(m, 0) + k
+    sql("UPDATE users SET inventory = ? WHERE user_id = 8", (json.dumps(need),))
+    await btn(view, "🍳 回去料理").callback(It())
+    for i, d in enumerate(g["order"]):
+        check(f"cooking {d}", view.cook_sel == d)
+        await btns(view)["🍳 做 1 鍋"].callback(It())
+        if i < len(g["order"]) - 1:
+            check("next dish", "接著做" in vtext(view))
+    check(f"all ready {vtext(view)[:80]}", "客人點的菜都齊了" in vtext(view) and not view.serve_queue)
+    await btn(view, "🍵 回去招待").callback(It())
+    check("back to serve", view.mode == "serve" and not btns(view)["🍵 端上桌"].disabled and btn(view, "🍳 去做") is None)
+    await btns(view)["🍵 端上桌"].callback(It())
+    check("served", view.mode == "main" and view.serve_return is None)
+    # 料理分類選單：先選分類再選料理 (每個選單 ≤ 25)
+    await view.on_cook_open(It())
+    await view.on_pick_cook_cat(It(data={"values": ["stamina"]}))
+    selects = [s for s in view.walk_children() if isinstance(s, discord.ui.Select)]
+    check(f"cook category select {[len(s.options) for s in selects]}", len(selects) == 2 and len(selects[0].options) == 4
+          and {o.value for o in selects[1].options} == stamina_ids)
+    check("all selects <= 25", all(len(s.options) <= 25 for s in selects))
 
     # ---------------- 活動結束：清空活動道具、活動客人離開 ----------------
     sql("UPDATE users SET inventory = ? WHERE user_id = 3", (json.dumps({"evt_egg": 3, "evt_napolitan": 2, "mat_rice": 1}),))

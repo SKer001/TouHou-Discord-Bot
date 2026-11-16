@@ -487,7 +487,12 @@ class BotCLI:
             if isinstance(item, ui.TextInput):
                 default = f"（預設：{item.default}）" if item.default else ""
                 print(f"  ✏️ {item.label}{default}")
-        print("  -- 用 modal 標籤:值 ... 送出")
+            elif isinstance(item, ui.Label) and isinstance(item.component, ui.Select):   # Modal 裡的下拉選單
+                opts = "、".join(f"{o.value}{'*' if o.default else ''}" for o in item.component.options)
+                print(f"  🔽 {item.text}：{opts}")
+                if item.description:
+                    print(f"     -# {item.description}")
+        print("  -- 用 modal 標籤:值 ... 送出（下拉選單填選項的 value，* = 預設）")
 
     # ---------------- 指令 ----------------
     def all_commands(self):
@@ -669,12 +674,22 @@ class BotCLI:
             raise ValueError("目前沒有開著的 Modal")
         modal, origin = self.pending_modal
         inputs = [i for i in modal.children if isinstance(i, ui.TextInput)]
+        selects = {str(i.text): i.component for i in modal.children
+                   if isinstance(i, ui.Label) and isinstance(i.component, ui.Select)}
         for item in inputs:
             item._value = item.default
+        for sel in selects.values():
+            sel._values = [o.value for o in sel.options if o.default][:1]
         for tok in tokens:
             if ":" not in tok:
                 raise ValueError("用法：modal 標籤:值 ...")
             key, value = tok.split(":", 1)
+            sel = next((v for k, v in selects.items() if key in k), None)
+            if sel is not None:
+                if value not in {o.value for o in sel.options}:
+                    raise ValueError(f"「{key}」沒有「{value}」這個選項")
+                sel._values = [value]
+                continue
             item = next((i for i in inputs if key in str(i.label)), None)
             if item is None:
                 raise ValueError(f"Modal 沒有「{key}」欄位")

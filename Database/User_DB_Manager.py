@@ -241,6 +241,8 @@ USERS_EXTRA_COLUMNS = [
     ("granted_titles", "TEXT DEFAULT NULL"),   # 管理員直接給的稱號 id (逗號分隔)；不用符合條件，/admin-user title 管理
     ("best_money", "INTEGER DEFAULT 0"),       # 曾經持有過的最高賽錢 (財富稱號；觸發器自動更新，剛補欄位時用當下餘額當起點)
     ("equipped_namecard", "TEXT DEFAULT NULL"),   # 戴著的角色名片 (角色 id，namecards 表)；NULL = 不放名片
+    ("stamina_item_day", "TEXT DEFAULT NULL"),    # 最後一次吃體力道具的日期 (台灣時間 YYYY-MM-DD)；每日上限用
+    ("stamina_item_used", "INTEGER DEFAULT 0"),   # stamina_item_day 那天吃了幾個 (上限 STAMINA_ITEM_DAILY_LIMIT)
 ]
 # 💰 best_money 由觸發器維護：任何地方改到 money (簽到、分解、市場、轉帳、神社…) 都會自動跟上，不用每個函式自己記
 #    (init_db 補完欄位之後才建，舊資料庫建觸發器時欄位已經在了)
@@ -1328,38 +1330,70 @@ async def add_stamina(user_id: int, amount: int) -> dict:
     return await _change_stamina(user_id, amount, require_enough=False)
 
 
-async def use_stamina_item(user_id: int, item_id: str, restore: int) -> dict:
+# 🍽️ 一天最多吃幾個體力道具 (含簽到送的 🍙；台灣時間 00:00 重置)：防「採集 ➔ 做體力料理 ➔ 吃 ➔ 再採集」無限循環 (使用者 2026-11-16)
+STAMINA_ITEM_DAILY_LIMIT = 3
+
+
+def stamina_items_left(day: str | None, used: int | None, now: datetime | None = None) -> int:
+    """(純計算) 今天還能吃幾個體力道具；users.stamina_item_day 不是今天 = 今天還沒吃過"""
+    if day != tw_day(now):
+        return STAMINA_ITEM_DAILY_LIMIT
+    return max(0, STAMINA_ITEM_DAILY_LIMIT - (used or 0))
+
+
+async def get_stamina_item_left(user_id: int, now: datetime | None = None) -> int:
+    """今天還能吃幾個體力道具 (唯讀)"""
+    async with connect() as db:
+        async with db.execute("SELECT stamina_item_day, stamina_item_used FROM users WHERE user_id = ?", (user_id,)) as cursor:
+            row = await cursor.fetchone()
+    return stamina_items_left(row["stamina_item_day"], row["stamina_item_used"], now) if row else STAMINA_ITEM_DAILY_LIMIT
+
+
+async def use_stamina_item(user_id: int, item_id: str, restore: int, qty: int = 1, now: datetime | None = None) -> dict:
     """
-    使用一個體力道具：背包 -1、體力 +restore (可超過 240)，同一個交易
-    回傳 {"ok": bool, "left": 剩餘數量, 以及 calc_stamina 的欄位 (使用後)}；背包沒有這個道具時 ok=False 且什麼都不改
+    使用 qty 個體力道具：背包 -qty、體力 +restore×qty (可超過 240)、今天吃的數量 +qty，同一個交易
+    回傳 {"ok": bool, "left": 剩餘數量, "daily_left": 今天還能吃幾個, "used": qty, "before", 以及 calc_stamina 的欄位 (使用後)}
+    失敗 (什麼都不改)：reason = not_owned (背包不夠 qty 個) / daily_limit (今天的額度不夠) / bad_qty
     """
+    now = now or datetime.now(timezone.utc)
     async with connect() as db:
         await db.execute("BEGIN IMMEDIATE")
         try:
             await _ensure_user(db, user_id)
             async with db.execute(
-                "SELECT inventory, stamina, stamina_updated_at FROM users WHERE user_id = ?", (user_id,)
+                "SELECT inventory, stamina, stamina_updated_at, stamina_item_day, stamina_item_used FROM users WHERE user_id = ?",
+                (user_id,),
             ) as cursor:
                 row = await cursor.fetchone()
             inventory = _load_inventory(row["inventory"])
-            now = datetime.now(timezone.utc)
             info = calc_stamina(row["stamina"], row["stamina_updated_at"], now)
-            if inventory.get(item_id, 0) <= 0:
+            daily_left = stamina_items_left(row["stamina_item_day"], row["stamina_item_used"], now)
+            fail = None
+            if qty < 1:
+                fail = "bad_qty"
+            elif inventory.get(item_id, 0) < qty:
+                fail = "not_owned"
+            elif daily_left < qty:
+                fail = "daily_limit"
+            if fail:
                 await db.rollback()
-                return {**info, "ok": False, "left": 0}
+                return {**info, "ok": False, "reason": fail, "left": inventory.get(item_id, 0), "daily_left": daily_left}
 
-            inventory[item_id] -= 1
+            inventory[item_id] -= qty
             left = inventory[item_id]
             if left <= 0:
                 del inventory[item_id]
-            new_value = info["stamina"] + restore
+            new_value = info["stamina"] + restore * qty
             updated_at = now.isoformat() if info["stamina"] >= STAMINA_MAX else info["updated_at"]
+            used_today = STAMINA_ITEM_DAILY_LIMIT - daily_left + qty
             await db.execute(
-                "UPDATE users SET inventory = ?, stamina = ?, stamina_updated_at = ? WHERE user_id = ?",
-                (json.dumps(inventory, ensure_ascii=False), new_value, updated_at, user_id),
+                "UPDATE users SET inventory = ?, stamina = ?, stamina_updated_at = ?, stamina_item_day = ?, stamina_item_used = ? "
+                "WHERE user_id = ?",
+                (json.dumps(inventory, ensure_ascii=False), new_value, updated_at, tw_day(now), used_today, user_id),
             )
             await db.commit()
         except BaseException:
             await db.rollback()
             raise
-    return {**calc_stamina(new_value, updated_at, now), "ok": True, "left": left, "before": info["stamina"]}
+    return {**calc_stamina(new_value, updated_at, now), "ok": True, "left": left, "before": info["stamina"],
+            "used": qty, "daily_left": daily_left - qty}

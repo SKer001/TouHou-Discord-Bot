@@ -16,7 +16,11 @@ from Database.Item_DB_Manager import get_all_items
 from Utils.components import send_notice
 from .Components.shrine_components import (
     build_shrine_container, build_serve_container, build_explore_container, build_cook_container, build_shop_container,
+    build_gather_container, COOK_CATEGORIES, dish_category,
 )
+from Utils.stamina_modal import open_stamina_modal   # ⚡ 恢復體力彈窗 (跟 /profile 共用)
+
+GATHER_TIMES = (1, 3, 5, 10)   # 快速採集的按鈕：總共採幾趟 (使用者 2026-11-16 指定)
 from .Components.general_components import get_inventory_view_data, build_inventory_container
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
@@ -170,6 +174,8 @@ class ShrineView(ui.LayoutView):
     """
     神社主畫面 (同一則訊息切換 mode)：
     main 神社 ➔ serve_pick 選客人 ➔ serve 招待；explore 採集；cook 料理；shop 雜貨店
+    連動 (0.35.000)：招待缺菜 ➔「🍳 去做」到 cook (serve_queue = 客人還缺的菜，做完自動換下一道)
+                    ➔ 料理缺素材 ➔「🧺 快速採集」到 gather ➔ 採齊後「🍳 回去料理」➔ 都做完「🍵 回去招待」
     """
 
     def __init__(self, user: discord.abc.User, result: dict, notice: str | None = None):
@@ -182,6 +188,10 @@ class ShrineView(ui.LayoutView):
         self.guest_id, self.extra = None, None
         self.explore_loc, self.explore_result, self.stamina = None, None, None
         self.cook_sel, self.shop_sel, self.money = None, None, 0
+        self.cook_cat = None          # 料理畫面選的分類 (food / drink / dessert / stamina)
+        self.serve_return = None      # 從招待跳到料理時記住的客人 id (「🍵 回去招待」用)
+        self.serve_queue = []         # 那位客人還缺、要做的菜
+        self.gather_result = None     # 快速採集剛剛的結果
 
     @classmethod
     async def create(cls, user, result: dict, notice: str | None = None, mode: str = "main") -> "ShrineView":
@@ -278,11 +288,13 @@ class ShrineView(ui.LayoutView):
         select = ui.Select(placeholder="🎁 要不要額外招待？（可以不選）", options=options)
         select.callback = self.on_pick_extra
         container.add_item(ui.ActionRow(select))
-        need = {}
-        for d in g["order"] + ([self.extra] if self.extra else []):
-            need[d] = need.get(d, 0) + 1
-        ready = all(self.inventory.get(d, 0) >= k for d, k in need.items())
-        buttons = [self._btn("🍵 端上桌", discord.ButtonStyle.success, self.on_serve, not ready)]
+        missing = self._serve_missing(g)
+        buttons = [self._btn("🍵 端上桌", discord.ButtonStyle.success, self.on_serve, bool(missing))]
+        cookable = [d for d in missing if d in self.rules["recipes"]]
+        if cookable:   # 🍳 缺菜 ➔ 跳到料理畫面，選好第一道缺的
+            name = self.items.get(cookable[0], {}).get("name", cookable[0])
+            label = f"🍳 去做{name}" + (f" 等 {len(cookable)} 道" if len(cookable) > 1 else "")
+            buttons.append(self._btn(label[:80], discord.ButtonStyle.primary, self.on_serve_to_cook))
         if len(self.summary["guests"]) > 1:
             buttons.append(self._btn("👥 換客人", discord.ButtonStyle.secondary, self.on_serve_open))
         buttons.append(self._home())
@@ -307,37 +319,94 @@ class ShrineView(ui.LayoutView):
                       not self.explore_loc or self.stamina["stamina"] < cost),
             self._btn(f"🗺️ 連續 5 次 (-{cost * 5})", discord.ButtonStyle.primary, self.on_explore_5,
                       not self.explore_loc or self.stamina["stamina"] < cost),
+            self._btn("⚡ 恢復體力", discord.ButtonStyle.secondary, self.on_stamina),
             self._home(),
         ))
         self.add_item(container)
 
+    def _can_cook(self, dish_id: str | None) -> int:
+        if not dish_id or dish_id not in self.rules["recipes"]:
+            return 0
+        return min(self.inventory.get(m, 0) // k for m, k in self.rules["recipes"][dish_id].items())
+
     def _build_cook(self):
-        container = build_cook_container(self.rules["recipes"], self.rules["dish_types"], self.items, self.inventory,
-                                         self.cook_sel, shrine_data.COOK_YIELD, self.notice)
-        type_label = {"food": "食物", "drink": "茶水", "dessert": "點心"}
-        dishes = sorted(self.rules["recipes"], key=lambda d: (("food", "drink", "dessert").index(self.rules["dish_types"][d]), d))
-        options = []
-        for d in dishes[:25]:
-            r = self.rules["recipes"][d]
-            can = min(self.inventory.get(m, 0) // k for m, k in r.items())
-            need = " + ".join(f"{self.items.get(m, {}).get('name', m)}×{k}" for m, k in r.items())
-            options.append(discord.SelectOption(
-                label=f"[{type_label[self.rules['dish_types'][d]]}] {self.items.get(d, {}).get('name', d)}"[:100],
-                value=d, emoji=self.items.get(d, {}).get("emoji"), default=d == self.cook_sel,
-                description=f"{'✅ 可做 ' + str(can) + ' 鍋' if can else '❌'} · {need}"[:100]))
-        select = ui.Select(placeholder="選擇料理…", options=options)
-        select.callback = self.on_pick_dish
-        container.add_item(ui.ActionRow(select))
-        can = 0
+        if self.cook_sel not in self.rules["recipes"]:
+            self.cook_sel = None   # 活動料理：活動結束就做不了
         if self.cook_sel:
-            r = self.rules["recipes"][self.cook_sel]
-            can = min(self.inventory.get(m, 0) // k for m, k in r.items())
+            self.cook_cat = dish_category(self.cook_sel, self.rules)
+        container = build_cook_container(self.rules, self.items, self.inventory, self.cook_sel, self.notice,
+                                         self.serve_queue if self.serve_return else None)
+        # 先選分類 (Discord 選單最多 25 個，料理全放一起會放不下)
+        by_cat = {}
+        for d in self.rules["recipes"]:
+            by_cat.setdefault(dish_category(d, self.rules), []).append(d)
+        cat_select = ui.Select(placeholder="🗂️ 選擇分類…", options=[
+            discord.SelectOption(label=label, value=cat, default=cat == self.cook_cat,
+                                 description=f"{len(by_cat.get(cat, []))} 道 · 現在能做 "
+                                             f"{sum(1 for d in by_cat.get(cat, []) if self._can_cook(d))} 道")
+            for cat, label in COOK_CATEGORIES.items() if by_cat.get(cat)
+        ])
+        cat_select.callback = self.on_pick_cook_cat
+        container.add_item(ui.ActionRow(cat_select))
+        if self.cook_cat in by_cat:
+            options = []
+            for d in sorted(by_cat[self.cook_cat])[:25]:
+                r, can = self.rules["recipes"][d], self._can_cook(d)
+                need = " + ".join(f"{self.items.get(m, {}).get('name', m)}×{k}" for m, k in r.items())
+                options.append(discord.SelectOption(
+                    label=self.items.get(d, {}).get("name", d)[:100], value=d,
+                    emoji=self.items.get(d, {}).get("emoji"), default=d == self.cook_sel,
+                    description=f"{'✅ 可做 ' + str(can) + ' 鍋' if can else '❌'} · {need}"[:100]))
+            select = ui.Select(placeholder="選擇料理…", options=options)
+            select.callback = self.on_pick_dish
+            container.add_item(ui.ActionRow(select))
+        can = self._can_cook(self.cook_sel)
         container.add_item(ui.ActionRow(
             self._btn("🍳 做 1 鍋", discord.ButtonStyle.success, self.on_cook_1, can < 1),
             self._btn("🍳 做 5 鍋", discord.ButtonStyle.success, self.on_cook_5, can < 5),
             self._btn(f"🍳 全部 ({can})", discord.ButtonStyle.primary, self.on_cook_all, can < 1),
             self._home(),
         ))
+        extra = []
+        if self.cook_sel and can < 1:
+            extra.append(self._btn("🧺 快速採集", discord.ButtonStyle.primary, self.on_gather_open))
+        if self.serve_return:
+            ready = not self.serve_queue
+            extra.append(self._btn("🍵 回去招待", discord.ButtonStyle.success if ready else discord.ButtonStyle.secondary,
+                                   self.on_back_to_serve))
+        if extra:
+            container.add_item(ui.ActionRow(*extra))
+        self.add_item(container)
+
+    def _gather_state(self) -> tuple[dict, dict, dict, int]:
+        """快速採集要的資料：(還差的素材, 預估路線, 雜貨店能買的, 買的總價)；以做 1 鍋為目標"""
+        recipe = self.rules["recipes"].get(self.cook_sel, {})
+        missing = econ.missing_materials(recipe, self.inventory)
+        buy, buy_cost = econ.shop_missing(missing, self.rules)
+        return missing, econ.plan_gather(missing, self.rules), buy, buy_cost
+
+    def _build_gather(self):
+        if self.cook_sel not in self.rules["recipes"]:
+            self.mode, self.notice = "cook", "⚠️ 這道料理現在做不了（活動可能結束了）。"
+            return self._build_cook()
+        missing, plan, buy, buy_cost = self._gather_state()
+        cost = econ.explore_cost(self.rules)
+        container = build_gather_container(self.cook_sel, missing, plan, self.rules, self.items, self.stamina,
+                                           cost, buy, buy_cost, self.gather_result, self.notice)
+        can_go = bool(missing) and bool(plan["stops"]) and self.stamina["stamina"] >= cost
+        container.add_item(ui.ActionRow(*[
+            self._btn(f"🧺 {n} 趟 (-{cost * n})", discord.ButtonStyle.primary, getattr(self, f"on_gather_{n}"), not can_go)
+            for n in GATHER_TIMES
+        ]))
+        row = []
+        if buy:
+            row.append(self._btn(f"🏪 買齊人里素材 ({buy_cost:,})", discord.ButtonStyle.secondary, self.on_gather_buy,
+                                 self.money < buy_cost))
+        row.append(self._btn("⚡ 恢復體力", discord.ButtonStyle.secondary, self.on_stamina))
+        row.append(self._btn("🍳 回去料理", discord.ButtonStyle.success if not missing else discord.ButtonStyle.secondary,
+                             self.on_cook_back))
+        row.append(self._home())
+        container.add_item(ui.ActionRow(*row))
         self.add_item(container)
 
     def _build_shop(self):
@@ -375,7 +444,16 @@ class ShrineView(ui.LayoutView):
         await interaction.response.edit_message(view=self)
 
     async def on_home(self, interaction):
+        self.serve_return, self.serve_queue, self.gather_result = None, [], None
         await self._show(interaction, "main", result=await econ.get_shrine(self.user.id))
+
+    async def on_stamina(self, interaction):
+        """⚡ 恢復體力彈窗 (Utils/stamina_modal.py)；吃完回到原本的畫面"""
+        mode = self.mode
+
+        async def done(inter, notice):
+            await self._show(inter, mode, notice)
+        await open_stamina_modal(interaction, done)
 
     async def on_refresh(self, interaction):
         await self._show(interaction, "main", result=await econ.get_shrine(self.user.id))
@@ -436,7 +514,34 @@ class ShrineView(ui.LayoutView):
         notice = (f"🍵 **{name}** 吃得心滿意足地離開了！獲得 `{rw['total']:,}` 賽錢"
                   + (f"（{'、'.join(extras)}）" if extras else "") + f"\n-# 目前持有 `{fmt_money(r['money'])}` 賽錢")
         self.guest_id, self.extra = None, None
+        self.serve_return, self.serve_queue = None, []
         await self._show(interaction, "main", notice, r)
+
+    def _serve_missing(self, g: dict | None = None) -> dict:
+        """這位客人 (點的菜 + 額外招待) 還差的料理 {料理: 份數}，照點餐順序"""
+        g = g or self._guest()
+        if g is None:
+            return {}
+        need = {}
+        for d in g["order"] + ([self.extra] if self.extra else []):
+            need[d] = need.get(d, 0) + 1
+        return {d: k - self.inventory.get(d, 0) for d, k in need.items() if self.inventory.get(d, 0) < k}
+
+    async def on_serve_to_cook(self, interaction):
+        """🍳 招待畫面缺菜 ➔ 料理畫面，先選好第一道缺的；做完會自動換下一道"""
+        await self.reload()
+        queue = [d for d in self._serve_missing() if d in self.rules["recipes"]]
+        if not queue:
+            await self._show(interaction, "serve", "✅ 客人點的菜已經都有了！")
+            return
+        self.serve_return, self.serve_queue, self.cook_sel = self.guest_id, queue, queue[0]
+        name = self.items.get(queue[0], {}).get("name", queue[0])
+        more = f"（還有 {len(queue) - 1} 道要做）" if len(queue) > 1 else ""
+        await self._show(interaction, "cook", f"🍳 客人點的 **{name}** 還沒有，先來做吧！{more}")
+
+    async def on_back_to_serve(self, interaction):
+        self.guest_id = self.serve_return
+        await self._show(interaction, "serve", result=await econ.get_shrine(self.user.id))
 
     # ---------------- 採集 ----------------
     async def on_explore_open(self, interaction):
@@ -450,7 +555,7 @@ class ShrineView(ui.LayoutView):
     async def _explore(self, interaction, times):
         r = await econ.explore(self.user.id, self.explore_loc, times)
         if not r["ok"]:
-            msg = {"no_stamina": "❌ 體力不夠了！可以在資料卡用道具恢復體力。", "not_found": "❌ 這個地點現在去不了（活動可能結束了）。"}
+            msg = {"no_stamina": "❌ 體力不夠了！按「⚡ 恢復體力」吃點東西吧。", "not_found": "❌ 這個地點現在去不了（活動可能結束了）。"}
             self.explore_result = None
             await self._show(interaction, "explore", msg.get(r["reason"], "❌ 採集失敗"))
             return
@@ -467,6 +572,12 @@ class ShrineView(ui.LayoutView):
     async def on_cook_open(self, interaction):
         await self._show(interaction, "cook")
 
+    async def on_pick_cook_cat(self, interaction):
+        cat = interaction.data["values"][0]
+        if cat != self.cook_cat:
+            self.cook_cat, self.cook_sel = cat, None
+        await self._show(interaction, "cook")
+
     async def on_pick_dish(self, interaction):
         self.cook_sel = interaction.data["values"][0]
         await self._show(interaction, "cook")
@@ -478,7 +589,68 @@ class ShrineView(ui.LayoutView):
             notice = f"🍳 做好了 **{name}** ×{r['made']} 份！倉庫裡現在有 `{r['have']}` 份。"
         else:
             notice = "❌ 素材不夠：" + "、".join(f"{self.items.get(m, {}).get('name', m)} 還差 {k}" for m, k in r.get("missing", {}).items())
-        await self._show(interaction, "cook", notice)
+        await self.reload()
+        if r["ok"] and self.serve_return:   # 🍵 從招待跳過來的：換下一道客人還缺的菜
+            g = next((x for x in self.summary["guests"] if x["id"] == self.serve_return), None)
+            missing = self._serve_missing(g) if g else {}
+            self.serve_queue = [d for d in self.serve_queue if d in missing]
+            if self.serve_queue:
+                self.cook_sel = self.serve_queue[0]
+                notice += f"\n➡️ 接著做 **{self.items.get(self.cook_sel, {}).get('name', self.cook_sel)}**"
+            elif g:
+                notice += "\n✅ 客人點的菜都齊了！按「🍵 回去招待」端上桌。"
+        self.mode, self.notice = "cook", notice
+        self.build()
+        await interaction.response.edit_message(view=self)
+
+    # ---------------- 快速採集 ----------------
+    async def on_gather_open(self, interaction):
+        self.gather_result = None
+        await self._show(interaction, "gather")
+
+    async def on_cook_back(self, interaction):
+        self.gather_result = None
+        await self._show(interaction, "cook")
+
+    async def _gather(self, interaction, times):
+        recipe = self.rules["recipes"].get(self.cook_sel)
+        if recipe is None:
+            await self._show(interaction, "cook", "⚠️ 這道料理現在做不了（活動可能結束了）。")
+            return
+        r = await econ.quick_explore(self.user.id, recipe, times)
+        if not r["ok"]:
+            self.gather_result = None
+            msg = {"nothing_missing": "✅ 素材已經夠了！按「🍳 回去料理」做菜吧。",
+                   "unavailable": "🚫 缺的素材現在沒有地方採得到（可能是活動素材）。",
+                   "no_stamina": "❌ 體力不夠了！按「⚡ 恢復體力」吃點東西吧。"}.get(r["reason"], "❌ 採集失敗")
+            await self._show(interaction, "gather", msg)
+            return
+        self.gather_result = r
+        await self._show(interaction, "gather")
+
+    async def on_gather_1(self, interaction):
+        await self._gather(interaction, 1)
+
+    async def on_gather_3(self, interaction):
+        await self._gather(interaction, 3)
+
+    async def on_gather_5(self, interaction):
+        await self._gather(interaction, 5)
+
+    async def on_gather_10(self, interaction):
+        await self._gather(interaction, 10)
+
+    async def on_gather_buy(self, interaction):
+        recipe = self.rules["recipes"].get(self.cook_sel, {})
+        r = await econ.shop_buy_missing(self.user.id, recipe)
+        if r["ok"]:
+            got = "、".join(f"{self.items.get(m, {}).get('name', m)}×{n}" for m, n in r["bought"].items())
+            notice = f"🛒 在雜貨店買了 {got}，花了 `{r['cost']:,}` 賽錢。"
+        elif r["reason"] == "not_enough":
+            notice = f"❌ 賽錢不足！需要 `{r['cost']:,}`，你只有 `{fmt_money(r['money'])}`。"
+        else:
+            notice = "⚠️ 沒有需要在雜貨店買的素材。"
+        await self._show(interaction, "gather", notice)
 
     async def on_cook_1(self, interaction):
         await self._cook(interaction, 1)

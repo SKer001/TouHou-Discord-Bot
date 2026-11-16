@@ -113,49 +113,6 @@ def _stamina_text(stamina: dict | None) -> str:
     return f"{head}　-# 下次 +1：{_format_duration(stamina['next_in'])} · 回滿：{_format_duration(stamina['full_in'])}\n"
 
 
-def build_stamina_item_container(
-    user: discord.User | discord.Member,
-    stamina: dict,
-    owned: list[tuple[str, dict, int]],
-    selected: str | None = None,
-    notice: str | None = None,
-) -> ui.Container:
-    """
-    恢復體力畫面：目前體力 + 背包裡的體力道具
-    owned = [(道具ID, 道具資料, 數量), ...]；selected 有值時顯示該道具的說明與使用後的體力
-    """
-    container = ui.Container(accent_color=discord.Color.green())
-    container.add_item(ui.TextDisplay(
-        f"## ⚡ {user.display_name} 的恢復體力\n"
-        f"{_stamina_text(stamina).strip()}\n"
-        f"-# 道具可以讓體力超過自然回復上限 {stamina['max']}"
-    ))
-    if notice:
-        container.add_item(ui.TextDisplay(notice))
-    container.add_item(ui.Separator())
-
-    if not owned:
-        container.add_item(ui.TextDisplay("⛩️ 神社倉庫裡沒有任何體力道具。\n-# 每日簽到可以獲得 🍙 陰陽梅干飯糰！"))
-        return container
-
-    item = next(((iid, info, count) for iid, info, count in owned if iid == selected), None)
-    if item:
-        iid, info, count = item
-        restore = info["effect"].get("stamina", 0)
-        container.add_item(ui.TextDisplay(
-            f"### {info['emoji']} {info['name']}　`×{count}`\n"
-            f"*{info['desc']}*\n\n"
-            f"⚡ 使用 1 個：`{stamina['stamina']}` ➔ `{stamina['stamina'] + restore}`（`+{restore}`）"
-        ))
-    else:
-        lines = [
-            f"{info['emoji']} **{info['name']}**　`×{count}`　⚡ `+{info['effect'].get('stamina', 0)}`"
-            for _, info, count in owned
-        ]
-        container.add_item(ui.TextDisplay("\n".join(lines) + "\n-# 從下方選單選擇要使用的道具"))
-    return container
-
-
 def _daily_count_text(count: int) -> str:
     """累積簽到天數；滿 TRADE_UNLOCK_DAILY 天開通市場與轉帳"""
     need = TRADE_UNLOCK_DAILY

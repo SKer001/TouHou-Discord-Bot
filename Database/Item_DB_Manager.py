@@ -85,6 +85,7 @@ def managed_items() -> list[tuple]:
     from Database.events import load_events
     items = [(i, n, e, "material", d, {"material": True}) for i, n, e, d in shrine_data.MATERIAL_ITEMS]
     items += [(i, n, e, "cuisine", d, {"serve": t}) for i, n, e, t, d in shrine_data.DISH_ITEMS]
+    items += [(i, n, e, "consumable", d, {"stamina": hp}) for i, n, e, hp, d in shrine_data.STAMINA_DISH_ITEMS]
     for ev in load_events().values():
         for it in ev.get("items", []):
             effect = dict(it.get("effect") or {})

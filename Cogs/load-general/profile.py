@@ -10,7 +10,7 @@ from Database import Economy_DB_Manager as econ
 from Database.User_DB_Manager import (
     get_or_create_user, update_visibility, add_money, add_exp,
     get_daily_status as db_get_daily_status, claim_daily, calc_stamina,
-    add_item, use_stamina_item, get_title_state, set_equipped_title,
+    add_item, get_title_state, set_equipped_title,
     get_namecard_state, set_equipped_namecard,
 )
 from Database import title_data, namecard_data
@@ -22,10 +22,10 @@ from .Components.general_components import (
     build_daily_repeat_container,
     build_power_up_container,
     build_notice_container,
-    build_stamina_item_container,
     build_namecard_dm_view,
 )
 from Utils.components import send_notice
+from Utils.stamina_modal import open_stamina_modal
 
 # ---------------------------------------------------------
 # ⚙️ 常數設定
@@ -101,112 +101,7 @@ async def perform_daily(user_id: int) -> dict | None:
     }
 
 
-async def get_owned_stamina_items(user_id: int, inventory: dict | None = None) -> list[tuple[str, dict, int]]:
-    """玩家背包裡有回復體力效果的道具：[(道具ID, 道具資料, 數量), ...]，依回復量由大到小"""
-    if inventory is None:
-        inventory = (await get_or_create_user(user_id))["inventory"]
-    templates = await get_all_items()
-    owned = [
-        (iid, templates[iid], count) for iid, count in inventory.items()
-        if count > 0 and iid in templates and templates[iid]["effect"].get("stamina", 0) > 0
-    ]
-    return sorted(owned, key=lambda x: (-x[1]["effect"]["stamina"], x[0]))
-
-
-# ---------------------------------------------------------
-# ⚡ 恢復體力 View (Components V2)：選道具 ➔ 確認使用 ➔ 可繼續使用或返回資料卡
-# ---------------------------------------------------------
-class StaminaItemView(ui.LayoutView):
-    def __init__(self, profile_view, user, owned: list, stamina: dict):
-        super().__init__(timeout=180)
-        self.profile_view = profile_view
-        self.user = user
-        self.owned = owned
-        self.stamina = stamina
-        self.selected = None
-        self.notice = None
-        self.busy = False   # 使用按鈕連點保護
-        self.build()
-
-    def build(self):
-        self.clear_items()
-        container = build_stamina_item_container(self.user, self.stamina, self.owned, self.selected, self.notice)
-        container.add_item(ui.Separator())
-
-        if self.owned:
-            select = ui.Select(placeholder="🎒 選擇要使用的體力道具...", options=[
-                discord.SelectOption(
-                    label=f"{info['name']} ×{count}"[:100],
-                    description=f"回復 {info['effect']['stamina']} 體力"[:100],
-                    value=iid,
-                    emoji=info["emoji"],
-                    default=(iid == self.selected),
-                )
-                for iid, info, count in self.owned[:25]
-            ])
-            select.callback = self.on_select
-            container.add_item(ui.ActionRow(select))
-
-        buttons = []
-        if self.selected:
-            use_btn = ui.Button(label="🍽️ 使用 1 個", style=discord.ButtonStyle.success)
-            use_btn.callback = self.on_use
-            buttons.append(use_btn)
-        back_btn = ui.Button(label="🔙 返回資料卡", style=discord.ButtonStyle.secondary)
-        back_btn.callback = self.on_back
-        buttons.append(back_btn)
-        container.add_item(ui.ActionRow(*buttons))
-        self.add_item(container)
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.user.id:
-            await send_notice(interaction, "❌ 這不是你的神社倉庫！")
-            return False
-        return True
-
-    async def refresh_data(self):
-        user_data = await get_or_create_user(self.user.id)
-        self.stamina = calc_stamina(user_data.get("stamina"), user_data.get("stamina_updated_at"))
-        self.owned = await get_owned_stamina_items(self.user.id, user_data["inventory"])
-        if self.selected not in {iid for iid, _, _ in self.owned}:
-            self.selected = None
-
-    async def on_select(self, interaction: discord.Interaction):
-        self.selected = interaction.data["values"][0]
-        self.notice = None
-        self.build()
-        await interaction.response.edit_message(view=self)
-
-    async def on_use(self, interaction: discord.Interaction):
-        if self.busy:
-            await interaction.response.defer()
-            return
-        self.busy = True
-        try:
-            info = next((i for iid, i, _ in self.owned if iid == self.selected), None)
-            if info is None:
-                self.notice = "❌ 找不到這個道具，請重新選擇。"
-            else:
-                result = await use_stamina_item(self.user.id, self.selected, info["effect"]["stamina"])
-                if result["ok"]:
-                    self.notice = (
-                        f"✅ 使用了 {info['emoji']} **{info['name']}**！"
-                        f"體力 `{result['before']}` ➔ `{result['stamina']}`（剩下 `{result['left']}` 個）"
-                    )
-                else:
-                    self.notice = "❌ 倉庫裡已經沒有這個道具了。"
-            await self.refresh_data()
-            self.build()
-            await interaction.response.edit_message(view=self)
-        finally:
-            self.busy = False
-
-    async def on_back(self, interaction: discord.Interaction):
-        user_data = await get_or_create_user(self.user.id)
-        daily_status = await get_daily_status(self.user.id)
-        self.profile_view.build(user_data, daily_status)
-        self.stop()
-        await interaction.response.edit_message(view=self.profile_view)
+# ⚡ 恢復體力：0.35.000 起改成彈窗 (Utils/stamina_modal.py)，神社採集畫面也共用同一個
 
 
 # ---------------------------------------------------------
@@ -385,11 +280,12 @@ class ProfileView(ui.LayoutView):
         await interaction.response.edit_message(view=self)
 
     async def on_stamina(self, interaction: discord.Interaction):
-        user_data = await get_or_create_user(interaction.user.id)
-        stamina = calc_stamina(user_data.get("stamina"), user_data.get("stamina_updated_at"))
-        owned = await get_owned_stamina_items(interaction.user.id, user_data["inventory"])
-        view = StaminaItemView(self, self.target_user, owned, stamina)
-        await interaction.response.edit_message(view=view)
+        """⚡ 恢復體力：打開彈窗 (Utils/stamina_modal.py)；吃完後資料卡更新體力，結果私下提示"""
+        async def done(inter: discord.Interaction, notice: str):
+            self.build(await get_or_create_user(inter.user.id), await get_daily_status(inter.user.id))
+            await inter.response.edit_message(view=self)
+            await send_notice(inter, notice)
+        await open_stamina_modal(interaction, done)
 
     async def on_shrine(self, interaction: discord.Interaction):
         """⛩️ 前往神社：另外開一則只有自己看得到的神社畫面 (同 /shrine manage)，資料卡留在原地"""

@@ -57,6 +57,7 @@ Cogs/
   load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py, help_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
+Utils/stamina_modal.py       ⚡ 恢復體力彈窗（/profile 與神社採集畫面共用；每天最多吃 3 個體力道具）
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
 Utils/config.py              .env 設定：ADMIN_IDS 與 is_admin(user)
 Utils/reloader.py            模組重載 (/admin-sys reload 與主控台共用)

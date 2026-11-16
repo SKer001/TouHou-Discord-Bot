@@ -51,6 +51,7 @@ def game_rules(active: list[dict]) -> dict:
     | 規則 | 一般 | 活動檔可以加的欄位 |
     |---|---|---|
     | recipes / dish_types | shrine_data.RECIPES | items (料理)、recipes |
+    | recipes / stamina_dishes | shrine_data.STAMINA_RECIPES (體力料理，一鍋 1 份) | stamina_recipes (道具本身放 items，effect {"stamina": N}) |
     | order_pool {種類: {base, event}} | 一般料理 | 活動料理自動進 event 池；order_event_chance = 抽 event 池的機率 |
     | locations | shrine_data.LOCATIONS | location (限定地點)；extra_drops {地點: [素材]}、explore_events {地點: {good: [..], bad: [..]}} 加進一般地點 |
     | guest_pool {base, event} / guests | shrine_data.GUESTS | guests (限定客人)；event_guest_chance = 來 event 客人的機率 (沒設 = 全部平均抽)；
@@ -64,7 +65,8 @@ def game_rules(active: list[dict]) -> dict:
     | daily_items [[道具, 數量]] | 沒有 (🍙 由簽到本身送) | daily_items (簽到額外送) |
     | event_dish_bonus | 1 | event_dish_bonus (取最大) |
     """
-    recipes = dict(base.RECIPES)
+    recipes = {**base.RECIPES, **base.STAMINA_RECIPES}   # 料理畫面能做的全部 (招待料理 + 體力料理)
+    stamina_dishes = set(base.STAMINA_RECIPES)            # 體力料理：一鍋 STAMINA_COOK_YIELD 份、不能招待
     dish_types = dict(base.DISH_TYPES)
     locations = {}
     for k, v in base.LOCATIONS.items():
@@ -79,6 +81,8 @@ def game_rules(active: list[dict]) -> dict:
     for ev in active:
         eid = ev["id"]
         recipes.update(ev.get("recipes", {}))
+        recipes.update(ev.get("stamina_recipes", {}))
+        stamina_dishes |= set(ev.get("stamina_recipes", {}))
         for item in ev.get("items", []):
             serve = (item.get("effect") or {}).get("serve")
             if serve:
@@ -131,7 +135,7 @@ def game_rules(active: list[dict]) -> dict:
         pool = order_pool.setdefault(t, {"base": [], "event": []})
         pool["event" if d in event_dishes else "base"].append(d)
     return {
-        "recipes": recipes, "dish_types": dish_types, "locations": locations, "guests": guests,
+        "recipes": recipes, "stamina_dishes": stamina_dishes, "dish_types": dish_types, "locations": locations, "guests": guests,
         "event_dishes": event_dishes, "event_guests": event_guests,
         "order_pool": order_pool, "order_event_chance": chance, "event_dish_bonus": bonus,
         "guest_pool": {"base": sorted(k for k in guests if k not in event_guests), "event": sorted(event_guests)},

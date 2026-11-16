@@ -29,7 +29,8 @@
 - 體力：`users.stamina`（預設 240）、`users.stamina_updated_at`（UTC ISO）。**不用背景排程**，每次讀取 / 使用 / 回復時才結算：
   - `calc_stamina(stored, updated_at, now)` 純計算：每 6 分鐘 +1，自然回復只到 240（`STAMINA_MAX`），零頭保留；超過 240（道具）時不再自然回復；已滿時時鐘停在現在。回傳 `stamina / max / updated_at / next_in / full_in`。
   - `get_stamina`（唯讀）、`spend_stamina(user_id, n)`（不夠不扣，回傳 `ok=False`）、`add_stamina(user_id, n)`（可超過 240，扣到 0 為止），寫入都用 `BEGIN IMMEDIATE`。
-  - 目前沒有任何功能**消耗**體力；回復靠道具：`use_stamina_item(user_id, item_id, restore)` 在同一個交易裡背包 -1、體力 +restore（可超過 240），背包沒有時 `ok=False` 什麼都不改，回傳含 `before` / `left`。
+  - 採集會消耗體力（見 `docs/cogs.md` 神社廚房）；回復靠道具：`use_stamina_item(user_id, item_id, restore, qty=1, now=None)` 在同一個交易裡背包 -qty、體力 +restore×qty（可超過 240）、今天吃的數量 +qty；失敗 `ok=False` + `reason`（`not_owned` 背包不夠 / `daily_limit` 今天額度不夠 / `bad_qty`）什麼都不改，回傳含 `before` / `left` / `used` / `daily_left`。
+  - **每日上限（0.35.000）**：`STAMINA_ITEM_DAILY_LIMIT = 3`（含簽到的 🍙），`users.stamina_item_day`（台灣日期）+ `users.stamina_item_used`（那天吃了幾個）；`stamina_items_left(day, used, now)` 純計算、`get_stamina_item_left(user_id)` 唯讀。
 - 背包：`adjust_item(user_id, item_id, delta)`（管理員給予 / 扣除用：扣完小於 0 不寫入回 `ok=False`、剛好 0 移除，回傳 `before/after`）；`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
 - 合成 / 融合：`transform_cards(user_id, instance_ids, build_new_card, count_fusion=False)`
   - `BEGIN IMMEDIATE` 鎖定 → 讀取素材 → `build_new_card(consumed)` 驗證並產生新卡（條件不符丟 `ValueError`）→ 刪素材 → 寫新卡 → 融合時 `total_fusions + 1`，全部同一個交易。
@@ -56,7 +57,8 @@
   | `sakuya_scone_tea` | 🫖 咲夜特製司康與紅茶 | 120 |
   | `marisa_mushroom_soup` | 🍄 螢光蘑菇濃湯 | 67 |
   | `reimu_onigiri` | 🍙 陰陽梅干飯糰 | 60（每日簽到贈送 1 個，`DAILY_REWARD_ITEM`） |
-  - 目前只有簽到能拿到 🍙；其他三個只能用管理員指令發放。`Database/item.new.json` 是全部道具的批次匯入範本。
+  - 🍙 只靠簽到；🍡 🫖 🍄 和 0.35.000 新增的 `onsen_zosui` 🍲 溫泉蛋雜炊 (60)、`hell_nabe` 🫕 地獄鍋 (150) 都是**體力料理**，在料理畫面用素材做（`shrine_data.STAMINA_RECIPES`，一鍋 1 份；新的兩個定義在 `shrine_data.STAMINA_DISH_ITEMS`，開機時 `managed_items` 補進 Item.db）。`Database/item.new.json` 是全部道具的批次匯入範本。
+  - 0.35.000 新增的 12 種素材與 13 道招待料理也在 `shrine_data.MATERIAL_ITEMS` / `DISH_ITEMS`（開機自動補進 Item.db）。
   - **🍱 招待料理（`cuisine`，v0.26.000，名稱與說明由 Claude 依東方梗自訂，使用者同意）**：`effect.serve` = `food` / `drink` / `dessert`（`SERVE_TYPES`），招待參拜客用；目前沒有取得方式（之後跟素材副本一起做）。食物：`mystia_lamprey` 🍢 夜雀烤八目鰻、`ran_inari` 🍣 八雲特製豆皮壽司、`nitori_cucumber` 🥒 河童冰鎮小黃瓜；茶水：`reimu_bancha` 🍵 博麗神社粗茶、`eirin_herbal_tea` 🌿 永遠亭藥草茶、`suika_amazake` 🍶 伊吹甘酒；點心：`eientei_tsukimi_dango` 🌕 月見糰子、`cirno_kakigori` 🍧 琪露諾特製刨冰、`alice_cookie` 🍪 人偶師的手工餅乾。
 - 動到真實資料前的備份放在 `Database/backups/`（已加入 `.gitignore`，只留在本機）。
 

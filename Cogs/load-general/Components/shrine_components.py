@@ -167,24 +167,107 @@ def build_explore_container(locations: dict, stamina: dict, cost: int, result: d
     return container
 
 
-def build_cook_container(recipes: dict, dish_types: dict, items: dict, inventory: dict, selected: str | None,
-                         cook_yield: int, notice: str | None = None) -> ui.Container:
+# 料理畫面的分類 (Discord 選單最多 25 個，料理變多後改成先選分類再選料理；0.35.000)
+COOK_CATEGORIES = {"food": "🍚 食物", "drink": "🍵 茶水", "dessert": "🍮 點心", "stamina": "⚡ 體力料理"}
+
+
+def dish_category(dish_id: str, rules: dict) -> str:
+    """料理畫面的分類：體力料理 = stamina，其他照 dish_types (food / drink / dessert)"""
+    if dish_id in rules.get("stamina_dishes", ()):
+        return "stamina"
+    return rules["dish_types"].get(dish_id, "food")
+
+
+def build_cook_container(rules: dict, items: dict, inventory: dict, selected: str | None,
+                         notice: str | None = None, serve_queue: list[str] | None = None) -> ui.Container:
+    """
+    料理畫面：說明 + 選到的料理 (配方、有沒有素材)
+    serve_queue = 從招待畫面跳過來時，客人點的還沒做的菜 (第一道就是 selected)
+    """
     container = ui.Container(accent_color=discord.Color.orange())
     if notice:
         container.add_item(ui.TextDisplay(notice))
         container.add_item(ui.Separator())
-    text = f"## 🍳 料理\n選一道料理，一次做一鍋 = `{cook_yield}` 份"
+    text = (f"## 🍳 料理\n先選分類、再選料理。招待料理一鍋 `{shrine_data.COOK_YIELD}` 份，"
+            f"⚡ 體力料理一鍋 `{shrine_data.STAMINA_COOK_YIELD}` 份")
+    if serve_queue:
+        text += "\n-# 🍵 客人還在等：" + "、".join(item_label(items, d) for d in serve_queue)
     if selected:
-        recipe = recipes[selected]
+        recipe = rules["recipes"][selected]
         parts = []
         for m, k in recipe.items():
             have = inventory.get(m, 0)
             parts.append(f"{'✅' if have >= k else '❌'} {item_label(items, m)}×{k}（有 {have}）")
         can = min(inventory.get(m, 0) // k for m, k in recipe.items())
         info = items.get(selected, {})
-        text += (f"\n\n### {item_label(items, selected)}\n-# {info.get('desc', '')}\n"
-                 + "\n".join(parts) + f"\n倉庫裡有 `{inventory.get(selected, 0)}` 份 · 素材夠做 `{can}` 鍋")
+        kind = COOK_CATEGORIES.get(dish_category(selected, rules), "")
+        restore = info.get("effect", {}).get("stamina")
+        extra = f" · 吃了回復 `{restore}` 體力" if restore else ""
+        text += (f"\n\n### {item_label(items, selected)}\n-# {kind} · {info.get('desc', '')}\n"
+                 + "\n".join(parts)
+                 + f"\n倉庫裡有 `{inventory.get(selected, 0)}` 份 · 素材夠做 `{can}` 鍋"
+                 + f"（一鍋 {shrine_data.cook_yield(selected, rules)} 份）{extra}")
+        if can < 1:
+            text += "\n-# 素材不夠的話，可以按「🧺 快速採集」自動去採缺的素材"
     container.add_item(ui.TextDisplay(text))
+    return container
+
+
+def build_gather_container(dish_id: str, missing: dict, plan: dict, rules: dict, items: dict, stamina: dict,
+                           cost: int, buy: dict, buy_cost: int, result: dict | None = None,
+                           notice: str | None = None) -> ui.Container:
+    """
+    🧺 快速採集畫面：還差什麼 ➔ 預估要去哪裡、幾趟 (計算過程) ➔ 剛剛採集的結果
+    plan = Economy_DB_Manager.plan_gather(missing)；buy / buy_cost = 雜貨店能直接買的部分
+    """
+    container = ui.Container(accent_color=discord.Color.dark_green())
+    if notice:
+        container.add_item(ui.TextDisplay(notice))
+        container.add_item(ui.Separator())
+    locs = rules["locations"]
+
+    def mats(d: dict) -> str:
+        return "、".join(f"{item_label(items, m)}×{k}" for m, k in d.items())
+
+    head = f"## 🧺 快速採集：{item_label(items, dish_id)}\n⚡ 體力 `{stamina['stamina']} / {stamina['max']}` · 每趟 `{cost}` 體力"
+    if stamina.get("next_in"):
+        head += f"\n-# 下一點 {stamina['next_in'] // 60} 分 {stamina['next_in'] % 60} 秒後回復"
+    container.add_item(ui.TextDisplay(head))
+
+    if result:
+        container.add_item(ui.Separator())
+        lines = [f"### 🗺️ 剛剛採了 {len(result['runs'])} 趟"]
+        for i, r in enumerate(result["runs"], 1):
+            loc = locs.get(r["location"], {})
+            got = mats(dict(sorted(r["drops"].items()))) or "什麼都沒有"
+            lines.append(f"`{i}.` {loc.get('emoji', '')} {loc.get('name', r['location'])}：{got}")
+            if r["event"]:
+                lines.append(f"-# {'🍀' if r['event']['good'] else '💥'} {r['event']['text']}")
+        if result["stopped"] == "no_stamina":
+            lines.append("-# ⚡ 體力不夠，先停在這裡")
+        elif result["stopped"] == "done" and len(result["runs"]) < result["requested"]:
+            lines.append(f"-# ✨ 素材採齊了，提早收工（省下 {result['requested'] - len(result['runs'])} 趟）")
+        container.add_item(ui.TextDisplay("\n".join(lines)))
+
+    container.add_item(ui.Separator())
+    if not missing:
+        container.add_item(ui.TextDisplay("✅ **素材都齊了！** 按「🍳 回去料理」把菜做出來吧。"))
+        return container
+    lines = [("⚠️ **還沒採齊，還差**：" if result else "🧾 **做 1 鍋還差**：") + mats(missing)]
+    if plan["stops"]:
+        lines.append("\n📐 **預估**（一趟平均 = 3～5 個 ÷ 那個地點的素材種類）")
+        for i, s in enumerate(plan["stops"], 1):
+            loc = locs.get(s["location"], {})
+            parts = [f"{item_label(items, m)}×{n}（一趟約 {s['per_trip'][m]:.1f} 個）" for m, n in s["materials"].items()]
+            lines.append(f"`{i}.` {loc.get('emoji', '')} **{loc.get('name', s['location'])}**：{'、'.join(parts)} ➔ 約 `{s['trips']}` 趟")
+        lines.append(f"合計約 **{plan['trips']} 趟**、`{plan['trips'] * cost}` 體力")
+        lines.append("-# 按幾趟就總共採幾趟：先去最缺的地方，那邊夠了就換下一個；全部採齊會提早停，不會多花體力")
+        lines.append("-# 採集是隨機的，運氣不好可能要多跑幾趟" + ("，跑完還不夠會提醒你再按一次" if not result else ""))
+    if plan["unavailable"]:
+        lines.append(f"\n🚫 現在採不到：{mats(plan['unavailable'])}（可能是活動素材）")
+    if buy:
+        lines.append(f"\n🏪 人里的素材也可以直接買：{mats(buy)} = `{buy_cost:,}` 賽錢")
+    container.add_item(ui.TextDisplay("\n".join(lines)))
     return container
 
 

@@ -16,9 +16,10 @@
 | 機制 | 一般池 | 活動欄位 | 合併方式 |
 |---|---|---|---|
 | 🍳 料理配方 | `shrine_data.RECIPES` | `recipes {料理: {素材: 數量}}` | 加進去 |
+| ⚡ 體力料理配方 | `shrine_data.STAMINA_RECIPES` (5 道，一鍋 1 份) | `stamina_recipes {料理: {素材: 數量}}`；道具本身放 `items` (`category: consumable`、`effect: {"stamina": N}`) | 加進去，料理畫面「⚡ 體力料理」分類；不能招待 |
 | 🍱 點餐池 | 一般料理 | `items` 裡 `effect.serve` 的料理自動進活動池；`order_event_chance` | 每道菜有這個機率從活動池抽 |
 | ✨ 活動料理加成 | ×1 | `event_dish_bonus` | 每份活動料理 ×這個數 (多個活動取最大) |
-| 🗺️ 採集地點 | 5 個一般地點 | `location` (一個) 或 `locations` (多個) | 加進去，標「活動限定」 |
+| 🗺️ 採集地點 | 9 個一般地點 | `location` (一個) 或 `locations` (多個) | 加進去，標「活動限定」 |
 | 🧺 一般地點的掉落 | 各地點的 `drops` | `extra_drops {地點: [素材]}` | 加進該地點 |
 | 🍀 採集事件池 | 各地點 good / bad 各一個 | `explore_events {地點: {good: [事件], bad: [事件]}}` | 加進事件池，發生事件時隨機抽一個 |
 | 🎲 採集事件機率 | 5% | `special_chance` | 取最大 |

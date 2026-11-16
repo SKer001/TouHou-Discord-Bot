@@ -40,11 +40,15 @@ def buttons(v): return {i.label: i for i in v.walk_children() if isinstance(i, d
 
 async def main():
     await udm.init_db()
-    # 預設道具 = 4 個體力道具 + 15 道招待料理 + 15 種素材 + 紅霧異變活動 8 個 (素材 5 + 料理 3)
+    # 預設道具 = 4 + 2 個體力道具 + 28 道招待料理 + 27 種素材 + 紅霧異變活動 8 個 (素材 5 + 料理 3)
     items = await idm.get_all_items()
-    check(f"default items {list(items)}", {"yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri"} <= set(items) and len(items) == 42)
+    check(f"default items {len(items)}", {"yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri",
+                                          "onsen_zosui", "hell_nabe"} <= set(items) and len(items) == 69)
     serve = [v["effect"].get("serve") for v in items.values() if v["category"] == "cuisine"]
-    check("cuisine 6 each (5 + event 1)", sorted(serve) == sorted(["food", "drink", "dessert"] * 6))
+    check("cuisine food 10 / drink 11 / dessert 10 (含活動各 1)",
+          (serve.count("food"), serve.count("drink"), serve.count("dessert")) == (10, 11, 10))
+    check("new stamina dishes", [items[k]["effect"]["stamina"] for k in ("onsen_zosui", "hell_nabe")] == [60, 150]
+          and all(items[k]["category"] == "consumable" for k in ("onsen_zosui", "hell_nabe")))
     check("effects", [items[k]["effect"]["stamina"] for k in ("yuyuko_dango", "sakuya_scone_tea", "marisa_mushroom_soup", "reimu_onigiri")] == [120, 120, 67, 60])
     check("daily reward item exists", idm.DAILY_REWARD_ITEM[0] in items)
 
@@ -99,16 +103,53 @@ async def main():
     it = Interaction(uid=10); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view
     check("profile stamina button", "⚡ 恢復體力" in buttons(pv))
-    i2 = Interaction(uid=10); await buttons(pv)["⚡ 恢復體力"].callback(i2)
-    sv = i2.view
-    check("stamina view", "陰陽梅干飯糰" in texts(sv) and "`140 / 240`" in texts(sv))
-    check("others blocked", await sv.interaction_check(Interaction(uid=99)) is False)
-    await sv.on_select(Interaction(uid=10, data={"values": ["reimu_onigiri"]}))
-    check("preview", "`140` ➔ `200`" in texts(sv))
-    i3 = Interaction(uid=10); await sv.on_use(i3)
-    check("used", "`140` ➔ `200`" in texts(sv) and "剩下 `0` 個" in texts(sv) and "沒有任何體力道具" in texts(sv))
-    i4 = Interaction(uid=10); await sv.on_back(i4)
-    check("back to profile", i4.view is pv and "`200 / 240`" in texts(pv))
+    # ⚡ 恢復體力 = 彈窗 (Utils/stamina_modal.py)：選道具 + 選數量
+    modal_holder = {}
+    async def send_modal(m): modal_holder["m"] = m; i2.response.done = True
+    i2 = Interaction(uid=10); i2.response.send_modal = send_modal
+    await buttons(pv)["⚡ 恢復體力"].callback(i2)
+    modal = modal_holder.get("m")
+    labels = [c for c in modal.walk_children() if isinstance(c, discord.ui.Label)] if modal else []
+    check("stamina modal", modal and len(labels) == 2 and "140 / 240" in labels[0].description
+          and [o.value for o in modal.item_select.options] == ["reimu_onigiri"]
+          and [o.value for o in modal.qty_select.options] == ["1", "2", "3"])
+    modal.item_select._values, modal.qty_select._values = ["reimu_onigiri"], ["1"]
+    i3 = Interaction(uid=10); i3.type = discord.InteractionType.modal_submit
+    await modal.on_submit(i3)
+    check(f"used {texts(i3.views[0]) if i3.views else ''}", i3.view is pv and "`200 / 240`" in texts(pv)
+          and i3.views and "`140` ➔ `200`" in texts(i3.views[0]) and "今天還能吃 `2` 個" in texts(i3.views[0]))
+    # 沒有體力道具 ➔ 直接提示，不開彈窗
+    modal_holder.clear()
+    i4 = Interaction(uid=10); i4.response.send_modal = send_modal
+    await buttons(pv)["⚡ 恢復體力"].callback(i4)
+    check("no item notice", not modal_holder and "沒有體力道具" in texts(i4.view))
+
+    # 🍽️ 每天最多吃 3 個體力道具 (含飯糰)
+    from datetime import datetime, timezone, timedelta
+    t0 = datetime(2026, 11, 16, 3, 0, tzinfo=timezone.utc)   # 台灣 11:00
+    await udm.add_item(12, "reimu_onigiri", 5)
+    check("left 3", await udm.get_stamina_item_left(12, t0) == 3)
+    r = await udm.use_stamina_item(12, "reimu_onigiri", 60, qty=2, now=t0)
+    check(f"use 2 {r}", r["ok"] and r["used"] == 2 and r["daily_left"] == 1 and r["left"] == 3)
+    r = await udm.use_stamina_item(12, "reimu_onigiri", 60, qty=2, now=t0)
+    check("over limit rejected", not r["ok"] and r["reason"] == "daily_limit" and r["daily_left"] == 1)
+    check("nothing changed", (await udm.get_or_create_user(12))["inventory"]["reimu_onigiri"] == 3)
+    check("use last 1", (await udm.use_stamina_item(12, "reimu_onigiri", 60, now=t0))["daily_left"] == 0)
+    check("limit 0", (await udm.use_stamina_item(12, "reimu_onigiri", 60, now=t0))["reason"] == "daily_limit")
+    t1 = t0 + timedelta(hours=13)   # 台灣隔天 00:00
+    check("reset next day", await udm.get_stamina_item_left(12, t1) == 3 and (await udm.use_stamina_item(12, "reimu_onigiri", 60, now=t1))["ok"])
+    check("not owned", (await udm.use_stamina_item(12, "hell_nabe", 150, now=t1))["reason"] == "not_owned")
+    check("bad qty", (await udm.use_stamina_item(12, "reimu_onigiri", 60, qty=0, now=t1))["reason"] == "bad_qty")
+    await udm.add_item(12, "reimu_onigiri", 5)
+    rs = await asyncio.gather(*[udm.use_stamina_item(12, "reimu_onigiri", 60, now=t1) for _ in range(4)])
+    check("concurrent limit", sum(x["ok"] for x in rs) == 2)   # 隔天已經吃 1 個 ➔ 只能再 2 個
+    # 額度用完 ➔ 按鈕直接提示
+    sql_con = sqlite3.connect(udm.DB_PATH)
+    sql_con.execute("UPDATE users SET stamina_item_day = ?, stamina_item_used = 3 WHERE user_id = 10", (udm.tw_day(),)); sql_con.commit(); sql_con.close()
+    await udm.add_item(10, "reimu_onigiri", 1)
+    i5 = Interaction(uid=10); i5.response.send_modal = send_modal
+    await buttons(pv)["⚡ 恢復體力"].callback(i5)
+    check("daily limit notice", not modal_holder and "今天已經吃了 3 個" in texts(i5.view))
     # 別人的資料卡沒有恢復體力按鈕
     it = Interaction(uid=11); await cmds["profile"].callback(cog, it, types.SimpleNamespace(id=10, display_name="t", display_avatar=avatar), None)
     check("no button on others", "⚡ 恢復體力" not in buttons(it.view))
