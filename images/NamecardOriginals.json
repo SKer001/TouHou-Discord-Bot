@@ -64,6 +64,11 @@
         "jpg": "yuki_mai_full.jpg",
         "full": "yuki_mai.png"
     },
+    "yumeko": {
+        "message_id": 1571820090230308965,
+        "jpg": "yumeko_full.jpg",
+        "full": "yumeko.png"
+    },
     "yumemi": {
         "message_id": 1571093698018803763,
         "jpg": "yumemi_full.jpg",
