@@ -66,7 +66,8 @@ check("perfect condition", td.condition_text("perfect_10") == "卡冊有 10 種�
 check("requires text", td.condition_text("lr_1") == "卡冊有 1 種角色的 LR 卡，且已獲得「黃金卡冊」")
 check("requires exist", all(t.get("requires", "ur_1") in td.TITLES for t in td.TITLES.values()))
 check("every title grouped", all(td.title_group(t) for t in td.TITLES))
-check("group sizes ok", len(td.TITLE_GROUPS) <= 25 and all(len(v) <= 24 for v in td.group_titles(list(td.TITLES)).values()))
+# 0.35.001 起稱號選單會分頁，一組可以超過 24 個 (神社 35 個)；分組本身超過 25 個也會分頁
+check("groups listed", all(td.group_titles(list(td.TITLES)).values()) and len(td.group_titles(list(td.TITLES))["shrine"]) == 35)
 check("group order", list(td.group_titles(["pool_all", "draw_10", "ur_1"])) == ["draw", "rare", "pool"])
 check("label", td.title_label("draw_2000") == "[UR] 賽錢箱的守護神")
 check("color", td.title_color("draw_5000") == 0xE74C3C and td.title_color(None) == td.NO_TITLE_COLOR == 0x5865F2)
@@ -495,6 +496,18 @@ async def main():
     check("cat full unlocked", "gourmet_cat_stamina" in st["unlocked"] and "gourmet_cat_stamina" in await udm.get_earned_titles(F))
     sql("DELETE FROM player_stats WHERE user_id = ? AND stat LIKE 'cook:%'", (F,))
     check("cat full kept", "gourmet_cat_stamina" in (await udm.get_title_state(F))["unlocked"])
+
+    # --- ⛩️ 神社分級 (0.35.009)：每項 N / R / SR / SSR (原本的) / UR ---
+    tiers = {"serve": (1, 10, 50, 100, 500), "explore": (10, 50, 100, 500, 1000), "youkai": (5, 20, 100, 300, 500),
+             "cook": (5, 20, 100, 300, 500), "clean": (1, 10, 50, 100, 500),
+             "collect": (10_000, 100_000, 1_000_000, 10_000_000, 100_000_000), "shop": (1, 10, 50, 100, 500)}
+    ok_tiers = all([td.TITLES[f"shrine_{k}{s}"]["min"] for s in ("_n", "_r", "_sr", "", "_ur")] == list(v)
+                   and [td.TITLES[f"shrine_{k}{s}"]["rarity"] for s in ("_n", "_r", "_sr", "", "_ur")] == ["N", "R", "SR", "SSR", "UR"]
+                   for k, v in tiers.items())
+    check("shrine tiers", ok_tiers and td.TITLES["shrine_explore"]["name"] == "採集達人")
+    check("shrine unlock", td.unlocked_titles({"ps:explore": 499})[:1] == ["shrine_explore_sr"]
+          and "shrine_explore" in td.unlocked_titles({"ps:explore": 500}))
+    check("shrine collect short", td.title_desc("shrine_collect_n", {"ps:collect_money": 15000}).startswith("從賽錢箱回收了 15K"))
 
     # --- 稱號選單分頁 (參考 /card inventory：分主題 + 分頁) ---
     import importlib
