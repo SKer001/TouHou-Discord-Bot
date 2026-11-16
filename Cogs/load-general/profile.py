@@ -108,6 +108,9 @@ async def perform_daily(user_id: int) -> dict | None:
 # 🎛️ 資料卡 View (Components V2)：卡片內含「投賽錢簽到」按鈕
 # ---------------------------------------------------------
 NAMECARD_OPTIONS = 24   # 名片選單最多列幾張 (再加「不放名片」= Discord 上限 25)
+TITLES_PER_PAGE = 24    # 稱號選單一頁幾個 (再加「不戴稱號」= 25)
+GROUP_SELECT_MAX = 25   # 分組選單一次最多列幾組 (Discord 上限)
+GROUPS_PER_PAGE = 23    # 分組超過 25 個時，分組選單一頁幾組 (再加上一頁 / 下一頁兩個選項 = 25)
 
 
 class ProfileView(ui.LayoutView):
@@ -120,6 +123,8 @@ class ProfileView(ui.LayoutView):
         self.title_state = title_state   # get_title_state()：{"equipped", "unlocked"}
         self.namecard_state = namecard_state or {"equipped": None, "owned": []}   # get_namecard_state()
         self.title_group = None          # 稱號選單目前選的分組 (None = 戴著的稱號那組，沒戴就是最高等級那組)
+        self.title_page = 1              # 那組稱號的第幾頁 (一頁 TITLES_PER_PAGE 個)
+        self.group_page = None           # 分組選單的第幾頁 (分組超過 25 個才會用到；None = 目前那組在的那頁)
         self.data = None                 # 最近一次 build 的 (user_data, daily_status)，切換分組時重畫用
         self.reward = reward          # 剛簽到完的獎勵 (只顯示在這張卡片上)
         self.message = None           # 送出後由指令填入，供逾時時停用按鈕
@@ -149,8 +154,8 @@ class ProfileView(ui.LayoutView):
         # 🏷️ 更換稱號、🖼️ 更換名片、⚡ 恢復體力：只有本人的卡片才有
         if self.is_self:
             container.add_item(ui.Separator())
-            for select in self._title_selects():
-                container.add_item(ui.ActionRow(select))
+            for row in self._title_rows():
+                container.add_item(row)
             container.add_item(ui.ActionRow(self._namecard_select()))
             stamina_btn = ui.Button(label="⚡ 恢復體力", style=discord.ButtonStyle.primary)
             stamina_btn.callback = self.on_stamina
@@ -166,42 +171,79 @@ class ProfileView(ui.LayoutView):
         self.clear_items()
         self.add_item(container)
 
-    def _title_selects(self) -> list[ui.Select]:
+    def _title_rows(self) -> list[ui.ActionRow]:
         """
-        🏷️ 更換稱號：先選分組，再選那組已解鎖的稱號 (Discord 選單最多 25 個選項，稱號全放一起會放不下)
+        🏷️ 更換稱號 (0.35.001 起參考 /card inventory：分主題 + 分頁，再多稱號都放得下)
+        ① 分組選單：只列有解鎖稱號的組；超過 25 組時一頁 GROUPS_PER_PAGE 組，最後兩個選項是換頁
+        ② 稱號選單：那組的稱號一頁 TITLES_PER_PAGE 個 + 「不戴稱號」
+        ③ 那組超過一頁才多一排「◀️ 上一頁 / 📄 頁數 / 下一頁 ▶️」
         一個都沒解鎖 ➔ 只有一個反灰的選單
         """
         unlocked, equipped = self.title_state["unlocked"], self.title_state["equipped"]
         if not unlocked:
             select = ui.Select(placeholder="🏷️ 還沒有解鎖任何稱號 (祈願 10 抽就有第一個)", disabled=True,
                                options=[discord.SelectOption(label="不戴稱號", value="__none__")])
-            return [select]
+            return [ui.ActionRow(select)]
         groups = title_data.group_titles(unlocked)
         current = self.title_group
         if current not in groups:
             current = title_data.title_group(equipped) if equipped in unlocked else None
             if current not in groups:
                 current = title_data.title_group(unlocked[0]) or next(iter(groups))
+            tids = groups[current]   # 剛換到這組：打開戴著的稱號在的那一頁
+            self.title_page = tids.index(equipped) // TITLES_PER_PAGE + 1 if equipped in tids else 1
         self.title_group = current
 
-        group_select = ui.Select(placeholder="🗂️ 稱號分組…", options=[
+        # ① 分組選單 (分組太多時分頁)
+        keys = list(groups)
+        group_pages = 1 if len(keys) <= GROUP_SELECT_MAX else (len(keys) + GROUPS_PER_PAGE - 1) // GROUPS_PER_PAGE
+        if group_pages == 1:
+            shown = keys
+        else:
+            if self.group_page is None:
+                self.group_page = keys.index(current) // GROUPS_PER_PAGE + 1
+            self.group_page = min(max(1, self.group_page), group_pages)
+            shown = keys[(self.group_page - 1) * GROUPS_PER_PAGE:self.group_page * GROUPS_PER_PAGE]
+        options = [
             discord.SelectOption(
                 label=title_data.TITLE_GROUPS.get(key, {}).get("name", "🏷️ 其他"), value=key, default=(key == current),
-                description=f"已解鎖 {len(tids)} 個" + ("・戴著的稱號在這組" if equipped in tids else ""))
-            for key, tids in list(groups.items())[:25]
-        ])
+                description=f"已解鎖 {len(groups[key])} 個" + ("・戴著的稱號在這組" if equipped in groups[key] else ""))
+            for key in shown
+        ]
+        if group_pages > 1:
+            options.append(discord.SelectOption(label=f"⬅️ 上一頁分組", value="__gprev__",
+                                                description=f"分組第 {self.group_page} / {group_pages} 頁"))
+            options.append(discord.SelectOption(label=f"➡️ 下一頁分組", value="__gnext__",
+                                                description=f"分組第 {self.group_page} / {group_pages} 頁"))
+        group_select = ui.Select(placeholder="🗂️ 稱號分組…", options=options)
         group_select.callback = self.on_title_group
 
+        # ② 稱號選單 (這組的這一頁)
+        tids = groups[current]
+        total = max(1, (len(tids) + TITLES_PER_PAGE - 1) // TITLES_PER_PAGE)
+        self.title_page = min(max(1, self.title_page), total)
+        page = tids[(self.title_page - 1) * TITLES_PER_PAGE:self.title_page * TITLES_PER_PAGE]
         options = [
             discord.SelectOption(label=title_data.title_label(tid), value=tid, default=(tid == equipped),
                                  description=title_data.title_desc(tid, self.title_state.get("stats"))[:100])
-            for tid in groups[current][:24]
+            for tid in page
         ]
         options.append(discord.SelectOption(label="不戴稱號", value="__none__", default=(equipped is None),
                                             description="名字下面不顯示稱號"))
-        title_select = ui.Select(placeholder="🏷️ 更換稱號…", options=options)
+        placeholder = "🏷️ 更換稱號…" + (f" (第 {self.title_page} / {total} 頁)" if total > 1 else "")
+        title_select = ui.Select(placeholder=placeholder, options=options)
         title_select.callback = self.on_title
-        return [group_select, title_select]
+        rows = [ui.ActionRow(group_select), ui.ActionRow(title_select)]
+
+        # ③ 這組超過一頁才有換頁按鈕
+        if total > 1:
+            prev_btn = ui.Button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, disabled=self.title_page <= 1)
+            prev_btn.callback = self.on_title_prev
+            page_btn = ui.Button(label=f"📄 {self.title_page} / {total} 頁", style=discord.ButtonStyle.secondary, disabled=True)
+            next_btn = ui.Button(label="下一頁 ▶️", style=discord.ButtonStyle.primary, disabled=self.title_page >= total)
+            next_btn.callback = self.on_title_next
+            rows.append(ui.ActionRow(prev_btn, page_btn, next_btn))
+        return rows
 
     def _namecard_select(self) -> ui.Select:
         """
@@ -263,8 +305,25 @@ class ProfileView(ui.LayoutView):
         await send_notice(interaction, f"📥 已經把 **{name}** 的名片原圖私訊給你了！")
 
     async def on_title_group(self, interaction: discord.Interaction):
-        """切換稱號分組：只換第二個選單的內容，不動資料"""
-        self.title_group = interaction.data["values"][0]
+        """切換稱號分組 (或分組選單換頁)：只換選單的內容，不動資料"""
+        value = interaction.data["values"][0]
+        if value in ("__gprev__", "__gnext__"):
+            self.group_page = (self.group_page or 1) + (-1 if value == "__gprev__" else 1)
+        else:
+            groups = title_data.group_titles(self.title_state["unlocked"])
+            tids, equipped = groups.get(value, []), self.title_state["equipped"]
+            self.title_group = value
+            self.title_page = tids.index(equipped) // TITLES_PER_PAGE + 1 if equipped in tids else 1
+        self.build(*self.data)
+        await interaction.response.edit_message(view=self)
+
+    async def on_title_prev(self, interaction: discord.Interaction):
+        self.title_page -= 1
+        self.build(*self.data)
+        await interaction.response.edit_message(view=self)
+
+    async def on_title_next(self, interaction: discord.Interaction):
+        self.title_page += 1
         self.build(*self.data)
         await interaction.response.edit_message(view=self)
 

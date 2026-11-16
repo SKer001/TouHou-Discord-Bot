@@ -172,6 +172,8 @@ async def main():
     expect = econ.calc_serve_reward(100, g["order"], fav, game_rules(list(load_events().values())), fav)["total"]
     check(f"serve ok {r.get('reward')}", r["ok"] and r["reward"]["favorite_hit"] and money(3) == before + expect)
     check("guest left", r["summary"]["guests"] == [] and inv(3) == {})
+    ps = await udm.get_player_stats(3)
+    check(f"per-guest stats {g['kind']}", ps.get(f"serve_guest:{g['kind']}") == 1 and ps.get(f"serve_fav:{g['kind']}") == 1)
     check("serve twice", (await econ.serve_guest(3, g["id"], now=T0))["reason"] == "not_found")
 
     # ---------------- 🖥️ 畫面連動：招待缺菜 ➔ 料理 ➔ 快速採集 ➔ 回去料理 ➔ 做完回去招待 ----------------

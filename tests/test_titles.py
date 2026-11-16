@@ -367,6 +367,78 @@ async def main():
     await title_cmd.callback(acog, Interaction(uid=900), act("revoke"), "draw_100", types.SimpleNamespace(id=A, display_name="a"))
     check("revoke earned keeps", "draw_100" in (await udm.get_title_state(A))["unlocked"])
 
+    # --- 🙏 客人稱號 (0.35.001)：每種客人 SR 招待 50 次 / UR 成功招待 50 次；活動客人每個活動一組 ---
+    from Database import shrine_data as sd
+    from Database.events import load_events
+    ev_guests = {k for ev in load_events().values() for k in ev.get("guests", {})}
+    kinds = set(sd.GUESTS) | ev_guests
+    check(f"guest titles {len(kinds)}", all(td.guest_title_id(k, t) in td.TITLES for k in kinds for t in ("sr", "ur"))
+          and len([t for t in td.TITLES if t.startswith("guest_")]) == 2 * len(kinds) == 24)
+    check("guest rarity / min", all(td.TITLES[td.guest_title_id(k, "sr")]["rarity"] == "SR" and td.TITLES[td.guest_title_id(k, "ur")]["rarity"] == "UR"
+                                    and td.TITLES[td.guest_title_id(k, "sr")]["min"] == 50 for k in kinds))
+    check("guest names unique", len({td.TITLES[t]["name"] for t in td.TITLES}) == len(td.TITLES))
+    check("guest groups", td.title_group("guest_kappa_sr") == "guest" and td.title_group("guest_fairy_maid_ur") == "guest_th06_scarlet_mist"
+          and td.TITLE_GROUPS["guest_th06_scarlet_mist"]["name"] == "🙏 客人・紅霧異變"
+          and list(td.TITLE_GROUPS).index("guest_th06_scarlet_mist") == list(td.TITLE_GROUPS).index("guest") + 1)
+    check("shrine group unchanged", td.title_group("shrine_serve") == "shrine")
+    check("guest names from data", td.TITLES["guest_kappa_ur"]["name"] == "小黃瓜外交官" and td.TITLES["guest_familiar_bat_sr"]["name"] == "蝙蝠的落腳處")
+    check("guest condition", td.condition_text("guest_oni_sr") == "招待小鬼 50 次"
+          and td.condition_text("guest_oni_ur") == "成功招待小鬼 50 次 (額外端上牠最愛的料理)")
+    check("guest desc n", td.title_desc("guest_fox_sr", {"ps:serve_guest:fox": 12}).startswith("招待了 12 次狐妖"))
+    check("guest unlock", td.unlocked_titles({"ps:serve_guest:fox": 50, "ps:serve_fav:fox": 49}) == ["guest_fox_sr"])
+    # 活動檔沒寫 titles 的客人 ➔ 預設名稱
+    saved = dict(td.TITLES)
+    td._guest_titles("test_ghost", {"name": "幽靈"}, "guest_x", None, "x")
+    check("guest default names", td.TITLES["guest_test_ghost_sr"]["name"] == "幽靈的常客" and td.TITLES["guest_test_ghost_ur"]["name"] == "幽靈的知己")
+    td.TITLES.clear(); td.TITLES.update(saved)
+    # player_stats 記的次數 ➔ get_title_stats 讀得到
+    con = sqlite3.connect(udm.DB_PATH)
+    con.execute("INSERT INTO player_stats (user_id, stat, value) VALUES (?, 'serve_guest:kappa', 50), (?, 'serve_fav:kappa', 50)", (C, C))
+    con.commit(); con.close()
+    st = await udm.get_title_state(C)
+    check("guest unlocked from stats", {"guest_kappa_sr", "guest_kappa_ur"} <= set(st["unlocked"]))
+
+    # --- 稱號選單分頁 (參考 /card inventory：分主題 + 分頁) ---
+    import importlib
+    prof = importlib.import_module("Cogs.load-general.profile")
+    keep = (prof.TITLES_PER_PAGE, prof.GROUP_SELECT_MAX, prof.GROUPS_PER_PAGE)
+    prof.TITLES_PER_PAGE = 3
+    for k in ("fox", "oni", "fairy", "bakeneko", "kappa"):
+        await udm.set_granted_title(C, td.guest_title_id(k, "sr"), True)
+    it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
+    pv = it.view
+    await pv.on_title_group(Interaction(uid=C, data={"values": ["guest"]}))
+    sel = selects(pv)
+    btns = {b.label: b for b in pv.walk_children() if isinstance(b, discord.ui.Button)}
+    guest_n = len(td.group_titles((await udm.get_title_state(C))["unlocked"])["guest"])
+    check(f"title page 1 ({guest_n})", len(sel[1].options) == 4 and "第 1 / " in sel[1].placeholder
+          and btns["◀️ 上一頁"].disabled and not btns["下一頁 ▶️"].disabled and any(l.startswith("📄 1 / ") for l in btns))
+    await pv.on_title_next(Interaction(uid=C))
+    sel = selects(pv)
+    check("title page 2", "第 2 / " in sel[1].placeholder and sel[1].options[-1].value == "__none__"
+          and len(sel[1].options) == min(3, guest_n - 3) + 1)
+    await pv.on_title_prev(Interaction(uid=C))
+    check("title page back", "第 1 / " in selects(pv)[1].placeholder)
+    # 戴著的稱號在第 2 頁 ➔ 切到那組時直接打開第 2 頁
+    page2 = td.group_titles((await udm.get_title_state(C))["unlocked"])["guest"][3]
+    await udm.set_equipped_title(C, page2)
+    it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
+    check("open equipped page", "第 2 / " in selects(it.view)[1].placeholder and any(o.default and o.value == page2 for o in selects(it.view)[1].options))
+    # 一頁放得下 ➔ 沒有換頁按鈕
+    prof.TITLES_PER_PAGE = 24
+    pv.build(*pv.data)
+    check("no page buttons", "下一頁 ▶️" not in {b.label for b in pv.walk_children() if isinstance(b, discord.ui.Button)})
+    # 分組太多 ➔ 分組選單也分頁 (最後兩個選項換頁)
+    prof.GROUP_SELECT_MAX, prof.GROUPS_PER_PAGE = 1, 1
+    it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
+    gv = it.view
+    opts = [o.value for o in selects(gv)[0].options]
+    check(f"group paging {opts}", len(opts) == 3 and opts[-2:] == ["__gprev__", "__gnext__"])
+    first = opts[0]
+    await gv.on_title_group(Interaction(uid=C, data={"values": ["__gnext__"]}))
+    check("group next page", selects(gv)[0].options[0].value != first)
+    prof.TITLES_PER_PAGE, prof.GROUP_SELECT_MAX, prof.GROUPS_PER_PAGE = keep
+
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")
 sys.exit(1 if fail else 0)

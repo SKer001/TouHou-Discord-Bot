@@ -198,6 +198,7 @@ TITLE_GROUPS = {
     "market":  {"name": "💹 市場賣出", "stats": ("market_sold",)},
     "transfer": {"name": "💸 轉帳", "stats": ("transfer_sent",)},
     "shrine":  {"name": "⛩️ 神社", "stats": ("ps:",)},
+    "guest":   {"name": "🙏 客人", "stats": ()},   # 一般客人的稱號 (下面 _add_guest_titles() 產生，稱號本身帶 group)；活動客人每個活動一組
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     "event":   {"name": "🎪 活動", "stats": ("evq:",)},   # 活動任務稱號 (下面 _add_event_titles() 從 Events/*.json 自動加)
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
@@ -251,9 +252,81 @@ def _add_event_titles():
 _add_event_titles()
 
 
+# 🙏 客人稱號 (0.35.001，使用者 2026-11-16 定案)：每種客人兩個
+#    SR = 招待那種客人 50 次 (ps:serve_guest:<客人>)、UR = 成功招待 (額外端上牠最愛的料理) 50 次 (ps:serve_fav:<客人>)
+#    活動客人也算、門檻一樣；次數存在 player_stats，跨活動一直累積 (輪替活動再來時接著算)
+#    一般客人一組「🙏 客人」，活動客人每個活動一組「🙏 客人・<活動名>」(活動檔 guests.<客人>.titles，沒寫就用預設名稱)
+GUEST_TITLE_MIN = 50
+GUEST_TITLE_TEXT = {   # 客人 ➔ (SR 名稱, SR 說明, UR 名稱, UR 說明)；說明的 {n} 換成目前的次數
+    "kappa": ("河童的盟友", "招待了 {n} 次河童，工房的扳手借你隨便用。",
+              "小黃瓜外交官", "端了 {n} 次冰鎮小黃瓜給河童，玄武之澤都叫你「盟友中的盟友」。"),
+    "crow_tengu": ("天狗新聞的頭版常客", "招待了 {n} 次鴉天狗，你的照片已經上了好幾次頭版。",
+                   "天狗的酒友", "用甘酒灌醉了鴉天狗 {n} 次，報導終於開始說神社的好話了。"),
+    "wolf_tengu": ("巡邏隊的休息站", "招待了 {n} 次白狼天狗，值班時間一到牠們就往神社跑。",
+                   "烤地瓜供應商", "端了 {n} 次烤地瓜給白狼天狗，尾巴一看到你就停不下來。"),
+    "fox": ("被狐狸纏上的人", "招待了 {n} 次狐妖，神社後面好像多了一個狐狸窩。",
+            "豆皮壽司的信徒", "端了 {n} 次豆皮壽司給狐妖，九尾的式神都來打聽你的食譜。"),
+    "bakeneko": ("貓咪的飯碗", "招待了 {n} 次化貓，神社的緣廊變成了貓咪午睡區。",
+                 "八目鰻大師", "端了 {n} 次烤八目鰻給化貓，連夜雀都開始對你有戒心。"),
+    "kasa_obake": ("被嚇到的好人", "招待了 {n} 次唐傘妖怪，每次都配合地假裝被嚇到。",
+                   "刨冰救星", "大熱天端了 {n} 次刨冰給唐傘妖怪，它說你是唯一不會丟下它的人。"),
+    "tsukumogami": ("道具的知音", "招待了 {n} 次付喪神，神社的舊燈籠好像也在偷看你。",
+                    "粗茶之友", "端了 {n} 次回沖好幾次的粗茶給付喪神，它說這才是老派的味道。"),
+    "night_sparrow": ("夜雀的聽眾", "招待了 {n} 次夜雀，每次都乖乖聽完一整首歌。",
+                      "夜雀的專屬調茶師", "端了 {n} 次花蜜茶給夜雀，牠的歌越唱越好聽。"),
+    "fairy": ("妖精的遊樂場", "招待了 {n} 次妖精，神社變成了惡作劇的大本營。",
+              "汽水大人", "端了 {n} 次彈珠汽水給妖精，妖精們現在都這樣叫你。"),
+    "oni": ("鬼的酒席主人", "招待了 {n} 次小鬼，神社的酒窖越來越空。",
+            "鬼也認可的甜點師", "端了 {n} 次栗子羊羹給小鬼。鬼不說謊，它說你是幻想鄉第一。"),
+}
+
+
+def guest_title_id(kind: str, tier: str) -> str:
+    return f"guest_{kind}_{tier}"
+
+
+def _guest_titles(kind: str, guest: dict, group: str, text: tuple | None, event: str | None = None):
+    name = guest.get("name", kind)
+    sr_name, sr_desc, ur_name, ur_desc = text or (
+        f"{name}的常客", f"招待了 {{n}} 次{name}，牠已經把神社當成自己家了。",
+        f"{name}的知己", f"端了 {{n}} 次{name}最愛的料理，牠說你是最懂牠的人。")
+    common = {"group": group, "min": GUEST_TITLE_MIN, "guest": kind, "guest_name": name, "guest_event": event}
+    TITLES[guest_title_id(kind, "sr")] = {**common, "name": sr_name, "rarity": "SR", "desc": sr_desc,
+                                          "stat": f"ps:serve_guest:{kind}"}
+    TITLES[guest_title_id(kind, "ur")] = {**common, "name": ur_name, "rarity": "UR", "desc": ur_desc,
+                                          "stat": f"ps:serve_fav:{kind}"}
+
+
+def _add_guest_titles():
+    from Database import shrine_data
+    from Database.events import load_events
+    for kind, g in shrine_data.GUESTS.items():
+        _guest_titles(kind, g, "guest", GUEST_TITLE_TEXT.get(kind))
+    groups = {}
+    for eid, ev in load_events().items():
+        for kind, g in ev.get("guests", {}).items():
+            t = g.get("titles") or {}
+            text = None
+            if t.get("sr") and t.get("ur"):
+                text = (t["sr"]["name"], t["sr"]["desc"], t["ur"]["name"], t["ur"]["desc"])
+            _guest_titles(kind, g, f"guest_{eid}", text, eid)
+            groups[f"guest_{eid}"] = {"name": f"🙏 客人・{ev.get('name', eid)}", "stats": ()}
+    # 活動客人的分組排在「🙏 客人」後面
+    items = list(TITLE_GROUPS.items())
+    at = next(i for i, (k, _) in enumerate(items) if k == "guest") + 1
+    TITLE_GROUPS.clear()
+    TITLE_GROUPS.update(items[:at] + list(groups.items()) + items[at:])
+
+
+_add_guest_titles()
+
+
 def title_group(tid: str) -> str | None:
-    """稱號屬於哪一組 (TITLE_GROUPS 的鍵)；找不到回傳 None"""
-    stat = TITLES[tid]["stat"]
+    """稱號屬於哪一組 (TITLE_GROUPS 的鍵)；稱號有寫 group 就用它，不然看 stat 對到哪一組；找不到回傳 None"""
+    t = TITLES[tid]
+    if t.get("group") in TITLE_GROUPS:
+        return t["group"]
+    stat = t["stat"]
     for key, group in TITLE_GROUPS.items():
         if any(stat == s or (s.endswith(":") and stat.startswith(s)) for s in group["stats"]):
             return key
@@ -323,6 +396,10 @@ def _stat_text(t: dict) -> str:
     stat = t["stat"]
     if stat in SHRINE_STAT_TEXT:
         return SHRINE_STAT_TEXT[stat].format(_number(t, t["min"]))
+    if stat.startswith("ps:serve_guest:"):   # 🙏 客人稱號
+        return f"招待{t.get('guest_name', stat.rsplit(':', 1)[-1])} {t['min']:,} 次"
+    if stat.startswith("ps:serve_fav:"):
+        return f"成功招待{t.get('guest_name', stat.rsplit(':', 1)[-1])} {t['min']:,} 次 (額外端上牠最愛的料理)"
     if stat.startswith("evq:"):   # 🎪 活動任務稱號
         return f"{t.get('event_name', stat[4:])}完成 {t['min']:,} 項活動任務"
     if stat.startswith("oshi:"):

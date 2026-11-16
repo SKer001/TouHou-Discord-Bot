@@ -820,8 +820,10 @@ async def serve_guest(user_id: int, guest_id: str, extra: str | None = None, now
         await _write_inventory(db, user_id, inv)
         await db.execute("UPDATE users SET money = money + ? WHERE user_id = ?", (reward["total"], user_id))
         await add_player_stat(db, user_id, "serve")   # 📊
+        await add_player_stat(db, user_id, f"serve_guest:{guest['kind']}")   # 🙏 每種客人的招待次數 (客人稱號 SR；0.35.001 起)
         if reward["favorite_hit"]:   # 成功招待 = 額外端上客人最愛的料理
             await add_player_stat(db, user_id, "serve_favorite")
+            await add_player_stat(db, user_id, f"serve_fav:{guest['kind']}")   # 🙏 客人稱號 UR
         # 🎪 活動任務：招待哪種客人、成功招待、端出「那個活動的」活動料理份數
         served = guest["order"] + ([extra] if extra else [])
         per_event = {}

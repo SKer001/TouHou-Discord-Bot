@@ -24,6 +24,7 @@
 | 🍀 採集事件池 | 各地點 good / bad 各一個 | `explore_events {地點: {good: [事件], bad: [事件]}}` | 加進事件池，發生事件時隨機抽一個 |
 | 🎲 採集事件機率 | 5% | `special_chance` | 取最大 |
 | 🙏 客人池 | 10 種一般客人 | `guests {客人: {...}}` | 加進活動池 |
+| 🏷️ 客人稱號 | 一般客人每種 SR / UR 各一個 (`title_data.GUEST_TITLE_TEXT`) | `guests.<客人>.titles {sr: {name, desc}, ur: {name, desc}}` (desc 的 `{n}` = 目前次數) | 每個活動自動一組「🙏 客人・<活動名>」；SR 招待 50 次、UR 成功招待 50 次，次數跨活動累積、稱號永久；沒寫 `titles` = 「〇〇的常客 / 〇〇的知己」 |
 | 🎯 抽到活動客人的機率 | 沒設 = 全部客人平均抽 | `event_guest_chance` | 設了就先依機率決定抽活動池還是一般池 |
 | 💬 一般客人的活動版 | `shrine_data.GUESTS` | `guest_overrides {客人: {favorite, hint, name, emoji, lines: {high/mid/low: [台詞]}}}` | `lines` 加進台詞池，其他欄位取代 |
 | 🏪 雜貨店 | 人里 5 種素材 | `shop {素材: 價格}` | 加進去 (同名取代價格) |
