@@ -312,6 +312,55 @@ def _add_event_titles():
 _add_event_titles()
 
 
+# 🏭 自動產生稱號的共用工具 (0.35.012 統整：客人 / 足跡 / 運氣 / 美食家四組共用)
+#    新增一組「一般 + 每個活動 (或卡池) 一組」的自動稱號：
+#      ① TITLE_GROUPS 加基本組 (stats 留空，稱號自己帶 group)
+#      ② 固定清單用 _add_title_rows()；每個對象 (客人 / 地點 / 卡池) 分幾階用 _add_tier_titles()
+#      ③ 活動 / 卡池的分組用 _sub_group() 收集，最後 _insert_groups_after(基本組, groups) 排在基本組後面
+def _insert_groups_after(key: str, groups: dict):
+    """把新的分組插在 TITLE_GROUPS 的 key 後面 (選單照這個順序)"""
+    items = list(TITLE_GROUPS.items())
+    at = next(i for i, (k, _) in enumerate(items) if k == key) + 1
+    TITLE_GROUPS.clear()
+    TITLE_GROUPS.update(items[:at] + list(groups.items()) + items[at:])
+
+
+def _sub_group(base: str, key: str, label: str, groups: dict) -> str:
+    """基本組底下的子分組 (例如「🙏 客人・紅霧異變」)：id = <基本組>_<key>，名稱 = 基本組名稱・label；回傳分組 id"""
+    gid = f"{base}_{key}"
+    groups[gid] = {"name": f"{TITLE_GROUPS[base]['name']}・{label}", "stats": ()}
+    return gid
+
+
+def _add_title_rows(rows, group: str):
+    """固定清單 [(id, 名稱, 等級, stat, 門檻, 說明), ...] ➔ TITLES (都放 group 這組)"""
+    for tid, name, rarity, stat, n, desc in rows:
+        TITLES[tid] = {"name": name, "rarity": rarity, "group": group, "stat": stat, "min": n, "desc": desc}
+
+
+def _add_tier_titles(tid_of, tiers, common: dict, text: dict | None, fallback: dict):
+    """
+    一個對象 (客人 / 地點 / 卡池) 分幾階的稱號
+    tiers = [(階, 等級, stat, 門檻), ...]；tid_of(階) ➔ 稱號 id
+    text = {階: (名稱, 說明)} 自訂的 (名稱或說明是 None 就用 fallback[階] 的)；common = 每階都有的欄位 (group…)
+    """
+    for tier, rarity, stat, n in tiers:
+        name, desc = (text or {}).get(tier) or (None, None)
+        fb_name, fb_desc = fallback[tier]
+        TITLES[tid_of(tier)] = {**common, "name": name or fb_name, "rarity": rarity, "stat": stat, "min": n,
+                                "desc": desc or fb_desc}
+
+
+def _sr_ur_text(pair: tuple | None) -> dict | None:
+    """(SR 名稱, SR 說明, UR 名稱, UR 說明) ➔ {"sr": (名稱, 說明), "ur": (名稱, 說明)}"""
+    return {"sr": pair[:2], "ur": pair[2:]} if pair else None
+
+
+def _json_text(titles: dict | None) -> dict:
+    """活動檔的 {"sr": {"name", "desc"}, ...} ➔ {階: (名稱, 說明)}"""
+    return {k: (v.get("name"), v.get("desc")) for k, v in (titles or {}).items()}
+
+
 # 🙏 客人稱號 (0.35.001，使用者 2026-11-16 定案)：每種客人兩個
 #    SR = 招待那種客人 50 次 (ps:serve_guest:<客人>)、UR = 成功招待 (額外端上牠最愛的料理) 50 次 (ps:serve_fav:<客人>)
 #    活動客人也算、門檻一樣；次數存在 player_stats，跨活動一直累積 (輪替活動再來時接著算)
@@ -345,48 +394,33 @@ def guest_title_id(kind: str, tier: str) -> str:
     return f"guest_{kind}_{tier}"
 
 
-def _guest_titles(kind: str, guest: dict, group: str, text: tuple | None, event: str | None = None):
+def _guest_titles(kind: str, guest: dict, group: str, text: dict | None, event: str | None = None):
+    """一種客人的 SR / UR；text = {階: (名稱, 說明)}，沒寫的用預設名稱"""
     name = guest.get("name", kind)
-    sr_name, sr_desc, ur_name, ur_desc = text or (
-        f"{name}的常客", f"招待了 {{n}} 次{name}，牠已經把神社當成自己家了。",
-        f"{name}的知己", f"端了 {{n}} 次{name}最愛的料理，牠說你是最懂牠的人。")
-    common = {"group": group, "min": GUEST_TITLE_MIN, "guest": kind, "guest_name": name, "guest_event": event}
-    TITLES[guest_title_id(kind, "sr")] = {**common, "name": sr_name, "rarity": "SR", "desc": sr_desc,
-                                          "stat": f"ps:serve_guest:{kind}"}
-    TITLES[guest_title_id(kind, "ur")] = {**common, "name": ur_name, "rarity": "UR", "desc": ur_desc,
-                                          "stat": f"ps:serve_fav:{kind}"}
+    _add_tier_titles(
+        lambda tier: guest_title_id(kind, tier),
+        [("sr", "SR", f"ps:serve_guest:{kind}", GUEST_TITLE_MIN), ("ur", "UR", f"ps:serve_fav:{kind}", GUEST_TITLE_MIN)],
+        {"group": group, "guest": kind, "guest_name": name, "guest_event": event}, text,
+        {"sr": (f"{name}的常客", f"招待了 {{n}} 次{name}，牠已經把神社當成自己家了。"),
+         "ur": (f"{name}的知己", f"端了 {{n}} 次{name}最愛的料理，牠說你是最懂牠的人。")})
 
 
 def _add_guest_titles():
     from Database import shrine_data
     from Database.events import load_events
     for kind, g in shrine_data.GUESTS.items():
-        _guest_titles(kind, g, "guest", GUEST_TITLE_TEXT.get(kind))
+        _guest_titles(kind, g, "guest", _sr_ur_text(GUEST_TITLE_TEXT.get(kind)))
     groups = {}
     for eid, ev in load_events().items():
-        for kind, g in ev.get("guests", {}).items():
-            t = g.get("titles") or {}
-            text = None
-            if t.get("sr") and t.get("ur"):
-                text = (t["sr"]["name"], t["sr"]["desc"], t["ur"]["name"], t["ur"]["desc"])
-            _guest_titles(kind, g, f"guest_{eid}", text, eid)
-            groups[f"guest_{eid}"] = {"name": f"🙏 客人・{ev.get('name', eid)}", "stats": ()}
-    # 活動客人的分組排在「🙏 客人」後面
-    items = list(TITLE_GROUPS.items())
-    at = next(i for i, (k, _) in enumerate(items) if k == "guest") + 1
-    TITLE_GROUPS.clear()
-    TITLE_GROUPS.update(items[:at] + list(groups.items()) + items[at:])
+        if not ev.get("guests"):
+            continue
+        group = _sub_group("guest", eid, ev.get("name", eid), groups)
+        for kind, g in ev["guests"].items():
+            _guest_titles(kind, g, group, _json_text(g.get("titles")), eid)
+    _insert_groups_after("guest", groups)   # 活動客人的分組排在「🙏 客人」後面
 
 
 _add_guest_titles()
-
-
-def _insert_groups_after(key: str, groups: dict):
-    """把新的分組插在 TITLE_GROUPS 的 key 後面 (選單照這個順序)"""
-    items = list(TITLE_GROUPS.items())
-    at = next(i for i, (k, _) in enumerate(items) if k == key) + 1
-    TITLE_GROUPS.clear()
-    TITLE_GROUPS.update(items[:at] + list(groups.items()) + items[at:])
 
 
 # 🗺️ 足跡稱號 (0.35.003，使用者 2026-11-16 定案)：每個採集地點兩個
@@ -423,21 +457,22 @@ def trek_title_id(loc_id: str, tier: str) -> str:
     return f"trek_{loc_id}_{tier}"
 
 
-def _trek_titles(loc_id: str, loc: dict, group: str, text: tuple | None):
-    name = loc.get("name", loc_id)
-    sr_name, sr_desc, ur_name, ur_desc = text or (
-        f"{name}的熟客", f"在{name}採集了 {{n}} 次，那裡的路你閉著眼睛都會走。",
-        f"{name}的活地圖", f"在{name}採集了 {{n}} 次，哪裡有什麼你比誰都清楚。")
-    common = {"group": group, "location": loc_id, "location_name": name, "stat": f"ps:explore:{loc_id}"}
-    TITLES[trek_title_id(loc_id, "sr")] = {**common, "name": sr_name, "rarity": "SR", "desc": sr_desc, "min": TREK_SR_MIN}
-    TITLES[trek_title_id(loc_id, "ur")] = {**common, "name": ur_name, "rarity": "UR", "desc": ur_desc, "min": TREK_UR_MIN}
+def _trek_titles(loc_id: str, loc: dict, group: str, text: dict | None):
+    """一個採集地點的 SR / UR；text = {階: (名稱, 說明)}，沒寫的用預設名稱"""
+    name, stat = loc.get("name", loc_id), f"ps:explore:{loc_id}"
+    _add_tier_titles(
+        lambda tier: trek_title_id(loc_id, tier),
+        [("sr", "SR", stat, TREK_SR_MIN), ("ur", "UR", stat, TREK_UR_MIN)],
+        {"group": group, "location": loc_id, "location_name": name}, text,
+        {"sr": (f"{name}的熟客", f"在{name}採集了 {{n}} 次，那裡的路你閉著眼睛都會走。"),
+         "ur": (f"{name}的活地圖", f"在{name}採集了 {{n}} 次，哪裡有什麼你比誰都清楚。")})
 
 
 def _add_trek_titles():
     from Database import shrine_data
     from Database.events import load_events
     for loc_id, loc in shrine_data.LOCATIONS.items():
-        _trek_titles(loc_id, loc, "trek", TREK_TITLE_TEXT.get(loc_id))
+        _trek_titles(loc_id, loc, "trek", _sr_ur_text(TREK_TITLE_TEXT.get(loc_id)))
     TITLES[TREK_BASE_ID] = {"name": "幻想鄉踏破", "rarity": "SR", "group": "trek", "stat": "trek_base",
                             "min": len(shrine_data.LOCATIONS), "keep": True,
                             "desc": "幻想鄉的每一個地方都留下了你的腳印。"}
@@ -447,17 +482,15 @@ def _add_trek_titles():
         locs = [loc for loc in ([ev["location"]] if ev.get("location") else []) + list(ev.get("locations", []))]
         if not locs:
             continue
-        group, ev_name = f"trek_{eid}", ev.get("name", eid)
+        ev_name = ev.get("name", eid)
+        group = _sub_group("trek", eid, ev_name, groups)
         for loc in locs:
-            t = loc.get("titles") or {}
-            text = (t["sr"]["name"], t["sr"]["desc"], t["ur"]["name"], t["ur"]["desc"]) if t.get("sr") and t.get("ur") else None
-            _trek_titles(loc["id"], loc, group, text)
+            _trek_titles(loc["id"], loc, group, _json_text(loc.get("titles")))
         TREK_EVENT_LOCATIONS[eid] = [loc["id"] for loc in locs]
         # 說明寫在活動檔的 trek_title.desc (照那個活動地點的特色寫)；沒寫才用通用句
         desc = (ev.get("trek_title") or {}).get("desc") or f"{ev_name}期間開放的地方，你全都去過了。"
         TITLES[f"trek_{eid}_all"] = {"name": f"{ev_name} • 踏破", "rarity": "SSR", "group": group, "stat": f"trek_ev:{eid}",
                                      "min": len(locs), "keep": True, "event_name": ev_name, "desc": desc}
-        groups[group] = {"name": f"🗺️ 足跡・{ev_name}", "stats": ()}
     _insert_groups_after("trek", groups)
 
 
@@ -498,8 +531,7 @@ def luck_pool_title_id(pool: str, tier: str) -> str:
 def _add_luck_titles():
     from Utils.gacha_pools import GACHA_POOLS
     from Database.events import load_events
-    for tid, name, rarity, stat, n, desc in LUCK_TITLES:
-        TITLES[tid] = {"name": name, "rarity": rarity, "group": "luck", "stat": stat, "min": n, "desc": desc}
+    _add_title_rows(LUCK_TITLES, "luck")
     pools = [(key, info["name"].split(" ", 1)[-1].removesuffix("卡池"), None) for key, info in GACHA_POOLS.items()]
     for eid, ev in load_events().items():   # 🎪 活動限定卡池 (event_<活動 id>)；名稱可以寫在 gacha.pool.luck_titles
         pool = (ev.get("gacha") or {}).get("pool") or {}
@@ -507,16 +539,13 @@ def _add_luck_titles():
             pools.append((f"event_{eid}", ev.get("name", eid), pool.get("luck_titles")))
     groups = {}
     for key, label, custom in pools:
-        group = "luck" if key == LUCK_BASE_POOL else f"luck_{key}"
-        text = {**LUCK_POOL_TEXT.get(key, {}), **{k: (v["name"], v.get("desc")) for k, v in (custom or {}).items()}}
-        fallback = {"ssr": f"{label}的幸運兒", "ur": f"{label}的寵兒", "lr": f"{label}的歐皇"}
-        for tier, rarity, n in LUCK_POOL_TIERS:
-            name, desc = text.get(tier, (fallback[tier], None))
-            TITLES[luck_pool_title_id(key, tier)] = {
-                "name": name, "rarity": rarity, "group": group, "stat": f"ps:tenpull_2ur:{key}", "min": n,
-                "pool_name": label, "desc": desc or f"在{label}卡池一次十連出 2 張以上 UR，已經 {{n}} 次了。"}
-        if group != "luck":
-            groups[group] = {"name": f"🍀 運氣・{label}", "stats": ()}
+        group = "luck" if key == LUCK_BASE_POOL else _sub_group("luck", key, label, groups)
+        stat, generic = f"ps:tenpull_2ur:{key}", f"在{label}卡池一次十連出 2 張以上 UR，已經 {{n}} 次了。"
+        _add_tier_titles(
+            lambda tier: luck_pool_title_id(key, tier),
+            [(tier, rarity, stat, n) for tier, rarity, n in LUCK_POOL_TIERS],
+            {"group": group, "pool_name": label}, {**LUCK_POOL_TEXT.get(key, {}), **_json_text(custom)},
+            {"ssr": (f"{label}的幸運兒", generic), "ur": (f"{label}的寵兒", generic), "lr": (f"{label}的歐皇", generic)})
     _insert_groups_after("luck", groups)
 
 
@@ -554,8 +583,7 @@ def base_dish_categories() -> dict[str, str]:
 
 def _add_gourmet_titles():
     from Database.events import load_events
-    for tid, name, rarity, stat, n, desc in GOURMET_TITLES:
-        TITLES[tid] = {"name": name, "rarity": rarity, "group": "gourmet", "stat": stat, "min": n, "desc": desc}
+    _add_title_rows(GOURMET_TITLES, "gourmet")
     cats = base_dish_categories()
     for cat, (label, name, desc) in GOURMET_CATEGORY_TEXT.items():
         TITLES[f"gourmet_cat_{cat}"] = {"name": name, "rarity": "SR", "group": "gourmet", "stat": f"dex_cat:{cat}",
@@ -570,10 +598,10 @@ def _add_gourmet_titles():
         ev_name = ev.get("name", eid)
         GOURMET_EVENT_DISHES[eid] = dishes
         desc = (ev.get("recipe_title") or {}).get("desc") or f"{ev_name}的活動料理你全部做過了。"
-        TITLES[f"gourmet_{eid}_all"] = {"name": f"{ev_name} • 食譜全收", "rarity": "SSR", "group": f"gourmet_{eid}",
+        TITLES[f"gourmet_{eid}_all"] = {"name": f"{ev_name} • 食譜全收", "rarity": "SSR",
+                                        "group": _sub_group("gourmet", eid, ev_name, groups),
                                         "stat": f"dex_ev:{eid}", "min": len(dishes), "keep": True,
                                         "event_name": ev_name, "desc": desc}
-        groups[f"gourmet_{eid}"] = {"name": f"🍳 美食家・{ev_name}", "stats": ()}
     _insert_groups_after("gourmet", groups)
 
 

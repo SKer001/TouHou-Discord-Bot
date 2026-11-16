@@ -148,6 +148,15 @@ async def setup(bot):
 
 全專案共用的順序：`N < R < SR < SSR < UR < LR`（`gacha.py` 的 `RARITY_ORDER`）。每個角色固定 3 個連續階級（`gacha.rarities`），稱號在 `gacha.titles`。
 
+### 4.4 玩家稱號 `Database/title_data.py`
+
+- 固定的稱號直接寫在 `TITLES`；要「一般一組 + 每個活動 / 卡池再一組」自動產生的（客人、足跡、運氣、美食家）一律用檔案裡的共用工具，不要自己再寫一套：
+  - `_add_title_rows(清單, 分組)`：固定清單 `(id, 名稱, 等級, stat, 門檻, 說明)`。
+  - `_add_tier_titles(tid_of, tiers, common, text, fallback)`：一個對象（客人 / 地點 / 卡池）分幾階，自訂名稱沒寫就用 fallback。
+  - `_sub_group(基本組, key, 名稱, groups)` 收集子分組（名稱自動是「基本組名稱・名稱」），最後 `_insert_groups_after(基本組, groups)` 排在基本組後面。
+  - 活動檔的自訂名稱格式 `{"sr": {"name", "desc"}}` 用 `_json_text()` 轉。
+- 計數放 `player_stats`（`udm.add_player_stat`，稱號用 `ps:<鍵>` 讀）；要從計數再算出來的統計（踏破、料理圖鑑）加進 `derived_stats()`。
+
 ---
 
 ## 5. 日誌與錯誤
