@@ -24,7 +24,7 @@
 | 🍀 採集事件池 | 各地點 good / bad 各一個 | `explore_events {地點: {good: [事件], bad: [事件]}}` | 加進事件池，發生事件時隨機抽一個 |
 | 🎲 採集事件機率 | 5% | `special_chance` | 取最大 |
 | 🙏 客人池 | 10 種一般客人 | `guests {客人: {...}}` | 加進活動池 |
-| 🗺️ 地點稱號 | 一般地點每個 SR / UR 各一個 (`title_data.TREK_TITLE_TEXT`) + 幻想鄉踏破 | `location.titles {sr: {name, desc}, ur: {name, desc}}` (`locations` 裡每個地點也可以寫) | 每個活動自動一組「🗺️ 足跡・<活動名>」；SR 採 200 趟、UR 採 1000 趟，次數跨活動累積；另外自動有「<活動名> • 踏破」SSR (活動地點都採過 1 趟，永久保留)；沒寫 `titles` = 「〇〇的熟客 / 〇〇的活地圖」 |
+| 🗺️ 地點稱號 | 一般地點每個 SR / UR 各一個 (`title_data.TREK_TITLE_TEXT`) + 幻想鄉踏破 | `location.titles {sr: {name, desc}, ur: {name, desc}}` (`locations` 裡每個地點也可以寫) | 每個活動自動一組「🗺️ 足跡・<活動名>」；SR 採 200 趟、UR 採 1000 趟，次數跨活動累積；另外自動有「<活動名> • 踏破」SSR (活動地點都採過 1 趟，永久保留；說明寫在 `trek_title.desc`，照那個活動地點的特色寫，沒寫 = 通用句「<活動名>期間開放的地方，你全都去過了。」)；沒寫 `titles` = 「〇〇的熟客 / 〇〇的活地圖」 |
 | 🏷️ 客人稱號 | 一般客人每種 SR / UR 各一個 (`title_data.GUEST_TITLE_TEXT`) | `guests.<客人>.titles {sr: {name, desc}, ur: {name, desc}}` (desc 的 `{n}` = 目前次數) | 每個活動自動一組「🙏 客人・<活動名>」；SR 招待 50 次、UR 成功招待 50 次，次數跨活動累積、稱號永久；沒寫 `titles` = 「〇〇的常客 / 〇〇的知己」 |
 | 🎯 抽到活動客人的機率 | 沒設 = 全部客人平均抽 | `event_guest_chance` | 設了就先依機率決定抽活動池還是一般池 |
 | 💬 一般客人的活動版 | `shrine_data.GUESTS` | `guest_overrides {客人: {favorite, hint, name, emoji, lines: {high/mid/low: [台詞]}}}` | `lines` 加進台詞池，其他欄位取代 |

@@ -394,9 +394,10 @@ def _add_trek_titles():
             text = (t["sr"]["name"], t["sr"]["desc"], t["ur"]["name"], t["ur"]["desc"]) if t.get("sr") and t.get("ur") else None
             _trek_titles(loc["id"], loc, group, text)
         TREK_EVENT_LOCATIONS[eid] = [loc["id"] for loc in locs]
+        # 說明寫在活動檔的 trek_title.desc (照那個活動地點的特色寫)；沒寫才用通用句
+        desc = (ev.get("trek_title") or {}).get("desc") or f"{ev_name}期間開放的地方，你全都去過了。"
         TITLES[f"trek_{eid}_all"] = {"name": f"{ev_name} • 踏破", "rarity": "SSR", "group": group, "stat": f"trek_ev:{eid}",
-                                     "min": len(locs), "keep": True, "event_name": ev_name,
-                                     "desc": f"{ev_name}期間開放的地方，你全都去過了。"}
+                                     "min": len(locs), "keep": True, "event_name": ev_name, "desc": desc}
         groups[group] = {"name": f"🗺️ 足跡・{ev_name}", "stats": ()}
     _insert_groups_after("trek", groups)
 

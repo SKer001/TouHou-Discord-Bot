@@ -410,6 +410,7 @@ async def main():
     check("trek names", td.TITLES["trek_kourindou_ur"]["name"] == "外界道具鑑定士" and td.TITLES["trek_scarlet_kitchen_sr"]["name"] == "紅魔館廚房的小偷"
           and td.TITLES["trek_all"]["rarity"] == "SR" and td.TITLES["trek_th06_scarlet_mist_all"]["name"] == "紅霧異變 • 踏破"
           and td.TITLES["trek_th06_scarlet_mist_all"]["rarity"] == "SSR")
+    check("event trek desc from file", td.TITLES["trek_th06_scarlet_mist_all"]["desc"].startswith("趁著紅霧溜進紅魔館的廚房"))
     check("trek condition", td.condition_text("trek_misty_lake_sr") == "在霧之湖採集 200 趟"
           and td.condition_text("trek_all") == "9 個一般採集地點都至少採集過 1 趟 (活動地點不算)")
     base_visits = {f"ps:explore:{l}": 1 for l in sd.LOCATIONS}
