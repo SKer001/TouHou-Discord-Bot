@@ -151,6 +151,8 @@ async def main():
     check("option label + emoji", sel.options[0].label == "琪露諾的名片" and str(sel.options[0].emoji) == POOL["cirno"]["emoji"]
           and sel.options[0].default and "製作中" in (sel.options[0].description or ""))
 
+    from Database import namecard_data as nd   # 測試用琪露諾，先拿掉她真正的名片說明 (0.35.018 起有說明)，後面再放回
+    real_cirno = nd.NAMECARDS.pop("cirno", None)
     url = "https://raw.githubusercontent.com/x/images/Namecards/cirno.jpg?v=abc"
     with open(nc.NAMECARDS_FILE, "w", encoding="utf-8") as f: json.dump({"cirno": url}, f)
     it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
@@ -161,6 +163,7 @@ async def main():
     check("gallery on top", container.children[0] is g[0])
     check("option has art", namecard_select(pv).options[0].description is None)
     check("no caption without data", "🖼️ **" not in texts(pv))
+    if real_cirno: nd.NAMECARDS["cirno"] = real_cirno
 
     # 名片名稱 + 說明 (2026-11-14)：圖下面一行字、選單選項說明；資料檔裡每張都要有 name / desc 且角色存在
     from Database import namecard_data as nd
