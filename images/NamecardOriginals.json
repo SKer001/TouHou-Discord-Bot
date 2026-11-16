@@ -39,6 +39,11 @@
         "jpg": "genji_full.jpg",
         "full": "genji.png"
     },
+    "koakuma": {
+        "message_id": 1571841401761828945,
+        "jpg": "koakuma_full.jpg",
+        "full": "koakuma.png"
+    },
     "luize": {
         "message_id": 1571802181642752000,
         "jpg": "luize_full.jpg",
