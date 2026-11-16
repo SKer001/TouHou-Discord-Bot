@@ -200,6 +200,7 @@ TITLE_GROUPS = {
     "shrine":  {"name": "⛩️ 神社", "stats": ("ps:",)},
     "guest":   {"name": "🙏 客人", "stats": ()},   # 一般客人的稱號 (下面 _add_guest_titles() 產生，稱號本身帶 group)；活動客人每個活動一組
     "trek":    {"name": "🗺️ 足跡", "stats": ()},   # 一般採集地點的稱號 + 幻想鄉踏破 (_add_trek_titles())；活動地點每個活動一組
+    "luck":    {"name": "🍀 運氣", "stats": ()},   # 採集事件、運勢、保底、舊作歐氣 (_add_luck_titles())；其他卡池的歐氣每個卡池一組
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     "event":   {"name": "🎪 活動", "stats": ("evq:",)},   # 活動任務稱號 (下面 _add_event_titles() 從 Events/*.json 自動加)
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
@@ -405,6 +406,65 @@ def _add_trek_titles():
 _add_trek_titles()
 
 
+# 🍀 運氣稱號 (0.35.005，使用者 2026-11-16 定案；次數都從這版才開始記)
+#    採集好 / 壞事件 20 次 SR、100 次 UR；簽到大吉 / 凶 10 次 SR、30 次 SSR；觸發保底 (所有卡池合計) 10 / 50 / 100 次 SSR / UR / LR
+#    歐氣 = 一次十連出 2 張以上 UR (含 LR)：1 / 5 / 10 次 SSR / UR / LR，每個卡池分開
+#      舊作 (classic) 是普池，放「🍀 運氣」；紅魔鄉 (TH06) 以後的卡池與活動限定卡池各自一組「🍀 運氣・<卡池>」
+LUCK_TITLES = [   # (id, 名稱, 等級, stat, 門檻, 說明)
+    ("luck_good_sr", "福星高照", "SR", "ps:explore_good", 20, "採集時遇到了 {n} 次好事，連妖精都想跟著你走。"),
+    ("luck_good_ur", "被幸運女神看上的人", "UR", "ps:explore_good", 100, "採集時遇到了 {n} 次好事，河童懷疑你身上裝了什麼外界道具。"),
+    ("luck_bad_sr", "倒楣巫女", "SR", "ps:explore_bad", 20, "採集時倒楣了 {n} 次，被凍住、被趕下山、被兔子送出竹林……"),
+    ("luck_bad_ur", "厄神的好朋友", "UR", "ps:explore_bad", 100, "採集時倒楣了 {n} 次，雛說你是她見過最能扛厄運的人。"),
+    ("luck_daikichi_sr", "大吉體質", "SR", "ps:fortune_5", 10, "簽到抽到 {n} 次大吉，博麗大神好像特別偏心你。"),
+    ("luck_daikichi_ssr", "神明的寵兒", "SSR", "ps:fortune_5", 30, "抽到 {n} 次大吉，連守矢神社都想挖角你去當巫女。"),
+    ("luck_kyo_sr", "凶運纏身", "SR", "ps:fortune_0", 10, "簽到抽到 {n} 次凶，今天也請低調行事。"),
+    ("luck_kyo_ssr", "與厄運共舞", "SSR", "ps:fortune_0", 30, "抽到 {n} 次凶，雛已經把你列為 VIP 了。"),
+    ("luck_pity_ssr", "保底常客", "SSR", "ps:gacha_pity", 10, "觸發了 {n} 次保底，賽錢箱記得你的每一分錢。"),
+    ("luck_pity_ur", "與保底同行之人", "UR", "ps:gacha_pity", 50, "觸發了 {n} 次保底，你的 UR 有一半是保底送的。"),
+    ("luck_pity_lr", "被機率遺忘的人", "LR", "ps:gacha_pity", 100, "觸發了 {n} 次保底，博麗大神偷偷替你掉了一滴眼淚。"),
+]
+LUCK_POOL_TIERS = (("ssr", "SSR", 1), ("ur", "UR", 5), ("lr", "LR", 10))
+LUCK_POOL_TEXT = {   # 卡池 ➔ {階: (名稱, 說明)}；沒寫的說明用通用句
+    "classic": {"ssr": ("舊作的幸運兒", None), "ur": ("舊作的寵兒", None),
+                "lr": ("魔界神也嫉妒的手氣", "在舊作卡池一次十連出 2 張以上 UR {n} 次，神綺說她創造魔界時都沒這麼好運。")},
+    "th06": {"ssr": ("紅魔館的幸運兒", None), "ur": ("紅霧裡的閃光", None),
+             "lr": ("命運的操縱者", "在紅魔鄉卡池一次十連出 2 張以上 UR {n} 次，蕾米莉亞懷疑你偷學了她的能力。")},
+}
+LUCK_BASE_POOL = "classic"   # 普池：歐氣稱號放在「🍀 運氣」組
+
+
+def luck_pool_title_id(pool: str, tier: str) -> str:
+    return f"luck_{pool}_{tier}"
+
+
+def _add_luck_titles():
+    from Utils.gacha_pools import GACHA_POOLS
+    from Database.events import load_events
+    for tid, name, rarity, stat, n, desc in LUCK_TITLES:
+        TITLES[tid] = {"name": name, "rarity": rarity, "group": "luck", "stat": stat, "min": n, "desc": desc}
+    pools = [(key, info["name"].split(" ", 1)[-1].removesuffix("卡池"), None) for key, info in GACHA_POOLS.items()]
+    for eid, ev in load_events().items():   # 🎪 活動限定卡池 (event_<活動 id>)；名稱可以寫在 gacha.pool.luck_titles
+        pool = (ev.get("gacha") or {}).get("pool") or {}
+        if pool.get("characters"):
+            pools.append((f"event_{eid}", ev.get("name", eid), pool.get("luck_titles")))
+    groups = {}
+    for key, label, custom in pools:
+        group = "luck" if key == LUCK_BASE_POOL else f"luck_{key}"
+        text = {**LUCK_POOL_TEXT.get(key, {}), **{k: (v["name"], v.get("desc")) for k, v in (custom or {}).items()}}
+        fallback = {"ssr": f"{label}的幸運兒", "ur": f"{label}的寵兒", "lr": f"{label}的歐皇"}
+        for tier, rarity, n in LUCK_POOL_TIERS:
+            name, desc = text.get(tier, (fallback[tier], None))
+            TITLES[luck_pool_title_id(key, tier)] = {
+                "name": name, "rarity": rarity, "group": group, "stat": f"ps:tenpull_2ur:{key}", "min": n,
+                "pool_name": label, "desc": desc or f"在{label}卡池一次十連出 2 張以上 UR，已經 {{n}} 次了。"}
+        if group != "luck":
+            groups[group] = {"name": f"🍀 運氣・{label}", "stats": ()}
+    _insert_groups_after("luck", groups)
+
+
+_add_luck_titles()
+
+
 def trek_stats(stats: dict) -> dict:
     """(純計算) 踏破用的統計：trek_base = 採集過的一般地點數、trek_ev:<活動> = 採集過的那個活動地點數 (stats 要有 ps:explore:<地點>)"""
     from Database import shrine_data
@@ -490,10 +550,19 @@ SHRINE_STAT_TEXT = {"ps:serve_favorite": "成功招待 {} 位客人 (額外端�
                     "ps:collect_money": "從賽錢箱累計回收 {} 賽錢", "ps:shop": "在雜貨店買 {} 次東西"}
 
 
+LUCK_STAT_TEXT = {"ps:explore_good": "採集時遇到 {} 次好事件", "ps:explore_bad": "採集時遇到 {} 次壞事件",
+                  "ps:fortune_5": "簽到抽到 {} 次大吉", "ps:fortune_0": "簽到抽到 {} 次凶",
+                  "ps:gacha_pity": "祈願觸發 {} 次保底 (所有卡池合計)"}
+
+
 def _stat_text(t: dict) -> str:
     stat = t["stat"]
     if stat in SHRINE_STAT_TEXT:
         return SHRINE_STAT_TEXT[stat].format(_number(t, t["min"]))
+    if stat in LUCK_STAT_TEXT:   # 🍀 運氣稱號
+        return LUCK_STAT_TEXT[stat].format(f"{t['min']:,}")
+    if stat.startswith("ps:tenpull_2ur:"):
+        return f"在{t.get('pool_name', stat.rsplit(':', 1)[-1])}卡池一次十連出 2 張以上 UR {t['min']:,} 次"
     if stat.startswith("ps:explore:"):   # 🗺️ 足跡稱號
         return f"在{t.get('location_name', stat.rsplit(':', 1)[-1])}採集 {t['min']:,} 趟"
     if stat == "trek_base":

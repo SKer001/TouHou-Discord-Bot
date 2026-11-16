@@ -494,6 +494,8 @@ async def claim_daily(user_id: int, today: str, fortune_level: int, now: datetim
         claimed = cursor.rowcount == 1
         if claimed:
             await add_quest_stats(db, user_id, now, {"daily": 1})
+            if fortune_level in (0, 5):   # 🍀 運氣稱號：抽到大吉 (5) / 凶 (0) 的次數 (0.35.005 起)
+                await add_player_stat(db, user_id, f"fortune_{fortune_level}")
         await db.commit()
     return claimed
 
@@ -674,6 +676,8 @@ PLAYER_STATS = {
     "shop": "雜貨店購買次數",
     # 另外還有每種客人一個的 serve_guest:<客人> (招待次數) / serve_fav:<客人> (成功招待次數)，0.35.001 起 (客人稱號用)
     # 以及每個採集地點一個的 explore:<地點> (趟數)，0.35.003 起 (足跡稱號用)
+    # 🍀 運氣稱號 (0.35.005 起)：explore_good / explore_bad (採集好 / 壞事件)、fortune_5 / fortune_0 (簽到大吉 / 凶)、
+    #    gacha_pity (觸發保底張數，所有卡池合計)、tenpull_2ur:<卡池> (一次十連出 2 張以上 UR 的次數)
 }
 
 
@@ -1140,6 +1144,10 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
                 """,
                 (user_id, pool, pool_draws, since_ur, last_ur_at),
             )
+            # 🍀 運氣稱號 (0.35.005 起)：觸發保底的張數 (所有卡池合計)、一次十連出 2 張以上 UR (含 LR) 的次數 (每個卡池分開)
+            await add_player_stat(db, user_id, "gacha_pity", sum(1 for c in cards if c.get("pity")))
+            if draw_count == 10 and sum(1 for c in cards if c["rarity"] in ("UR", "LR")) >= 2:
+                await add_player_stat(db, user_id, f"tenpull_2ur:{pool}")
             if pool.startswith(EVENT_POOL_PREFIX):   # 🎪 活動卡池祈願 ➔ 那個活動的任務計數
                 await add_quest_stats(db, user_id, now, per_event={pool[len(EVENT_POOL_PREFIX):]: {"gacha_event_pool": draw_count}})
             else:   # 一般卡池 ➔ 進行中的活動都記 gacha_pool:<卡池> (任務 type gacha_pool)

@@ -540,6 +540,14 @@ def roll_explore(location: dict, rng=random, special_chance: float | None = None
     return {"drops": drops, "event": event}
 
 
+async def _add_event_stats(db, user_id: int, runs: list[dict]):
+    """(交易裡) 這幾趟遇到的好 / 壞事件次數 ➔ player_stats explore_good / explore_bad (0.35.005 起)"""
+    good = sum(1 for r in runs if r.get("event") and r["event"]["good"])
+    bad = sum(1 for r in runs if r.get("event") and not r["event"]["good"])
+    await add_player_stat(db, user_id, "explore_good", good)
+    await add_player_stat(db, user_id, "explore_bad", bad)
+
+
 async def explore(user_id: int, location_id: str, times: int = 1, now: datetime | None = None, rng=random) -> dict:
     """
     採集 times 趟 (體力不夠時做到體力用完為止，至少要夠 1 趟)
@@ -576,6 +584,7 @@ async def explore(user_id: int, location_id: str, times: int = 1, now: datetime 
             await db.execute("UPDATE users SET stamina = ?, stamina_updated_at = ? WHERE user_id = ?", (new_stamina, updated_at, user_id))
             await add_player_stat(db, user_id, "explore", runs)   # 📊 實際採集的趟數
             await add_player_stat(db, user_id, f"explore:{location_id}", runs)   # 🗺️ 每個地點的趟數 (足跡稱號；0.35.003 起)
+            await _add_event_stats(db, user_id, results)   # 🍀 好 / 壞事件次數 (運氣稱號)
             await add_quest_stats(db, user_id, now, {f"explore:{location_id}": runs})   # 🎪 活動任務：在這個地點採集的趟數
             await db.commit()
         except BaseException:
@@ -692,6 +701,7 @@ async def quick_explore(user_id: int, recipe: dict, times: int, pots: int = 1,
             await add_player_stat(db, user_id, "explore", len(runs))   # 📊 跟一般採集一樣算趟數
             for k, n in per_loc.items():
                 await add_player_stat(db, user_id, f"explore:{k}", n)   # 🗺️ 每個地點的趟數 (足跡稱號)
+            await _add_event_stats(db, user_id, runs)   # 🍀 好 / 壞事件次數 (運氣稱號)
             await add_quest_stats(db, user_id, now, {f"explore:{k}": n for k, n in per_loc.items()})   # 🎪 活動任務
             await db.commit()
         except BaseException:

@@ -151,6 +151,7 @@ async def main():
     check(f"per-location stats", ps5.get("explore:magic_forest") == 1 and ps5.get("explore:kourindou") == 1
           and ps5.get("explore:old_hell_onsen") == 1)
     ps1 = await udm.get_player_stats(1)
+    check(f"event stats {ps1.get('explore_good')} {ps1.get('explore_bad')}", ps1.get("explore_good") == 1 and ps1.get("explore_bad") == 1)
     check(f"explore per-location {ps1}", ps1.get("explore:misty_lake") == 2 and ps1.get("explore:village") == 9
           and ps1.get("explore:bamboo_forest") == 1)
     # 🏪 買齊人里素材
