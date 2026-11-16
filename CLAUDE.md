@@ -112,7 +112,8 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   | 卡面（筆電，用主資料夾，要 ComfyUI 與 gitignore 的字型） | 剩下的卡面 | `tools/card_art/`、`images/`（名片除外）、`TODO.md` 第 1 節 |
   | 名片（桌機） | 角色名片「幻想鄉睡顏圖鑑」 | `images/Namecards*`、`Database/namecard_data.py`、`tools/card_art/upload_namecard.py` |
   | 遊戲 / 關卡設計（筆電，自己的 worktree） | 玩法、經濟、活動、稱號 | `Cogs/`、`Database/`、`Events/`、`tests/` |
-  - 各 session 推 main 前都先 `git pull --rebase`；CHANGELOG / 版本號衝突兩邊都保留，版本號接最新的往上編。推完跟統整 session 報一聲新增了什麼系統。
+  - **版本號最後才編（2026-11-16，三個 session 同時推，0.35.006 / 0.35.009 都撞過號）**：先 commit 內容（CHANGELOG 標題可以先寫 `## 0.XX.??? —`），推送前 `git pull --rebase` ➔ 看 main 最新的 `Utils/version.py` ➔ 才填上「最新 + 1」，`git commit --amend` 後馬上 push。push 被拒就再 pull 一次重編。CHANGELOG 衝突兩邊都保留。
+  - 推完跟統整 session 報一聲新增了什麼系統。
 
 ## 6. 給 Claude Code 的工作守則
 - 動資料前先備份；遷移類工作**不得刪除或改動舊檔**。
