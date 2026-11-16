@@ -1222,6 +1222,47 @@ LAYERS = {
                   "eyes": [(670, 512), (737, 512)], "eye_color": (255, 210, 90), "eye": 1.3, "eye_size": 3},   # 金瞳發光 (B1C4 的 10_char 量的)
         # 人偶環 (orbs.py，D3 素材 = orb 種子 9919、anchor (540, 690)) 做過一版，使用者 (2026-11-16) 決定拿掉 ➔ 不放 orbs
     },
+    # 神綺 SSR / UR (TH05 舊卡重生；LR 已是分層)：外觀沿用 make_workflow.BASE["shinki"] (萌娘百科：銀色披肩長髮、左側紅髮帶綁一束 + 兩顆球飾、
+    # 銀瞳、紅色哥德連衣裙 + 披肩、白色高領襯衫、皮靴、六翼 (開戰時白色，後來變紫))；個性：溫柔的媽媽，偶爾冒出孩子氣 (「太狂妄了！」)
+    # LR = 紫黑六翼 + 斜飛指人 + 七彩宇宙 ➔ SSR / UR 用白色六翼、正面構圖，跟 LR 拉開
+    ("shinki", "SSR"): {
+        # SSR「魔界之神」：魔界王宮的王座前剛站起來，單手舉起放出魔力，鼓臉生氣 (孩子氣的一面)，白色六翼半張；王座只畫在背景
+        "bg": ("no humans, scenery, eye level, grand throne room, demon world castle, makai, ornate empty throne on a dais, red carpet, "
+               "tall gothic stained glass windows, tall pillars, chandelier, crimson and violet tones, light rays through windows, "
+               "magical glow, majestic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "char": ("standing, one hand raised, open palm, releasing magic, glowing hand, other hand on hip, "
+                 "pout, puffed cheeks, angry, annoyed, childish, looking at viewer, "
+                 "six white wings half spread, white wings, hair flowing, capelet fluttering, long dress fluttering, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, from below, sitting, throne, chair, "
+                          "purple wings, black wings, magic circle, danmaku, beam, aura, multiple girls"),
+        "char_scale": 1.0,   # 使用者 (2026-11-16)：B1C2 第一版 0.85 ➔ 大一點 (翅膀剛好塞滿畫窗)
+    },
+    ("shinki", "UR"): {
+        # UR「創造萬物之母」：正面直立浮空、白色六翼完全張開左右對稱，雙手在胸前捧著發光的生命光球，溫柔的媽媽微笑、半閉眼
+        # 背景 = 深藍紫夜空下的魔界大地、遠方王城、從上方灑下的聖光 (要偏暗，彈幕才跳得出來)；彈幕 genesis (白金大玉環 + 淡粉 / 淡紫米粒彈)
+        "bg": ("no humans, scenery, night sky above the demon world, makai, deep indigo and violet sky, starry sky, "
+               "vast demon world landscape far below, distant gothic castle, faint holy light rays from above, golden glow on the horizon, "
+               "dark, divine, majestic, cinematic, highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, wings, text, watermark, lowres, worst quality, low quality, blurry, frame, border, daytime, blue sky, sun",
+        "char": ("floating, front view, facing viewer, symmetrical, upright, six white wings fully spread, large white wings, "
+                 "holding a glowing orb of light in both hands in front of chest, gentle smile, motherly, half-closed eyes, serene, divine, "
+                 "hair flowing, capelet, long dress flowing, full body"),
+        "char_negative": ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, from below, sitting, throne, "
+                          "purple wings, black wings, magic circle, danmaku, creatures, dolls, multiple orbs, pointing, multiple girls"),
+        "style": "genesis",
+        "density": 0.72,
+        "glow": 0.55,
+        "char_scale": 0.85,
+        # 使用者 (2026-11-16)：翅膀紅線 (只抓細線) 要發光，光球減弱；眼睛發光試過 (10_char (645, 483)、(695, 479)) 後取消
+        "light": {"dark": 0.3, "glow_red": 0,   # 內建的翅膀紋路偵測只認紫黑翅膀 ➔ 白翼的紅線改用 emissive 遮罩
+                  "emissive": [
+                      # 生命光球：10m_orb.png = 10_char 上以 (675, 622) 為中心、半徑 50 的圓
+                      {"mask": "10m_orb.png", "color": (255, 240, 200), "strength": 0.6, "body": 0.45, "keep_color": True},
+                      # 翅膀紅線：10m_wingred.png = 紅色 (sat > 0.42) 扣掉身體多邊形、開運算 + 侵蝕 1 px 只留細線
+                      {"mask": "10m_wingred.png", "color": (255, 70, 90), "strength": 0.9, "body": 0.5, "keep_color": True},
+                  ]},
+    },
 }
 
 

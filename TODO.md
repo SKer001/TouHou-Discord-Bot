@@ -34,7 +34,7 @@
 | TH04 | 夢月 mugetsu | N / R / SR | ✅ 0.34.010 (N 圍裙紅色亂碼塗白；SR 人物重生一輪) |
 | TH05 | 愛麗絲 alice | SR / SSR / UR | ✅ 0.35.015 (舊作外觀；UR 彈幕 legion、人偶環試過拿掉) |
 | TH05 | 露易絲 luize | N / R / SR | ✅ 0.30.015 (桌機) |
-| TH05 | 神綺 shinki | SSR / UR / LR | LR 已是分層 (同上)；SSR、UR 重生 (UR 構圖要跟 LR 拉開) |
+| TH05 | 神綺 shinki | SSR / UR / LR | ✅ 0.35.022 (SSR / UR 白翼重生，UR 彈幕 genesis；LR 是之前的分層版) |
 | TH05 | 雪與舞 yuki_mai | N / R / SR | 全部重生 (雙人：兩人各自生成去背再合成) |
 | TH05 | 夢子 yumeko | R / SR / SSR | ✅ 0.30.015 (桌機；SSR 劍焰遮罩 + 使用者 PhotoCraft 手修) |
 | TH06 | 琪露諾 cirno | SR / SSR / UR | ✅ 全部完成 (SR、SSR 2026-11-12 重生) |
