@@ -14,6 +14,17 @@ URL = "http://127.0.0.1:8188"
 BG = tuple(int(x) for x in os.environ.get("BG_SEEDS", "1101,2202").split(","))   # 重生背景時換一組種子
 CH = tuple(int(x) for x in os.environ.get("CH_SEEDS", "3303,4404,5505,6606").split(","))   # 重生人物時換一組種子
 FONT = ImageFont.truetype("arial.ttf", 40); CELL = (480, 640)
+sys.path.insert(0, LAY)
+from hd_card import LAYERS  # noqa: E402  雙人卡 (duo) 要知道兩人的標籤
+
+
+def char_layers(cid, r):
+    """單人：[("char", "C")]；雙人卡：[("char_a", "Y"), ("char_b", "M")] (標籤 = duo.labels，Arial 寫不了中文)"""
+    duo = LAYERS[(cid, r)].get("duo")
+    if not duo:
+        return [("char", "C")]
+    la, lb = duo.get("labels", ("A", "B"))
+    return [("char_a", la), ("char_b", lb)]
 
 def post(wf):
     req = urllib.request.Request(URL + "/prompt", data=json.dumps({"prompt": wf}).encode(), headers={"Content-Type": "application/json"})
@@ -42,7 +53,7 @@ if __name__ == "__main__":
   for arg in sys.argv[1:]:
     cid, rars = arg.split(":"); rars = rars.split(",")
     for r in rars:
-        for layer, seeds in (("bg", BG), ("char", CH)):
+        for layer, seeds in [("bg", BG)] + [(cl, CH) for cl, _ in char_layers(cid, r)]:
             for s in seeds:
                 if latest(f"{cid}_{r}_{layer}_s{s}_3hd_*.png"):
                     continue
@@ -52,8 +63,10 @@ if __name__ == "__main__":
     wait_empty()
     for r in rars:
         t = [tile(latest(f"{cid}_{r}_bg_s{s}_2hires_*.png"), f"B{i+1}") for i, s in enumerate(BG)]
-        t += [tile(latest(f"{cid}_{r}_char_s{s}_2hires_*.png"), f"C{i+1}") for i, s in enumerate(CH)]
-        sh = Image.new("RGB", (CELL[0]*2+10, CELL[1]*3+20), (255, 255, 255))
+        for cl, lab in char_layers(cid, r):
+            t += [tile(latest(f"{cid}_{r}_{cl}_s{s}_2hires_*.png"), f"{lab}{i+1}") for i, s in enumerate(CH)]
+        rows = (len(t) + 1) // 2
+        sh = Image.new("RGB", (CELL[0]*2+10, CELL[1]*rows+10*(rows-1)), (255, 255, 255))
         for i, im in enumerate(t): sh.paste(im, ((i % 2)*(CELL[0]+10), (i//2)*(CELL[1]+10)))
         sh.save(os.path.join(HERE, f"sheet_{cid}_{r}.png"))
     print("SHEET", cid, ",".join(rars), flush=True)

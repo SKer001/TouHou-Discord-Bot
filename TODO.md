@@ -35,7 +35,7 @@
 | TH05 | 愛麗絲 alice | SR / SSR / UR | ✅ 0.35.015 (舊作外觀；UR 彈幕 legion、人偶環試過拿掉) |
 | TH05 | 露易絲 luize | N / R / SR | ✅ 0.30.015 (桌機) |
 | TH05 | 神綺 shinki | SSR / UR / LR | ✅ 0.35.022 (SSR / UR 白翼重生，UR 彈幕 genesis；LR 是之前的分層版) |
-| TH05 | 雪與舞 yuki_mai | N / R / SR | 全部重生 (雙人：兩人各自生成去背再合成) |
+| TH05 | 雪與舞 yuki_mai | N / R / SR | ✅ 0.35.024 (雙人：兩人各自生成去背再合成；三張使用者 PhotoCraft 調位置，R 手、SR 舞的眼睛局部重畫) |
 | TH05 | 夢子 yumeko | R / SR / SSR | ✅ 0.30.015 (桌機；SSR 劍焰遮罩 + 使用者 PhotoCraft 手修) |
 | TH06 | 琪露諾 cirno | SR / SSR / UR | ✅ 全部完成 (SR、SSR 2026-11-12 重生) |
 | TH06 | 大妖精 daiyousei | N / R / SR | ✅ 0.30.002 完成 (人物直接帶翅膀) |

@@ -34,6 +34,7 @@
   python hd_card.py wf-up <角色> <階級> <ComfyUI/input 裡的圖> <種子> <輸出.json>  拿現成人物圖走重繪 → 高清
   python hd_card.py wf-outpaint <角色> <階級> <ComfyUI/input 裡的圖> <種子> <輸出.json>  往外擴圖 (神綺翅膀試過會長出多餘的翅膀，不建議)
   python hd_card.py collect <角色> <階級> bg|char|orb <種子>        把 ComfyUI 的輸出複製成 01~03 / 06~08 / O1
+                                     雙人卡 (LAYERS 有 duo) 用 char_a / char_b ➔ 06a~08a / 06b~08b，char 步驟去背後合成 09
   python hd_card.py bg <角色> <階級>                                 04、05
   python hd_card.py char <角色> <階級>                               09、10 (去背用 comfy venv 的 python)
   python hd_card.py light <角色> <階級>                              10b (打光，LAYERS 的 light)
@@ -50,6 +51,7 @@ import subprocess
 import sys
 
 import numpy as np
+from scipy import ndimage
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -78,6 +80,21 @@ CHAR_COMPOSITION = ("solo, full body, entire body visible, head to toe, "
                     "simple background, white background, plain background")
 CHAR_NEGATIVE = ("background scenery, danmaku, effects, cropped, cut off feet, "
                  "black border, letterbox, frame, close-up, large figure")
+
+# 雙人卡 (duo) 的兩個人：各自的外觀 base / 負面 extra_negative (取代 BASE / EXTRA_NEGATIVE["yuki_mai"]，那兩個是舊的一次生雙人用的) / 純色底
+_DUO_NEG = ("cleavage, revealing clothes, short dress, skirt lift, upskirt, panties, from below, sitting, "
+            "fire, flames, ice, ice crystals, magic circle, danmaku, effects, aura, "
+            "floor, ground, platform, pedestal, cast shadow, white ellipse")   # 試生時灰底上會畫一塊白色地板圓盤，去背會留下來
+YUKI_MAI_DUO = {
+    "a": {"base": ("1girl, yuki (touhou), touhou, touhou (pc-98), blonde hair, short hair, yellow eyes, (black hat:1.15), wide-brimmed hat, "
+                   "hat ribbon, white ribbon, (black dress:1.15), black and white dress, white shirt, puffy short sleeves, bowtie, large bow on back"),
+          "extra_negative": "white dress, white hat, blue hair, wings, maid, kirisame marisa, witch hat, star, blue eyes, 2girls, multiple girls",
+          "bgcolor": "light grey background", "char_negative": _DUO_NEG},
+    "b": {"base": ("1girl, mai (touhou), touhou, touhou (pc-98), blue hair, medium hair, blue eyes, white hair bow, big bow, "
+                   "white dress, puffy short sleeves, small white wings, angel wings"),
+          "extra_negative": "blonde hair, yellow eyes, black dress, black hat, hat, 2girls, multiple girls",
+          "bgcolor": "grey background", "char_negative": _DUO_NEG},
+}
 
 # 每張分層卡的提示詞：bg = 背景 (不要人物)、char = 人物動作表情、base = 取代 make_workflow.BASE 的外觀 (例如拿掉翅膀標籤)、style = 彈幕風格 (danmaku.py)、dim = 背景亮度
 LAYERS = {
@@ -1263,6 +1280,67 @@ LAYERS = {
                       {"mask": "10m_wingred.png", "color": (255, 70, 90), "strength": 0.9, "body": 0.5, "keep_color": True},
                   ]},
     },
+    # 雪與舞 N / R / SR (TH05 雙人卡重生)：一次生兩人會互相染色 ➔ duo：兩人各自單獨生 (char_a = 雪、char_b = 舞)、各自去背，
+    # make_char 再依腳底對齊、下半身中心排在左右合成一張人物層 (09)，之後照單人流程 (10 → compose)
+    # 萌娘百科：雪 = 金髮金瞳、黑帽 + 白緞帶、黑白相間裙、背後大蝴蝶結、泡泡袖、元氣、火魔法；舞 = 藍髮藍瞳、白色大蝴蝶結、白色連衣裙、
+    # 背後小白翼 (有時變巨大惡魔翼)、沉默腹黑、冰魔法。「雪」這個名字會讓衣服變白 ➔ 黑帽黑衣加權 1.15 (權重不要超過 1.2)
+    # 純色底方便去背：雪淺灰底、舞 (白衣白翼) 灰底；NEGATIVE 有 dark，所以不寫 dark grey。冰晶、火焰不畫在人物 (去背會切掉)，放背景
+    # 名片做法的「整張 img2img 統一畫風」不用：會破壞乾淨的去背；兩人都走同一個模型與重繪，畫風本來就一致
+    ("yuki_mai", "N"): {
+        # N「魔界魔法使二人組」：日常 ── 白天的冰封世界雪原上並肩站著，雪元氣揮手大笑、舞在旁邊安靜面無表情
+        "bg": ("no humans, scenery, eye level, frozen world, ice landscape, snowfield, frozen lake, icicles, snow-covered ground, "
+               "demon world, makai, distant ice mountains, pale blue sky, soft clouds, daylight, soft lighting, peaceful, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border, night, dark",
+        "duo": {
+            "labels": ("Y", "M"), "names": ("雪", "舞"),   # 對照表：Y1～Y4 = 雪、M1～M4 = 舞
+            "a": dict(YUKI_MAI_DUO["a"],
+                      char="standing, waving hand energetically, one arm raised, big grin, open mouth, cheerful, energetic, looking at viewer, full body"),
+            "b": dict(YUKI_MAI_DUO["b"],
+                      char="standing, hands clasped in front, quiet, expressionless, half-closed eyes, looking to the side, calm, full body"),
+            "sep": 0.42,   # 兩人下半身中心的距離 (兩人平均身高的比例)
+            "floor_a": 0.1,   # 雪 (Y1) 腳下的白色地板塊
+        },
+        "char_scale": 0.75,
+    },
+    ("yuki_mai", "R"): {
+        # R「極寒與狂舞之魔女」：施法架式 ── 雪往前伸手、舞抬手，舞斜眼偷瞄雪、腹黑壞笑；火光與冰晶放背景 (一邊火、一邊冰)
+        "bg": ("no humans, scenery, frozen world, ice landscape, left side burning flames and embers, right side sharp ice crystals and frost, "
+               "fire and ice clash, sparks and snowflakes in the air, icicles, demon world, makai, dramatic lighting, dynamic, highly detailed"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "duo": {
+            "labels": ("Y", "M"), "names": ("雪", "舞"),
+            "a": dict(YUKI_MAI_DUO["a"],
+                      char=("battle stance, one arm extended forward, open palm, casting spell, determined, confident grin, "
+                            "hat ribbon fluttering, skirt fluttering, dynamic pose, full body")),
+            "b": dict(YUKI_MAI_DUO["b"],
+                      char=("standing, one hand raised, casting spell, side glance, looking to the side, sly smile, smirk, scheming, "
+                            "half-closed eyes, wings spread, dress fluttering, full body")),
+            "sep": 0.45,
+        },
+        "char_scale": 0.8,
+    },
+    ("yuki_mai", "SR"): {
+        # SR「黑白交織之魔界禁忌」：合體大招 ── 背靠背、各自往外伸手施法，舞的翅膀變成巨大白色惡魔翼；
+        # 背景左半火紅、右半冰藍、中間黑白魔法陣 (SR 沒有彈幕)；方向不對用 mirror_a / mirror_b 鏡像，不叫模型朝左朝右
+        "bg": ("no humans, scenery, split composition, left half crimson flames and fire, right half blue ice and frost, frozen world, "
+               "giant black and white magic circle in the sky, fire and ice intertwining, light rays, bloom, epic, majestic, "
+               "highly detailed, intricate details"),
+        "bg_negative": "1girl, person, human, character, face, text, watermark, lowres, worst quality, low quality, blurry, frame, border",
+        "duo": {
+            "labels": ("Y", "M"), "names": ("雪", "舞"),
+            "a": dict(YUKI_MAI_DUO["a"],
+                      char=("standing, from side, profile, one arm outstretched forward, casting spell, fierce, serious, glowing eyes, "
+                            "hat ribbon fluttering, skirt fluttering in the wind, full body")),
+            "b": dict(YUKI_MAI_DUO["b"],
+                      base=YUKI_MAI_DUO["b"]["base"].replace("small white wings, angel wings", "huge white demon wings, large wings, wings spread"),
+                      char=("standing, from side, profile, one arm outstretched forward, casting spell, cold eyes, glowing eyes, "
+                            "dress fluttering in the wind, full body")),
+            "sep": 0.3,   # 背靠背，靠近一點
+            # Y1 朝右、M4 朝左 ➔ 都鏡像：雪朝左、舞朝右背靠背，舞的巨翼往左上蓋在雪後面；M4 人很小 ➔ 放大對齊雪的身高
+            "mirror_a": True, "mirror_b": True, "scale_b": 1.9,
+        },
+        "char_scale": 0.85,
+    },
 }
 
 
@@ -1278,6 +1356,7 @@ def stage_dir(char_id: str, rarity: str) -> str:
     return d
 
 
+DUO_LAYERS = {"char_a": "a", "char_b": "b"}   # 雙人卡：兩人各自的人物層
 INLINE_WINGS = "fairy wings, transparent wings, iridescent insect wings, wings spread"
 
 
@@ -1288,13 +1367,17 @@ def char_prompts(char_id: str, spec: dict) -> tuple[str, str]:
         wings = spec.get("inline_wings_tags", INLINE_WINGS)
         char = ", ".join([char, wings])
         neg = ", ".join(t for t in (neg or "").split(", ") if "wing" not in t and "crystal" not in t) or None
-    positive = ", ".join([spec.get("base") or BASE[char_id], char, CHAR_COMPOSITION, QUALITY])
+    comp = CHAR_COMPOSITION
+    if spec.get("bgcolor"):   # 雙人卡：白衣的人用灰底才去背得乾淨
+        comp = comp.replace("empty white space", "empty space").replace("white background", spec["bgcolor"])
+    positive = ", ".join([spec.get("base") or BASE[char_id], char, comp, QUALITY])
     negative = ", ".join(filter(None, [NEGATIVE, spec.get("extra_negative", EXTRA_NEGATIVE.get(char_id)), CHAR_NEGATIVE, neg]))
     return positive, negative
 
 
 def workflow(char_id: str, rarity: str, layer: str, seed: int) -> dict:
     spec = LAYERS[(char_id, rarity)]
+    size_key = "char" if layer in DUO_LAYERS else layer
     if layer == "bg":
         positive = ", ".join([spec["bg"], QUALITY])
         negative = spec["bg_negative"]
@@ -1303,11 +1386,11 @@ def workflow(char_id: str, rarity: str, layer: str, seed: int) -> dict:
         positive = ", ".join([spec["orbs"]["prompt"], QUALITY])
         negative = spec["orbs"].get("negative", NEGATIVE)
         denoise, hd = 0.35, (1248 * 2, 1728 * 2)
-    else:
-        positive, negative = char_prompts(char_id, spec)
+    else:   # char，或雙人卡的 char_a / char_b (各自單獨生)
+        positive, negative = char_prompts(char_id, spec["duo"][DUO_LAYERS[layer]] if layer in DUO_LAYERS else spec)
         l, t, r, b = window_box()
         denoise, hd = 0.35, ((r - l) * HD, (b - t) * HD)
-    (bw, bh), (hw, hh) = SIZES[layer]["base"], SIZES[layer]["hires"]
+    (bw, bh), (hw, hh) = SIZES[size_key]["base"], SIZES[size_key]["hires"]
     prefix = f"touhou_card/hd/{char_id}_{rarity}_{layer}_s{seed}"
     sampler = {"steps": 28, "cfg": 5.0, "sampler_name": "euler_ancestral", "scheduler": "normal"}
     return {
@@ -1395,7 +1478,8 @@ def collect(char_id, rarity, layer, seed):
         shutil.copy(files[-1], os.path.join(d, "O1_orb.png"))
         print("✅ O1_orb")
         return
-    names = {"bg": ["01_bg_base", "02_bg_hires", "03_bg_hd"], "char": ["06_char_base", "07_char_hires", "08_char_hd"]}[layer]
+    names = {"bg": ["01_bg_base", "02_bg_hires", "03_bg_hd"], "char": ["06_char_base", "07_char_hires", "08_char_hd"],
+             "char_a": ["06a_char_base", "07a_char_hires", "08a_char_hd"], "char_b": ["06b_char_base", "07b_char_hires", "08b_char_hd"]}[layer]
     for step, name in zip(["1base", "2hires", "3hd"], names):
         files = sorted(glob.glob(os.path.join(COMFY_OUT, "touhou_card", "hd", f"{char_id}_{rarity}_{layer}_s{seed}_{step}_*.png")))
         if not files:
@@ -1442,15 +1526,80 @@ def make_bg(char_id, rarity):
     print("✅ 05_bg")
 
 
+def make_duo(d, duo):
+    """雙人卡：08a / 08b 各自去背 (09a / 09b) ➔ 腳底對齊、下半身中心排在左右 ➔ 09_char_cut_hd.png
+    duo：sep = 兩人下半身中心距離 (兩人平均高度的比例)、scale_a / scale_b 各自縮放、dy_a / dy_b 上下微調 (比例)、
+         mirror_a / mirror_b 左右鏡像、front = 誰在前面 (預設 a 雪；舞的翅膀在雪後面)、
+         floor_a / floor_b = 腳下白色地板圓盤：最下面這個比例的高度內，近白色的像素去掉 (只給衣服不是白色的人用)
+    去背後只留大塊：小於最大塊 3% 的碎片 (被切剩的特效、地板碎塊) 去掉"""
+    todo = [k for k in "ab" if not (os.path.exists(os.path.join(d, f"09{k}_char_cut_hd.png")) and
+                                    os.path.getmtime(os.path.join(d, f"09{k}_char_cut_hd.png")) > os.path.getmtime(os.path.join(d, f"08{k}_char_hd.png")))]
+    if todo:   # 08 比 09 新 (重新 collect 過) 才重新去背；只調位置時不用重跑
+        subprocess.run([COMFY_PY, "-I", os.path.join(HERE, "cutout.py"), *[os.path.join(d, f"08{k}_char_hd.png") for k in todo], d], check=True)
+    people = {}
+    for k in "ab":
+        if k in todo:
+            os.replace(os.path.join(d, f"08{k}_char_hd_cut.png"), os.path.join(d, f"09{k}_char_cut_hd.png"))
+            print(f"✅ 09{k}_char_cut_hd")
+        im = Image.open(os.path.join(d, f"09{k}_char_cut_hd.png")).convert("RGBA")
+        im = im.crop(im.split()[3].point(lambda v: 255 if v > 8 else 0).getbbox())
+        arr = np.asarray(im).copy()
+        if duo.get(f"floor_{k}"):
+            y0 = int(im.height * (1 - duo[f"floor_{k}"]))
+            rgb = arr[y0:, :, :3].astype(np.int16)
+            white = (rgb.min(axis=2) > 110) & (rgb.max(axis=2) - rgb.min(axis=2) < 30)   # 地板圓盤 + 灰色描邊
+            arr[y0:, :, 3][white] = 0
+            zone = arr[y0:, :, 3] > 8                                    # 剩下的細描邊 (連在裙擺上，碎片過濾抓不到) 用開運算去掉
+            arr[y0:, :, 3][zone & ~ndimage.binary_opening(zone, iterations=6)] = 0
+        lab, n = ndimage.label(arr[..., 3] > 8)
+        if n > 1:
+            sizes = np.bincount(lab.ravel())
+            sizes[0] = 0
+            arr[..., 3][sizes[lab] < sizes.max() * 0.03] = 0
+        im = Image.fromarray(arr)
+        im = im.crop(im.split()[3].point(lambda v: 255 if v > 8 else 0).getbbox())
+        if duo.get(f"mirror_{k}"):
+            im = im.transpose(Image.FLIP_LEFT_RIGHT)
+        s = duo.get(f"scale_{k}", 1.0)
+        if s != 1.0:
+            im = im.resize((round(im.width * s), round(im.height * s)), Image.LANCZOS)
+        a = np.asarray(im.split()[3]) > 128
+        low = a[int(im.height * 0.6):]                                  # 下半身 (翅膀、帽子、舉起的手不算) 的水平中心
+        xs = np.nonzero(low.any(axis=0))[0]
+        cx = float(np.average(np.arange(im.width), weights=low.sum(axis=0))) if xs.size else im.width / 2
+        people[k] = (im, cx)
+    h = (people["a"][0].height + people["b"][0].height) / 2
+    sep = duo.get("sep", 0.4) * h
+    xa = -sep / 2 - people["a"][1]                                     # 兩人在合成畫布上的左上角 x (以中線為 0)
+    xb = sep / 2 - people["b"][1]
+    ya = -people["a"][0].height + duo.get("dy_a", 0) * h               # 腳底對齊 y = 0
+    yb = -people["b"][0].height + duo.get("dy_b", 0) * h
+    left, top = min(xa, xb), min(ya, yb)
+    right = max(xa + people["a"][0].width, xb + people["b"][0].width)
+    bottom = max(ya + people["a"][0].height, yb + people["b"][0].height)
+    canvas = Image.new("RGBA", (round(right - left), round(bottom - top)), (0, 0, 0, 0))
+    front = duo.get("front", "a")
+    for k, x, y in sorted((("a", xa, ya), ("b", xb, yb)), key=lambda p: p[0] == front):   # 後面的人先貼
+        layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+        layer.paste(people[k][0], (round(x - left), round(y - top)))
+        layer.save(os.path.join(d, f"09{k}_placed_hd.png"))           # 各自的位置 (給 PhotoCraft 分兩層用)
+        canvas.alpha_composite(layer)
+    canvas.save(os.path.join(d, "09_char_cut_hd.png"))
+    print("✅ 09_char_cut_hd (雙人合成)")
+
+
 def make_char(char_id, rarity):
     d = stage_dir(char_id, rarity)
-    src = os.path.join(d, "08_char_hd.png")
-    subprocess.run([COMFY_PY, "-I", os.path.join(HERE, "cutout.py"), src, d], check=True)
-    os.replace(os.path.join(d, "08_char_hd_cut.png"), os.path.join(d, "09_char_cut_hd.png"))
-    print("✅ 09_char_cut_hd")
     spec = LAYERS[(char_id, rarity)]
+    src = os.path.join(d, "08_char_hd.png")
+    if spec.get("duo"):
+        make_duo(d, spec["duo"])                                        # 09a / 09b 去背 ➔ 合成 09
+    else:
+        subprocess.run([COMFY_PY, "-I", os.path.join(HERE, "cutout.py"), src, d], check=True)
+        os.replace(os.path.join(d, "08_char_hd_cut.png"), os.path.join(d, "09_char_cut_hd.png"))
+        print("✅ 09_char_cut_hd")
     ch = Image.open(os.path.join(d, "09_char_cut_hd.png")).convert("RGBA")
-    if spec.get("wing_mask"):   # 去背模型會把半透明的水晶翅膀當背景切掉：翅膀遮罩範圍內一律保留
+    if spec.get("wing_mask") and not spec.get("duo"):   # 去背模型會把半透明的水晶翅膀當背景切掉：翅膀遮罩範圍內一律保留
         wm = Image.open(os.path.join(d, spec["wing_mask"])).convert("L").resize(ch.size, Image.BILINEAR)
         wm = wm.filter(ImageFilter.GaussianBlur(2))
         alpha = ImageChops.lighter(ch.split()[3], wm)
@@ -1480,6 +1629,10 @@ def make_char(char_id, rarity):
     dx, dy = spec.get("offset", (0, 0))
     place(ch, Image.LANCZOS).save(os.path.join(d, "10_char.png"))
     print("✅ 10_char")
+    if spec.get("duo"):   # 雙人卡：兩人各自一張 (同樣的位置)，pc_layers.py 拆成兩個圖層讓使用者分別移動
+        for k in "ab":
+            place(Image.open(os.path.join(d, f"09{k}_placed_hd.png")).convert("RGBA"), Image.LANCZOS).save(os.path.join(d, f"10{k}_char.png"))
+        print("✅ 10a_char / 10b_char")
     # 手描的翅膀遮罩 (06 基本圖座標) 跟著放大、裁切、縮放，打光用 (relight 的 emissive "mask")
     if spec.get("wing_mask"):
         m = Image.open(os.path.join(d, spec["wing_mask"])).convert("L").resize(ch.size, Image.BILINEAR)
@@ -1487,10 +1640,10 @@ def make_char(char_id, rarity):
         print("✅ 10w_char_wingmask")
     # 翅膀 / 尾流層的錨點 (06 基本圖座標) 也跟著人物換算到 10_char.png 上
     anchors = {}
-    base_w, base_h = Image.open(os.path.join(d, "06_char_base.png")).size
     for layer in ("wings", "trail", "orbs"):
         if not spec.get(layer):
             continue
+        base_w, base_h = Image.open(os.path.join(d, "06_char_base.png")).size
         ax, ay = spec[layer]["anchor"]
         dot = Image.new("L", ch.size, 0)
         sx, sy = ch.width / base_w, ch.height / base_h
