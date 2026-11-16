@@ -113,6 +113,8 @@ async def main():
     sql("UPDATE users SET inventory = ? WHERE user_id = 3", (json.dumps({"mat_glow_mushroom": 2, "mat_milk": 1, "mat_butter": 1}),))
     r = await econ.cook(3, "marisa_mushroom_soup")
     check(f"cook stamina dish 1 portion {r}", r["ok"] and r["made"] == 1 and inv(3) == {"marisa_mushroom_soup": 1})
+    ps3 = await udm.get_player_stats(3)
+    check(f"per-dish cook stats", ps3.get("cook:marisa_mushroom_soup") == 1 and ps3.get("cook:ran_inari") == 2)
 
     # ---------------- 🧺 快速採集：預估、總共 N 趟、先去最缺的、夠了提早停 ----------------
     base = game_rules([])

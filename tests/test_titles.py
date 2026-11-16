@@ -464,6 +464,38 @@ async def main():
     st = await udm.get_title_state(E)
     check("luck_th06_ssr unlocked", "luck_th06_ssr" in st["unlocked"] and "luck_classic_ssr" not in st["unlocked"])
 
+    # --- 🍳 美食家稱號 (0.35.006)：料理圖鑑、吃體力料理、分類全收 (keep)、活動食譜 (keep) ---
+    gm = [t for t in td.TITLES if t.startswith("gourmet_")]
+    check(f"gourmet titles {len(gm)}", len(gm) == 6 + 4 + len(td.GOURMET_EVENT_DISHES))
+    check("gourmet tiers", [(td.TITLES[f"gourmet_dex_{x}"]["rarity"], td.TITLES[f"gourmet_dex_{x}"]["min"]) for x in ("sr", "ssr", "ur")]
+          == [("SR", 10), ("SSR", 20), ("UR", 30)]
+          and [(td.TITLES[f"gourmet_eat_{x}"]["rarity"], td.TITLES[f"gourmet_eat_{x}"]["min"]) for x in ("sr", "ur", "lr")]
+          == [("SR", 100), ("UR", 500), ("LR", 1000)])
+    check("gourmet cat mins", [td.TITLES[f"gourmet_cat_{c}"]["min"] for c in ("food", "drink", "dessert", "stamina")] == [9, 10, 9, 5]
+          and all(td.TITLES[f"gourmet_cat_{c}"]["keep"] and td.TITLES[f"gourmet_cat_{c}"]["rarity"] == "SR" for c in ("food", "drink", "dessert", "stamina")))
+    ev_t = td.TITLES["gourmet_th06_scarlet_mist_all"]
+    check("gourmet event", ev_t["name"] == "紅霧異變 • 食譜全收" and ev_t["rarity"] == "SSR" and ev_t["keep"] and ev_t["min"] == 3
+          and ev_t["desc"].startswith("女僕長筆記上") and td.title_group("gourmet_th06_scarlet_mist_all") == "gourmet_th06_scarlet_mist"
+          and td.TITLE_GROUPS["gourmet_th06_scarlet_mist"]["name"] == "🍳 美食家・紅霧異變")
+    check("gourmet condition", td.condition_text("gourmet_cat_stamina") == "體力類的料理全部做過 (5 道)"
+          and td.condition_text("gourmet_eat_sr") == "累計吃 100 個體力道具 (含簽到的飯糰)")
+    gs = td.gourmet_stats({"ps:cook:ran_inari": 1, "ps:cook:hell_nabe": 2, "ps:cook:evt_napolitan": 1})
+    check(f"gourmet stats {gs}", gs["dex"] == 2 and gs["dex_cat:food"] == 1 and gs["dex_cat:stamina"] == 1 and gs["dex_ev:th06_scarlet_mist"] == 1)
+    check("names unique with gourmet", len({td.TITLES[t]["name"] for t in td.TITLES}) == len(td.TITLES))
+    # 吃體力道具 ➔ eat_stamina；做完一類 ➔ 分類全收永久保留
+    F = 6060
+    await udm.add_item(F, "reimu_onigiri", 3)
+    await udm.use_stamina_item(F, "reimu_onigiri", 60, qty=2)
+    check("eat stat", (await udm.get_player_stats(F)).get("eat_stamina") == 2)
+    from Database import shrine_data as sd2
+    con = sqlite3.connect(udm.DB_PATH)
+    con.executemany("INSERT INTO player_stats (user_id, stat, value) VALUES (?, ?, 1)", [(F, f"cook:{d}") for d in sd2.STAMINA_RECIPES])
+    con.commit(); con.close()
+    st = await udm.get_title_state(F)
+    check("cat full unlocked", "gourmet_cat_stamina" in st["unlocked"] and "gourmet_cat_stamina" in await udm.get_earned_titles(F))
+    sql("DELETE FROM player_stats WHERE user_id = ? AND stat LIKE 'cook:%'", (F,))
+    check("cat full kept", "gourmet_cat_stamina" in (await udm.get_title_state(F))["unlocked"])
+
     # --- 稱號選單分頁 (參考 /card inventory：分主題 + 分頁) ---
     import importlib
     prof = importlib.import_module("Cogs.load-general.profile")

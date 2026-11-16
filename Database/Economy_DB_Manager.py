@@ -767,6 +767,7 @@ async def cook(user_id: int, dish_id: str, times: int = 1, now: datetime | None 
             inv[dish_id] = inv.get(dish_id, 0) + made
             await _write_inventory(db, user_id, inv)
             await add_player_stat(db, user_id, "cook", times)   # 📊 鍋數
+            await add_player_stat(db, user_id, f"cook:{dish_id}", times)   # 🍳 每道料理的鍋數 (美食家稱號；0.35.007 起)
             await add_quest_stats(db, user_id, now, {f"cook:{dish_id}": times})   # 🎪 活動任務：做過哪些料理 (鍋數)
             await db.commit()
         except BaseException:

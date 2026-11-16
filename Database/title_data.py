@@ -200,7 +200,8 @@ TITLE_GROUPS = {
     "shrine":  {"name": "⛩️ 神社", "stats": ("ps:",)},
     "guest":   {"name": "🙏 客人", "stats": ()},   # 一般客人的稱號 (下面 _add_guest_titles() 產生，稱號本身帶 group)；活動客人每個活動一組
     "trek":    {"name": "🗺️ 足跡", "stats": ()},   # 一般採集地點的稱號 + 幻想鄉踏破 (_add_trek_titles())；活動地點每個活動一組
-    "luck":    {"name": "🍀 運氣", "stats": ()},   # 採集事件、運勢、保底、舊作歐氣 (_add_luck_titles())；其他卡池的歐氣每個卡池一組
+    "luck":    {"name": "🍀 運氣", "stats": ()},
+    "gourmet": {"name": "🍳 美食家", "stats": ()},   # 料理圖鑑、吃體力料理、分類全收 (_add_gourmet_titles())；活動食譜每個活動一組   # 採集事件、運勢、保底、舊作歐氣 (_add_luck_titles())；其他卡池的歐氣每個卡池一組
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     "event":   {"name": "🎪 活動", "stats": ("evq:",)},   # 活動任務稱號 (下面 _add_event_titles() 從 Events/*.json 自動加)
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
@@ -465,6 +466,81 @@ def _add_luck_titles():
 _add_luck_titles()
 
 
+# 🍳 美食家稱號 (0.35.007，使用者 2026-11-16 定案；次數從這版才開始記)
+#    料理圖鑑：做過幾種不同的料理 (招待料理 + 體力料理，活動料理不算) 10 / 20 / 30 種 = SR / SSR / UR (固定種數)
+#    吃體力料理 (含簽到的飯糰，ps:eat_stamina) 100 / 500 / 1000 個 = SR / UR / LR
+#    分類全收：食物 / 茶水 / 點心 / 體力料理那一類全部做過 = SR (keep 永久保留，之後新增料理也不會失去)
+#    活動食譜：每個活動「<活動名> • 食譜全收」SSR = 那個活動的活動料理全部做過 (keep；說明寫在活動檔 recipe_title.desc)
+GOURMET_TITLES = [   # (id, 名稱, 等級, stat, 門檻, 說明)
+    ("gourmet_dex_sr", "料理見習生", "SR", "dex", 10, "做過 {n} 種不同的料理，夜雀的屋台開始注意你了。"),
+    ("gourmet_dex_ssr", "幻想鄉食譜收藏家", "SSR", "dex", 20, "做過 {n} 種料理，連女僕長都想借你的食譜筆記。"),
+    ("gourmet_dex_ur", "幻想鄉的美食家", "UR", "dex", 30, "做過 {n} 種料理，亡靈大小姐說要跟你結拜。"),
+    ("gourmet_eat_sr", "大胃王巫女", "SR", "ps:eat_stamina", 100, "吃了 {n} 個體力料理，賽錢箱的錢好像都變成你的肉了。"),
+    ("gourmet_eat_ur", "白玉樓的飯友", "UR", "ps:eat_stamina", 500, "吃了 {n} 個體力料理，亡靈大小姐對你的食量刮目相看。"),
+    ("gourmet_eat_lr", "比幽幽子還能吃", "LR", "ps:eat_stamina", 1000, "吃了 {n} 個體力料理，白玉樓的廚房正式把你列為天敵。"),
+]
+GOURMET_CATEGORY_TEXT = {   # 分類 ➔ (標籤, 名稱, 說明)
+    "food": ("食物", "主食大師", "食物類的料理全部做過了，人里的食堂都跑來請教你。"),
+    "drink": ("茶水", "茶道名人", "茶水類的料理全部做過了，天狗的茶園都想請你當顧問。"),
+    "dessert": ("點心", "甜點職人", "點心類的料理全部做過了，琪露諾每天都跑來神社討甜點。"),
+    "stamina": ("體力", "元氣料理人", "體力料理全部做過了，吃完一輪大概可以連採三天三夜。"),
+}
+GOURMET_EVENT_DISHES: dict[str, list[str]] = {}   # 活動 id ➔ 那個活動的活動料理 (食譜全收統計用)
+
+
+def base_dish_categories() -> dict[str, str]:
+    """料理圖鑑算的料理 ➔ 分類 (food / drink / dessert / stamina)：一般招待料理 + 體力料理"""
+    from Database import shrine_data
+    return {**{d: shrine_data.DISH_TYPES.get(d, "food") for d in shrine_data.RECIPES},
+            **{d: "stamina" for d in shrine_data.STAMINA_RECIPES}}
+
+
+def _add_gourmet_titles():
+    from Database.events import load_events
+    for tid, name, rarity, stat, n, desc in GOURMET_TITLES:
+        TITLES[tid] = {"name": name, "rarity": rarity, "group": "gourmet", "stat": stat, "min": n, "desc": desc}
+    cats = base_dish_categories()
+    for cat, (label, name, desc) in GOURMET_CATEGORY_TEXT.items():
+        TITLES[f"gourmet_cat_{cat}"] = {"name": name, "rarity": "SR", "group": "gourmet", "stat": f"dex_cat:{cat}",
+                                        "min": sum(1 for c in cats.values() if c == cat), "keep": True,
+                                        "category_label": label, "desc": desc}
+    groups = {}
+    GOURMET_EVENT_DISHES.clear()
+    for eid, ev in load_events().items():
+        dishes = list(ev.get("recipes", {})) + [d for d in ev.get("stamina_recipes", {}) if d not in ev.get("recipes", {})]
+        if not dishes:
+            continue
+        ev_name = ev.get("name", eid)
+        GOURMET_EVENT_DISHES[eid] = dishes
+        desc = (ev.get("recipe_title") or {}).get("desc") or f"{ev_name}的活動料理你全部做過了。"
+        TITLES[f"gourmet_{eid}_all"] = {"name": f"{ev_name} • 食譜全收", "rarity": "SSR", "group": f"gourmet_{eid}",
+                                        "stat": f"dex_ev:{eid}", "min": len(dishes), "keep": True,
+                                        "event_name": ev_name, "desc": desc}
+        groups[f"gourmet_{eid}"] = {"name": f"🍳 美食家・{ev_name}", "stats": ()}
+    _insert_groups_after("gourmet", groups)
+
+
+_add_gourmet_titles()
+
+
+def gourmet_stats(stats: dict) -> dict:
+    """(純計算) 美食家用的統計：dex = 做過幾種料理、dex_cat:<分類>、dex_ev:<活動> (stats 要有 ps:cook:<料理>)"""
+    def done(d):
+        return stats.get(f"ps:cook:{d}", 0) >= 1
+    cats = base_dish_categories()
+    out = {"dex": sum(1 for d in cats if done(d))}
+    for cat in GOURMET_CATEGORY_TEXT:
+        out[f"dex_cat:{cat}"] = sum(1 for d, c in cats.items() if c == cat and done(d))
+    for eid, dishes in GOURMET_EVENT_DISHES.items():
+        out[f"dex_ev:{eid}"] = sum(1 for d in dishes if done(d))
+    return out
+
+
+def derived_stats(stats: dict) -> dict:
+    """從 player_stats 算出來的稱號統計 (踏破 + 美食家)；udm.get_title_stats 與通知 loop 都用這個"""
+    return {**trek_stats(stats), **gourmet_stats(stats)}
+
+
 def trek_stats(stats: dict) -> dict:
     """(純計算) 踏破用的統計：trek_base = 採集過的一般地點數、trek_ev:<活動> = 採集過的那個活動地點數 (stats 要有 ps:explore:<地點>)"""
     from Database import shrine_data
@@ -559,6 +635,14 @@ def _stat_text(t: dict) -> str:
     stat = t["stat"]
     if stat in SHRINE_STAT_TEXT:
         return SHRINE_STAT_TEXT[stat].format(_number(t, t["min"]))
+    if stat == "dex":   # 🍳 美食家稱號
+        return f"做過 {t['min']:,} 種不同的料理 (招待料理 + 體力料理，活動料理不算)"
+    if stat == "ps:eat_stamina":
+        return f"累計吃 {t['min']:,} 個體力道具 (含簽到的飯糰)"
+    if stat.startswith("dex_cat:"):
+        return f"{t.get('category_label', stat[8:])}類的料理全部做過 ({t['min']} 道)"
+    if stat.startswith("dex_ev:"):
+        return f"{t.get('event_name', stat[7:])}的活動料理全部做過 ({t['min']} 道)"
     if stat in LUCK_STAT_TEXT:   # 🍀 運氣稱號
         return LUCK_STAT_TEXT[stat].format(f"{t['min']:,}")
     if stat.startswith("ps:tenpull_2ur:"):

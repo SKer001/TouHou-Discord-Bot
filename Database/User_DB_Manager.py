@@ -678,6 +678,7 @@ PLAYER_STATS = {
     # 以及每個採集地點一個的 explore:<地點> (趟數)，0.35.003 起 (足跡稱號用)
     # 🍀 運氣稱號 (0.35.005 起)：explore_good / explore_bad (採集好 / 壞事件)、fortune_5 / fortune_0 (簽到大吉 / 凶)、
     #    gacha_pity (觸發保底張數，所有卡池合計)、tenpull_2ur:<卡池> (一次十連出 2 張以上 UR 的次數)
+    # 🍳 美食家稱號 (0.35.007 起)：cook:<料理> (每道料理的鍋數)、eat_stamina (吃了幾個體力道具，含飯糰)
 }
 
 
@@ -806,7 +807,7 @@ async def get_title_stats(user_id: int) -> dict:
     stats["transfer_sent"] = sent
     stats.update({f"ps:{k}": v for k, v in (await get_player_stats(user_id)).items()})   # 📊 神社動作計數
     from Database import title_data
-    stats.update(title_data.trek_stats(stats))   # 🗺️ 踏破：採集過幾個地點
+    stats.update(title_data.derived_stats(stats))   # 🗺️ 踏破、🍳 美食家 (從 player_stats 算)
     stats["ur_kinds"] = kinds["ur_kinds"] or 0
     stats["lr_kinds"] = kinds["lr_kinds"] or 0
     stats["perfect_kinds"] = kinds["perfect_kinds"] or 0
@@ -1418,6 +1419,7 @@ async def use_stamina_item(user_id: int, item_id: str, restore: int, qty: int = 
                 "WHERE user_id = ?",
                 (json.dumps(inventory, ensure_ascii=False), new_value, updated_at, tw_day(now), used_today, user_id),
             )
+            await add_player_stat(db, user_id, "eat_stamina", qty)   # 🍳 美食家稱號：吃了幾個體力道具 (含飯糰；0.35.007 起)
             await db.commit()
         except BaseException:
             await db.rollback()

@@ -354,7 +354,7 @@ async def collect_notices(now: datetime | None = None) -> list[dict]:
                 player_stats.setdefault(r["user_id"], {})[f"ps:{r['stat']}"] = r["value"]
         for row in title_rows:
             row.update(player_stats.get(row["user_id"], {}))
-            row.update(title_data.trek_stats(row))   # 🗺️ 踏破 (跟 udm.get_title_stats 一樣)
+            row.update(title_data.derived_stats(row))   # 🗺️ 踏破、🍳 美食家 (跟 udm.get_title_stats 一樣)
         async with db.execute("SELECT user_id, granted_titles FROM users WHERE granted_titles IS NOT NULL") as cursor:
             granted_titles = {r["user_id"]: udm._split_titles(r["granted_titles"]) for r in await cursor.fetchall()}
         async with db.execute("SELECT user_id, title_id FROM earned_titles ORDER BY earned_at, rowid") as cursor:

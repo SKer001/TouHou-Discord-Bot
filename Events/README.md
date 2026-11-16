@@ -33,6 +33,7 @@
 | 🎴 祈願機率提升 | 卡池角色平均抽 | `gacha.rate_up {角色: 倍率}` | 抽到該角色的權重 ×倍率 (多個活動相乘) |
 | 🎴 祈願階級機率 | `RARITY_WEIGHTS` [75, 22, 3] | `gacha.rarity_weights [低, 中, 高]` | 取代 (後面的活動蓋前面)；保底不受影響 |
 | 🎪 活動限定卡池 | 舊作 / 紅魔鄉兩個卡池 | `gacha.pool {name, desc, characters: [角色 id]}` | `/card gacha` 選「🎪 活動限定卡池」就抽這裡 (角色可以跨卡池)；保底獨立記在 `event_<活動 id>`；同時有多個活動時後面的蓋前面；`name` 沒寫 = 「<emoji> <活動名>卡池」 |
+| 🍳 活動食譜稱號 | 沒有 | `recipe_title {desc}` (照那個活動的料理特色寫) | 有 `recipes` / `stamina_recipes` 的活動自動有「<活動名> • 食譜全收」SSR (活動料理全部做過，永久保留)，一組「🍳 美食家・<活動名>」；沒寫 desc = 「<活動名>的活動料理你全部做過了。」 |
 | 🍀 卡池歐氣稱號 | 舊作 (普池) / 紅魔鄉各 3 個 (`title_data.LUCK_POOL_TEXT`) | `gacha.pool.luck_titles {ssr / ur / lr: {name, desc}}` | 有活動限定卡池的活動自動一組「🍀 運氣・<活動名>」：一次十連出 2 張以上 UR 1 / 5 / 10 次 = SSR / UR / LR；沒寫 = 「〇〇的幸運兒 / 寵兒 / 歐皇」 |
 | 📅 簽到額外道具 | 🍙 飯糰 ×1 | `daily_items [[道具, 數量]]` | 加送 |
 | 📜 活動任務 | 沒有 | `quests [{id, name, desc, type, target, count, reward: {money, exp}}]` | `/event quest` 看進度、按「🎁 領取」拿賽錢 + 經驗值 (見下面「活動任務」) |
