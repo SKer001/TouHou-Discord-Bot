@@ -45,6 +45,13 @@ def texts(view):
 BASE_IDS = {"c_th01_a3", "c_th01_b1", "c_th01_p1", "c_th01_p2", "c_th01_p3", "c_th01_p4",
             "c_th01_u1", "c_th01_u2", "c_th01_u3", "c_th02_m1"}
 
+
+async def press_next(view, interaction, label="下一頁 ▶️"):
+    """按畫面上的「下一頁」按鈕 (Utils.pagination 產生的；到最後一頁再按會停在最後一頁)"""
+    import discord as _d
+    btn = next(b for b in view.walk_children() if isinstance(b, _d.ui.Button) and b.label == label)
+    await btn.callback(interaction)
+
 async def main():
     await udm.init_db()
     # --- 公式 ---
@@ -160,7 +167,7 @@ async def main():
     pv = it.view
     sel = [x for x in pv.walk_children() if isinstance(x, discord.ui.Select)][0]
     check("picker page size", len(sel.options) == 20 and "1 / 3" in "".join(b.label for b in pv.walk_children() if isinstance(b, discord.ui.Button)))
-    for _ in range(4): await pv.next_callback(Interaction(uid=333))
+    for _ in range(4): await press_next(pv, Interaction(uid=333))
     sel = [x for x in pv.walk_children() if isinstance(x, discord.ui.Select)][0]
     check("picker last page", pv.page == 3 and len(sel.options) == 5 and sum(1 for _ in pv.walk_children()) <= 40)
 

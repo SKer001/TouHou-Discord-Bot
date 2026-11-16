@@ -11,6 +11,7 @@ from Database.Item_DB_Manager import (
 )
 from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
+from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 
 
 
@@ -237,10 +238,8 @@ class ItemManageView(discord.ui.LayoutView):
     def build(self):
         self.clear_items()
         rows = self._rows()
-        total_pages = max(1, (len(rows) + MANAGE_PER_PAGE - 1) // MANAGE_PER_PAGE)
-        self.page = min(self.page, total_pages)
-        start = (self.page - 1) * MANAGE_PER_PAGE
-        page_rows = rows[start:start + MANAGE_PER_PAGE]
+        pg = paginate(rows, self.page, MANAGE_PER_PAGE)
+        self.page, total_pages, start, page_rows = pg.page, pg.total, pg.start, pg.items
 
         total_owned = sum(v for v in self.inventory.values() if v > 0)
         container = discord.ui.Container(accent_color=discord.Color.gold())
@@ -284,11 +283,7 @@ class ItemManageView(discord.ui.LayoutView):
             item_select.callback = self.item_callback
             container.add_item(discord.ui.ActionRow(item_select))
 
-        container.add_item(discord.ui.ActionRow(
-            self._button("◀️ 上一頁", self.prev_callback, disabled=(self.page <= 1)),
-            self._button(f"📄 {self.page} / {total_pages} 頁", None, disabled=True, style=discord.ButtonStyle.secondary),
-            self._button("下一頁 ▶️", self.next_callback, disabled=(self.page >= total_pages)),
-        ))
+        container.add_item(discord.ui.ActionRow(*nav_buttons(self.page, total_pages, self.set_page)))
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -319,12 +314,8 @@ class ItemManageView(discord.ui.LayoutView):
         owned = (await get_or_create_user(self.target.id))["inventory"].get(iid, 0)
         await interaction.response.send_modal(ItemAmountModal(self, iid, item, owned))
 
-    async def prev_callback(self, interaction: discord.Interaction):
-        self.page = max(1, self.page - 1)
-        await self.refresh(interaction)
-
-    async def next_callback(self, interaction: discord.Interaction):
-        self.page += 1
+    async def set_page(self, interaction: discord.Interaction, page: int):
+        self.page = page
         await self.refresh(interaction)
 
 

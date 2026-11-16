@@ -14,6 +14,7 @@ from Database.User_DB_Manager import get_or_create_user, get_stamina
 from Database import shrine_data
 from Database.Item_DB_Manager import get_all_items
 from Utils.components import send_notice
+from Utils.pagination import nav_buttons   # 📄 共用分頁
 from .Components.shrine_components import (
     build_shrine_container, build_serve_container, build_explore_container, build_cook_container, build_shop_container,
     build_gather_container, COOK_CATEGORIES, dish_category,
@@ -48,31 +49,6 @@ CATEGORY_OPTIONS = [
     ("special", "特殊 / 裝備", "🛠️", "關鍵道具或強化裝備"),
     ("cuisine", "招待料理", "🍱", "招待參拜客用的食物 / 茶水 / 點心"),
 ]
-
-
-# ---------------------------------------------------------
-# 🪟 跳轉頁數彈窗 (Modal)
-# ---------------------------------------------------------
-class PageJumpModal(ui.Modal, title='跳轉倉庫頁面'):
-    def __init__(self, view_ref: "InventoryView"):
-        super().__init__()
-        self.view_ref = view_ref
-
-    page_input = ui.TextInput(
-        label='請輸入要跳轉的頁數',
-        style=discord.TextStyle.short,
-        placeholder='例如: 1, 2, 3...',
-        required=True,
-        max_length=3
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            self.view_ref.current_page = int(self.page_input.value)
-        except ValueError:
-            await send_notice(interaction, "❌ 請輸入有效的整數！")
-            return
-        await self.view_ref.update_message(interaction)
 
 
 # ---------------------------------------------------------
@@ -117,13 +93,9 @@ class InventoryView(ui.LayoutView):
         )
         self.select_category.callback = self.on_select_category
 
-        # 翻頁按鈕 (中間的頁碼按鈕可點擊跳頁)
-        self.btn_prev = ui.Button(label="◀️ 上一頁", style=discord.ButtonStyle.primary)
-        self.btn_prev.callback = self.on_prev
-        self.btn_page = ui.Button(label=f" {self.current_page} / {self.total_pages} ", style=discord.ButtonStyle.secondary)
-        self.btn_page.callback = self.on_page
-        self.btn_next = ui.Button(label="下一頁 ▶️", style=discord.ButtonStyle.primary)
-        self.btn_next.callback = self.on_next
+        # 翻頁按鈕 (頭尾相接；中間的頁碼按鈕可點擊跳頁)
+        self.btn_prev, self.btn_page, self.btn_next = nav_buttons(
+            self.current_page, self.total_pages, self.set_page, "jump", jump_title="跳轉倉庫頁面")
 
         container.add_item(ui.ActionRow(self.select_category))
         container.add_item(ui.ActionRow(self.btn_prev, self.btn_page, self.btn_next))
@@ -156,15 +128,8 @@ class InventoryView(ui.LayoutView):
         self.current_page = 1
         await self.update_message(interaction)
 
-    async def on_prev(self, interaction: discord.Interaction):
-        self.current_page = self.current_page - 1 if self.current_page > 1 else self.total_pages
-        await self.update_message(interaction)
-
-    async def on_page(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(PageJumpModal(self))
-
-    async def on_next(self, interaction: discord.Interaction):
-        self.current_page = self.current_page + 1 if self.current_page < self.total_pages else 1
+    async def set_page(self, interaction: discord.Interaction, page: int):
+        self.current_page = page   # 跳頁輸入超出範圍時 get_inventory_view_data 會限制
         await self.update_message(interaction)
 
 

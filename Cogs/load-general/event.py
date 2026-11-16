@@ -14,6 +14,7 @@ from Database import title_data
 from Database.Item_DB_Manager import get_all_items
 from Database.events import game_rules, load_events
 from Utils.components import send_notice
+from Utils.pagination import nav_buttons   # 📄 共用分頁
 from .Components.shrine_components import build_event_container
 from .Components.quest_components import (
     QUESTS_PER_PAGE, build_quest_container, build_no_quest_container, quest_button,
@@ -81,12 +82,8 @@ class QuestView(ui.LayoutView):
                 btn.callback = self._make_claim(b["event"]["id"], q["id"])
             buttons[q["id"]] = btn
         container = build_quest_container(b, quests, buttons, self.items, self.result, self.page, len(pages))
-        if len(pages) > 1:
-            prev = ui.Button(label="◀ 上一頁", style=discord.ButtonStyle.secondary, disabled=self.page == 0)
-            prev.callback = self.on_prev
-            nxt = ui.Button(label="下一頁 ▶", style=discord.ButtonStyle.secondary, disabled=self.page >= len(pages) - 1)
-            nxt.callback = self.on_next
-            container.add_item(ui.ActionRow(prev, nxt))
+        if len(pages) > 1:   # self.page 從 0 開始算，共用分頁從 1 開始
+            container.add_item(ui.ActionRow(*nav_buttons(self.page + 1, len(pages), self.set_page, "simple")))
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -104,14 +101,8 @@ class QuestView(ui.LayoutView):
             await interaction.response.edit_message(view=self)
         return callback
 
-    async def on_prev(self, interaction: discord.Interaction):
-        self.page -= 1
-        self.result = None
-        self.build()
-        await interaction.response.edit_message(view=self)
-
-    async def on_next(self, interaction: discord.Interaction):
-        self.page += 1
+    async def set_page(self, interaction: discord.Interaction, page: int):
+        self.page = page - 1
         self.result = None
         self.build()
         await interaction.response.edit_message(view=self)

@@ -12,6 +12,7 @@ from Database.User_DB_Manager import (
 )
 from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
+from Utils.pagination import nav_buttons, page_count, paginate   # 📄 共用分頁
 
 AUTOCOMPLETE_LIMIT = 25
 
@@ -114,7 +115,7 @@ class CardPickerView(ui.LayoutView):
 
     @property
     def total_pages(self) -> int:
-        return max(1, (len(self.cards) + PICKER_PER_PAGE - 1) // PICKER_PER_PAGE)
+        return page_count(len(self.cards), PICKER_PER_PAGE)
 
     def _title(self) -> str:
         sample = self.cards[0] if self.cards else {}
@@ -162,9 +163,8 @@ class CardPickerView(ui.LayoutView):
             return
 
         # ---- 列表畫面 ----
-        self.page = min(self.page, self.total_pages)
-        start = (self.page - 1) * PICKER_PER_PAGE
-        page_cards = self.cards[start:start + PICKER_PER_PAGE]
+        pg = paginate(self.cards, self.page, PICKER_PER_PAGE)
+        self.page, start, page_cards = pg.page, pg.start, pg.items
         lines = "\n".join(self._card_line(c, i) for i, c in enumerate(page_cards, start=start + 1))
 
         if is_remove:
@@ -197,11 +197,7 @@ class CardPickerView(ui.LayoutView):
         )
         select.callback = self.select_callback
         container.add_item(ui.ActionRow(select))
-        container.add_item(ui.ActionRow(
-            self._button("◀️ 上一頁", self.prev_callback, disabled=(self.page <= 1)),
-            self._button(f"📄 {self.page} / {self.total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
-            self._button("下一頁 ▶️", self.next_callback, disabled=(self.page >= self.total_pages)),
-        ))
+        container.add_item(ui.ActionRow(*nav_buttons(self.page, self.total_pages, self.set_page)))
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -254,13 +250,8 @@ class CardPickerView(ui.LayoutView):
         self.notice = "↩️ 已取消，卡牌沒有任何變動。"
         await self.refresh(interaction)
 
-    async def prev_callback(self, interaction: discord.Interaction):
-        self.page = max(1, self.page - 1)
-        self.notice = None
-        await self.refresh(interaction)
-
-    async def next_callback(self, interaction: discord.Interaction):
-        self.page += 1
+    async def set_page(self, interaction: discord.Interaction, page: int):
+        self.page = page
         self.notice = None
         await self.refresh(interaction)
 

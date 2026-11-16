@@ -39,6 +39,13 @@ def card(iid, key, rarity, comp, t="2026-01-01 00:00:00"):
     return {"instance_id": iid, "character_key": key, "name": p["name"], "emoji": p["emoji"], "rarity": rarity,
             "title": p["titles"][rarity], "completeness": comp, "obtained_at": t}
 
+
+async def press_next(view, interaction, label="下一頁 ▶️"):
+    """按畫面上的「下一頁」按鈕 (Utils.pagination 產生的；到最後一頁再按會停在最後一頁)"""
+    import discord as _d
+    btn = next(b for b in view.walk_children() if isinstance(b, _d.ui.Button) and b.label == label)
+    await btn.callback(interaction)
+
 async def main():
     await udm.init_db()
     cards = []
@@ -98,14 +105,14 @@ async def main():
     # 翻頁
     pages = (total_stacks + gacha.STACKS_PER_PAGE - 1) // gacha.STACKS_PER_PAGE
     for _ in range(pages + 3):
-        await v.next_page_callback(Interaction())
+        await press_next(v, Interaction())
         check("page count ok", count(v) <= 40)
     check("page clamp", v.page == pages and f"{pages} / {pages}" in "".join(buttons(v)))
 
     # 進入一疊
     await v.stack_select_callback(Interaction(data={"values": ["reimu|SR"]}))
     check("stack view", "×21" in texts(v) and count(v) <= 40)
-    await v.stack_next_callback(Interaction()); await v.stack_next_callback(Interaction()); await v.stack_next_callback(Interaction())
+    await press_next(v, Interaction()); await press_next(v, Interaction()); await press_next(v, Interaction())
     check("stack page clamp", v.stack_page == 3)
     first = v.get_stack("reimu|SR")["cards"][0]["instance_id"]
     await v.card_select_callback(Interaction(data={"values": [first]}))

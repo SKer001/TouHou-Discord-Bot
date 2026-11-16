@@ -34,6 +34,13 @@ def texts(v): return "\n".join(i.content for i in v.walk_children() if isinstanc
 
 T = types.SimpleNamespace(id=555, display_name="目標")
 
+
+async def press_next(view, interaction, label="下一頁 ▶️"):
+    """按畫面上的「下一頁」按鈕 (Utils.pagination 產生的；到最後一頁再按會停在最後一頁)"""
+    import discord as _d
+    btn = next(b for b in view.walk_children() if isinstance(b, _d.ui.Button) and b.label == label)
+    await btn.callback(interaction)
+
 async def main():
     await udm.init_db()
     bot = commands.Bot(command_prefix="!", intents=discord.Intents.none())
@@ -117,7 +124,7 @@ async def main():
     check("remove view pages", rv.total_pages == 3 and "共 48 張" in texts(rv) and it.kw.get("ephemeral"))
     sel = [i for i in rv.walk_children() if isinstance(i, discord.ui.Select)][0]
     check("select size", len(sel.options) == 20 and sel.max_values == 20 and sum(1 for _ in rv.walk_children()) <= 40)
-    await rv.next_callback(Interaction()); await rv.next_callback(Interaction()); await rv.next_callback(Interaction())
+    await press_next(rv, Interaction()); await press_next(rv, Interaction()); await press_next(rv, Interaction())
     check("page clamp", rv.page == 3 and len([i for i in rv.walk_children() if isinstance(i, discord.ui.Select)][0].options) == 8)
     pick = [c["instance_id"] for c in rv.cards[-3:]]
     i1 = Interaction(); i1.data = {"values": pick}; await rv.select_callback(i1)

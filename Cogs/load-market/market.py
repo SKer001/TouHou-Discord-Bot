@@ -14,6 +14,7 @@ from Database import Economy_DB_Manager as econ
 from Database.User_DB_Manager import get_user_cards, get_title_state
 from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Utils.components import send_notice
+from Utils.pagination import nav_buttons   # 📄 共用分頁
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 from .Components.market_components import (
     build_price_container, build_listing_lines, card_label, short_id, simple_container,
@@ -116,19 +117,11 @@ class OwnerView(ui.LayoutView):
         return True
 
     def _nav(self, page: int, pages: int):
-        prev = ui.Button(label="◀️", style=discord.ButtonStyle.secondary, disabled=pages <= 1)
-        prev.callback = self.on_prev
-        label = ui.Button(label=f"{page} / {pages}", style=discord.ButtonStyle.secondary, disabled=True)
-        nxt = ui.Button(label="▶️", style=discord.ButtonStyle.secondary, disabled=pages <= 1)
-        nxt.callback = self.on_next
-        return prev, label, nxt
+        """翻頁按鈕：頭尾相接、只有一頁時反灰 (Utils.pagination 的 compact 樣式)"""
+        return nav_buttons(page, pages, self.set_page, "compact")
 
-    async def on_prev(self, interaction):
-        self.page = self.page - 1 if self.page > 1 else self.pages
-        await self.refresh(interaction)
-
-    async def on_next(self, interaction):
-        self.page = self.page + 1 if self.page < self.pages else 1
+    async def set_page(self, interaction, page: int):
+        self.page = page
         await self.refresh(interaction)
 
     async def refresh(self, interaction):

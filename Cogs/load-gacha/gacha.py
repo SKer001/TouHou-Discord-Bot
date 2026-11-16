@@ -31,6 +31,7 @@ from .Components.gacha_components import (
     build_fusion_result_container,
 )
 from Utils.components import send_notice, notice_view
+from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
@@ -380,10 +381,6 @@ class InventoryView(ui.LayoutView):
     def get_stack(self, value: str) -> dict | None:
         return next((s for s in self.all_stacks if _stack_value(s) == value), None)
 
-    @staticmethod
-    def _pages(count: int, per_page: int) -> int:
-        return max(1, (count + per_page - 1) // per_page)
-
     def _filter_desc(self) -> str:
         pool = "全部卡池" if self.pool_filter == "ALL" else GACHA_POOLS.get(self.pool_filter, {}).get("name", "📦 其他")
         rarity = "全部階級" if self.rarity_filter == "ALL" else f"{self.rarity_filter} 階級"
@@ -412,10 +409,8 @@ class InventoryView(ui.LayoutView):
 
     def _build_list(self):
         stacks = self.filtered_stacks()
-        total_pages = self._pages(len(stacks), STACKS_PER_PAGE)
-        self.page = min(self.page, total_pages)
-        start = (self.page - 1) * STACKS_PER_PAGE
-        page_stacks = stacks[start:start + STACKS_PER_PAGE]
+        pg = paginate(stacks, self.page, STACKS_PER_PAGE)
+        self.page, total_pages, start, page_stacks = pg.page, pg.total, pg.start, pg.items
 
         container = build_stack_list_container(
             page_stacks, self.page, total_pages, len(stacks), self.all_cards,
@@ -458,9 +453,7 @@ class InventoryView(ui.LayoutView):
             container.add_item(ui.ActionRow(stack_select))
 
         container.add_item(ui.ActionRow(
-            self._button("◀️ 上一頁", self.prev_page_callback, disabled=(self.page <= 1)),
-            self._button(f"📄 {self.page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
-            self._button("下一頁 ▶️", self.next_page_callback, disabled=(self.page >= total_pages)),
+            *nav_buttons(self.page, total_pages, self.set_page),
             self._button(f"🔃 排序：{INVENTORY_SORTS[self.sort_index][1]}", self.sort_callback, discord.ButtonStyle.secondary),
         ))
         self.add_item(container)
@@ -468,10 +461,8 @@ class InventoryView(ui.LayoutView):
     def _build_stack(self):
         stack = self.get_stack(self.selected_stack)
         cards = stack["cards"]
-        total_pages = self._pages(len(cards), STACK_CARDS_PER_PAGE)
-        self.stack_page = min(self.stack_page, total_pages)
-        start = (self.stack_page - 1) * STACK_CARDS_PER_PAGE
-        page_cards = cards[start:start + STACK_CARDS_PER_PAGE]
+        pg = paginate(cards, self.stack_page, STACK_CARDS_PER_PAGE)
+        self.stack_page, total_pages, start, page_cards = pg.page, pg.total, pg.start, pg.items
 
         container = build_stack_cards_container(
             stack, page_cards, self.stack_page, total_pages, self.user_name, THUMBNAILS, start + 1
@@ -492,9 +483,7 @@ class InventoryView(ui.LayoutView):
 
         container.add_item(ui.ActionRow(
             self._button("🔙 返回卡冊", self.back_to_list_callback, discord.ButtonStyle.secondary),
-            self._button("◀️ 上一頁", self.stack_prev_callback, disabled=(self.stack_page <= 1)),
-            self._button(f"📄 {self.stack_page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
-            self._button("下一頁 ▶️", self.stack_next_callback, disabled=(self.stack_page >= total_pages)),
+            *nav_buttons(self.stack_page, total_pages, self.set_stack_page),
         ))
 
         # 合成 / 融合捷徑：只有卡冊主人本人看得到 (管理員檢視別人卡冊時不顯示)
@@ -568,12 +557,8 @@ class InventoryView(ui.LayoutView):
         self.page = 1
         await self.refresh(interaction)
 
-    async def prev_page_callback(self, interaction: discord.Interaction):
-        self.page = max(1, self.page - 1)
-        await self.refresh(interaction)
-
-    async def next_page_callback(self, interaction: discord.Interaction):
-        self.page += 1   # build() 會把頁數限制在範圍內
+    async def set_page(self, interaction: discord.Interaction, page: int):
+        self.page = page   # build() 會把頁數限制在範圍內
         await self.refresh(interaction)
 
     async def stack_select_callback(self, interaction: discord.Interaction):
@@ -585,12 +570,8 @@ class InventoryView(ui.LayoutView):
         self.stack_page = 1
         await self.refresh(interaction)
 
-    async def stack_prev_callback(self, interaction: discord.Interaction):
-        self.stack_page = max(1, self.stack_page - 1)
-        await self.refresh(interaction)
-
-    async def stack_next_callback(self, interaction: discord.Interaction):
-        self.stack_page += 1
+    async def set_stack_page(self, interaction: discord.Interaction, page: int):
+        self.stack_page = page
         await self.refresh(interaction)
 
     async def card_select_callback(self, interaction: discord.Interaction):
@@ -666,10 +647,8 @@ class AlbumView(ui.LayoutView):
             ))
             self.add_item(container)
             return
-        total_pages = max(1, (len(self.cards) + ALBUM_PER_PAGE - 1) // ALBUM_PER_PAGE)
-        self.page = min(self.page, total_pages)
-        start = (self.page - 1) * ALBUM_PER_PAGE
-        page_cards = self.cards[start:start + ALBUM_PER_PAGE]
+        pg = paginate(self.cards, self.page, ALBUM_PER_PAGE)
+        self.page, total_pages, start, page_cards = pg.page, pg.total, pg.start, pg.items
         container = build_album_container(page_cards, self.page, total_pages, len(self.cards), self.user_name, start + 1, self.result)
         if page_cards:
             container.add_item(ui.Separator())
@@ -683,11 +662,7 @@ class AlbumView(ui.LayoutView):
             select.callback = self.select_callback
             container.add_item(ui.ActionRow(select))
             if total_pages > 1:
-                container.add_item(ui.ActionRow(
-                    self._button("◀️ 上一頁", self.prev_callback, disabled=(self.page <= 1)),
-                    self._button(f"📄 {self.page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
-                    self._button("下一頁 ▶️", self.next_callback, disabled=(self.page >= total_pages)),
-                ))
+                container.add_item(ui.ActionRow(*nav_buttons(self.page, total_pages, self.set_page)))
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -713,12 +688,8 @@ class AlbumView(ui.LayoutView):
         self.selected = None
         await self.refresh(interaction)
 
-    async def prev_callback(self, interaction: discord.Interaction):
-        self.page = max(1, self.page - 1)
-        await self.refresh(interaction)
-
-    async def next_callback(self, interaction: discord.Interaction):
-        self.page += 1
+    async def set_page(self, interaction: discord.Interaction, page: int):
+        self.page = page
         await self.refresh(interaction)
 
     async def unlock_callback(self, interaction: discord.Interaction):
@@ -844,10 +815,8 @@ class SynthesisPickerView(ui.LayoutView):
     def build(self):
         self.clear_items()
         candidates = self._candidates()
-        total_pages = max(1, (len(candidates) + SYNTH_PICK_PER_PAGE - 1) // SYNTH_PICK_PER_PAGE)
-        self.page = min(self.page, total_pages)
-        start = (self.page - 1) * SYNTH_PICK_PER_PAGE
-        page_cards = candidates[start:start + SYNTH_PICK_PER_PAGE]
+        pg = paginate(candidates, self.page, SYNTH_PICK_PER_PAGE)
+        self.page, total_pages, start, page_cards = pg.page, pg.total, pg.start, pg.items
 
         sample = self.cards[0]
         if self.first is None:
@@ -886,11 +855,7 @@ class SynthesisPickerView(ui.LayoutView):
         select.callback = self.select_callback
         container.add_item(ui.ActionRow(select))
 
-        nav = [
-            self._button("◀️ 上一頁", self.prev_callback, disabled=(self.page <= 1)),
-            self._button(f"📄 {self.page} / {total_pages} 頁", None, discord.ButtonStyle.secondary, disabled=True),
-            self._button("下一頁 ▶️", self.next_callback, disabled=(self.page >= total_pages)),
-        ]
+        nav = nav_buttons(self.page, total_pages, self.set_page)
         if self.first is not None:
             nav.insert(0, self._button("🔙 重選第一張", self.back_callback, discord.ButtonStyle.secondary))
         container.add_item(ui.ActionRow(*nav))
@@ -930,12 +895,8 @@ class SynthesisPickerView(ui.LayoutView):
         self.page = 1
         await self.refresh(interaction)
 
-    async def prev_callback(self, interaction: discord.Interaction):
-        self.page = max(1, self.page - 1)
-        await self.refresh(interaction)
-
-    async def next_callback(self, interaction: discord.Interaction):
-        self.page += 1
+    async def set_page(self, interaction: discord.Interaction, page: int):
+        self.page = page
         await self.refresh(interaction)
 
 

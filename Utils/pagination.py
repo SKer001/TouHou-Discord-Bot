@@ -72,7 +72,7 @@ class PageJumpModal(ui.Modal):
         super().__init__(title=title)
         self.on_change = on_change
         self.page_input = ui.TextInput(label="請輸入要跳轉的頁數", style=discord.TextStyle.short,
-                                       placeholder=f"1 ~ {total}", required=True, max_length=4)
+                                       placeholder="例如: 1, 2, 3...", required=True, max_length=3)
         self.add_item(self.page_input)
 
     async def on_submit(self, interaction: discord.Interaction):

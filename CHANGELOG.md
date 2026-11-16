@@ -13,6 +13,12 @@
 
 ---
 
+## 0.35.016 — 2026-11-16：📄 共用分頁 (二)：道具倉庫、市場、活動任務 + 補上 (一) 的程式 (筆電，統整 session)
+- **補推 0.35.014 的程式**：0.35.014 只推到 `Utils/pagination.py`，卡冊 / 收藏冊 / 合成選卡 / 管理畫面與測試的改動沒進 commit (`git stash` → 換到最新 main → `stash pop` 之後檔案變回未暫存，只 add 了版本號) ➔ 這版一起推。之後 commit 前一律 `git add` 全部要推的檔案再 `git status` 檢查。
+- `/inventory` 道具倉庫 (頭尾相接 + 按頁碼跳頁)、市場三個畫面 (`OwnerView._nav`，頭尾相接)、`/event quest` (沒有頁碼) 改用 `Utils.pagination.nav_buttons` 的 jump / compact / simple 樣式，按鈕文字、顏色、反灰規則都跟原本一樣。
+- `shrine.py` 自己的 `PageJumpModal` 移到 `Utils/pagination.py` 共用 (標題、提示文字、錯誤訊息照舊)；倉庫逾時反灰還是用 `btn_prev` / `btn_page` / `btn_next`。
+- 新增 `tests/test_pagination.py` (17 項)：切頁、停在頭尾 / 頭尾相接、四種樣式、跳頁彈窗 (含輸入不是數字)。
+
 ## 0.35.015 — 2026-11-16：愛麗絲 (舊作) SR / SSR / UR 卡面 (筆電，卡面 session)
 - **高清分層重生**，舊作外觀 (齊頸金髮、藍緞帶、粉紅連衣裙 + 藍圍裙)：SR「魔界的人形使」魔界街道抱人偶擋路 (B2C1，人物放大到 0.85)、SSR「死之少女」浮在魔界上空邊讀魔導書邊施法 (B1C1)、UR「魔法之國的死靈法師」暗紫魔界城堡 + 雙手張開 + 金瞳發光 (B1C4)。
 - **新彈幕風格 `legion`** (`danmaku.py`)：粉紅 / 藍大玉交錯環 + 藍米粒彈螺旋。
