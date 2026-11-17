@@ -89,6 +89,11 @@
         "jpg": "rika_full.jpg",
         "full": "rika.webp"
     },
+    "rumia": {
+        "message_id": 1572249866153893918,
+        "jpg": "rumia_full.jpg",
+        "full": "rumia.png"
+    },
     "shinki": {
         "message_id": 1571808477389652053,
         "jpg": "shinki_full.jpg",
