@@ -69,6 +69,11 @@
         "jpg": "mugetsu_full.jpg",
         "full": "mugetsu.png"
     },
+    "patchouli": {
+        "message_id": 1572237919006232616,
+        "jpg": "patchouli_full.jpg",
+        "full": "patchouli.png"
+    },
     "reimu": {
         "message_id": 1571058151929937952,
         "jpg": "reimu_full.jpg",
