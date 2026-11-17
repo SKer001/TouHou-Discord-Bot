@@ -1,0 +1,10 @@
+[Unit]
+Description=TouHou Bot - daily database backup (04:00 台灣時間)
+
+[Timer]
+# VM 時區是 UTC：20:00 UTC = 台灣 04:00
+OnCalendar=*-*-* 20:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

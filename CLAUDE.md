@@ -19,6 +19,7 @@
 | 每個版本做了什麼、踩過的坑 | `CHANGELOG.md`（最上面幾筆就好） |
 | 早期重構歷程 | `docs/history.md` |
 | CodeGraph 安裝 | `docs/setup.md` |
+| 雲端部署 (Google Cloud)、本機 ⇄ 雲端交接、雲端 DB 備份 | `docs/deploy.md` |
 | 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
 
 ## 1. 專案概觀
@@ -39,6 +40,7 @@ tests/                       測試 (python tests/run_all.py)，見 `docs/testin
 tools/botcli.py              指令列測試工具：假裝打指令、點按鈕、選選單；--live 會把畫面真的送到測試頻道，見 `docs/testing.md`
 tools/discord_peek.py        用機器人 Token 讀測試頻道最新訊息，把實機 V2 畫面印成文字，見 `docs/testing.md`
 tools/discord_rest.py        上面兩個工具共用的 Discord REST 小工具 (只用 REST，不連 Gateway)
+deploy/                      雲端部署：vm_ctl.py (VM 上)、handoff.py (本機 ⇄ 雲端交接)、install.sh、systemd/，見 `docs/deploy.md`
 tools/card_art/              卡面產生工具 (ComfyUI 生圖 → 蓋卡框 → 寫字 → 縮圖)，見 `docs/card-art.md`
 Characters/                  角色資料，一角色一檔：Main/ (主要主角)、TH01/ ~ TH06/ (各代)；圖鑑與卡池都讀這裡
 Database/
@@ -102,6 +104,7 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - **版本號與開發紀錄（2026-11-05 使用者指定）**：版本格式 `X.XX.XXX`（大版本：新功能 / 新活動，開發階段為 0；第二段：功能改動、新 UI；最後三碼：瑣碎 commit）。**每次 commit 都要更新 `Utils/version.py` 並在 `CHANGELOG.md` 最上面補一筆**（做了什麼、遇到的問題與解法）。
 - **經濟系統的數值：使用者沒給的一定要先問，不要自己決定**（2026-11-05）。規格與待確認項目在 `TODO.md` 第 5 節。
 - 兩台電腦切換：離開前 `commit` + `push`，開始前 `pull`；**機器人同一時間只在一台上執行**（同一個 Token，且 Users.db 是二進位無法合併）。
+- **雲端上線後 (2026-11-17 部署檔已就緒，VM 照 `docs/deploy.md` 設定完才算上線)**：正式機器人在 Google Cloud VM 上跑 `online` 分支，玩家真實 DB 在私人儲存桶。本機要用正式 Token 跑 `python Main.py` 前**一定要先** `python deploy/handoff.py take`，用完 `release` 交回；git 裡的 `Database/Users.db` 只是測試資料。程式要上線：main 推完再 `python deploy/handoff.py deploy`。
 - **完成並測試通過後直接 commit + push 到 `main`，不用先問**（2026-10-28 使用者指示）。只有重大事件才先問，例如要開分支、改寫 git 歷史、刪除大量資料等。`Database/Users.db`、`Item.db` 有變動時也一起推。
 - **卡面：一個角色（或一張卡）定案後才 commit + push**（2026-10-30 使用者指示，避免 git 歷史塞滿試作圖）。試作、調參數、使用者還在挑圖或要求調整時都只留在本機；使用者說「定案」「推送」或明確表示這版 OK 才推。程式碼改動也跟著那次定案一起推。
 

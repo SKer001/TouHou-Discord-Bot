@@ -1,0 +1,2 @@
+# ☁️ 部署檔在 Linux VM 上執行，一律 LF (Windows 的 autocrlf 也不轉 CRLF)
+/deploy/** text eol=lf

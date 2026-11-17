@@ -1,0 +1,7 @@
+# 💾 每日資料庫快照 (VM 本機留 7 天 + 上傳 gs://<bucket>/backups/)
+[Unit]
+Description=TouHou Bot - daily database backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/touhou-bot/repo/deploy/vm_ctl.py backup --tag daily

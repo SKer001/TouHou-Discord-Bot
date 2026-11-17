@@ -1,0 +1,23 @@
+# 🤖 機器人本體 (vm_ctl.py takeback 會 enable + start；release 會 stop + disable)
+[Unit]
+Description=TouHou Discord Bot
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=touhou
+Group=touhou
+WorkingDirectory=/opt/touhou-bot/app
+Environment=PYTHONIOENCODING=utf-8
+Environment=PYTHONUNBUFFERED=1
+# 保險：模式不是 cloud (DB 在本機手上) 就不准啟動，避免兩邊同時上線
+ExecStartPre=+/usr/bin/python3 /opt/touhou-bot/repo/deploy/vm_ctl.py check-mode
+ExecStart=/opt/touhou-bot/venv/bin/python Main.py
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

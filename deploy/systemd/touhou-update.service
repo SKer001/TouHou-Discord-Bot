@@ -1,0 +1,9 @@
+# 🔄 檢查 online 分支有沒有新 commit，有就同步程式並視需要重啟
+[Unit]
+Description=TouHou Bot - pull online branch
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/touhou-bot/repo/deploy/vm_ctl.py update

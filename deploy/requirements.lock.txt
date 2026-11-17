@@ -1,0 +1,7 @@
+# ☁️ 雲端 VM 用的固定版本 (跟筆電一致：Python 3.11、discord.py 2.7.1)；本機開發仍用根目錄的 requirements.txt
+# 改了這裡，VM 下次 update 會自動 pip install
+discord.py==2.7.1
+aiohttp==3.11.11
+aiosqlite==0.22.1
+python-dotenv==1.2.4
+Pillow==11.0.0

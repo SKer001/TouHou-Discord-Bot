@@ -13,6 +13,20 @@
 
 ---
 
+## 0.35.027 — 2026-11-17：雲端部署 (Google Cloud) 與本機 ⇄ 雲端交接 (筆電，部署 session)
+- **新增 `deploy/` 與 `docs/deploy.md`**：正式機器人放到 Compute Engine e2-micro (us-west1-b，Debian 12、Python 3.11) 24 小時執行。決定都跟使用者確認過，記在 `docs/deploy.md` 第 1 節。
+- **`online` 分支 = 上線版**：VM 每分鐘 fetch `online` (`touhou-update.timer`)，有新 commit 就同步；只有圖片 / 文件 / 測試 / `tools/` 變動不重啟，其他變動先快照 DB 再重啟。`online` 只快轉、不單獨 commit (`python deploy/handoff.py deploy` 把 origin/main 推過去)，版本號與 CHANGELOG 不會分岔。
+- **DB 不再經 git 交接**：玩家真實 DB 放私人 Cloud Storage 儲存桶 (`live/` 交接、`backups/` 每日 04:00 快照，30 天自動刪)。主 repo 維持公開 (卡面網址要公開)，git 裡的 `Users.db` 之後只當測試資料。
+- **`deploy/handoff.py`**：`take` (雲端停機器人、交出 DB) / `release` (交回並啟動) / `backup` / `deploy` / `push-env` / `status` / `ssh`。take 會把本機原本的測試 DB 收好，release 後放回，真實資料不會被順手 commit。
+- **`deploy/vm_ctl.py`** (VM 上)：模式檔 `cloud` / `local:<電腦>`，local 時 `touhou-bot.service` 的 `ExecStartPre` 擋下啟動，避免兩邊同時上線；交接用 SQLite 備份 API 快照 + sha256 比對 + `integrity_check`；用 flock 避免更新計時器跟交接同時動 DB；更新跟「上次成功套用的 commit」比 (不是 repo HEAD)，同步或交出 DB 中途失敗會把機器人開回來、下一分鐘重試；同一台重跑 `take` 不會再停一次雲端。
+- VM 上程式在 `/opt/touhou-bot/repo` (稀疏淺 clone，實測約 13 MB；完整 `.git` 有 5.4 GB 卡面歷史)，rsync 到 `/opt/touhou-bot/app` 執行，`.env`、`Database/*.db`、`Logger/Logs` 只在 app 裡、不會被更新蓋掉。
+- `deploy/requirements.lock.txt` 固定 discord.py 2.7.1 等版本；`.gitattributes` 讓 `deploy/` 一律 LF；`tests/test_deploy.py` 測重啟判斷、模式 / 交接規則、SQLite 快照與設定檔 (43 項)。
+- 坑：
+  - 使用者原本想把 repo 改私人，但卡面 / 名片圖是 raw.githubusercontent.com 公開網址，私人 repo Discord 抓不到 ➔ 改成 DB 放私人儲存桶、repo 維持公開。
+  - Git Bash 會把 `!/tools/` 這種稀疏規則改寫成 Windows 路徑，本機實測要注意；VM 上 (Linux) 沒這問題。
+  - 測試需要 `.env` (Logger 讀 `LOG_CHANNEL_ID`)，新的 worktree 沒有 `.env` 時 test_v2 / test_admin_gacha 會失敗。
+  - VM 端腳本這次沒有 Linux 環境可以實跑，第一次安裝時要一起驗證。
+
 ## 0.35.026 — 2026-11-17：📝 TODO.md 進度更新 (筆電，統整 session)
 - 第 0 節「目前進度」從 11-13 (v0.31.000) 更新到 v0.35.025：卡面 24 位全部完成、稱號 / 名片 / 共用分頁、1236 項測試；「下一步建議」改成 TH07、更多活動、剩下 4 張名片、實機試玩。
 - 第 1 節卡面標成全部完成；第 4.5 節名片改成 20 / 24 (剩帕秋莉、蕾米莉亞、露米婭、咲夜)，靈夢原圖已上傳 (在 `NamecardOriginals.json`) 打勾；第 5 節「更多活動」補註卡面已做完。
