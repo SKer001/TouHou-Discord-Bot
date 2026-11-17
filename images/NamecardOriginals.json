@@ -79,6 +79,11 @@
         "jpg": "reimu_full.jpg",
         "full": "reimu.png"
     },
+    "remilia": {
+        "message_id": 1572247361189580923,
+        "jpg": "remilia_full.jpg",
+        "full": "remilia.png"
+    },
     "rika": {
         "message_id": 1571083633140433017,
         "jpg": "rika_full.jpg",
