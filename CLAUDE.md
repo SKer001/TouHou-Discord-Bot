@@ -21,6 +21,7 @@
 | CodeGraph 安裝 | `docs/setup.md` |
 | 雲端部署 (Google Cloud)、本機 ⇄ 雲端交接、雲端 DB 備份 | `docs/deploy.md` |
 | 外掛 skill（Matt Pocock skill 包）哪些能用、需要什麼工具 | `docs/skills.md`（不要用的清單在第 7 節） |
+| 🌀 裏世界 (`/ura`) 搜打撤玩法的計畫 (設計中) | `docs/ura.md` |
 | 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
 
 ## 1. 專案概觀
