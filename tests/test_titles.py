@@ -301,33 +301,54 @@ async def main():
     it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view
     check("no title fixed color", accent(pv) == td.NO_TITLE_COLOR)
-    # 0.35.038：平常沒有選單，一排按鈕 ⚡ 恢復體力 / ⛩️ 前往神社 / 🏷️ 修改稱號 / 🖼️ 修改名片；按「修改稱號」才打開
+    # 0.35.039：資料卡沒有選單，一排按鈕；「🏷️ 修改稱號」另外跳出控制台 (分組 ➔ 稱號 ➔ 預覽 ➔ 確認)
     blabels = [b.label for b in pv.walk_children() if isinstance(b, discord.ui.Button)]
     check("buttons instead of selects", not selects(pv) and blabels[-4:] == ["⚡ 恢復體力", "⛩️ 前往神社", "🏷️ 修改稱號", "🖼️ 修改名片"])
-    await pv.on_toggle_title(Interaction(uid=A))
-    sel = selects(pv)
-    blabels = [b.label for b in pv.walk_children() if isinstance(b, discord.ui.Button)]
-    check("title button becomes back", "↩️ 返回" in blabels and "🏷️ 修改稱號" not in blabels)
-    # 先選分組再選稱號 (Discord 選單最多 25 個，稱號全放一起放不下)；預設 = 最高等級稱號那組
-    check("group + title selects", len(sel) == 2 and [o.value for o in sel[0].options] == ["draw", "synth"]
-          and [o.label for o in sel[0].options] == ["🎰 祈願", "⚗️ 合成"] and sel[0].options[0].default)
-    check("title select on own card", not sel[1].disabled and [o.value for o in sel[1].options] == ["draw_100", "draw_10", "__none__"])
-    check("select shows desc", sel[1].options[0].description == td.TITLES["draw_100"]["desc"])
-    ig = Interaction(uid=A, data={"values": ["synth"]}); await pv.on_title_group(ig)
-    sel = selects(pv)
-    check("switch group", [o.value for o in sel[1].options] == ["synth_1", "__none__"] and sel[0].options[1].default)
-    ig = Interaction(uid=A, data={"values": ["draw"]}); await pv.on_title_group(ig)
+    class Msg:   # 資料卡訊息 (確認換上後會被編輯)
+        def __init__(s): s.view = None
+        async def edit(s, **kw): s.view = kw.get("view")
+    pv.message = Msg()
+    def containers(v): return [c for c in v.children if isinstance(c, discord.ui.Container)]
+    def pbtn(v, label): return next(b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label.startswith(label))
+    async def ppick(v, idx, value, uid=A): await selects(v)[idx].callback(Interaction(uid=uid, data={"values": [value]}))
+    async def ppress(v, label, uid=A): await pbtn(v, label).callback(Interaction(uid=uid))
 
-    i2 = Interaction(uid=A, data={"values": ["draw_100"]}); await pv.on_title(i2)
-    check("closes after pick", pv.mode == "card" and not selects(pv))
-    t = texts(pv)
-    check("title shown", "**[R] 虔誠的參拜者**" in t and f"-# *{td.TITLES['draw_100']['desc']}*" in t)
+    io = Interaction(uid=A); await pv.on_open_title(io)
+    tv = io.view
+    check("panel is separate", tv is not pv and type(tv).__name__ == "TitlePickerView" and len(selects(tv)) == 2)
+    sel = selects(tv)
+    check("all groups listed", {o.value for o in sel[0].options} == set(td.group_titles(list(td.TITLES))))
+    check("opens on highest unlocked group", next(o for o in sel[0].options if o.default).value == "draw")
+    st = {o.value: o.description for o in sel[1].options}
+    check("status unlocked / locked", st["draw_100"] == "✅ 已解鎖" and st["draw_5000"].startswith("🔒 ")
+          and td.condition_text("draw_5000") in st["draw_5000"])
+    check("nothing to confirm", pbtn(tv, "✅").disabled and pbtn(tv, "✖️ 卸下稱號").disabled and len(containers(tv)) == 1)
+
+    # 🔒 沒解鎖的：說明怎麼拿，不能確認
+    await ppick(tv, 1, "draw_5000")
+    check("locked explains", "還沒解鎖" in texts(tv) and td.condition_text("draw_5000") in texts(tv)
+          and pbtn(tv, "✅").disabled and len(containers(tv)) == 1)
+    # ✅ 已解鎖：上面出現預覽 (稱號色條)，確認才換上
+    await ppick(tv, 1, "draw_100")
+    pc = containers(tv)[0]
+    check("preview shown", len(containers(tv)) == 2 and "👀 預覽" in texts(tv) and "**[R] 虔誠的參拜者**" in texts(tv)
+          and pc.accent_color.value == td.RARITY_COLORS["R"] and not pbtn(tv, "✅ 確認換上").disabled)
+    check("not saved before confirm", (await udm.get_title_state(A))["equipped"] is None)
+    await ppress(tv, "✅ 確認換上")
+    check("saved", (await udm.get_title_state(A))["equipped"] == "draw_100" and "已換上" in texts(tv) and len(containers(tv)) == 1)
+    t = texts(pv.message.view)
+    check("profile card updated", "**[R] 虔誠的參拜者**" in t and f"-# *{td.TITLES['draw_100']['desc']}*" in t
+          and "原本的資料卡也換好了" in texts(tv))
     check("title under name", t.index("的幻想鄉通行證") < t.index("[R] 虔誠的參拜者") < t.index("資料卡 • TouHouBot"))
     check("title color", accent(pv) == td.RARITY_COLORS["R"])
-    check("saved", (await udm.get_title_state(A))["equipped"] == "draw_100")
 
-    i3 = Interaction(uid=A, data={"values": ["draw_5000"]}); await pv.on_title(i3)
-    check("locked rejected", "還沒有解鎖" in texts(i3.view) and (await udm.get_title_state(A))["equipped"] == "draw_100")
+    # 預覽到確認之間條件變了 ➔ 擋下
+    tv.pending = ("equip", "draw_5000")
+    await ppress(tv, "✅ 確認換上")
+    check("locked rejected", "還沒有解鎖" in texts(tv) and (await udm.get_title_state(A))["equipped"] == "draw_100")
+    # ↩️ 取消
+    await ppick(tv, 1, "draw_10"); await ppress(tv, "↩️ 取消")
+    check("cancel", tv.selected is None and tv.pending is None and len(containers(tv)) == 1)
 
     # 私人資料卡一樣用稱號顏色 (2026-11-13 使用者)
     await udm.update_visibility(A, False)
@@ -335,22 +356,30 @@ async def main():
     check("private same color", accent(it.view) == td.RARITY_COLORS["R"] and "[R] 虔誠的參拜者" in texts(it.view))
     await udm.update_visibility(A, True)
 
-    # 別人看得到稱號，但沒有選單
+    # 別人看得到稱號，但沒有按鈕；別人也按不了我的控制台
     it = Interaction(uid=2); await cmds["profile"].callback(cog, it, types.SimpleNamespace(id=A, display_name="t", display_avatar=avatar), None)
-    check("others see title", "[R] 虔誠的參拜者" in texts(it.view) and not selects(it.view))
+    check("others see title", "[R] 虔誠的參拜者" in texts(it.view) and not selects(it.view)
+          and "🏷️ 修改稱號" not in [b.label for b in it.view.walk_children() if isinstance(b, discord.ui.Button)])
+    check("others blocked on panel", not await tv.interaction_check(Interaction(uid=2)))
 
-    # 卸下
-    i4 = Interaction(uid=A, data={"values": ["__none__"]}); await pv.on_title(i4)
-    check("unequip via select", "虔誠的參拜者" not in texts(pv) and accent(pv) == td.NO_TITLE_COLOR)
+    # ✖️ 卸下：一樣先預覽再確認
+    await ppress(tv, "✖️ 卸下稱號")
+    check("unequip preview", "(不戴稱號)" in texts(tv) and containers(tv)[0].accent_color.value == td.NO_TITLE_COLOR
+          and pbtn(tv, "✅ 確認卸下") is not None)
+    await ppress(tv, "✅ 確認卸下")
+    check("unequip saved", (await udm.get_title_state(A))["equipped"] is None and "已卸下" in texts(tv)
+          and "虔誠的參拜者" not in texts(pv.message.view))
+    # 資料卡過期 ➔ 不假裝更新
+    pv.stop()
+    await ppick(tv, 1, "draw_100"); await ppress(tv, "✅ 確認換上")
+    check("expired card notice", "已經過期" in texts(tv) and (await udm.get_title_state(A))["equipped"] == "draw_100")
 
-    # ↩️ 返回 ➔ 收起來
-    await pv.on_toggle_title(Interaction(uid=A)); await pv.on_toggle_title(Interaction(uid=A))
-    check("back closes", pv.mode == "card" and not selects(pv))
-
-    # 沒有任何稱號 ➔ 打開後說明怎麼拿
+    # 沒有任何稱號 ➔ 控制台照樣打開，全部 🔒
     it = Interaction(uid=3); await cmds["profile"].callback(cog, it, None, None)
-    await it.view.on_toggle_title(Interaction(uid=3))
-    check("none explains", "還沒有解鎖任何稱號" in texts(it.view) and not selects(it.view))
+    io = Interaction(uid=3); await it.view.on_open_title(io)
+    nv = io.view
+    check("none all locked", "已解鎖 `0`" in texts(nv) and all(o.description.startswith("🔒") for o in selects(nv)[1].options)
+          and pbtn(nv, "✅").disabled)
 
     # 🛠️ /admin-user title：管理員直接給 / 戴上 / 收回稱號，不用符合條件
     from Utils import config
@@ -582,49 +611,23 @@ async def main():
           and "shrine_explore" in td.unlocked_titles({"ps:explore": 500}))
     check("shrine collect short", td.title_desc("shrine_collect_n", {"ps:collect_money": 15000}).startswith("從賽錢箱回收了 15K"))
 
-    # --- 稱號選單分頁 (參考 /card inventory：分主題 + 分頁) ---
-    import importlib
-    prof = importlib.import_module("Cogs.load-general.profile")
-    keep = (prof.TITLES_PER_PAGE, prof.GROUP_SELECT_MAX, prof.GROUPS_PER_PAGE)
-    prof.TITLES_PER_PAGE = 3
-    for k in ("fox", "oni", "fairy", "bakeneko", "kappa"):
-        await udm.set_granted_title(C, td.guest_title_id(k, "sr"), True)
+    # --- 稱號控制台分頁：⛩️ 神社 35 個 ➔ 兩頁；戴著的稱號在第 2 頁 ➔ 一打開就在第 2 頁 ---
+    shrine = td.group_titles(sorted(td.TITLES, key=lambda t: -td.RARITY_ORDER[td.TITLES[t]["rarity"]]))["shrine"]
+    late = shrine[-1]
+    await udm.set_granted_title(C, late, True)
+    await udm.set_equipped_title(C, late)
     it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
-    pv = it.view
-    await pv.on_toggle_title(Interaction(uid=C))
-    await pv.on_title_group(Interaction(uid=C, data={"values": ["guest"]}))
-    sel = selects(pv)
-    btns = {b.label: b for b in pv.walk_children() if isinstance(b, discord.ui.Button)}
-    guest_n = len(td.group_titles((await udm.get_title_state(C))["unlocked"])["guest"])
-    check(f"title page 1 ({guest_n})", len(sel[1].options) == 4 and "第 1 / " in sel[1].placeholder
-          and btns["◀️ 上一頁"].disabled and not btns["下一頁 ▶️"].disabled and any(l.startswith("📄 1 / ") for l in btns))
-    await next(b for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "下一頁 ▶️").callback(Interaction(uid=C))   # 按共用分頁的按鈕
-    sel = selects(pv)
-    check("title page 2", "第 2 / " in sel[1].placeholder and sel[1].options[-1].value == "__none__"
-          and len(sel[1].options) == min(3, guest_n - 3) + 1)
-    await next(b for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "◀️ 上一頁").callback(Interaction(uid=C))
-    check("title page back", "第 1 / " in selects(pv)[1].placeholder)
-    # 戴著的稱號在第 2 頁 ➔ 切到那組時直接打開第 2 頁
-    page2 = td.group_titles((await udm.get_title_state(C))["unlocked"])["guest"][3]
-    await udm.set_equipped_title(C, page2)
-    it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
-    await it.view.on_toggle_title(Interaction(uid=C))
-    check("open equipped page", "第 2 / " in selects(it.view)[1].placeholder and any(o.default and o.value == page2 for o in selects(it.view)[1].options))
-    # 一頁放得下 ➔ 沒有換頁按鈕
-    prof.TITLES_PER_PAGE = 24
-    pv.build(*pv.data)
-    check("no page buttons", "下一頁 ▶️" not in {b.label for b in pv.walk_children() if isinstance(b, discord.ui.Button)})
-    # 分組太多 ➔ 分組選單也分頁 (最後兩個選項換頁)
-    prof.GROUP_SELECT_MAX, prof.GROUPS_PER_PAGE = 1, 1
-    it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
-    gv = it.view
-    await gv.on_toggle_title(Interaction(uid=C))
-    opts = [o.value for o in selects(gv)[0].options]
-    check(f"group paging {opts}", len(opts) == 3 and opts[-2:] == ["__gprev__", "__gnext__"])
-    first = opts[0]
-    await gv.on_title_group(Interaction(uid=C, data={"values": ["__gnext__"]}))
-    check("group next page", selects(gv)[0].options[0].value != first)
-    prof.TITLES_PER_PAGE, prof.GROUP_SELECT_MAX, prof.GROUPS_PER_PAGE = keep
+    io = Interaction(uid=C); await it.view.on_open_title(io)
+    gv = io.view
+    sel = selects(gv)
+    check("open equipped group + page", next(o for o in sel[0].options if o.default).value == "shrine"
+          and "第 2 / 2 頁" in sel[1].placeholder and any(o.value == late and o.description == "🏷️ 戴著" for o in sel[1].options))
+    await next(b for b in gv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "◀️ 上一頁").callback(Interaction(uid=C))
+    check("title page 1", "第 1 / 2 頁" in selects(gv)[1].placeholder and len(selects(gv)[1].options) == 25)
+    def count(item): return 1 + sum(count(ch) for ch in getattr(item, "children", []))
+    await selects(gv)[1].callback(Interaction(uid=C, data={"values": [selects(gv)[1].options[0].value]}))
+    check(f"panel components {sum(count(i) for i in gv.children)} ≤ 40", sum(count(i) for i in gv.children) <= 40
+          and all(len(x.options) <= 25 for x in selects(gv)))
 
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")

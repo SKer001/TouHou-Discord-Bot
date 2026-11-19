@@ -102,6 +102,7 @@ async def setup(bot):
 - **單則訊息最多 40 個元件**（每個 Section/TextDisplay/Button 都算）；列表類畫面要先算好每頁筆數（例：卡冊每頁 7 疊）。
 - **選單最多 25 個選項、autocomplete 最多 25 筆**：選項可能變多就分層（先選代數 pool → 再選角色 → 分頁選卡，每頁 20 張）。
 - **分頁一律用 `Utils/pagination.py`**（0.35.014 起，不要再自己寫上一頁 / 下一頁）：`paginate(清單, 頁數, 每頁幾筆)` 切頁並把頁數限制在範圍內；`nav_buttons(頁數, 總頁數, self.set_page, preset)` 回傳按鈕 list（可跟其他按鈕放同一排）；View 只要寫一個 `async def set_page(self, interaction, page)`。樣式 `default`（大部分畫面）/ `compact`（市場）/ `simple`（活動任務）/ `jump`（道具倉庫，可跳頁）。測試要翻頁就按畫面上的按鈕。
+- **「先選分組 ➔ 再選一個東西 ➔ 按按鈕」的畫面用 `Utils/picker.py` 的 `GroupPickerView`**（0.35.039）：子類別給 `groups`、`load()`、`group_name / item_label / item_status / header / detail / accent / actions()`，要預覽就覆寫 `preview_container()`、`select_item()`；誰能按看 `allowed()`（預設 = 打開的人，管理員控制台再加 `is_admin`）。例子：`Admin-user.py` 的 `AdminTitleView` / `AdminNamecardView`、`profile.py` 的 `TitlePickerView` / `NamecardPickerView`。
 
 ### 3.3 通知 / 錯誤訊息
 

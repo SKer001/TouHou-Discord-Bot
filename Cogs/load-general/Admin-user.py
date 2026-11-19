@@ -12,7 +12,7 @@ from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 from Utils.namecards import namecard_url, fetch_original_file
 from .Components.general_components import build_namecard_dm_view
 from Utils.components import send_notice
-from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
+from Utils.picker import GroupPickerView   # 🗂️ 分組 ➔ 選項 (翻頁) ➔ 按鈕 的共用控制台
 
 
 
@@ -121,125 +121,12 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
 
 
 # =========================================================
-# 🗂️ 管理員控制台共用：分組選單 ➔ 選項選單 (翻頁) ➔ 按鈕 (0.35.035 稱號、0.35.036 名片)
+# 🗂️ 管理員控制台共用底層：Utils/picker.GroupPickerView (0.35.039 搬去 Utils，玩家的修改稱號 / 名片也用)
 # =========================================================
-PICKER_PAGE = 25   # 分組 / 選項選單一頁幾個 (Discord 上限 25)；超過才多一排翻頁按鈕
-
-
-class AdminPickerView(ui.LayoutView):
-    """
-    子類別要給：
-    - groups：{分組 key: [選項 id, ...]} (照顯示順序)
-    - group_name(key)、item_label(id)、item_status(id) (選項說明)、header() (標題文字)、detail(id) (選好後的說明)
-    - accent()、actions() ➔ [(按鈕文字, 樣式, callback, 停用?), ...]
-    - load()：重新讀對方的資料 (每次操作後呼叫)
-    每次操作後重新讀資料，結果顯示在最上面 (self.notice)。只有下指令的管理員能按。
-    """
-    GROUP_PLACEHOLDER = "🗂️ 分組"
-    ITEM_PLACEHOLDER = "選一個…"
-
-    def __init__(self, admin_id: int, user, groups: dict[str, list[str]]):
-        super().__init__(timeout=900)
-        self.admin_id = admin_id
-        self.user = user
-        self.groups = {k: v for k, v in groups.items() if v}
-        self.group = next(iter(self.groups))
-        self.group_page = 1
-        self.item_page = 1
-        self.selected = None   # 選好的選項 id
-        self.notice = None     # 上一次操作的結果
-
-    # ---------- 子類別要實作 ----------
-    async def load(self): ...
-    def group_name(self, key: str) -> str: return key
-    def item_label(self, item: str) -> str: return item
-    def item_status(self, item: str) -> str: return ""
-    def header(self) -> str: return ""
-    def detail(self, item: str) -> str: return ""
-    def accent(self) -> discord.Color | None: return None
-    def actions(self) -> list: return []
-
-    # ---------- 共用 ----------
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.admin_id or not is_admin(interaction.user):
-            await send_notice(interaction, "❌ 這不是你的控制台")
-            return False
-        return True
-
-    async def refresh(self):
-        await self.load()
-        self.build()
-
-    def build(self):
-        self.clear_items()
-        c = ui.Container(accent_color=self.accent())
-        if self.notice:
-            c.add_item(ui.TextDisplay(self.notice))
-            c.add_item(ui.Separator())
-        c.add_item(ui.TextDisplay(self.header()))
-        if self.selected:
-            c.add_item(ui.Separator())
-            c.add_item(ui.TextDisplay(self.detail(self.selected)))
-        self.add_item(c)
-
-        # ① 分組選單
-        gp = paginate(list(self.groups), self.group_page, PICKER_PAGE)
-        self.group_page = gp.page
-        gsel = ui.Select(placeholder=self.GROUP_PLACEHOLDER + (f" (第 {gp.page} / {gp.total} 頁)" if gp.total > 1 else ""),
-                         options=[discord.SelectOption(label=self.group_name(k)[:100], value=k, default=k == self.group,
-                                                       description=self.group_status(k)[:100] or None) for k in gp.items])
-        gsel.callback = self.on_group
-        self.add_item(ui.ActionRow(gsel))
-        if gp.total > 1:
-            self.add_item(ui.ActionRow(*nav_buttons(gp.page, gp.total, self.set_group_page, "compact")))
-
-        # ② 那組的選項選單
-        ip = paginate(self.groups[self.group], self.item_page, PICKER_PAGE)
-        self.item_page = ip.page
-        isel = ui.Select(placeholder=f"{self.ITEM_PLACEHOLDER}：{self.group_name(self.group)}"[:140]
-                         + (f" (第 {ip.page} / {ip.total} 頁)" if ip.total > 1 else ""),
-                         options=[discord.SelectOption(label=self.item_label(i)[:100], value=i, default=i == self.selected,
-                                                       description=self.item_status(i)[:100] or None) for i in ip.items])
-        isel.callback = self.on_item
-        self.add_item(ui.ActionRow(isel))
-        if ip.total > 1:
-            self.add_item(ui.ActionRow(*nav_buttons(ip.page, ip.total, self.set_item_page)))
-
-        # ③ 操作按鈕
-        row = []
-        for label, style, cb, disabled in self.actions():
-            b = ui.Button(label=label, style=style, disabled=disabled)
-            b.callback = cb
-            row.append(b)
-        if row:
-            self.add_item(ui.ActionRow(*row))
-
-    def group_status(self, key: str) -> str:
-        return ""
-
-    async def done(self, interaction: discord.Interaction, notice: str | None = None):
-        self.notice = notice
-        await self.refresh()
-        await interaction.response.edit_message(view=self)
-
-    async def on_group(self, interaction: discord.Interaction):
-        value = interaction.data["values"][0]
-        if value in self.groups:
-            self.group, self.item_page, self.selected = value, 1, None
-        await self.done(interaction)
-
-    async def set_group_page(self, interaction: discord.Interaction, page: int):
-        self.group_page = page
-        await self.done(interaction)
-
-    async def set_item_page(self, interaction: discord.Interaction, page: int):
-        self.item_page = page
-        await self.done(interaction)
-
-    async def on_item(self, interaction: discord.Interaction):
-        value = interaction.data["values"][0]
-        self.selected = value if any(value in items for items in self.groups.values()) else None
-        await self.done(interaction)
+class AdminPickerView(GroupPickerView):
+    """只有打開控制台的那位管理員能按"""
+    def allowed(self, interaction: discord.Interaction) -> bool:
+        return super().allowed(interaction) and is_admin(interaction.user)
 
 
 # =========================================================

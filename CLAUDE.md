@@ -60,6 +60,7 @@ Cogs/
   load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py, help_components.py
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
+Utils/picker.py              共用控制台 GroupPickerView：分組選單 ➔ 選項選單 (翻頁) ➔ 按鈕 (+ 預覽)；管理員稱號 / 名片、玩家修改稱號 / 名片都用（0.35.039）
 Utils/thumbnails.py          Thumbnails.json 共用讀取 load_thumbnails() / thumbnail_url()（0.35.034 起 /help 用；其他 Cog 還有各自的舊寫法）
 Utils/stamina_modal.py       ⚡ 恢復體力彈窗（/profile 與神社採集畫面共用；每天最多吃 3 個體力道具）
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過

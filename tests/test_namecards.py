@@ -52,10 +52,18 @@ def texts(v): return "\n".join(i.content for i in v.walk_children() if isinstanc
 def selects(v): return [i for i in v.walk_children() if isinstance(i, discord.ui.Select)]
 def galleries(v): return [i for i in v.walk_children() if isinstance(i, discord.ui.MediaGallery)]
 def count(v): return sum(1 for _ in v.walk_children())
-def namecard_select(v): return next(s for s in selects(v) if s.placeholder.startswith("🖼️"))
-async def open_nc(v, uid):   # 0.35.038：平常沒有選單，要按「🖼️ 修改名片」才打開
-    if v.mode != "namecard":
-        await v.on_toggle_namecard(Interaction(uid=uid))
+def namecard_select(v): return selects(v)[1]   # 名片控制台：[0] 卡池、[1] 名片
+def containers(v): return [c for c in v.children if isinstance(c, discord.ui.Container)]
+def pbtn(v, label): return next(b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label.startswith(label))
+async def open_nc(pv, uid):   # 0.35.039：資料卡按「🖼️ 修改名片」另外跳出控制台，回傳控制台
+    io = Interaction(uid=uid)
+    await pv.on_open_namecard(io)
+    return io.view
+async def ppick(v, idx, value, uid): await selects(v)[idx].callback(Interaction(uid=uid, data={"values": [value]}))
+async def ppress(v, label, uid): await pbtn(v, label).callback(Interaction(uid=uid))
+class Msg:   # 資料卡訊息 (確認換上後會被編輯)
+    def __init__(s): s.view = None
+    async def edit(s, **kw): s.view = kw.get("view")
 
 POOL = gp.load_gacha_pool()
 CIRNO = POOL["cirno"]["rarities"]   # SR / SSR / UR
@@ -149,12 +157,14 @@ async def main():
     it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view
     check("no art ➔ no gallery", galleries(pv) == [])
-    check("no select until button", not selects(pv) and any(b.label == "🖼️ 修改名片" for b in pv.walk_children() if isinstance(b, discord.ui.Button)))
-    await open_nc(pv, A)
-    sel = namecard_select(pv)
-    check("namecard select options", [o.value for o in sel.options] == ["cirno", "__none__"] and not sel.disabled)
-    check("option label + emoji", sel.options[0].label == "琪露諾的名片" and str(sel.options[0].emoji) == POOL["cirno"]["emoji"]
-          and sel.options[0].default and "製作中" in (sel.options[0].description or ""))
+    check("button not select", not selects(pv) and any(b.label == "🖼️ 修改名片" for b in pv.walk_children() if isinstance(b, discord.ui.Button)))
+    nv = await open_nc(pv, A)
+    check("panel is separate", nv is not pv and type(nv).__name__ == "NamecardPickerView")
+    check("opens on equipped pool", next(o for o in selects(nv)[0].options if o.default).value == POOL["cirno"]["pool"])
+    opt = next(o for o in namecard_select(nv).options if o.value == "cirno")
+    check("option label + status", opt.label == f"{POOL['cirno']['emoji']} 琪露諾 的名片" and opt.description.startswith("🖼️ 戴著")
+          and "製作中" in opt.description)
+    check("not owned listed locked", any(o.description.startswith("🔒") for o in namecard_select(nv).options))
 
     from Database import namecard_data as nd   # 測試用琪露諾，先拿掉她真正的名片說明 (0.35.018 起有說明)，後面再放回
     real_cirno = nd.NAMECARDS.pop("cirno", None)
@@ -168,12 +178,10 @@ async def main():
     kids = list(container.children)
     daily_at = max(i for i, k in enumerate(kids) if isinstance(k, discord.ui.Section))
     check("gallery at bottom (0.35.038)", kids.index(g[0]) > daily_at and isinstance(kids[-1], discord.ui.ActionRow))
-    await open_nc(pv, A)
-    check("option has art", namecard_select(pv).options[0].description is None)
     check("no caption without data", "🖼️ **" not in texts(pv))
     if real_cirno: nd.NAMECARDS["cirno"] = real_cirno
 
-    # 名片名稱 + 說明 (2026-11-14)：圖下面一行字、選單選項說明；資料檔裡每張都要有 name / desc 且角色存在
+    # 名片名稱 + 說明 (2026-11-14)：圖下面一行字、控制台選項說明；資料檔裡每張都要有 name / desc 且角色存在
     from Database import namecard_data as nd
     for cid, card in nd.NAMECARDS.items():
         check(f"namecard data {cid}", cid in POOL and card.get("name") and card.get("desc"))
@@ -186,39 +194,49 @@ async def main():
     gi = kids.index(galleries(pv)[0])
     check("caption under gallery", isinstance(kids[gi + 1], discord.ui.TextDisplay)
           and kids[gi + 1].content.startswith("-# 🖼️ **測試名片**｜"))
-    await open_nc(pv, A)
-    d = namecard_select(pv).options[0].description
-    check("option shows namecard desc", d.startswith("「測試名片」") and len(d) == 100)
+    nv = await open_nc(pv, A)
+    d = next(o for o in namecard_select(nv).options if o.value == "cirno").description
+    check("option shows namecard name", "「測試名片」" in d and len(d) <= 100)
     nd.NAMECARDS.clear(); nd.NAMECARDS.update(saved)
 
-    # 別人看得到名片圖，但沒有選單；私人卡本人看也有圖
+    # 別人看得到名片圖，但沒有按鈕；私人卡本人看也有圖
     it = Interaction(uid=2); await cmds["profile"].callback(cog, it, member(A), None)
-    check("others see namecard", len(galleries(it.view)) == 1 and not selects(it.view))
+    check("others see namecard", len(galleries(it.view)) == 1 and not selects(it.view)
+          and "🖼️ 修改名片" not in [b.label for b in it.view.walk_children() if isinstance(b, discord.ui.Button)])
     await udm.update_visibility(A, False)
     it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
     check("private card namecard", len(galleries(it.view)) == 1)
     await udm.update_visibility(A, True)
 
-    # 選單：卸下 ➔ 圖不見；再戴上；沒擁有被擋
-    i2 = Interaction(uid=A, data={"values": ["__none__"]}); await pv.on_namecard(i2)
-    check("closes after pick", pv.mode == "card" and not selects(pv))
-    await open_nc(pv, A)
-    check("unequip via select", galleries(pv) == [] and (await udm.get_namecard_state(A))["equipped"] is None
-          and namecard_select(pv).options[-1].default)
-    i3 = Interaction(uid=A, data={"values": ["cirno"]}); await pv.on_namecard(i3)
-    check("equip via select", len(galleries(pv)) == 1 and (await udm.get_namecard_state(A))["equipped"] == "cirno")
-    i4 = Interaction(uid=A, data={"values": ["reimu"]}); await pv.on_namecard(i4)
-    check("not owned rejected", "還沒有這張名片" in texts(i4.view) and (await udm.get_namecard_state(A))["equipped"] == "cirno")
-    i5 = Interaction(uid=2, data={"values": ["__none__"]})
-    check("others cannot change", not await pv.interaction_check(i5))
+    # 控制台：✖️ 不放名片 ➔ 預覽 ➔ 確認 (資料卡跟著更新)；再選琪露諾 ➔ 預覽有圖 ➔ 確認；沒擁有的 🔒 不能確認
+    pv.message = Msg()
+    await ppress(nv, "✖️ 不放名片", A)
+    check("unequip preview", len(containers(nv)) == 2 and "不放名片圖" in texts(nv) and not pbtn(nv, "✅ 確認卸下").disabled)
+    check("not saved before confirm", (await udm.get_namecard_state(A))["equipped"] == "cirno")
+    await ppress(nv, "✅ 確認卸下", A)
+    check("unequip saved", (await udm.get_namecard_state(A))["equipped"] is None and galleries(pv.message.view) == []
+          and "原本的資料卡也換好了" in texts(nv))
+    await ppick(nv, 1, "cirno", A)
+    check("equip preview has image", len(containers(nv)) == 2 and len(galleries(nv)) == 1 and "👀 預覽" in texts(nv))
+    await ppress(nv, "✅ 確認換上", A)
+    check("equip saved", (await udm.get_namecard_state(A))["equipped"] == "cirno" and len(galleries(pv.message.view)) == 1
+          and len(containers(nv)) == 1)
+    locked = next(o.value for o in namecard_select(nv).options if o.description.startswith("🔒"))
+    await ppick(nv, 1, locked, A)
+    check("locked explains", "還沒拿到" in texts(nv) and "收藏冊" in texts(nv) and "完美卡" in texts(nv)
+          and pbtn(nv, "✅").disabled and len(containers(nv)) == 1)
+    nv.pending = ("equip", locked)   # 預覽到確認之間名片被收回
+    await ppress(nv, "✅ 確認換上", A)
+    check("not owned rejected", "還沒有這張名片" in texts(nv) and (await udm.get_namecard_state(A))["equipped"] == "cirno")
+    check("others cannot change", not await nv.interaction_check(Interaction(uid=2)))
 
-    # 沒有名片 ➔ 打開後說明怎麼拿 (0.35.038)
+    # 沒有名片 ➔ 控制台照樣打開，全部 🔒，選了會說怎麼拿
     it = Interaction(uid=3); await cmds["profile"].callback(cog, it, None, None)
-    await open_nc(it.view, 3)
-    t = texts(it.view)
-    check("none explains", "還沒有角色名片" in t and "收藏冊" in t and "完美卡" in t and not selects(it.view))
+    ev = await open_nc(it.view, 3)
+    check("none all locked", "擁有 `0`" in texts(ev) and all(o.description.startswith("🔒") for o in namecard_select(ev).options)
+          and pbtn(ev, "✅").disabled and pbtn(ev, "✖️ 不放名片").disabled)
 
-    # 名片超過 24 張 ➔ 分頁 (0.35.017 共用分頁)：打開時在戴著的那張那頁；名片 + 稱號 + 名片圖 + 剛簽到 + 換頁按鈕 ➔ 元件 ≤ 40
+    # 名片很多 + 角色不在卡池的名片 (fake0~9) ➔ 放「📌 其他」也換得到；打開時在戴著的那張那組；預覽有圖 ➔ 元件 ≤ 40
     M = 5
     for i, cid in enumerate(POOL):
         sql("INSERT INTO namecards (user_id, character_key, obtained_at, source) VALUES (?, ?, ?, 'admin')", (M, cid, f"2026-01-01T00:{i:02d}"))
@@ -227,34 +245,21 @@ async def main():
     sql("INSERT INTO gacha_stats (user_id, total_draws, total_fusions, total_synths) VALUES (?, 5000, 1000, 1000)", (M,))
     await udm.set_equipped_namecard(M, "fake9")
     await udm.set_equipped_title(M, "draw_5000")
-    with open(nc.NAMECARDS_FILE, "w", encoding="utf-8") as f: json.dump({cid: url for cid in POOL} | {"fake9": url}, f)
+    with open(nc.NAMECARDS_FILE, "w", encoding="utf-8") as f: json.dump({cid: url for cid in POOL} | {"fake9": url, "fake3": url}, f)
     it = Interaction(uid=M); await cmds["daily"].callback(cog, it)   # 簽到 ➔ 有獎勵那張卡
     pv = it.view
-    await open_nc(pv, M)
-    sel = namecard_select(pv)
-    n_owned = len(POOL) + 10
-    last = n_owned - 24
-    check(f"namecard page 2 ({n_owned})", "第 2 / 2 頁" in sel.placeholder and len(sel.options) == last + 1
-          and sel.options[-1].value == "__none__")
-    check("equipped listed", "fake9" in [o.value for o in sel.options] and next(o for o in sel.options if o.value == "fake9").default)
-    check("unknown character label", next(o for o in sel.options if o.value == "fake9").label == "fake9的名片")
-    check(f"component count {count(pv)} ≤ 40", count(pv) <= 40 and len(galleries(pv)) == 1 and len(selects(pv)) == 1)
-    prev = next(b for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "◀️ 上一頁")
-    await prev.callback(Interaction(uid=M))
-    sel = namecard_select(pv)
-    check("namecard page 1", "第 1 / 2 頁" in sel.placeholder and len(sel.options) == 25 and sel.options[-1].value == "__none__"
-          and "fake9" not in [o.value for o in sel.options])
-    check(f"component count page 1 {count(pv)} ≤ 40", count(pv) <= 40)
-    # 最壞情況：打開稱號、稱號要換頁 (0.35.038 起一次只會打開稱號或名片其中一個)
-    import importlib
-    prof = importlib.import_module("Cogs.load-general.profile")
-    keep_per = prof.TITLES_PER_PAGE
-    prof.TITLES_PER_PAGE = 1
-    await pv.on_toggle_title(Interaction(uid=M))
-    navs = sum(1 for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "下一頁 ▶️")
-    print(f"worst case components: {count(pv)}")
-    check(f"worst case {count(pv)} ≤ 40 (navs {navs})", pv.mode == "title" and navs == 1 and count(pv) <= 40)
-    prof.TITLES_PER_PAGE = keep_per
+    check(f"profile count {count(pv)} ≤ 40", count(pv) <= 40 and len(galleries(pv)) == 1)
+    mv = await open_nc(pv, M)
+    gsel, isel = selects(mv)
+    check("unknown in other group", next(o for o in gsel.options if o.default).value == "other"
+          and next(o for o in gsel.options if o.value == "other").label == "📌 其他"
+          and "fake9" in [o.value for o in isel.options])
+    check("unknown character label", next(o for o in isel.options if o.value == "fake9").label == "🖼️ fake9 的名片")
+    await ppick(mv, 1, "fake3", M)
+    check(f"preview components {count(mv)} ≤ 40", count(mv) <= 40 and len(galleries(mv)) == 1
+          and all(len(x.options) <= 25 for x in selects(mv)))
+    await ppress(mv, "✅ 確認換上", M)
+    check("equip unknown", (await udm.get_namecard_state(M))["equipped"] == "fake3")
 
     # --- 🛠️ /admin-user namecard ---
     from Utils import config
