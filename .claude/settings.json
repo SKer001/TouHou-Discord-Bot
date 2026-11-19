@@ -1,0 +1,26 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/anthropics/claude-plugins-official.git"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "mattpocock-skills@claude-plugins-official": true
+  },
+  "skillOverrides": {
+    "mattpocock-skills:pr": "user-invocable-only",
+    "mattpocock-skills:code-review": "user-invocable-only",
+    "mattpocock-skills:triage": "user-invocable-only",
+    "mattpocock-skills:to-spec": "user-invocable-only",
+    "mattpocock-skills:to-tickets": "user-invocable-only",
+    "mattpocock-skills:wayfinder": "user-invocable-only",
+    "mattpocock-skills:implement-spec": "user-invocable-only",
+    "mattpocock-skills:implement": "user-invocable-only",
+    "mattpocock-skills:setup-matt-pocock-skills": "user-invocable-only",
+    "mattpocock-skills:domain-modeling": "user-invocable-only",
+    "mattpocock-skills:grill-with-docs": "user-invocable-only"
+  }
+}

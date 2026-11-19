@@ -13,6 +13,13 @@
 
 ---
 
+## 0.35.031 — 2026-11-19：🧩 Matt Pocock skill 包 (外掛) 與「不要用」清單 (筆電，統整 session)
+- 專案 `.claude/settings.json` 啟用外掛 `mattpocock-skills@claude-plugins-official` (官方商店 1.3.1，27 個 skill)；使用者先 grill 定案：外掛、裝在專案設定、不跑 `/setup-matt-pocock-skills`。
+- 查過 27 個 skill：**都不需要 MCP**，外掛也沒附 MCP / hook / 指令；用到的外部工具只有 issue 追蹤 (`gh` / `glab`)、子任務、瀏覽器、Playwright (選用)。
+- 不要用的 11 個 (pr、code-review、triage、to-spec、to-tickets、wayfinder、implement-spec、implement、setup-matt-pocock-skills、domain-modeling、grill-with-docs)：`skillOverrides` 設成 `user-invocable-only` (不會自己觸發，使用者打指令還能用)，CLAUDE.md 第 7 節也列一份。
+- 新增 `docs/skills.md` (全部對照表) 並加進文件樹。
+- 問題與解法：這台筆電終端機沒有 `claude` 指令，不能照 README 用 `claude plugin install`，改成寫專案設定；**外掛會不會真的載入、`skillOverrides` 的 key 格式有沒有效都還沒確認** (要 pull 後開新對話看 skill 清單)。一開始以為外掛不能逐個停用，後來查到 `skillOverrides`，跟使用者更正後改成只擋自動觸發。
+
 ## 0.35.030 — 2026-11-17：露米婭角色名片「月下的樹梢」(桌機)
 - **🖼️ 露米婭**：月夜的森林，靠坐在大樹枝椏的分岔處睡著，背後是藍色滿月和螢火蟲 (使用者選第 4 張)。顯示用 `rumia.jpg`、說明已加上；原圖傳到私人頻道。設定表的「黑暗球」四張都沒畫出來，照原則不硬補。
 - `TODO.md` 名片進度改成 23 / 24 (統整 session 提醒的三處)。

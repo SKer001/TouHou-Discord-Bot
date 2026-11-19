@@ -20,6 +20,7 @@
 | 早期重構歷程 | `docs/history.md` |
 | CodeGraph 安裝 | `docs/setup.md` |
 | 雲端部署 (Google Cloud)、本機 ⇄ 雲端交接、雲端 DB 備份 | `docs/deploy.md` |
+| 外掛 skill（Matt Pocock skill 包）哪些能用、需要什麼工具 | `docs/skills.md`（不要用的清單在第 7 節） |
 | 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
 
 ## 1. 專案概觀
@@ -127,3 +128,14 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
 - 新 Cog 檔放進 `Cogs/load-*/`，不要留下舊的同名/過期檔案。
 - 不要在回覆中貼大量 URL；完成後簡述結果與下一步即可。
 - **文件樹**：CLAUDE.md 只放每次都要知道的事；細節寫進 `docs/` 對應的檔案，新主題就開新檔並加進上面的文件樹表格。
+
+## 7. 🧩 外掛 skill（Matt Pocock skill 包，2026-11-19 使用者決定）
+- 外掛 `mattpocock-skills@claude-plugins-official` 在專案 `.claude/settings.json` 啟用（**還沒確認真的會載入**，確認方式見 `docs/skills.md`），名字是 `mattpocock-skills:<skill>`；**27 個都不需要 MCP**。全部對照表在 `docs/skills.md`。
+- **🚫 這個專案不要用**（`.claude/settings.json` 的 `skillOverrides` 設成 `user-invocable-only`，Claude 不會自己觸發；萬一沒擋住也不要主動用，除非使用者自己打指令）：
+  - `pr`：不開 PR，直接推 main
+  - `code-review`：用內建的 `/code-review`
+  - `triage`、`to-spec`、`to-tickets`、`wayfinder`、`implement-spec`、`implement`：都要靠 issue 追蹤或規格單，本專案沒有
+  - `setup-matt-pocock-skills`：使用者決定不跑（會建 `docs/agents/*`、改這份文件）
+  - `domain-modeling`、`grill-with-docs`：會建 `GLOSSARY.md` / `docs/adr/`，跟上面的文件樹衝突；要 grill 用 `grill-me`
+- 其他可以用；用的時候守這裡的規則：文件照文件樹放（`research` 結果存 `docs/`），**不要建 `GLOSSARY.md`、`docs/adr/`、`CONTEXT.md`**；`prototype` 不開分支、不貼 issue；`tdd` 照 `tests/` 的寫法（`check()` + `python tests/run_all.py`）；skill 的問句格式是英文也要用繁體中文問。
+- 外掛會自動更新：多了新 skill 時，統整 session 要更新 `docs/skills.md` 和這份清單。
