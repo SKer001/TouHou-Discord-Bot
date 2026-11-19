@@ -129,14 +129,18 @@ async def main():
     acog = bot.get_cog("UserAdmin")
     acog.bot = Client()   # fetch_original_file 用 self.bot 抓頻道
     cmd = next(c for c in acog.walk_app_commands() if c.name == "namecard")
-    act = lambda v: app_commands.Choice(name=v, value=v)
     admin = User(900)
-    ia = Interaction(admin); await cmd.callback(acog, ia, act("full"), "reimu", None)
+    ia = Interaction(admin); await cmd.callback(acog, ia, None)
+    panel = ia.view
+    sels = [s_ for s_ in panel.walk_children() if isinstance(s_, discord.ui.Select)]
+    await sels[0].callback(Interaction(admin, data={"values": ["classic"]}))
+    sels = [s_ for s_ in panel.walk_children() if isinstance(s_, discord.ui.Select)]
+    await sels[1].callback(Interaction(admin, data={"values": ["reimu"]}))
+    full = next(b for b in panel.walk_children() if isinstance(b, discord.ui.Button) and b.label.startswith("📥"))
+    ia = Interaction(admin); await full.callback(ia)
     check("admin full png", len(admin.dms) == 1 and admin.dms[0]["file"].filename == "reimu.png"
-          and "原檔" in texts(admin.dms[0]["view"]))
-    ia = Interaction(admin); await cmd.callback(acog, ia, act("full"), "亂打", None)
-    check("admin bad character", "找不到這位角色" in texts(ia.view))
-    ia = Interaction(User(5)); await cmd.callback(acog, ia, act("full"), "reimu", None)
+          and "原檔" in texts(admin.dms[0]["view"]) and any("私訊給你" in texts(v) for v in ia.views))
+    ia = Interaction(User(5)); await cmd.callback(acog, ia, None)
     check("non-admin blocked", "無權限" in texts(ia.view))
 
 asyncio.run(main())

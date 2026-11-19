@@ -247,37 +247,56 @@ async def main():
     await bot.load_extension("Cogs.load-general.Admin-user")
     acog = bot.get_cog("UserAdmin")
     nc_cmd = next(c for c in acog.walk_app_commands() if c.name == "namecard")
-    act = lambda v: app_commands.Choice(name=v, value=v)
     G = 70
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("grant"), "reimu", member(G, "g"))
-    check("admin grant", await udm.get_namecards(G) == ["reimu"] and "已給" in texts(it.view)
+    # 0.35.036：控制台 (卡池選單 ➔ 角色選單 + 翻頁 ➔ 按鈕)，不再用 autocomplete
+    check("namecard cmd only target param", [p.name for p in nc_cmd.parameters] == ["target"])
+    def nbtn(v, label): return next(b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label.startswith(label))
+    async def npick(view, idx, value, uid=900):
+        await selects(view)[idx].callback(Interaction(uid=uid, data={"values": [value]}))
+    async def npress(view, label, uid=900):
+        await nbtn(view, label).callback(Interaction(uid=uid))
+
+    it = Interaction(uid=900); await nc_cmd.callback(acog, it, member(G, "g"))
+    nv = it.view
+    check("panel opens", "名片控制台：g" in texts(nv) and len(selects(nv)) == 2)
+    check("pool select", {o.value for o in selects(nv)[0].options} == {POOL[c]["pool"] for c in POOL})
+    check("buttons off before pick", nbtn(nv, "🖼️ 戴上").disabled and nbtn(nv, "🎁 給").disabled and nbtn(nv, "📥 原檔").disabled)
+    await npick(nv, 0, POOL["reimu"]["pool"]); await npick(nv, 1, "reimu")
+    await npress(nv, "🎁 給")
+    check("admin grant", await udm.get_namecards(G) == ["reimu"] and "已給" in texts(nv)
           and rows("SELECT source FROM namecards WHERE user_id = ?", (G,)) == [("admin",)])
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("grant"), "reimu", member(G, "g"))
-    check("admin grant twice", "本來就有" in texts(it.view))
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("equip"), "marisa", member(G, "g"))
+    check("grant off when owned", nbtn(nv, "🎁 給").disabled and not nbtn(nv, "🗑️ 收回").disabled)
+    await npick(nv, 1, "marisa"); await npress(nv, "🖼️ 戴上")
     check("admin equip gives", await udm.get_namecard_state(G) == {"equipped": "marisa", "owned": ["reimu", "marisa"]}
-          and "換上了" in texts(it.view))
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("revoke"), "marisa", member(G, "g"))
-    check("admin revoke unequips", await udm.get_namecard_state(G) == {"equipped": None, "owned": ["reimu"]} and "已收回" in texts(it.view))
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("list"), None, member(G, "g"))
-    check("admin list", "擁有 `1` 張" in texts(it.view) and "靈夢" in texts(it.view))
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("grant"), "亂打", member(G, "g"))
-    check("admin unknown character", "找不到這位角色" in texts(it.view) and await udm.get_namecards(G) == ["reimu"])
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("equip"), None, None)
-    check("admin missing character", "找不到這位角色" in texts(it.view))
-    it = Interaction(uid=G); await nc_cmd.callback(acog, it, act("grant"), "cirno", None)
-    check("non-admin blocked", "無權限" in texts(it.view) and await udm.get_namecards(G) == ["reimu"])
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("grant"), "cirno", None)
+          and "換上了" in texts(nv) and "🖼️ 戴著" in texts(nv))
+    await npress(nv, "🗑️ 收回")
+    check("admin revoke unequips", await udm.get_namecard_state(G) == {"equipped": None, "owned": ["reimu"]} and "已收回" in texts(nv))
+    check("panel shows count", "擁有 `1` /" in texts(nv))
+    await npick(nv, 1, "亂打")
+    check("bad character ignored", nbtn(nv, "🖼️ 戴上").disabled and await udm.get_namecards(G) == ["reimu"])
+    await npick(nv, 1, "reimu"); await npress(nv, "🖼️ 戴上"); await npress(nv, "✖️ 不放名片")
+    check("admin unequip", (await udm.get_namecard_state(G))["equipped"] is None and "不放名片" in texts(nv))
+    it = Interaction(uid=G)
+    check("other user blocked", not await nv.interaction_check(it))
+    it = Interaction(uid=G); await nc_cmd.callback(acog, it, None)
+    check("non-admin blocked", "無權限" in texts(it.view))
+    it = Interaction(uid=900); await nc_cmd.callback(acog, it, None)
+    sv = it.view
+    await npick(sv, 0, POOL["cirno"]["pool"]); await npick(sv, 1, "cirno"); await npress(sv, "🎁 給")
     check("target empty = self", await udm.get_namecards(900) == ["cirno"])
     # 還有推角稱號的話，收回之後又會自動補回來 (訊息要說明)
     add_cards(G, "cirno", CIRNO, locked=1, prefix="g")
     await udm.get_title_state(G)
-    it = Interaction(uid=900); await nc_cmd.callback(acog, it, act("revoke"), "cirno", member(G, "g"))
-    check("revoke while oshi", "自動補回來" in texts(it.view) and "cirno" in await udm.get_namecards(G))
-    choices = await acog.namecard_autocomplete(Interaction(uid=900), "")
-    check("autocomplete ≤ 25", 0 < len(choices) <= 25)
-    check("autocomplete filter", [c.value for c in await acog.namecard_autocomplete(Interaction(uid=900), "琪露")] == ["cirno"]
-          and [c.value for c in await acog.namecard_autocomplete(Interaction(uid=900), "REMI")] == ["remilia"])
+    await npick(nv, 0, POOL["cirno"]["pool"]); await npick(nv, 1, "cirno"); await npress(nv, "🗑️ 收回")
+    check("revoke while oshi", "自動補回來" in texts(nv) and "cirno" in await udm.get_namecards(G))
+    # 角色超過 25 位 ➔ 角色選單翻頁
+    keep_groups = nv.groups
+    nv.groups = {"big": [f"fake{i}" for i in range(30)]}; nv.group, nv.item_page, nv.selected = "big", 1, None
+    nv.build()
+    check("character paging", len(selects(nv)[1].options) == 25 and "第 1 / 2 頁" in selects(nv)[1].placeholder)
+    await nbtn(nv, "下一頁").callback(Interaction(uid=900))
+    check("character page 2", len(selects(nv)[1].options) == 5)
+    nv.groups = keep_groups
 
     # --- 🔔 通知 loop：推角稱號私訊多一句名片，並順便補名片 ---
     from importlib import import_module

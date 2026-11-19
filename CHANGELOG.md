@@ -13,6 +13,11 @@
 
 ---
 
+## 0.35.036 — 2026-11-19：🖼️ /admin-user namecard 也改成控制台 (筆電，統整 session)
+- 跟稱號控制台一樣的原因 (autocomplete 最多 25 個，角色加上 TH07 之後會超過)：`/admin-user namecard [target]` 打開 `AdminNamecardView`：🎰 卡池選單 ➔ 🖼️ 角色選單 (一頁 25 位，超過翻頁；選項說明寫戴著 / 擁有 / 沒有 / 名片圖還沒做) ➔ 按鈕 🖼️ 戴上 (順便給)、🎁 給、🗑️ 收回、✖️ 不放名片、📥 原檔 (私訊給管理員本人)；選好的角色會顯示名片名稱與說明。
+- 兩個控制台共用 `Admin-user.py` 的 `AdminPickerView` (分組選單 ➔ 選項選單 + 翻頁 ➔ 按鈕，結果顯示在最上面，只有下指令的管理員能按)；稱號控制台改成它的子類別，畫面不變。
+- 指令的 `action`、`character` 參數拿掉了 (要 `/admin-sys sync`)。測試 `test_namecards` / `test_namecard_download` 改成按控制台 (含角色超過 25 位翻頁、原檔私訊)，全部 1355 項通過；`botcli --live` 畫面 Discord 接受。
+
 ## 0.35.035 — 2026-11-19：🏷️ /admin-user title 改成稱號控制台 (筆電，統整 session)
 - 稱號快 200 個，原本 `title` 參數用 autocomplete 只列得出 25 個 (使用者回報)。改成 `/admin-user title [target]` 打開控制台 `AdminTitleView`：🗂️ 分組選單 (全部 24 組，超過 25 組翻頁) ➔ 🏷️ 那組的稱號選單 (一頁 25 個，⛩️ 神社 35 個會有兩頁，選項說明寫狀態：戴著 / 管理員給的 / 自己達成 / 沒有) ➔ 按鈕 🏷️ 戴上 (順便給)、🎁 給、🗑️ 收回、✖️ 卸下；結果顯示在最上面，只有下指令的管理員能按。
 - 指令的 `action`、`title` 參數拿掉了 (Discord 要 `/admin-sys sync` 才會更新指令選單)；`/help` 的管理員指令表會自動跟著變。
