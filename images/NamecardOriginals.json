@@ -94,6 +94,11 @@
         "jpg": "rumia_full.jpg",
         "full": "rumia.png"
     },
+    "sakuya": {
+        "message_id": 1572899872854777981,
+        "jpg": "sakuya_full.jpg",
+        "full": "sakuya.png"
+    },
     "shinki": {
         "message_id": 1571808477389652053,
         "jpg": "shinki_full.jpg",

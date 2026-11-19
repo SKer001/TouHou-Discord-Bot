@@ -3,7 +3,7 @@
 > 兩台電腦共用的進度表；做完一項就打勾或刪掉，跟著 commit 推上去。
 ## 0. 目前進度 (2026-11-19，v0.35.032)
 - **卡面**：24 位角色 N～LR 全部走高清分層流程完成 (0.35.024)；新角色的卡面跟著第 3 節做。
-- **名片**：23 / 24 位完成，剩咲夜 (桌機)。
+- **名片**：✅ 24 / 24 位全部完成 (桌機，2026-11-19)。
 - **雲端**：`online` 分支與部署檔已就緒 (`docs/deploy.md`)，Google Cloud 資源還沒建 (使用者：gcloud 晚點再用)。
 - **開發工具**：botcli / discord_peek、主控台指令、重載控制台、共用分頁 `Utils/pagination.py`、Matt Pocock skill 包 (`docs/skills.md`)；1283 項測試全過。
 - **分工**：多 session 並行 (CLAUDE.md 第 5 節)，版本號推送前才編。
@@ -86,7 +86,7 @@
 
 ## 4. 稱號系統 (0.31.000 上線，獲得時私訊；已完成的組見 `docs/cogs.md`)
 - [ ] 其他組稱號：跟使用者一組一組定名稱、說明、門檻 (0.35.001 🙏 客人、0.35.003 🗺️ 足跡、0.35.005 🍀 運氣、0.35.007 🍳 美食家、0.35.010 ⛩️ 神社分級做完；之前討論的 A～E 候選都做完了)
-- [ ] 角色名片圖 (19:9、睡顏系列，桌機)：23 / 24 位完成；剩咲夜 (`tools/card_art/build_namecards.py`，見 `docs/card-art.md`)
+- [x] 角色名片圖 (19:9、睡顏系列，桌機)：24 / 24 位全部完成 ➔ 0.35.040 (`tools/card_art/build_namecards.py`，見 `docs/card-art.md`)
 
 ## 5. 經濟系統
 數值都在 `Database/Economy_DB_Manager.py` 開頭；**使用者沒給的數值一定要先問。**
@@ -137,7 +137,7 @@
 - [x] 稱號顯示在排行榜、市場上架公告 ➔ 0.33.008 (使用者：兩個都要)
 - [x] 推角稱號改成只算收藏冊 + 🖼️ 角色名片 (第一次拿到推角稱號就永久獲得，/profile 最上面顯示，`/admin-user namecard`) ➔ 0.33.000
 - [x] 名片「下載原圖」➔ 0.33.002：原圖放私人頻道 (`NAMECARD_CHANNEL_ID`)，`/profile`「📥 下載名片原圖」私訊高畫質 JPG；管理員 `/admin-user namecard`「📥 原檔」私訊 PNG
-- [x] 名片原圖上傳到私人頻道 (`upload_namecard.py`)：做好的 23 位 (含靈夢) 都在 `images/NamecardOriginals.json`
+- [x] 名片原圖上傳到私人頻道 (`upload_namecard.py`)：24 位全部都在 `images/NamecardOriginals.json`
 
 ### 經濟 (v0.23.000 神社經營 / 市值 / 分解 / 市場 / 轉帳 / 簽到 7 天開通)
 - [x] 招待參拜客、採集、料理、雜貨店、活動系統 (v0.27.000)
