@@ -346,27 +346,88 @@ async def main():
     await bot.load_extension("Cogs.load-general.Admin-user")
     acog = bot.get_cog("UserAdmin")
     title_cmd = next(c for c in acog.walk_app_commands() if c.name == "title")
-    act = lambda v: app_commands.Choice(name=v, value=v)
     G = 70
+    gtarget = types.SimpleNamespace(id=G, display_name="g")
+
+    # 0.35.035：控制台 (分組選單 ➔ 稱號選單 + 翻頁 ➔ 按鈕)，不再用 autocomplete (稱號快 200 個)
+    check("title cmd only target param", [p.name for p in title_cmd.parameters] == ["target"])
+    def btn(v, label): return next(b for b in v.walk_children() if isinstance(b, discord.ui.Button) and label in b.label)
+    async def pick(view, select_index, value, uid=900):
+        it = Interaction(uid=uid, data={"values": [value]})
+        await selects(view)[select_index].callback(it)
+        return it
+    async def press(view, label, uid=900):
+        it = Interaction(uid=uid)
+        await btn(view, label).callback(it)
+        return it
+
     it = Interaction(uid=900)
-    await title_cmd.callback(acog, it, act("equip"), "draw_5000", types.SimpleNamespace(id=G, display_name="g"))
+    await title_cmd.callback(acog, it, gtarget)
+    tv = it.view
+    check("panel opens", "稱號控制台：g" in texts(tv) and len(selects(tv)) == 2)
+    gsel = selects(tv)[0]
+    check("group select ≤ 25 and every group", len(gsel.options) <= 25 and {o.value for o in gsel.options} == set(td.group_titles(list(td.TITLES))))
+    check("buttons disabled before pick", btn(tv, "戴上").disabled and btn(tv, "🎁 給").disabled and btn(tv, "收回").disabled)
+
+    # 選 🎰 祈願 ➔ LR 幻想鄉第一信仰 ➔ 戴上 (順便給)
+    await pick(tv, 0, "draw")
+    await pick(tv, 1, "draw_5000")
+    check("picked shows status", "[LR] 幻想鄉第一信仰" in texts(tv) and "🔒 沒有" in texts(tv) and not btn(tv, "戴上").disabled)
+    await press(tv, "戴上")
     st = await udm.get_title_state(G)
-    check("admin equip any title", st["equipped"] == "draw_5000" and st["unlocked"] == ["draw_5000"] and "戴上了" in texts(it.view))
-    await title_cmd.callback(acog, Interaction(uid=900), act("grant"), "streak_365", types.SimpleNamespace(id=G, display_name="g"))
-    check("admin grant", (await udm.get_title_state(G))["unlocked"] == ["draw_5000", "streak_365"])
-    await title_cmd.callback(acog, Interaction(uid=900), act("revoke"), "draw_5000", types.SimpleNamespace(id=G, display_name="g"))
+    check("admin equip any title", st["equipped"] == "draw_5000" and st["unlocked"] == ["draw_5000"] and "戴上了" in texts(tv))
+    check("equipped status", "🏷️ 戴著" in texts(tv) and btn(tv, "戴上").disabled and not btn(tv, "收回").disabled)
+
+    # 給 🔥 連續簽到 365
+    await pick(tv, 0, "streak")
+    await pick(tv, 1, "streak_365")
+    await press(tv, "🎁 給")
+    check("admin grant", (await udm.get_title_state(G))["unlocked"] == ["draw_5000", "streak_365"] and "已給" in texts(tv))
+    check("grant button off after", btn(tv, "🎁 給").disabled)
+
+    # 收回戴著的 ➔ 也卸下
+    await pick(tv, 0, "draw")
+    await pick(tv, 1, "draw_5000")
+    await press(tv, "收回")
     st = await udm.get_title_state(G)
-    check("admin revoke drops equipped", st["unlocked"] == ["streak_365"] and st["equipped"] is None)
-    it = Interaction(uid=900); await title_cmd.callback(acog, it, act("grant"), "亂打", None)
-    check("admin bad title", "找不到這個稱號" in texts(it.view))
-    it = Interaction(uid=G); await title_cmd.callback(acog, it, act("grant"), "draw_10", None)
-    check("non-admin blocked", "無權限" in texts(it.view) and await udm.get_granted_titles(G) == ["streak_365"])
-    choices = await acog.title_autocomplete(Interaction(uid=900), "")
-    check("autocomplete ≤ 25", len(choices) == 25 and choices[0].name.startswith("[LR]"))
-    check("autocomplete filter", [c.value for c in await acog.title_autocomplete(Interaction(uid=900), "黃金")] == ["ur_10"])
+    check("admin revoke drops equipped", st["unlocked"] == ["streak_365"] and st["equipped"] is None and "已收回" in texts(tv))
+
+    # ⛩️ 神社 35 個 ➔ 稱號選單翻頁，第 2 頁的也選得到
+    await pick(tv, 0, "shrine")
+    n_shrine = len(td.group_titles(list(td.TITLES))["shrine"])
+    check(f"shrine page 1 ({n_shrine})", n_shrine > 25 and len(selects(tv)[1].options) == 25 and "第 1 / 2 頁" in selects(tv)[1].placeholder)
+    await press(tv, "下一頁")
+    page2 = [o.value for o in selects(tv)[1].options]
+    check("shrine page 2", len(page2) == n_shrine - 25 and "第 2 / 2 頁" in selects(tv)[1].placeholder)
+    await pick(tv, 1, page2[-1])
+    await press(tv, "🎁 給")
+    check("grant from page 2", page2[-1] in await udm.get_granted_titles(G))
+    await press(tv, "卸下")
+    check("unequip", (await udm.get_title_state(G))["equipped"] is None)
+
+    # 元件數、選單選項數
+    def count(item): return 1 + sum(count(ch) for ch in getattr(item, "children", []))
+    check(f"panel components {sum(count(i) for i in tv.children)} ≤ 40", sum(count(i) for i in tv.children) <= 40
+          and all(len(s_.options) <= 25 for s_ in selects(tv)))
+
+    # 亂傳的值不會壞掉；別人不能按
+    await pick(tv, 1, "亂打")
+    check("bad title value ignored", btn(tv, "戴上").disabled)
+    it = Interaction(uid=G)
+    check("other user blocked", not await tv.interaction_check(it) and "不是你的控制台" in texts(it.view))
+    it = Interaction(uid=G); await title_cmd.callback(acog, it, None)
+    check("non-admin blocked", "無權限" in texts(it.view))
+
     # 自己達成條件的稱號收回也不會不見
-    await title_cmd.callback(acog, Interaction(uid=900), act("revoke"), "draw_100", types.SimpleNamespace(id=A, display_name="a"))
-    check("revoke earned keeps", "draw_100" in (await udm.get_title_state(A))["unlocked"])
+    it = Interaction(uid=900)
+    await title_cmd.callback(acog, it, types.SimpleNamespace(id=A, display_name="a"))
+    av = it.view
+    await pick(av, 0, "draw")
+    await pick(av, 1, "draw_100")
+    check("earned not granted ➔ revoke off", btn(av, "收回").disabled and "✅ 自己達成" in texts(av))
+    await press(av, "🎁 給")
+    await press(av, "收回")
+    check("revoke earned keeps", "draw_100" in (await udm.get_title_state(A))["unlocked"] and "自己有達成條件" in texts(av))
 
     # --- 🙏 客人稱號 (0.35.001)：每種客人 SR 招待 50 次 / UR 成功招待 50 次；活動客人每個活動一組 ---
     from Database import shrine_data as sd

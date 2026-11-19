@@ -1,5 +1,5 @@
 import discord
-from discord import app_commands
+from discord import app_commands, ui
 from discord.ext import commands
 from Database.User_DB_Manager import (
     reset_daily, add_money, add_exp, update_user_inventory, add_stamina,
@@ -12,6 +12,7 @@ from Utils.gacha_pools import load_gacha_pool
 from Utils.namecards import namecard_url, fetch_original_file
 from .Components.general_components import build_namecard_dm_view
 from Utils.components import send_notice
+from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 
 
 
@@ -93,60 +94,17 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         )
 
     # 6. 🏷️ /admin-user title 管理員直接給 / 收回 / 戴上稱號 (不用符合條件；2026-11-13 使用者要求)
-    TITLE_ACTIONS = [
-        app_commands.Choice(name="🏷️ 戴上 (順便給)", value="equip"),
-        app_commands.Choice(name="🎁 給稱號", value="grant"),
-        app_commands.Choice(name="🗑️ 收回稱號", value="revoke"),
-        app_commands.Choice(name="✖️ 卸下稱號", value="unequip"),
-        app_commands.Choice(name="📋 查看", value="list"),
-    ]
-
-    async def title_autocomplete(self, interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-        """稱號超過 25 個：依輸入的文字 (名稱 / id / 等級) 篩選，等級高的在前"""
-        cur = current.strip().lower()
-        tids = sorted(title_data.TITLES, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
-        return [app_commands.Choice(name=title_data.title_label(t), value=t) for t in tids
-                if not cur or cur in t.lower() or cur in title_data.title_label(t).lower()][:25]
-
-    @app_commands.command(name="title", description="【開發者專用】直接給、收回、戴上稱號 (不用符合解鎖條件)")
-    @app_commands.describe(action="要做什麼", title="稱號 (可以打名稱篩選；卸下 / 查看不用填)", target="【可選】目標成員 (留空 = 自己)")
-    @app_commands.choices(action=TITLE_ACTIONS)
-    @app_commands.autocomplete(title=title_autocomplete)
+    #    0.35.035 改成控制台 (AdminTitleView)：稱號快 200 個，autocomplete 只列得出 25 個 (使用者要求改成選單 + 翻頁)
+    @app_commands.command(name="title", description="【開發者專用】稱號控制台：選分組 ➔ 選稱號 ➔ 戴上 / 給 / 收回 (不用符合解鎖條件)")
+    @app_commands.describe(target="【可選】目標成員 (留空 = 自己)")
     @app_commands.default_permissions(administrator=True)
-    async def title_cmd(self, interaction: discord.Interaction, action: app_commands.Choice[str],
-                        title: str | None = None, target: discord.User | discord.Member = None):
+    async def title_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member = None):
         if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 無權限")
             return
-        user = target or interaction.user
-        act = action.value
-        if act in ("equip", "grant", "revoke"):
-            if title not in title_data.TITLES:   # 可能繞過 autocomplete 亂打
-                await send_notice(interaction, "❌ 找不到這個稱號，請從選單選。")
-                return
-            label = title_data.title_label(title)
-        if act == "equip":
-            await set_granted_title(user.id, title, True)
-            await set_equipped_title(user.id, title)
-            msg = f"🏷️ **{user.display_name}** 戴上了 **{label}**"
-        elif act == "grant":
-            await set_granted_title(user.id, title, True)
-            msg = f"🎁 已給 **{user.display_name}** 稱號 **{label}** (到 /profile 可以戴上)"
-        elif act == "revoke":
-            await set_granted_title(user.id, title, False)
-            still = title in (await get_title_state(user.id))["unlocked"]
-            msg = f"🗑️ 已收回 **{user.display_name}** 的 **{label}**" + ("\n-# 他自己有達成條件，所以還是有這個稱號" if still else "")
-        elif act == "unequip":
-            await set_equipped_title(user.id, None)
-            msg = f"✖️ **{user.display_name}** 已卸下稱號"
-        else:
-            msg = f"📋 **{user.display_name}** 的稱號"
-        state = await get_title_state(user.id)
-        granted = await get_granted_titles(user.id)
-        equipped = title_data.title_label(state["equipped"]) if state["equipped"] else "沒戴"
-        given = "、".join(title_data.title_label(t) for t in granted if t in title_data.TITLES) or "無"
-        msg += f"\n戴著：`{equipped}`\n已解鎖 `{len(state['unlocked'])}` 個 (管理員給的：{given})"
-        await send_notice(interaction, msg)
+        view = AdminTitleView(interaction.user.id, target or interaction.user)
+        await view.refresh()
+        await interaction.response.send_message(view=view, ephemeral=True)
 
     # 7. 🖼️ /admin-user namecard 管理員直接給 / 收回 / 戴上角色名片 (2026-11-14 使用者要求)
     NAMECARD_ACTIONS = [
@@ -218,6 +176,159 @@ class UserAdmin(commands.GroupCog, group_name="admin-user", group_description="�
         owned = "、".join(label(c) for c in state["owned"]) or "無"
         msg += f"\n戴著：`{equipped}`\n擁有 `{len(state['owned'])}` 張：{owned}"
         await send_notice(interaction, msg)
+
+
+# =========================================================
+# 🏷️ /admin-user title 控制台 (0.35.035)
+# =========================================================
+ADMIN_TITLES_PER_PAGE = 25   # 稱號選單一頁幾個 (Discord 上限 25)
+ADMIN_GROUPS_PER_PAGE = 25   # 分組選單一頁幾組
+
+
+class AdminTitleView(ui.LayoutView):
+    """
+    ① 分組選單 (全部分組，超過 25 組才多一排翻頁) ➔ ② 那組的稱號選單 (一頁 25 個，超過才多一排翻頁)
+    ➔ ③ 選好的稱號：🏷️ 戴上 (順便給) / 🎁 給 / 🗑️ 收回；另外隨時可以 ✖️ 卸下
+    每次操作後重新讀對方的稱號狀態，結果顯示在最上面。只有下指令的管理員能按。
+    """
+
+    def __init__(self, admin_id: int, user):
+        super().__init__(timeout=900)
+        self.admin_id = admin_id
+        self.user = user
+        order = sorted(title_data.TITLES, key=lambda t: -title_data.RARITY_ORDER[title_data.TITLES[t]["rarity"]])
+        self.groups = title_data.group_titles(order)   # {分組: [稱號 id (等級高的在前)]}
+        self.group = next(iter(self.groups))
+        self.group_page = 1
+        self.title_page = 1
+        self.selected = None                  # 選好的稱號 id
+        self.notice = None                    # 上一次操作的結果
+        self.state = {"equipped": None, "unlocked": [], "stats": {}}
+        self.granted = []
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.admin_id or not is_admin(interaction.user):
+            await send_notice(interaction, "❌ 這不是你的控制台")
+            return False
+        return True
+
+    async def refresh(self):
+        self.state = await get_title_state(self.user.id)
+        self.granted = [t for t in await get_granted_titles(self.user.id) if t in title_data.TITLES]
+        self.build()
+
+    def _group_name(self, key: str) -> str:
+        return title_data.TITLE_GROUPS.get(key, {}).get("name", "📌 其他")
+
+    def _status(self, tid: str) -> str:
+        tags = []
+        if tid == self.state["equipped"]:
+            tags.append("🏷️ 戴著")
+        if tid in self.granted:
+            tags.append("🎁 管理員給的")
+        elif tid in self.state["unlocked"]:
+            tags.append("✅ 自己達成")
+        return "、".join(tags) or "🔒 沒有"
+
+    def build(self):
+        self.clear_items()
+        unlocked, equipped = self.state["unlocked"], self.state["equipped"]
+        c = ui.Container(accent_color=discord.Color(title_data.title_color(self.selected or equipped)))
+        if self.notice:
+            c.add_item(ui.TextDisplay(self.notice))
+            c.add_item(ui.Separator())
+        c.add_item(ui.TextDisplay(
+            f"## 🏷️ 稱號控制台：{self.user.display_name}\n"
+            f"戴著：`{title_data.title_label(equipped) if equipped else '沒戴'}`　"
+            f"已解鎖 `{len(unlocked)}` / `{len(title_data.TITLES)}` 個 (管理員給的 `{len(self.granted)}` 個)\n"
+            "-# 選分組 ➔ 選稱號 ➔ 按下面的按鈕；管理員給的稱號不用符合解鎖條件"))
+        if self.selected:
+            c.add_item(ui.Separator())
+            c.add_item(ui.TextDisplay(
+                f"**{title_data.title_label(self.selected)}**　{self._group_name(title_data.title_group(self.selected) or 'other')}\n"
+                f"-# {title_data.title_desc(self.selected, self.state.get('stats'))}\n狀態：{self._status(self.selected)}"))
+        self.add_item(c)
+
+        # ① 分組選單
+        gp = paginate(list(self.groups), self.group_page, ADMIN_GROUPS_PER_PAGE)
+        self.group_page = gp.page
+        gsel = ui.Select(placeholder="🗂️ 稱號分組" + (f" (第 {gp.page} / {gp.total} 頁)" if gp.total > 1 else ""), options=[
+            discord.SelectOption(label=self._group_name(k)[:100], value=k, default=k == self.group,
+                                 description=f"{sum(t in unlocked for t in self.groups[k])} / {len(self.groups[k])} 個已解鎖")
+            for k in gp.items])
+        gsel.callback = self.on_group
+        self.add_item(ui.ActionRow(gsel))
+        if gp.total > 1:
+            self.add_item(ui.ActionRow(*nav_buttons(gp.page, gp.total, self.set_group_page, "compact")))
+
+        # ② 那組的稱號選單
+        tp = paginate(self.groups[self.group], self.title_page, ADMIN_TITLES_PER_PAGE)
+        self.title_page = tp.page
+        tsel = ui.Select(
+            placeholder=f"🏷️ 選稱號：{self._group_name(self.group)}" + (f" (第 {tp.page} / {tp.total} 頁)" if tp.total > 1 else ""),
+            options=[discord.SelectOption(label=title_data.title_label(t)[:100], value=t, default=t == self.selected,
+                                          description=self._status(t)[:100]) for t in tp.items])
+        tsel.callback = self.on_title
+        self.add_item(ui.ActionRow(tsel))
+        if tp.total > 1:
+            self.add_item(ui.ActionRow(*nav_buttons(tp.page, tp.total, self.set_title_page)))
+
+        # ③ 操作按鈕
+        sel = self.selected
+        row = []
+        for label, style, cb, disabled in [
+            ("🏷️ 戴上 (順便給)", discord.ButtonStyle.success, self.on_equip, sel is None or sel == equipped),
+            ("🎁 給", discord.ButtonStyle.primary, self.on_grant, sel is None or sel in self.granted),
+            ("🗑️ 收回", discord.ButtonStyle.danger, self.on_revoke, sel is None or sel not in self.granted),
+            ("✖️ 卸下稱號", discord.ButtonStyle.secondary, self.on_unequip, equipped is None),
+        ]:
+            b = ui.Button(label=label, style=style, disabled=disabled)
+            b.callback = cb
+            row.append(b)
+        self.add_item(ui.ActionRow(*row))
+
+    async def _done(self, interaction: discord.Interaction, notice: str | None = None):
+        self.notice = notice
+        await self.refresh()
+        await interaction.response.edit_message(view=self)
+
+    async def on_group(self, interaction: discord.Interaction):
+        value = interaction.data["values"][0]
+        if value in self.groups:
+            self.group, self.title_page, self.selected = value, 1, None
+        await self._done(interaction)
+
+    async def set_group_page(self, interaction: discord.Interaction, page: int):
+        self.group_page = page
+        await self._done(interaction)
+
+    async def set_title_page(self, interaction: discord.Interaction, page: int):
+        self.title_page = page
+        await self._done(interaction)
+
+    async def on_title(self, interaction: discord.Interaction):
+        value = interaction.data["values"][0]
+        self.selected = value if value in title_data.TITLES else None
+        await self._done(interaction)
+
+    async def on_equip(self, interaction: discord.Interaction):
+        await set_granted_title(self.user.id, self.selected, True)
+        await set_equipped_title(self.user.id, self.selected)
+        await self._done(interaction, f"🏷️ **{self.user.display_name}** 戴上了 **{title_data.title_label(self.selected)}**")
+
+    async def on_grant(self, interaction: discord.Interaction):
+        await set_granted_title(self.user.id, self.selected, True)
+        await self._done(interaction, f"🎁 已給 **{self.user.display_name}** 稱號 **{title_data.title_label(self.selected)}** (到 /profile 可以戴上)")
+
+    async def on_revoke(self, interaction: discord.Interaction):
+        await set_granted_title(self.user.id, self.selected, False)
+        still = self.selected in (await get_title_state(self.user.id))["unlocked"]
+        await self._done(interaction, f"🗑️ 已收回 **{self.user.display_name}** 的 **{title_data.title_label(self.selected)}**"
+                         + ("\n-# 他自己有達成條件，所以還是有這個稱號" if still else ""))
+
+    async def on_unequip(self, interaction: discord.Interaction):
+        await set_equipped_title(self.user.id, None)
+        await self._done(interaction, f"✖️ **{self.user.display_name}** 已卸下稱號")
 
 
 async def setup(bot: commands.Bot):
