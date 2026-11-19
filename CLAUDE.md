@@ -138,5 +138,9 @@ images/                      專案根目錄；Thumbnails.json = {"角色id_階�
   - `triage`、`to-spec`、`to-tickets`、`wayfinder`、`implement-spec`、`implement`：都要靠 issue 追蹤或規格單，本專案沒有
   - `setup-matt-pocock-skills`：使用者決定不跑（會建 `docs/agents/*`、改這份文件）
   - `domain-modeling`、`grill-with-docs`：會建 `GLOSSARY.md` / `docs/adr/`，跟上面的文件樹衝突；要 grill 用 `grill-me`
+- **🔥 動手前先 grill（2026-11-19 使用者決定，所有 session 都要照做，不靠外掛也要做）**：
+  - **要先 grill**：新功能、改玩法 / 數值、改畫面這類有設計決定的工作。動手前一輪一輪問使用者：每輪把「現在就能問的問題」編號列出、每題附上建議答案（措辭讓使用者回「好」就等於採用建議），等回答再問下一輪；查得到的事實自己查，不要問使用者；全部確認了才動手。外掛載入的話可以用 `grilling` skill，格式一樣。
+  - **不用 grill**：修 bug、小調整、轉達其他 session 的回報、使用者已經講得很清楚的指示 ➔ 直接做。
+  - 經濟數值本來就要先問（第 5 節），grill 時一併問。
 - 其他可以用；用的時候守這裡的規則：文件照文件樹放（`research` 結果存 `docs/`），**不要建 `GLOSSARY.md`、`docs/adr/`、`CONTEXT.md`**；`prototype` 不開分支、不貼 issue；`tdd` 照 `tests/` 的寫法（`check()` + `python tests/run_all.py`）；skill 的問句格式是英文也要用繁體中文問。
 - 外掛會自動更新：多了新 skill 時，統整 session 要更新 `docs/skills.md` 和這份清單。
