@@ -53,6 +53,9 @@ def selects(v): return [i for i in v.walk_children() if isinstance(i, discord.ui
 def galleries(v): return [i for i in v.walk_children() if isinstance(i, discord.ui.MediaGallery)]
 def count(v): return sum(1 for _ in v.walk_children())
 def namecard_select(v): return next(s for s in selects(v) if s.placeholder.startswith("🖼️"))
+async def open_nc(v, uid):   # 0.35.038：平常沒有選單，要按「🖼️ 修改名片」才打開
+    if v.mode != "namecard":
+        await v.on_toggle_namecard(Interaction(uid=uid))
 
 POOL = gp.load_gacha_pool()
 CIRNO = POOL["cirno"]["rarities"]   # SR / SSR / UR
@@ -146,6 +149,8 @@ async def main():
     it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view
     check("no art ➔ no gallery", galleries(pv) == [])
+    check("no select until button", not selects(pv) and any(b.label == "🖼️ 修改名片" for b in pv.walk_children() if isinstance(b, discord.ui.Button)))
+    await open_nc(pv, A)
     sel = namecard_select(pv)
     check("namecard select options", [o.value for o in sel.options] == ["cirno", "__none__"] and not sel.disabled)
     check("option label + emoji", sel.options[0].label == "琪露諾的名片" and str(sel.options[0].emoji) == POOL["cirno"]["emoji"]
@@ -160,7 +165,10 @@ async def main():
     g = galleries(pv)
     container = next(i for i in pv.walk_children() if isinstance(i, discord.ui.Container))
     check("gallery shown", len(g) == 1 and g[0].items[0].media.url == url)
-    check("gallery on top", container.children[0] is g[0])
+    kids = list(container.children)
+    daily_at = max(i for i, k in enumerate(kids) if isinstance(k, discord.ui.Section))
+    check("gallery at bottom (0.35.038)", kids.index(g[0]) > daily_at and isinstance(kids[-1], discord.ui.ActionRow))
+    await open_nc(pv, A)
     check("option has art", namecard_select(pv).options[0].description is None)
     check("no caption without data", "🖼️ **" not in texts(pv))
     if real_cirno: nd.NAMECARDS["cirno"] = real_cirno
@@ -174,8 +182,11 @@ async def main():
     it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view
     container = next(i for i in pv.walk_children() if isinstance(i, discord.ui.Container))
-    check("caption under gallery", isinstance(container.children[1], discord.ui.TextDisplay)
-          and container.children[1].content.startswith("-# 🖼️ **測試名片**｜"))
+    kids = list(container.children)
+    gi = kids.index(galleries(pv)[0])
+    check("caption under gallery", isinstance(kids[gi + 1], discord.ui.TextDisplay)
+          and kids[gi + 1].content.startswith("-# 🖼️ **測試名片**｜"))
+    await open_nc(pv, A)
     d = namecard_select(pv).options[0].description
     check("option shows namecard desc", d.startswith("「測試名片」") and len(d) == 100)
     nd.NAMECARDS.clear(); nd.NAMECARDS.update(saved)
@@ -190,6 +201,8 @@ async def main():
 
     # 選單：卸下 ➔ 圖不見；再戴上；沒擁有被擋
     i2 = Interaction(uid=A, data={"values": ["__none__"]}); await pv.on_namecard(i2)
+    check("closes after pick", pv.mode == "card" and not selects(pv))
+    await open_nc(pv, A)
     check("unequip via select", galleries(pv) == [] and (await udm.get_namecard_state(A))["equipped"] is None
           and namecard_select(pv).options[-1].default)
     i3 = Interaction(uid=A, data={"values": ["cirno"]}); await pv.on_namecard(i3)
@@ -199,10 +212,11 @@ async def main():
     i5 = Interaction(uid=2, data={"values": ["__none__"]})
     check("others cannot change", not await pv.interaction_check(i5))
 
-    # 沒有名片 ➔ 選單反灰，placeholder 寫怎麼拿
+    # 沒有名片 ➔ 打開後說明怎麼拿 (0.35.038)
     it = Interaction(uid=3); await cmds["profile"].callback(cog, it, None, None)
-    sel = namecard_select(it.view)
-    check("disabled when none", sel.disabled and "收藏冊" in sel.placeholder and "完美卡" in sel.placeholder)
+    await open_nc(it.view, 3)
+    t = texts(it.view)
+    check("none explains", "還沒有角色名片" in t and "收藏冊" in t and "完美卡" in t and not selects(it.view))
 
     # 名片超過 24 張 ➔ 分頁 (0.35.017 共用分頁)：打開時在戴著的那張那頁；名片 + 稱號 + 名片圖 + 剛簽到 + 換頁按鈕 ➔ 元件 ≤ 40
     M = 5
@@ -216,6 +230,7 @@ async def main():
     with open(nc.NAMECARDS_FILE, "w", encoding="utf-8") as f: json.dump({cid: url for cid in POOL} | {"fake9": url}, f)
     it = Interaction(uid=M); await cmds["daily"].callback(cog, it)   # 簽到 ➔ 有獎勵那張卡
     pv = it.view
+    await open_nc(pv, M)
     sel = namecard_select(pv)
     n_owned = len(POOL) + 10
     last = n_owned - 24
@@ -223,22 +238,22 @@ async def main():
           and sel.options[-1].value == "__none__")
     check("equipped listed", "fake9" in [o.value for o in sel.options] and next(o for o in sel.options if o.value == "fake9").default)
     check("unknown character label", next(o for o in sel.options if o.value == "fake9").label == "fake9的名片")
-    check(f"component count {count(pv)} ≤ 40", count(pv) <= 40 and len(galleries(pv)) == 1 and len(selects(pv)) == 3)
+    check(f"component count {count(pv)} ≤ 40", count(pv) <= 40 and len(galleries(pv)) == 1 and len(selects(pv)) == 1)
     prev = next(b for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "◀️ 上一頁")
     await prev.callback(Interaction(uid=M))
     sel = namecard_select(pv)
     check("namecard page 1", "第 1 / 2 頁" in sel.placeholder and len(sel.options) == 25 and sel.options[-1].value == "__none__"
           and "fake9" not in [o.value for o in sel.options])
     check(f"component count page 1 {count(pv)} ≤ 40", count(pv) <= 40)
-    # 最壞情況：稱號也要換頁 (稱號換頁 + 名片換頁兩排按鈕同時出現)
+    # 最壞情況：打開稱號、稱號要換頁 (0.35.038 起一次只會打開稱號或名片其中一個)
     import importlib
     prof = importlib.import_module("Cogs.load-general.profile")
     keep_per = prof.TITLES_PER_PAGE
     prof.TITLES_PER_PAGE = 1
-    pv.build(*pv.data)
+    await pv.on_toggle_title(Interaction(uid=M))
     navs = sum(1 for b in pv.walk_children() if isinstance(b, discord.ui.Button) and b.label == "下一頁 ▶️")
     print(f"worst case components: {count(pv)}")
-    check(f"worst case {count(pv)} ≤ 40 (navs {navs})", navs == 2 and count(pv) <= 40)
+    check(f"worst case {count(pv)} ≤ 40 (navs {navs})", pv.mode == "title" and navs == 1 and count(pv) <= 40)
     prof.TITLES_PER_PAGE = keep_per
 
     # --- 🛠️ /admin-user namecard ---

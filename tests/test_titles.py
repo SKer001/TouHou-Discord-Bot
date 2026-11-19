@@ -301,9 +301,15 @@ async def main():
     it = Interaction(uid=A); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view
     check("no title fixed color", accent(pv) == td.NO_TITLE_COLOR)
+    # 0.35.038：平常沒有選單，一排按鈕 ⚡ 恢復體力 / ⛩️ 前往神社 / 🏷️ 修改稱號 / 🖼️ 修改名片；按「修改稱號」才打開
+    blabels = [b.label for b in pv.walk_children() if isinstance(b, discord.ui.Button)]
+    check("buttons instead of selects", not selects(pv) and blabels[-4:] == ["⚡ 恢復體力", "⛩️ 前往神社", "🏷️ 修改稱號", "🖼️ 修改名片"])
+    await pv.on_toggle_title(Interaction(uid=A))
     sel = selects(pv)
+    blabels = [b.label for b in pv.walk_children() if isinstance(b, discord.ui.Button)]
+    check("title button becomes back", "↩️ 返回" in blabels and "🏷️ 修改稱號" not in blabels)
     # 先選分組再選稱號 (Discord 選單最多 25 個，稱號全放一起放不下)；預設 = 最高等級稱號那組
-    check("group + title selects", len(sel) == 3 and sel[2].placeholder.startswith("🖼️") and [o.value for o in sel[0].options] == ["draw", "synth"]
+    check("group + title selects", len(sel) == 2 and [o.value for o in sel[0].options] == ["draw", "synth"]
           and [o.label for o in sel[0].options] == ["🎰 祈願", "⚗️ 合成"] and sel[0].options[0].default)
     check("title select on own card", not sel[1].disabled and [o.value for o in sel[1].options] == ["draw_100", "draw_10", "__none__"])
     check("select shows desc", sel[1].options[0].description == td.TITLES["draw_100"]["desc"])
@@ -313,6 +319,7 @@ async def main():
     ig = Interaction(uid=A, data={"values": ["draw"]}); await pv.on_title_group(ig)
 
     i2 = Interaction(uid=A, data={"values": ["draw_100"]}); await pv.on_title(i2)
+    check("closes after pick", pv.mode == "card" and not selects(pv))
     t = texts(pv)
     check("title shown", "**[R] 虔誠的參拜者**" in t and f"-# *{td.TITLES['draw_100']['desc']}*" in t)
     check("title under name", t.index("的幻想鄉通行證") < t.index("[R] 虔誠的參拜者") < t.index("資料卡 • TouHouBot"))
@@ -336,9 +343,14 @@ async def main():
     i4 = Interaction(uid=A, data={"values": ["__none__"]}); await pv.on_title(i4)
     check("unequip via select", "虔誠的參拜者" not in texts(pv) and accent(pv) == td.NO_TITLE_COLOR)
 
-    # 沒有任何稱號 ➔ 選單反灰
+    # ↩️ 返回 ➔ 收起來
+    await pv.on_toggle_title(Interaction(uid=A)); await pv.on_toggle_title(Interaction(uid=A))
+    check("back closes", pv.mode == "card" and not selects(pv))
+
+    # 沒有任何稱號 ➔ 打開後說明怎麼拿
     it = Interaction(uid=3); await cmds["profile"].callback(cog, it, None, None)
-    check("disabled when none", selects(it.view)[0].disabled)
+    await it.view.on_toggle_title(Interaction(uid=3))
+    check("none explains", "還沒有解鎖任何稱號" in texts(it.view) and not selects(it.view))
 
     # 🛠️ /admin-user title：管理員直接給 / 戴上 / 收回稱號，不用符合條件
     from Utils import config
@@ -579,6 +591,7 @@ async def main():
         await udm.set_granted_title(C, td.guest_title_id(k, "sr"), True)
     it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view
+    await pv.on_toggle_title(Interaction(uid=C))
     await pv.on_title_group(Interaction(uid=C, data={"values": ["guest"]}))
     sel = selects(pv)
     btns = {b.label: b for b in pv.walk_children() if isinstance(b, discord.ui.Button)}
@@ -595,6 +608,7 @@ async def main():
     page2 = td.group_titles((await udm.get_title_state(C))["unlocked"])["guest"][3]
     await udm.set_equipped_title(C, page2)
     it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
+    await it.view.on_toggle_title(Interaction(uid=C))
     check("open equipped page", "第 2 / " in selects(it.view)[1].placeholder and any(o.default and o.value == page2 for o in selects(it.view)[1].options))
     # 一頁放得下 ➔ 沒有換頁按鈕
     prof.TITLES_PER_PAGE = 24
@@ -604,6 +618,7 @@ async def main():
     prof.GROUP_SELECT_MAX, prof.GROUPS_PER_PAGE = 1, 1
     it = Interaction(uid=C); await cmds["profile"].callback(cog, it, None, None)
     gv = it.view
+    await gv.on_toggle_title(Interaction(uid=C))
     opts = [o.value for o in selects(gv)[0].options]
     check(f"group paging {opts}", len(opts) == 3 and opts[-2:] == ["__gprev__", "__gnext__"])
     first = opts[0]

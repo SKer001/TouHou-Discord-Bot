@@ -135,11 +135,11 @@ def build_profile_container(
     title_stats: dict | None = None,
 ) -> ui.Container:
     """
-    個人資料卡：(角色名片) / 頭像標題 (+ 稱號與說明) / 賽錢・P點・體力・背包 / 經驗值進度條 / 今日簽到與運勢。
+    個人資料卡：頭像標題 (+ 稱號與說明) / 賽錢・P點・體力・背包 / 經驗值進度條 / 今日簽到與運勢 / (角色名片)。
     title_id = 戴著的稱號 (title_data.TITLES)；色條 = 稱號等級色，沒戴 = 固定色 (公開、私人一樣，2026-11-13 使用者)。
     daily_button 不為 None 時，會放在「今日運勢」區塊的右側 (只有本人的卡片才會有)。
     stamina = calc_stamina() 的結果；None 時不顯示體力。
-    namecard_url = 戴著的角色名片圖片網址 (Utils.namecards.namecard_url)；有的話放在最上面，None = 不放圖。
+    namecard_url = 戴著的角色名片圖片網址 (Utils.namecards.namecard_url)；有的話放在今日運勢下面 (0.35.038 從最上面移下來)，None = 不放圖。
     namecard_caption = 名片圖下面那行字 (Database.namecard_data.namecard_caption)，有圖才顯示。
     title_stats = 玩家統計 (稱號說明裡有 {n} 的換成目前的累計數字，例如神社稱號)。
     """
@@ -154,10 +154,6 @@ def build_profile_container(
     exp_text, exp_bar = _exp_text_and_bar(current_level, exp)
     title = title_data.TITLES.get(title_id)
     container = ui.Container(accent_color=discord.Color(title_data.title_color(title_id)))
-    if namecard_url:   # 🖼️ 角色名片 (19:9 橫幅)
-        container.add_item(ui.MediaGallery(discord.MediaGalleryItem(namecard_url)))
-        if namecard_caption:   # 名片名稱｜說明 (2026-11-14 使用者要求)
-            container.add_item(ui.TextDisplay(namecard_caption))
 
     title_text = f"**{title_data.title_label(title_id)}**\n-# *{title_data.title_desc(title_id, title_stats)}*\n" if title else ""
     container.add_item(ui.Section(
@@ -186,6 +182,11 @@ def build_profile_container(
     else:
         container.add_item(ui.TextDisplay(daily_text))
 
+    if namecard_url:   # 🖼️ 角色名片 (19:9 橫幅)：0.35.038 使用者要求從最上面移到下面 (本人的按鈕還在它下面)
+        container.add_item(ui.Separator())
+        container.add_item(ui.MediaGallery(discord.MediaGalleryItem(namecard_url)))
+        if namecard_caption:   # 名片名稱｜說明 (2026-11-14 使用者要求)
+            container.add_item(ui.TextDisplay(namecard_caption))
     return container
 
 

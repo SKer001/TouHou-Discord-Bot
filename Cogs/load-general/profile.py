@@ -128,6 +128,7 @@ class ProfileView(ui.LayoutView):
         self.group_page = None           # 分組選單的第幾頁 (分組超過 25 個才會用到；None = 目前那組在的那頁)
         self.namecard_page = None        # 名片選單的第幾頁 (超過 NAMECARD_OPTIONS 張才會用到；None = 戴著的那張在的那頁)
         self.data = None                 # 最近一次 build 的 (user_data, daily_status)，切換分組時重畫用
+        self.mode = "card"               # 0.35.038："card" 平常 / "title" 打開稱號選單 / "namecard" 打開名片選單
         self.reward = reward          # 剛簽到完的獎勵 (只顯示在這張卡片上)
         self.message = None           # 送出後由指令填入，供逾時時停用按鈕
         self.daily_button = None
@@ -153,18 +154,29 @@ class ProfileView(ui.LayoutView):
             namecard_caption=namecard_data.namecard_caption(self.namecard_state["equipped"]),
             title_stats=self.title_state.get("stats"),
         )
-        # 🏷️ 更換稱號、🖼️ 更換名片、⚡ 恢復體力：只有本人的卡片才有
+        # 只有本人的卡片才有：一排按鈕 ⚡ 恢復體力 / ⛩️ 前往神社 / 🏷️ 修改稱號 / 🖼️ 修改名片 / (📥 下載名片原圖)
+        # 0.35.038 使用者要求：原本常駐的三個選單 (稱號分組、更換稱號、更換名片) 改成按鈕，按了才在按鈕上面打開選單；
+        # 打開時那顆按鈕變成「↩️ 返回」，選好稱號 / 名片就換上並收起來
         if self.is_self:
-            container.add_item(ui.Separator())
-            for row in self._title_rows():
-                container.add_item(row)
-            for row in self._namecard_rows():
-                container.add_item(row)
+            if self.mode == "title":
+                container.add_item(ui.Separator())
+                for row in self._title_rows():
+                    container.add_item(row)
+            elif self.mode == "namecard":
+                container.add_item(ui.Separator())
+                for row in self._namecard_rows():
+                    container.add_item(row)
             stamina_btn = ui.Button(label="⚡ 恢復體力", style=discord.ButtonStyle.primary)
             stamina_btn.callback = self.on_stamina
             shrine_btn = ui.Button(label="⛩️ 前往神社", style=discord.ButtonStyle.secondary)
             shrine_btn.callback = self.on_shrine
-            row = [stamina_btn, shrine_btn]
+            title_btn = (ui.Button(label="↩️ 返回", style=discord.ButtonStyle.secondary) if self.mode == "title"
+                         else ui.Button(label="🏷️ 修改稱號", style=discord.ButtonStyle.secondary))
+            title_btn.callback = self.on_toggle_title
+            card_btn = (ui.Button(label="↩️ 返回", style=discord.ButtonStyle.secondary) if self.mode == "namecard"
+                        else ui.Button(label="🖼️ 修改名片", style=discord.ButtonStyle.secondary))
+            card_btn.callback = self.on_toggle_namecard
+            row = [stamina_btn, shrine_btn, title_btn, card_btn]
             if namecard_original(self.namecard_state["equipped"]):   # 📥 戴著的名片有原圖 ➔ 可以下載
                 download_btn = ui.Button(label="📥 下載名片原圖", style=discord.ButtonStyle.secondary)
                 download_btn.callback = self.on_download_namecard
@@ -180,13 +192,11 @@ class ProfileView(ui.LayoutView):
         ① 分組選單：只列有解鎖稱號的組；超過 25 組時一頁 GROUPS_PER_PAGE 組，最後兩個選項是換頁
         ② 稱號選單：那組的稱號一頁 TITLES_PER_PAGE 個 + 「不戴稱號」
         ③ 那組超過一頁才多一排「◀️ 上一頁 / 📄 頁數 / 下一頁 ▶️」
-        一個都沒解鎖 ➔ 只有一個反灰的選單
+        一個都沒解鎖 ➔ 一行說明怎麼拿 (0.35.038)
         """
         unlocked, equipped = self.title_state["unlocked"], self.title_state["equipped"]
         if not unlocked:
-            select = ui.Select(placeholder="🏷️ 還沒有解鎖任何稱號 (祈願 10 抽就有第一個)", disabled=True,
-                               options=[discord.SelectOption(label="不戴稱號", value="__none__")])
-            return [ui.ActionRow(select)]
+            return [ui.TextDisplay("🏷️ **還沒有解鎖任何稱號**\n-# 祈願、簽到、打理神社都會解鎖稱號，例如祈願 10 抽就有第一個「初次祈願者」。")]
         groups = title_data.group_titles(unlocked)
         current = self.title_group
         if current not in groups:
@@ -245,12 +255,11 @@ class ProfileView(ui.LayoutView):
     def _namecard_rows(self) -> list[ui.ActionRow]:
         """
         🖼️ 更換名片：擁有的名片 (角色 emoji + 名字，一頁 24 張) + 「不放名片」；超過一頁才多一排換頁按鈕
-        一張都沒有 ➔ 反灰，placeholder 寫怎麼拿
+        一張都沒有 ➔ 一行說明怎麼拿 (0.35.038)
         """
         owned, equipped = self.namecard_state["owned"], self.namecard_state["equipped"]
         if not owned:
-            return [ui.ActionRow(ui.Select(placeholder="🖼️ 還沒有角色名片 (收藏冊集齊某位角色每個階級的完美卡就有)", disabled=True,
-                                           options=[discord.SelectOption(label="不放名片", value="__none__")]))]
+            return [ui.TextDisplay("🖼️ **還沒有角色名片**\n-# 把某位角色每個階級的完美卡 (完整度 1.0000) 都放進 🔒 收藏冊 (`/card album`)，就會拿到那位角色的名片。")]
         if self.namecard_page is None:   # 第一次打開：翻到戴著的那張在的那頁
             self.namecard_page = owned.index(equipped) // NAMECARD_OPTIONS + 1 if equipped in owned else 1
         pg = paginate(owned, self.namecard_page, NAMECARD_OPTIONS)
@@ -269,7 +278,7 @@ class ProfileView(ui.LayoutView):
                 description=((f"「{card['name']}」{card['desc']}"[:100] if card else None) if has_art
                              else "名片圖還在製作中，戴上暫時不會顯示圖片")))
         options.append(discord.SelectOption(label="不放名片", value="__none__", default=(equipped is None),
-                                            description="資料卡最上面不放圖"))
+                                            description="資料卡上不放名片圖"))
         select = ui.Select(placeholder="🖼️ 更換名片…" + (f" (第 {pg.page} / {pg.total} 頁)" if pg.total > 1 else ""),
                            options=options)
         select.callback = self.on_namecard
@@ -290,7 +299,20 @@ class ProfileView(ui.LayoutView):
             await send_notice(interaction, "❌ 你還沒有這張名片。")
             return
         self.namecard_state = await get_namecard_state(interaction.user.id)
+        self.mode = "card"   # 選好就收起來
         self.build(await get_or_create_user(interaction.user.id), await get_daily_status(interaction.user.id))
+        await interaction.response.edit_message(view=self)
+
+    async def on_toggle_title(self, interaction: discord.Interaction):
+        """🏷️ 修改稱號 ⇄ ↩️ 返回"""
+        self.mode = "card" if self.mode == "title" else "title"
+        self.build(*self.data)
+        await interaction.response.edit_message(view=self)
+
+    async def on_toggle_namecard(self, interaction: discord.Interaction):
+        """🖼️ 修改名片 ⇄ ↩️ 返回"""
+        self.mode = "card" if self.mode == "namecard" else "namecard"
+        self.build(*self.data)
         await interaction.response.edit_message(view=self)
 
     async def on_download_namecard(self, interaction: discord.Interaction):
@@ -299,7 +321,7 @@ class ProfileView(ui.LayoutView):
         state = await get_namecard_state(interaction.user.id)   # 重新讀：可能已經換掉 / 被收回
         cid = state["equipped"]
         if cid is None or cid not in state["owned"]:
-            await send_notice(interaction, "❌ 你現在沒有戴名片，先用「🖼️ 更換名片」換上要下載的那張。")
+            await send_notice(interaction, "❌ 你現在沒有戴名片，先用「🖼️ 修改名片」換上要下載的那張。")
             return
         file = await fetch_original_file(interaction.client, cid, "jpg")
         if file is None:
@@ -339,6 +361,7 @@ class ProfileView(ui.LayoutView):
             return
         self.title_state = await get_title_state(interaction.user.id)
         self.namecard_state = await get_namecard_state(interaction.user.id)   # get_title_state 可能剛補了名片
+        self.mode = "card"   # 選好就收起來
         self.build(await get_or_create_user(interaction.user.id), await get_daily_status(interaction.user.id))
         await interaction.response.edit_message(view=self)
 
