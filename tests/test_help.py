@@ -1,4 +1,4 @@
-"""/help 指令說明 (不連 Discord)：分類、排除管理員指令、沒分到類的進「其他」"""
+"""/help 幻想鄉指南 (不連 Discord)：分類、一般玩家看不到管理員指令、管理員指令表 (分頁)、沒分到類的進「其他」"""
 import asyncio, glob, os, sys, tempfile, importlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 專案根目錄
 sys.path.insert(0, ROOT); os.chdir(ROOT)
@@ -55,14 +55,94 @@ async def main():
             for ch in getattr(it, "children", []): walk(ch)
         for it in view.children: walk(it)
         return total
-    for page in ["overview", *cats]:
-        v = help_mod.HelpView(bot, page)
-        n = sum(count(i) for i in v.children)
-        check(f"{page} components {n}", n <= 40)
-        check(f"{page} text {text_len(v)}", text_len(v) <= 4000)
-        check(f"{page} page kept", v.page == page)
+    def texts(view):
+        out = []
+        def walk(it):
+            if isinstance(it, discord.ui.TextDisplay): out.append(it.content)
+            for ch in getattr(it, "children", []): walk(ch)
+            if getattr(it, "accessory", None) is not None: walk(it.accessory)
+        for it in view.children: walk(it)
+        return "\n".join(out)
+    def selects(view):
+        return [it for it in view.walk_children() if isinstance(it, discord.ui.Select)]
+
+    admin_keys = [k for k in hc.page_keys(bot.tree, True) if k.startswith("admin")]
+    check(f"admin pages exist {admin_keys}", admin_keys and admin_keys[0] == "admin1")
+    for admin in (False, True):
+        for page in ["overview", *cats, *(admin_keys if admin else [])]:
+            v = help_mod.HelpView(bot, page, admin=admin)
+            n = sum(count(i) for i in v.children)
+            check(f"{page}/{admin} components {n}", n <= 40)
+            check(f"{page}/{admin} text {text_len(v)}", text_len(v) <= 4000)
+            check(f"{page}/{admin} page kept", v.page == page)
+            for sel in selects(v):
+                check(f"{page}/{admin} select ≤25", len(sel.options) <= 25)
     v = help_mod.HelpView(bot, "nope")
     check("bad page -> overview", v.page == "overview")
+
+    # 一般玩家：總覽、選單、任何頁面都沒有管理員指令；硬傳 admin 頁回到總覽
+    v = help_mod.HelpView(bot)
+    check("player overview no admin", "管理員" not in texts(v) and "admin-" not in texts(v))
+    for key in cats:
+        v = help_mod.HelpView(bot, key)
+        check(f"player {key} no admin", "admin-" not in texts(v)
+              and not any(o.value.startswith("admin") for s in selects(v) for o in s.options))
+    v = help_mod.HelpView(bot, "admin1")
+    check("player admin page blocked", v.page == "overview" and "admin-" not in texts(v))
+    check("player page_keys no admin", not any(k.startswith("admin") for k in hc.page_keys(bot.tree, False)))
+
+    # 管理員：總覽有管理員指令表、每個 admin- 指令都出現在某一頁
+    v = help_mod.HelpView(bot, admin=True)
+    check("admin overview has table", "管理員指令表" in texts(v))
+    admin_names = {c.qualified_name for cs in hc.walk_commands(bot.tree, admin=True).values() for c in cs}
+    check(f"admin commands {len(admin_names)}", len(admin_names) >= 20 and all(n.startswith("admin-") for n in admin_names))
+    shown = "\n".join(texts(help_mod.HelpView(bot, k, admin=True)) for k in admin_keys)
+    check("every admin command listed", all(f"`/{n}`" in shown for n in admin_names))
+    check("dev prefix stripped", "【開發者專用】" not in shown)
+
+    # 分類頁：玩法說明 + 指令在同一頁、右上角有卡面
+    v = help_mod.HelpView(bot, "shrine")
+    t = texts(v)
+    check("guide + commands together", "📖 怎麼玩" in t and "📋 指令" in t and "`/shrine manage`" in t)
+    check("category thumbnail", any(isinstance(it, discord.ui.Thumbnail) for it in v.walk_children()))
+
+    # 總覽的「查看 ▶」按鈕切到分類頁；管理員那顆切到管理員表
+    class Resp:
+        async def edit_message(self, **kw): self.view = kw.get("view")
+    class Inter:
+        def __init__(self): self.response = Resp()
+    v = help_mod.HelpView(bot, admin=True)
+    btns = [b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label == "查看 ▶"]
+    check(f"overview buttons {len(btns)}", len(btns) == len(cats) + 1)
+    await btns[0].callback(Inter())
+    check("button opens first category", v.page == next(iter(cats)))
+    v = help_mod.HelpView(bot, admin=True)
+    btns = [b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label == "查看 ▶"]
+    await btns[-1].callback(Inter())
+    check("last button opens admin table", v.page == "admin1")
+    back = next(b for b in v.walk_children() if isinstance(b, discord.ui.Button) and "總覽" in b.label)
+    await back.callback(Inter())
+    check("back to overview", v.page == "overview")
+
+    # 管理員指令變多 ➔ 自動分頁，每頁 ≤ 4000 字，指令一個都不少
+    async def cb(interaction, target: str, amount: int): ...
+    for g in ("admin-yyy", "admin-zzz"):   # Discord 一個群組最多 25 個子指令
+        big = app_commands.Group(name=g, description="測試用")
+        for i in range(20):
+            big.add_command(app_commands.Command(name=f"cmd{i:02d}", description="很長的說明" * 6, callback=cb))
+        bot.tree.add_command(big)
+    pages = hc.admin_pages(bot.tree)
+    keys = [k for k in hc.page_keys(bot.tree, True) if k.startswith("admin")]
+    check(f"auto paging {len(pages)}", len(pages) >= 2 and len(keys) == len(pages))
+    shown = ""
+    for k in keys:
+        v = help_mod.HelpView(bot, k, admin=True)
+        check(f"{k} text {text_len(v)} ≤ 4000", text_len(v) <= 4000 and sum(count(i) for i in v.children) <= 40)
+        shown += texts(v)
+    check("paged: all listed", all(f"`/{g} cmd{i:02d}`" in shown for g in ("admin-yyy", "admin-zzz") for i in range(20)))
+    check("unknown admin group -> other", "其他管理指令" in shown)
+    bot.tree.remove_command("admin-yyy")
+    bot.tree.remove_command("admin-zzz")
 
 
 asyncio.run(main())
