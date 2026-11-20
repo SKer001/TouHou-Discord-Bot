@@ -141,8 +141,22 @@ def roll_cheap_items(n: int, rng) -> dict:
     return out
 
 
-def roll_materials(zone: int, n: int, rng) -> dict:
-    mats = data.zone_info(zone)["materials"]
+def zone_theme(run: dict, zone: int) -> dict:
+    """
+    這一局第 zone 區的主題 (使用者 2026-11-20)：每區隨機抽一個主題，不跟前三區重複 (5 個主題 ➔ 第 4 區起剩 2 個可以抽)；
+    照 seed 決定 (同一個 seed 每區主題一樣)，抽過的存在 run["themes"]。主題只是模板 (敵人 / BOSS / 素材 / 寶物)，難度只看第幾區
+    """
+    themes = run.setdefault("themes", [])
+    ids = [z["id"] for z in data.zones()]
+    while len(themes) < zone:
+        rng = random.Random(f"{run.get('seed', '')}:theme:{len(themes) + 1}")
+        recent = set(themes[-3:])
+        themes.append(rng.choice([i for i in ids if i not in recent] or ids))
+    return data.zone_by_id(themes[zone - 1])
+
+
+def roll_materials(zone: int, n: int, rng, theme: dict | None = None) -> dict:
+    mats = (theme or data.zone_info(zone))["materials"]
     out = {}
     for _ in range(n):
         m = rng.choice(mats)
@@ -150,9 +164,11 @@ def roll_materials(zone: int, n: int, rng) -> dict:
     return out
 
 
-def roll_treasure(table: str, zone: int, rng, rarity: str | None = None) -> dict:
+def roll_treasure(table: str, zone: int, rng, rarity: str | None = None, theme: dict | None = None) -> dict:
+    """寶物：階級看第幾區 (越深越好)，名單看這區的主題 (theme 沒給 = 照順序輪的 data.zone_info)"""
     r = rarity or rules.roll_rarity(table, zone, rng)
-    tid = rng.choice(data.treasures(zone)[r])[0]
+    pool = data.theme_treasures(theme) if theme else data.treasures(zone)
+    tid = rng.choice(pool[r])[0]
     return {"id": tid, "rarity": r, "zone": zone}
 
 
@@ -182,19 +198,20 @@ def _merge(a: dict, b: dict):
 def foe_loot(run: dict, kind: str, rng, money_mult: float = 1.0) -> dict:
     """打倒 / 勸走一隻敵人給的東西"""
     zone = rules.zone_of(run["floor"])
+    theme = zone_theme(run, zone)
     loot = {"items": {}, "materials": {}, "treasures": [], "relics": [], "money": 0}
     if kind == "mimic":
         loot["money"] = rules.round_half(rules.mimic_money(zone) * money_mult)
         loot["items"] = roll_cheap_items(rules.weighted_count(*rules.MIMIC_ITEMS, rng), rng)
         n = rules.weighted_count(*rules.MIMIC_RELICS, rng)
         loot["relics"] = [roll_relic(zone, rng, shift=1 if n == 1 else -1) for _ in range(n)]
-        loot["treasures"] = [roll_treasure("boss", zone, rng) for _ in range(rules.weighted_count(*rules.MIMIC_TREASURES, rng))]
+        loot["treasures"] = [roll_treasure("boss", zone, rng, theme=theme) for _ in range(rules.weighted_count(*rules.MIMIC_TREASURES, rng))]
         return loot
     r = rules.REWARDS[kind]
     lo, hi = r["money"]
     loot["money"] = rules.money_roll(lo, hi, rng, money_mult)
     if "materials" in r:
-        loot["materials"] = roll_materials(zone, rules.weighted_count(*r["materials"], rng), rng)
+        loot["materials"] = roll_materials(zone, rules.weighted_count(*r["materials"], rng), rng, theme=theme)
     if "items" in r:
         loot["items"] = roll_cheap_items(rules.weighted_count(*r["items"], rng), rng)
     if r.get("relic_chance") and rng.random() < r["relic_chance"]:
@@ -203,9 +220,9 @@ def foe_loot(run: dict, kind: str, rng, money_mult: float = 1.0) -> dict:
         classes = sorted({m["cls"] for m in combat.living(run["party"])})
         loot["relics"].append(roll_relic(zone, rng, classes=classes))
     if r.get("treasure_chance") and rng.random() < r["treasure_chance"]:
-        loot["treasures"].append(roll_treasure(r["treasure_table"], zone, rng))
+        loot["treasures"].append(roll_treasure(r["treasure_table"], zone, rng, theme=theme))
     if "treasures" in r:
-        loot["treasures"] += [roll_treasure(r["treasure_table"], zone, rng) for _ in range(rules.weighted_count(*r["treasures"], rng))]
+        loot["treasures"] += [roll_treasure(r["treasure_table"], zone, rng, theme=theme) for _ in range(rules.weighted_count(*r["treasures"], rng))]
     return loot
 
 
@@ -230,13 +247,13 @@ def _guaranteed(run: dict, floor: int) -> str | None:
 
 
 def _battle_door(run: dict, floor: int, rng) -> dict:
-    z = data.zone_info(rules.zone_of(floor))
+    z = zone_theme(run, rules.zone_of(floor))
     n = rules.weighted_count(1, 3, rng)
     return {"type": "battle", "foes": [rng.choice(z["normals"]) for _ in range(n)]}
 
 
 def _elite_door(run: dict, floor: int, rng) -> dict:
-    z = data.zone_info(rules.zone_of(floor))
+    z = zone_theme(run, rules.zone_of(floor))
     return {"type": "elite", "foes": [z["elite"]] + [rng.choice(z["normals"]) for _ in range(rules.weighted_count(0, 2, rng))]}
 
 
@@ -277,7 +294,7 @@ def gen_doors(run: dict, floor: int, rng) -> list[dict]:
     force_elite = status.has_flag(team, "force_elite")
     doors: list[dict] = []
     if fz == 10:
-        doors = [{"type": "boss", "foes": [data.zone_info(zone)["boss"]]}]
+        doors = [{"type": "boss", "foes": [zone_theme(run, zone)["boss"]]}]
     elif fz == 9:
         doors = [{"type": "merchant"}]
     elif fz in rules.BATTLE_FLOORS:
@@ -365,7 +382,8 @@ def new_run(seed: str, cards: list[tuple[dict, dict]], bag_items: dict, pocket: 
            "bag": {"items": {k: v for k, v in bag_items.items() if v > 0}, "materials": {}, "treasures": [], "relics": []},
            "team": {"statuses": []}, "phase": "doors", "doors": [], "room": None, "battle": None, "last": None,
            "caps": {}, "guaranteed": {}, "peek": None, "revealed": None, "pending": [], "exp": 0,
-           "kills": {}, "boss_cleared": 0, "result": None, "log": [], "live_fests": list(live_fests or [])}
+           "kills": {}, "boss_cleared": 0, "result": None, "log": [], "live_fests": list(live_fests or []), "themes": []}
+    zone_theme(run, 1)   # 第 1 區的主題先抽好 (畫面一開始就要顯示)
     _set_doors(run, rng)
     return run
 
@@ -594,11 +612,12 @@ def open_chest(run: dict, rng, force: bool = False) -> str | None:
     c = rules.CHESTS["locked" if room.get("locked") else "normal"]
     lo, hi = c["money"]
     loot = {"items": roll_cheap_items(rules.weighted_count(*c["items"], rng), rng),
-            "materials": roll_materials(zone, rules.weighted_count(*c["materials"], rng), rng),
-            "treasures": [roll_treasure(c["table"], zone, rng) for _ in range(rules.weighted_count(*c["treasures"], rng))],
+            "materials": roll_materials(zone, rules.weighted_count(*c["materials"], rng), rng, theme=zone_theme(run, zone)),
+            "treasures": [roll_treasure(c["table"], zone, rng, theme=zone_theme(run, zone))
+                          for _ in range(rules.weighted_count(*c["treasures"], rng))],
             "relics": [roll_relic(zone, rng)] if rng.random() < c["relic_chance"] else []}
     if room.get("guaranteed"):
-        loot["treasures"].append(roll_treasure(c["table"], zone, rng, rarity=room["guaranteed"]))
+        loot["treasures"].append(roll_treasure(c["table"], zone, rng, rarity=room["guaranteed"], theme=zone_theme(run, zone)))
     if room.get("fest"):
         fest.decorate_loot(run, room["fest"], "chest", loot, zone, rng)   # 🎪 活動保留格 / 活動法具
     money = rules.money_roll(lo * zone, hi * zone, rng)
@@ -726,7 +745,7 @@ def event_choice(run: dict, accept: bool, rng, pick=None) -> str | None:
             return "要選一個還不是 LR 的寶物"
         old = ts[pick]
         nr = rules.RARITIES[rules.RARITIES.index(old["rarity"]) + 1]
-        ts[pick] = roll_treasure("monster", zone, rng, rarity=nr)
+        ts[pick] = roll_treasure("monster", zone, rng, rarity=nr, theme=zone_theme(run, zone))
         res.update(old=old, new=ts[pick])
     elif do == "trial":
         t = combat.find_unit(run, pick) if pick else None
@@ -1021,6 +1040,7 @@ def settle(run: dict) -> dict:
     ok = run["result"] == "evacuated"
     exp = run["exp"] if ok else math.floor(run["exp"] * rules.FAIL_EXP_RATIO)
     penalty = [m["card_id"] for m in run["party"] if (not ok) or (not m["alive"])]
+    z = zone_theme(run, rules.zone_of(max(1, run["floor"])))   # 結束在哪個主題 (公開結算顯示用)
     return {"result": run["result"], "floor": run["floor"], "exp": exp, "penalty": penalty,
             "money": run["pocket"] if ok else 0, "brought": run.get("brought", 0),
             "items": dict(run["bag"]["items"]) if ok else {},
@@ -1029,4 +1049,5 @@ def settle(run: dict) -> dict:
             "deepest": run["floor"] if ok else None,
             "party": [{"cid": m["cid"], "rarity": m["rarity"], "name": m["name"], "alive": m["alive"]} for m in run["party"]],
             "relics": [m["relic"] for m in run["party"] if m.get("relic")],
-            "kills": dict(run["kills"])}
+            "kills": dict(run["kills"]),
+            "zone_name": f"{z.get('emoji', '')} {z.get('name', '')}"}

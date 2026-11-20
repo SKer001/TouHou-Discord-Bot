@@ -120,7 +120,7 @@ def start(run: dict, kind: str, foe_ids: list[str], rng, fest_boss: bool = False
         foe = make_foe(i, eid, "fest_boss" if fest_boss and i == 0 else fkind, zone)
         if fest_boss and i == 0:
             foe["fest_boss"] = True
-        elif fkind == "boss" and data.zone_info(zone).get("borrowed"):   # 第 2～5 區還沒有自己的 BOSS：借來的只普攻 (使用者 2026-11-20)
+        elif fkind == "boss" and zone > 1:   # 區域 BOSS 只有第 1 區用完整招式，第 2 區以後先只普攻 (使用者 2026-11-20；各區有自己的 BOSS 再調)
             foe["skills"] = []
         foes.append(foe)
     seen = {}

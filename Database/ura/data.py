@@ -110,9 +110,20 @@ def zones() -> list[dict]:
 
 
 def zone_info(zone: int) -> dict:
-    """第 zone 區 (1 起算) 的資料；第 6 區以後主題從頭輪"""
+    """第 zone 區照順序輪的主題 (沒有進度時的預設；一局裡的主題是隨機的，用 run.zone_theme(run, zone))"""
     zs = zones()
     return zs[(zone - 1) % len(zs)]
+
+
+def zone_by_id(zid: str) -> dict:
+    """主題 id ➔ 那個主題的資料 (zones() 的一筆)"""
+    return next((z for z in zones() if z["id"] == zid), zones()[0])
+
+
+def theme_treasures(theme: dict) -> dict:
+    """那個主題的寶物 {階級: [(id, 名稱, emoji), ...]}"""
+    t = _load("treasures")
+    return {r: [tuple(x) for x in lst] for r, lst in t[theme["treasure_zone"]].items()}
 
 
 def treasures(zone: int) -> dict:

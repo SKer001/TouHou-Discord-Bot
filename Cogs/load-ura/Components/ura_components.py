@@ -54,8 +54,10 @@ def relic_name(rel: dict) -> str:
     return f"{rd.get('emoji', '🦊')} {rd.get('name', rel['rid'])}〔{tier}〕{left}"
 
 
-def zone_title(floor: int) -> str:
-    z = data.zone_info(rules.zone_of(max(1, floor)))
+def zone_title(run: dict | None, floor: int) -> str:
+    """這一局第幾區的主題名稱 (每區隨機，run.zone_theme)"""
+    zone = rules.zone_of(max(1, floor))
+    z = R.zone_theme(run, zone) if run else data.zone_info(zone)
     return f"{z.get('emoji', '🌀')} {z.get('name', '裏世界')}"
 
 
@@ -140,7 +142,7 @@ def header_text(run: dict) -> str:
     where = f"第 {floor} 關" if floor else "入口"
     fz = rules.floor_in_zone(floor) if floor else 0
     zone = rules.zone_of(max(1, floor))
-    lines = [f"## 🌀 裏世界・{zone_title(floor)}　{where}" + (f"（第 {zone} 區 {fz} / 10）" if floor else ""),
+    lines = [f"## 🌀 裏世界・{zone_title(run, floor)}　{where}" + (f"（第 {zone} 區 {fz} / 10）" if floor else ""),
              f"🧭 常識度 `{max(0, run['sanity'])} / {rules.SANITY_START}`　{sanity_bar(run['sanity'])}",
              f"✨ B 點 `{run['b']} / {rules.B_MAX}`　💰 口袋 `{run['pocket']:,}`　🎒 背包 `{R.slots_used(run['bag'])} / {run['capacity']}`"]
     return "\n".join(lines)
@@ -369,7 +371,7 @@ def build_settle_container(run: dict, settle: dict) -> ui.Container:
     c.add_item(ui.TextDisplay(f"## {RESULT_TITLES.get(settle['result'], '探索結束')}\n" + "\n".join(_money_block(settle))))
     c.add_item(ui.Separator())
     exp = settle.get("exp_result") or {}
-    lines = [f"🕳️ 走到 **第 {settle['floor']} 關** ({zone_title(settle['floor'])})", f"📈 經驗 +{settle['exp']:,}"]
+    lines = [f"🕳️ 走到 **第 {settle['floor']} 關** ({zone_title(run, settle['floor'])})", f"📈 經驗 +{settle['exp']:,}"]
     if exp.get("leveled_up"):
         lines[-1] += f"　🎉 升到 {exp.get('new_p', 0):.1f} P"
     kills = sum(settle.get("kills", {}).values())
@@ -394,7 +396,7 @@ def build_public_settle_container(user_name: str, settle: dict) -> ui.Container:
     c.add_item(ui.TextDisplay(head + "\n" + "\n".join(_money_block(settle))))
     c.add_item(ui.Separator())
     party = "　".join(f"{'✅' if p['alive'] else '💀'} {p['name']}〔{p['rarity']}〕" for p in settle["party"])
-    extra = f"🕳️ 第 {settle['floor']} 關 ({zone_title(settle['floor'])})"
+    extra = f"🕳️ 第 {settle['floor']} 關 ({settle.get('zone_name') or zone_title(None, settle['floor'])})"
     if ok and settle["treasures"]:
         best = max(settle["treasures"], key=lambda t: RARITY_SORT.get(t["rarity"], 0))
         extra += f"　💎 寶物 {len(settle['treasures'])} 個 (最好：{treasure_name(best['id'])}〔{best['rarity']}〕)"

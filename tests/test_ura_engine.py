@@ -260,13 +260,31 @@ combat._foe_act(b, boss, Rng())
 combat._pick_skill = orig
 check("phoenix redirect to taunt", b["party"][0]["hp"] == hp0[0] and b["party"][2]["hp"] == hp0[2] and b["party"][1]["hp"] < hp0[1])
 
-# 2026-11-20 使用者決定：借來的 BOSS 只普攻、持續扣血最低留 1、常識度最多 1000
+# 2026-11-20 使用者決定：區域 BOSS 只有第 1 區用完整招式 (第 2 區以後只普攻)、持續扣血最低留 1、常識度最多 1000
 b = battle(foes=("ura_mokou",), kind="boss", floor=20)
-check("borrowed boss no skills", b["battle"]["foes"][0]["skills"] == [])
+check("zone 2 boss no skills", b["battle"]["foes"][0]["skills"] == [])
 b = battle(foes=("ura_mokou",), kind="boss", floor=10)
 check("zone 1 boss keeps skills", len(b["battle"]["foes"][0]["skills"]) == 4)
 b = battle(foes=("ura_mokou",), kind="boss", floor=60)
-check("zone 6 (竹林再輪) keeps skills", len(b["battle"]["foes"][0]["skills"]) == 4)
+check("zone 6 boss no skills too", b["battle"]["foes"][0]["skills"] == [])
+# 每區隨機主題：不跟前三區重複、照 seed 決定、第 1 區也隨機
+zone_ids = [z["id"] for z in data.zones()]
+firsts, bad = set(), []
+for i in range(300):
+    r1 = {"seed": f"t{i}"}
+    seq = [R.zone_theme(r1, z)["id"] for z in range(1, 13)]
+    firsts.add(seq[0])
+    if any(seq[k] in seq[max(0, k - 3):k] for k in range(len(seq))):
+        bad.append(seq)
+    r2 = {"seed": f"t{i}"}
+    if [R.zone_theme(r2, z)["id"] for z in range(12, 0, -1)][::-1] != seq:   # 先問深的區也一樣
+        bad.append(("order", seq))
+check(f"themes no repeat in 4 {bad[:1]}", not bad)
+check(f"zone 1 random {firsts}", firsts == set(zone_ids))
+run = new(seed="th")
+check("themes stored", len(run["themes"]) >= 1 and run["themes"][0] in zone_ids)
+t0 = R.zone_theme(run, 1)
+check("theme drives roster", set(f for d in run["doors"] if d["type"] in ("battle", "elite") for f in d["foes"]) <= set(t0["normals"]) | {t0["elite"]})
 b = battle(team=(("marisa", "SR"),))
 m0 = b["party"][0]; m0["hp"] = 2
 status.apply(m0, "burn")
