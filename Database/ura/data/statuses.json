@@ -45,7 +45,7 @@
              "flags": ["cleanse"], "on": {"round_end": [{"do": "dot_max_hp_pct", "value": 0.05}]},
              "desc": "回合結束扣 5% 最大 HP"},
     "blaze": {"name": "浴火", "emoji": "♨️", "good": true, "duration": "rounds", "default": 3, "max_stacks": 1,
-              "on": {"on_hit": [{"do": "reflect_pct", "value": 0.1}]}, "desc": "被打時反彈 10% 傷害"},
+              "on": {"on_hit": [{"do": "reflect_pct", "value": 0.05}]}, "desc": "被打時反彈 5% 傷害"},
     "breach": {"name": "破綻", "emoji": "💢", "good": false, "duration": "battle", "default": 1, "max_stacks": 1,
                "mods": {"def_final_mult": 0.9, "incoming_atk_mult": 1.1}, "desc": "我方攻擊 × 1.1、DEF × 0.9"},
     "enrage": {"name": "狂暴", "emoji": "😡", "good": false, "duration": "battle", "default": 1, "max_stacks": 1,

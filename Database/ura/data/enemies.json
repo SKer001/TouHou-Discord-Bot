@@ -15,7 +15,7 @@
                    "desc": "被狂氣染紅雙眼的月兔，看著牠的眼睛會失去力氣。"},
     "ura_mokou": {"name": "裏・藤原妹紅", "emoji": "🔥", "hp": 1, "atk": 1, "def": 1, "dodge": 0,
                   "skills": [{"id": "phoenix", "name": "火之鳥", "do": "attack_all", "mult": 0.8, "taunt_redirect": true},
-                             {"id": "phoenix_tail", "name": "不死鳥之尾", "do": "attack_one", "mult": 1.4, "status": "burn", "turns": 2},
+                             {"id": "phoenix_tail", "name": "不死鳥之尾", "do": "attack_one", "mult": 1.4, "status": "burn", "turns": 2, "cd": 4},
                              {"id": "hourai", "name": "蓬萊之藥", "do": "heal_self", "value": 0.05, "cd": 4, "when_hp_below": 0.9},
                              {"id": "possessed_phoenix", "name": "Possessed by Phoenix", "do": "apply_self", "status": "blaze", "turns": 3, "cd": 4, "phase2": true}],
                   "hint": "守護者嘲諷時，「火之鳥」只會打守護者",
