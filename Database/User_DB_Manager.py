@@ -214,6 +214,47 @@ SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_trades_day ON market_trades(kind, seller_id, day)",
     # 神社：狀態 + 參拜客 (JSON)
     """
+    CREATE TABLE IF NOT EXISTS ura_runs (
+        user_id     INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+        rev         INTEGER NOT NULL DEFAULT 0,
+        state       TEXT NOT NULL,
+        channel_id  INTEGER,
+        message_id  INTEGER,
+        started_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+    )
+    """,
+    # 🌀 裏世界倉庫 (kind = item 道具 / treasure 寶物)；額外背包一個一列 (用 3 次就壞)；排行榜紀錄 (0.35.083)
+    """
+    CREATE TABLE IF NOT EXISTS ura_storage (
+        user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        kind    TEXT NOT NULL,
+        key     TEXT NOT NULL,
+        qty     INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, kind, key)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS ura_bags (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id   INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        bag_id    TEXT NOT NULL,
+        uses_left INTEGER NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS ura_records (
+        user_id          INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+        best_money       INTEGER NOT NULL DEFAULT 0,
+        best_money_at    TEXT,
+        best_money_party TEXT,
+        deepest          INTEGER NOT NULL DEFAULT 0,
+        deepest_at       TEXT,
+        deepest_party    TEXT,
+        loadout          TEXT
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS shrines (
         user_id     INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
         created_at  TEXT NOT NULL,
@@ -265,6 +306,7 @@ GACHA_STATS_EXTRA_COLUMNS = [
 # 舊版 gacha_cards 缺少的欄位 (init_db 自動補上)
 GACHA_CARDS_EXTRA_COLUMNS = [
     ("locked", "INTEGER NOT NULL DEFAULT 0"),   # 1 = 放在收藏冊 (/card album)：卡冊、合成、融合、分解、上架都看不到也用不到
+    ("expedition", "INTEGER NOT NULL DEFAULT 0"),   # 1 = 🌀 裏世界出征中 (0.35.083；跟收藏冊的 locked 分開)：卡冊、合成、融合、分解、上架、收藏冊、管理員刪卡 / 改完整度都擋
 ]
 # 欄位剛補上時，現有玩家要填的值 (使用者 2026-11-05：現有玩家直接開通交易)
 USERS_BACKFILL = {"daily_count": "7", "best_money": "money"}   # best_money：從現在的餘額開始記 (之前的最高值查不到)
@@ -679,6 +721,7 @@ PLAYER_STATS = {
     # 🍀 運氣稱號 (0.35.005 起)：explore_good / explore_bad (採集好 / 壞事件)、fortune_5 / fortune_0 (簽到大吉 / 凶)、
     #    gacha_pity (觸發保底張數，所有卡池合計)、tenpull_2ur:<卡池> (一次十連出 2 張以上 UR 的次數)
     # 🍳 美食家稱號 (0.35.007 起)：cook:<料理> (每道料理的鍋數)、eat_stamina (吃了幾個體力道具，含飯糰)
+    # 🌀 裏世界 (0.35.083 起)：ura_runs (出發次數)、ura_evacuated (成功撤離次數)、ura_kill:<敵人> (打倒隻數)
 }
 
 
@@ -973,13 +1016,14 @@ async def get_user_cards(user_id: int, include_locked: bool = False) -> list[dic
     """
     取得玩家持有的卡牌 (依取得順序)
     - 預設不含收藏冊裡的卡 (locked = 1)：卡冊、合成、融合、分解、上架、autocomplete 都用這個，看不到也選不到
-    - include_locked=True：全部 (管理員畫面、圖鑑的「已擁有」)；每張卡多一個 "locked"
+    - include_locked=True：全部 (管理員畫面、圖鑑的「已擁有」)；每張卡多一個 "locked"、"expedition"
+    - 🌀 裏世界出征中的卡 (expedition = 1) 預設也不列 (不能合成、融合、分解、上架)
     """
-    where = "" if include_locked else " AND locked = 0"
+    where = "" if include_locked else " AND locked = 0 AND expedition = 0"
     async with connect() as db:
         async with db.execute(
             f"""
-            SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at, locked
+            SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at, locked, expedition
             FROM gacha_cards WHERE user_id = ?{where} ORDER BY rowid
             """,
             (user_id,),
@@ -1009,7 +1053,7 @@ async def set_cards_locked(user_id: int, instance_ids: list[str], locked: bool) 
     placeholders = ", ".join("?" for _ in instance_ids)
     async with connect() as db:
         cursor = await db.execute(
-            f"UPDATE gacha_cards SET locked = ? WHERE user_id = ? AND locked = ? AND instance_id IN ({placeholders})",
+            f"UPDATE gacha_cards SET locked = ? WHERE user_id = ? AND locked = ? AND expedition = 0 AND instance_id IN ({placeholders})",
             (int(locked), user_id, int(not locked), *instance_ids),
         )
         await db.commit()
@@ -1191,7 +1235,7 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
             async with db.execute(
                 f"""
                 SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at
-                FROM gacha_cards WHERE user_id = ? AND locked = 0 AND instance_id IN ({placeholders})
+                FROM gacha_cards WHERE user_id = ? AND locked = 0 AND expedition = 0 AND instance_id IN ({placeholders})
                 """,
                 (user_id, *instance_ids),
             ) as cursor:
@@ -1203,7 +1247,7 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
             new_card = build_new_card(consumed)
 
             await db.execute(
-                f"DELETE FROM gacha_cards WHERE user_id = ? AND instance_id IN ({placeholders})",
+                f"DELETE FROM gacha_cards WHERE user_id = ? AND expedition = 0 AND instance_id IN ({placeholders})",
                 (user_id, *instance_ids),
             )
             await _insert_cards(db, user_id, [new_card])
@@ -1235,13 +1279,13 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
 # 🛠️ 8. 管理員卡冊操作 (Admin-gacha)
 # ---------------------------------------------------------
 async def delete_gacha_cards(user_id: int, instance_ids: list[str]) -> int:
-    """刪除玩家指定的卡牌，回傳實際刪除的張數 (不屬於該玩家的 ID 會被忽略)"""
+    """刪除玩家指定的卡牌，回傳實際刪除的張數 (不屬於該玩家的 ID、🌀 出征中的卡會被忽略)"""
     if not instance_ids:
         return 0
     placeholders = ", ".join("?" for _ in instance_ids)
     async with connect() as db:
         cursor = await db.execute(
-            f"DELETE FROM gacha_cards WHERE user_id = ? AND instance_id IN ({placeholders})",
+            f"DELETE FROM gacha_cards WHERE user_id = ? AND expedition = 0 AND instance_id IN ({placeholders})",
             (user_id, *instance_ids),
         )
         await db.commit()
@@ -1252,7 +1296,7 @@ async def delete_gacha_cards(user_id: int, instance_ids: list[str]) -> int:
 async def clear_gacha_cards(user_id: int) -> int:
     """清空玩家的整本卡冊 (抽卡統計保留)，回傳刪除的張數"""
     async with connect() as db:
-        cursor = await db.execute("DELETE FROM gacha_cards WHERE user_id = ?", (user_id,))
+        cursor = await db.execute("DELETE FROM gacha_cards WHERE user_id = ? AND expedition = 0", (user_id,))   # 🌀 出征中的卡留著
         await db.commit()
     card_cache.invalidate(user_id)
     return cursor.rowcount
@@ -1265,7 +1309,7 @@ async def update_cards_completeness(user_id: int, instance_ids: list[str], compl
     placeholders = ", ".join("?" for _ in instance_ids)
     async with connect() as db:
         cursor = await db.execute(
-            f"UPDATE gacha_cards SET completeness = ? WHERE user_id = ? AND instance_id IN ({placeholders})",
+            f"UPDATE gacha_cards SET completeness = ? WHERE user_id = ? AND expedition = 0 AND instance_id IN ({placeholders})",
             (completeness, user_id, *instance_ids),
         )
         await db.commit()

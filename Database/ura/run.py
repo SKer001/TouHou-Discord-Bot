@@ -941,7 +941,7 @@ def settle(run: dict) -> dict:
     exp = run["exp"] if ok else math.floor(run["exp"] * rules.FAIL_EXP_RATIO)
     penalty = [m["card_id"] for m in run["party"] if (not ok) or (not m["alive"])]
     return {"result": run["result"], "floor": run["floor"], "exp": exp, "penalty": penalty,
-            "money": run["pocket"] if ok else 0,
+            "money": run["pocket"] if ok else 0, "brought": run.get("brought", 0),
             "items": dict(run["bag"]["items"]) if ok else {},
             "materials": dict(run["bag"]["materials"]) if ok else {},
             "treasures": list(run["bag"]["treasures"]) if ok else [],

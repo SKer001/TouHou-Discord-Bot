@@ -1071,7 +1071,7 @@ async def decompose_cards(user_id: int, instance_ids: list[str], now: datetime |
         try:
             placeholders = ", ".join("?" for _ in instance_ids)
             async with db.execute(
-                f"SELECT * FROM gacha_cards WHERE user_id = ? AND locked = 0 AND instance_id IN ({placeholders})", (user_id, *instance_ids)
+                f"SELECT * FROM gacha_cards WHERE user_id = ? AND locked = 0 AND expedition = 0 AND instance_id IN ({placeholders})", (user_id, *instance_ids)
             ) as cursor:
                 cards = [dict(r) for r in await cursor.fetchall()]   # 收藏冊裡的卡不能分解
             if len(cards) != len(instance_ids):
@@ -1161,7 +1161,7 @@ async def list_card(user_id: int, instance_id: str, price: int, now: datetime | 
             if await _daily_count(db, user_id) < TRADE_UNLOCK_DAILY:
                 await db.rollback()
                 return {"ok": False, "reason": "locked"}
-            async with db.execute("SELECT * FROM gacha_cards WHERE user_id = ? AND instance_id = ? AND locked = 0",
+            async with db.execute("SELECT * FROM gacha_cards WHERE user_id = ? AND instance_id = ? AND locked = 0 AND expedition = 0",
                                   (user_id, instance_id)) as cursor:
                 row = await cursor.fetchone()
             if row is None:   # 收藏冊裡的卡不能上架

@@ -73,7 +73,11 @@ class ClearConfirmView(ui.LayoutView):
             return
         self.done = True
         deleted = await clear_gacha_cards(self.target.id)
-        await self._finish(interaction, f"🗑️ 已清空 **{self.target.display_name}** 的卡冊，共刪除 `{deleted}` 張卡牌。")
+        text = f"🗑️ 已清空 **{self.target.display_name}** 的卡冊，共刪除 `{deleted}` 張卡牌。"
+        left = len(await get_user_cards(self.target.id, include_locked=True))   # 留下來的只會是 🌀 出征中的卡
+        if left:
+            text += f"\n-# 🌀 有 `{left}` 張正在裏世界出征，沒有刪 (那一局結束後才清得掉)。"
+        await self._finish(interaction, text)
 
     async def cancel_callback(self, interaction: discord.Interaction):
         self.done = True
@@ -239,7 +243,7 @@ class CardPickerView(ui.LayoutView):
             changed = await update_cards_completeness(self.target.id, ids, self.value)
             self.notice = f"✅ 已將 **{self.target.display_name}** 的 `{changed}` 張卡牌完整度改為 `{self.value:.4f}`。"
         if changed != len(ids):
-            self.notice += f"\n-# 有 `{len(ids) - changed}` 張已經不在對方的卡冊中 (可能已被合成、融合或刪除)。"
+            self.notice += f"\n-# 有 `{len(ids) - changed}` 張沒有改到 (已經不在對方的卡冊中，或正在 🌀 裏世界出征)。"
         self.pending = []
 
         await self.reload_cards()
