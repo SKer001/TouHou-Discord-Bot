@@ -360,6 +360,25 @@ run["result"] = "failed"
 s = R.settle(run)
 check("fail settle", s["money"] == 0 and s["exp"] == 50 and s["penalty"] == ["c0", "c1", "c2"] and not s["treasures"] and s["deepest"] is None)
 
+# ---------------- 給畫面用：要不要選目標、現在能用的道具 ----------------
+run = battle(foes=("lost_spirit", "shadow_rabbit"), bag={"eientei_salve": 1, "dango": 1, "telescope": 1, "phoenix_feather": 1, "bomb": 1})
+check("target attack 2 foes", R.target_kind(run, "attack", "p0") == "enemy")
+check("target heal 3 allies", R.target_kind(run, "item", item="eientei_salve") == "ally")
+check("target dango", R.target_kind(run, "item", item="dango") == "enemy")
+check("target bomb none", R.target_kind(run, "item", item="bomb") is None)
+check("target revive nobody dead", R.target_kind(run, "item", item="phoenix_feather") is None)
+check("spell target", R.target_kind(run, "spell", "p0") in ("enemy", None))
+u = R.usable_items(run)
+check(f"usable in battle {u}", "dango" in u and "bomb" in u and "telescope" not in u and "phoenix_feather" not in u)
+run["battle"]["foes"][1]["alive"] = False
+check("target attack 1 foe", R.target_kind(run, "attack", "p0") is None)
+run["party"][2]["alive"], run["party"][1]["alive"] = False, False
+check("revive 2 dead", R.target_kind(run, "item", item="phoenix_feather") == "dead" and "phoenix_feather" in R.usable_items(run))
+check("heal 1 alive", R.target_kind(run, "item", item="eientei_salve") is None)
+run = new(bag={"telescope": 1, "dango": 1, "return_talisman": 1, "substitute_doll": 1})
+u = R.usable_items(run)
+check(f"usable at doors {u}", "telescope" in u and "return_talisman" in u and "dango" not in u and "substitute_doll" not in u)
+
 # ---------------- 決定性：同一個進度 + 同一個動作 = 同一個結果 ----------------
 a = new(seed="det"); b2 = json.loads(json.dumps(a))
 R.choose_door(a, 0, R.action_rng(a)); R.choose_door(b2, 0, R.action_rng(b2))

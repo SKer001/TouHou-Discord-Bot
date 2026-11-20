@@ -474,6 +474,58 @@ def battle_action(run: dict, action: str, rng, uid: str | None = None, target: s
     return why
 
 
+def target_kind(run: dict, action: str, uid: str | None = None, item: str | None = None) -> str | None:
+    """
+    (給畫面用) 這個動作要不要先選目標：enemy / ally (活著的隊友) / dead (倒下的隊友)；
+    不用選或只有一個可以選 ➔ None (引擎會自動挑那一個)
+    """
+    b = run.get("battle")
+    foes = combat.living(b["foes"]) if b else []
+
+    def need(kind: str) -> str | None:
+        if kind == "enemy":
+            return "enemy" if len(foes) > 1 else None
+        pool = [m for m in run["party"] if (not m["alive"]) == (kind == "dead")]
+        return kind if len(pool) > 1 else None
+
+    if action == "attack":
+        return need("enemy")
+    u = combat.find_unit(run, uid) if uid else None
+    if action == "spell" and u:
+        t = data.spells()[u["cid"]]["target"]
+        return need("enemy") if t == "enemy_one" else need("ally") if t == "ally_one" else None
+    if action == "ofuda" and u and u.get("relic"):
+        act = data.relics()[u["relic"]["rid"]].get("active") or {}
+        return need("enemy") if act.get("do") == "apply" and act.get("target") == "enemy_one" else None
+    if action == "item" and item in data.items():
+        do = data.items()[item]["effect"]["do"]
+        if do == "heal":
+            return need("ally")
+        if do == "revive":
+            return need("dead")
+        if do in ("persuade", "apply"):
+            return need("enemy")
+    return None
+
+
+def usable_items(run: dict) -> list[str]:
+    """(給畫面用) 現在背包裡用得到的道具 (被動的、這個階段不能用的不列)"""
+    phase = run["phase"]
+    out = []
+    for iid, n in run["bag"]["items"].items():
+        it = data.items().get(iid)
+        if not it or n <= 0:
+            continue
+        use = it.get("use")
+        if use == "passive" or (use == "battle" and phase != "battle") or (use == "doors" and phase != "doors"):
+            continue
+        do = it["effect"]["do"]
+        if (do == "evacuate" and phase == "battle") or (do == "revive" and all(m["alive"] for m in run["party"])):
+            continue
+        out.append(iid)
+    return out
+
+
 def _after_battle_step(run: dict, rng):
     if _check_sanity(run):
         return
@@ -494,7 +546,8 @@ def _after_battle_step(run: dict, rng):
     money = total.pop("money")
     run["pocket"] += money
     stash(run, total)
-    run["last"] = {"kind": b["kind"], "over": over, "killed": list(b["killed"]), "loot": total, "money": money}
+    run["last"] = {"kind": b["kind"], "over": over, "killed": list(b["killed"]), "loot": total, "money": money,
+                   "floor": run["floor"]}
     combat.finish(run)
     if over == "win" and b["kind"] == "boss":
         run["boss_cleared"] = zone

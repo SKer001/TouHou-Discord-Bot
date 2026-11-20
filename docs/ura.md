@@ -519,7 +519,7 @@
   - `action_rng(run)`：每個動作一個亂數 (seed + 第幾個動作)，接回時重新顯示不會重擲。
   - 測試：`tests/test_ura_engine.py`。
   - `tools/ura_sim/spells.py` 改成直接呼叫正式引擎 (只剩自動玩家的決策)。
-- ⏳ 第二階段：資料表 (進度、出征鎖)、`/ura` 畫面。⏳ 第三階段：排行榜、活動預留位、活動任務。
+- ✅ 第二階段 (0.35.083 資料表、0.35.084 畫面)：出征鎖、`ura_runs` / `ura_storage` / `ura_bags` / `ura_records`、`Database/Ura_DB_Manager.py`、`Cogs/load-ura/ura.py` (`/ura explore / resume / abandon / shop / inventory / status`)。⏳ 第三階段：排行榜、活動預留位、活動任務。
 
 ## 📊 戰鬥模擬：正式引擎 (2026-11-20，`tools/ura_sim/spells.py -n 80`，重裝)
 - 跟上一節不同：有真的地圖 (選門、寶箱、事件、陷阱、商人)、真的法具 (撿到就裝)、**敵人有特殊技** (第 1 區名單，第 2～5 區也借第 1 區的)。

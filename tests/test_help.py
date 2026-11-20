@@ -34,6 +34,7 @@ async def main():
     check("notify in profile", "notify" in {c.name for c in cats["profile"]})
     check("no other yet", "other" not in cats)
     check("shrine has 6", len(cats["shrine"]) == 6)
+    check("ura has 6", {c.qualified_name for c in cats.get("ura", [])} == {"ura explore", "ura resume", "ura abandon", "ura shop", "ura inventory", "ura status"})
 
     # 新指令沒分類時出現在「其他」
     @app_commands.command(name="newthing", description="新功能")

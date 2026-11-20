@@ -57,6 +57,7 @@ Discord ─▶ Main.py (TouHouBot)
 | `load-gacha/` | `gacha.py`、`Admin-gacha.py` | `/card …`（祈願、卡冊、合成、融合、history）、`/admin-gacha …` |
 | `load-market/` | `market.py`、`Admin-market.py` | `/market …`（市值、分解、上架、購買、我的上架）、`/admin-market …` |
 | `load-general/` | `profile.py`、`shrine.py`、`event.py`、`trade.py`、`leaderboard.py`、`Admin-item.py`、`Admin-user.py`、`Admin-shrine.py`、`Admin-event.py`、`Admin-trade.py` | `/profile`、`/daily`、`/shrine …`（含 `storage` 神社倉庫）、`/event info / quest`、`/trade`、`/leaderboard`、`/admin-item …`、`/admin-user …`、`/admin-shrine …`、`/admin-event …`、`/admin-trade …` |
+| `load-ura/` | `ura.py` | `/ura …`（🌀 裏世界探索：explore、resume、abandon、shop、inventory、status；引擎在 `Database/ura/`）|
 | `load-system/` | `Admin-sys.py` | `/admin-sys reload / sync / shutdown` |
 
 ⚠️ **載入器會載入 `Cogs/load-*/` 第一層的每一個 `.py`**（`Main.py` 的 `setup_hook`）。所以：
@@ -130,7 +131,7 @@ async def setup(bot):
 
 ### 4.1 Database Manager 的規則
 
-- 所有 SQL 都在 `Database/User_DB_Manager.py`、`Item_DB_Manager.py`、`Economy_DB_Manager.py`（神社、市值、市場、轉帳）、`Quest_DB_Manager.py`（活動任務）、`Notify_DB_Manager.py`（通知）；同一個 Users.db，資料表定義放在 `User_DB_Manager.SCHEMA_STATEMENTS`（通知的表除外），Cog 只呼叫函式。
+- 所有 SQL 都在 `Database/User_DB_Manager.py`、`Item_DB_Manager.py`、`Economy_DB_Manager.py`（神社、市值、市場、轉帳）、`Ura_DB_Manager.py`（🌀 裏世界）、`Quest_DB_Manager.py`（活動任務）、`Notify_DB_Manager.py`（通知）；同一個 Users.db，資料表定義放在 `User_DB_Manager.SCHEMA_STATEMENTS`（通知的表除外），Cog 只呼叫函式。
 - **要跟別的東西在同一個交易裡給經驗值**時不要呼叫 `add_exp` (它自己開連線)：用 `udm.calc_exp_change(level, exp, n)` 算好，自己 `UPDATE users SET level, exp`（例：`Quest_DB_Manager.claim_quest`）。
 - 跟時間有關的系統（體力、神社）**不用背景排程**：每次讀取 / 操作時才依經過時間結算，結算函式要能傳入 `now`（與 `rng`）方便測試。每日結算（市值）也是第一次有人用到時補算前幾天。
 - 連線用 `connect()`（`aiosqlite`、`row_factory=Row`、`foreign_keys=ON`）。

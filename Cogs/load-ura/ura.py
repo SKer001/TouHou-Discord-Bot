@@ -1,0 +1,1036 @@
+"""
+🌀 裏世界探索 /ura：出發 (選卡 ➔ 整裝 ➔ 出發)、探索 (選門、戰鬥、房間、背包)、接回、放棄、商店、倉庫、狀態表
+規則在 Database/ura/ (引擎)、存取在 Database/Ura_DB_Manager.py、畫面文字在 Components/ura_components.py
+(docs/ura.md「第二階段第一輪：畫面」)
+
+- 畫面全部私人 (ephemeral)；只有結算在頻道另外發一則公開的 (資料卡設成私人就不發)
+- 每個動作都帶進度版本號 rev 呼叫 ura.act()：連點、舊畫面只會成功一次，舊畫面按了會重新讀進度
+- 私人訊息拿 id 刪不掉，舊畫面靠 rev 失效；新畫面打開時，15 分鐘內的舊畫面盡量改成「已移到新畫面」
+"""
+import discord
+from discord import app_commands, ui
+from discord.ext import commands
+
+from Database import Ura_DB_Manager as ura
+from Database.User_DB_Manager import get_or_create_user
+from Database.ura import combat, data, rules, run as R
+from Utils.components import send_notice, notice_view
+from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
+from Utils.pagination import nav_buttons, paginate
+from Utils.picker import GroupPickerView
+from .Components import ura_components as UC
+
+VIEW_TIMEOUT = 840   # 14 分鐘：互動 token 只有 15 分鐘，逾時時還來得及把畫面改成「已收起來」
+DENY = "❌ 這不是你的畫面"
+STALE = "⌛ 這個畫面已經過期了，請用 `/ura resume` 接回"
+STORAGE_PER_PAGE = 10
+
+PRIMARY, SECONDARY = discord.ButtonStyle.primary, discord.ButtonStyle.secondary
+SUCCESS, DANGER = discord.ButtonStyle.success, discord.ButtonStyle.danger
+
+
+def _btn(label: str, style, callback, disabled: bool = False) -> ui.Button:
+    b = ui.Button(label=label[:80], style=style, disabled=disabled)
+    b.callback = callback
+    return b
+
+
+def _select(placeholder: str, options: list[discord.SelectOption], callback, max_values: int = 1,
+            min_values: int = 1) -> ui.ActionRow:
+    n = len(options[:25])
+    s = ui.Select(placeholder=placeholder[:150], options=options[:25], max_values=min(max_values, n),
+                  min_values=min(min_values, n))
+    s.callback = callback
+    return ui.ActionRow(s)
+
+
+def _opt(label: str, value: str, description: str | None = None, default: bool = False) -> discord.SelectOption:
+    return discord.SelectOption(label=label[:100], value=value[:100], description=(description or None) and description[:100],
+                                default=default)
+
+
+# =========================================================
+# 🌀 進行中的一局
+# =========================================================
+class RunView(ui.LayoutView):
+    """
+    mode：main (依 phase 顯示) / bag (背包) / target (選目標) / abandon (確認放棄) / settle (結算)
+    多步的選擇 (誰行動 ➔ 動作 ➔ 目標、放棄確認) 都在這裡，最後一按才呼叫 ura.act()
+    """
+
+    def __init__(self, cog, user, row: dict, mode: str = "main", notice: str | None = None):
+        super().__init__(timeout=VIEW_TIMEOUT)
+        self.cog, self.user = cog, user
+        self.rev, self.state = row["rev"], row["state"]
+        self.mode, self.notice = mode, notice
+        self.actor = None      # 戰鬥：誰行動
+        self.pending = None    # 等選目標的動作 {"action", "item", "kind", "idx"}
+        self.settle = None
+        self.last = None       # 最後一次互動 (逾時 / 被新畫面取代時拿來改畫面)
+        self.retired = False
+        self.build()
+
+    # ---------- 共用 ----------
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user.id:
+            await send_notice(interaction, DENY)
+            return False
+        if self.retired:
+            await send_notice(interaction, STALE)
+            return False
+        return True
+
+    async def on_timeout(self):
+        self.cog.forget(self)
+        if self.last and not self.retired and self.mode != "settle":
+            try:
+                await self.last.edit_original_response(view=notice_view("⏳ 畫面閒置太久先收起來了；進度都還在，用 `/ura resume` 接回"))
+            except discord.HTTPException:
+                pass
+
+    async def redraw(self, interaction: discord.Interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
+        self.last = interaction   # 只記「改到這個畫面」的互動 (狀態表、錯誤提示是另一則訊息，不能拿來收畫面)
+
+    async def act(self, interaction: discord.Interaction, fn, keep: bool = False):
+        """所有會改進度的按鈕都走這裡；keep = 成功後留在同一個 mode (例如背包裡連續操作)"""
+        before = self.state["phase"]
+        res = await ura.act(self.user.id, self.rev, fn)
+        if res["ok"]:
+            self.rev, self.state, self.notice = res["rev"], res["state"], None
+            if not (keep and self.state["phase"] == before):
+                self.mode, self.pending = "main", None
+            if res.get("settle"):
+                await self.finish(interaction, res["settle"])
+                return
+            await self.redraw(interaction)
+            return
+        reason = res["reason"]
+        if reason == "stale":   # 別的畫面已經動過：重新讀進度 (不是錯誤)
+            row = await ura.get_run(self.user.id)
+            if row:
+                self.rev, self.state = row["rev"], row["state"]
+                self.mode, self.pending = "main", None
+                self.notice = "🔄 進度在別的畫面動過了，已經重新讀取"
+                await self.redraw(interaction)
+                return
+            reason = "none"
+        if reason == "none":
+            self.retired = True
+            self.stop()
+            self.cog.forget(self)
+            await interaction.response.edit_message(view=notice_view("🏁 這局已經結束了，用 `/ura explore` 再出發"))
+            return
+        await send_notice(interaction, f"❌ {reason}")
+
+    async def finish(self, interaction: discord.Interaction, settle: dict):
+        self.settle, self.mode = settle, "settle"
+        await self.redraw(interaction)
+        self.retired = True
+        self.stop()
+        self.cog.forget(self)
+        await self.cog.announce(interaction, self.state, settle)
+
+    # ---------- 畫面 ----------
+    def build(self):
+        self.clear_items()
+        st = self.state
+        if self.mode == "settle":
+            self.add_item(UC.build_settle_container(st, self.settle))
+            return
+        if self.mode == "abandon":
+            body = ("### 🏳️ 確定要放棄這次探索嗎？\n派出的卡**每張完整度 −0.1**，口袋的賽錢和背包裡的東西**全部沒了**，經驗只拿一半。")
+            self.add_item(UC.build_run_container(st, self.notice, body))
+            self.add_item(ui.ActionRow(_btn("🏳️ 確定放棄", DANGER, self.on_abandon_yes), _btn("↩️ 返回", SECONDARY, self.on_back)))
+            return
+        if self.mode == "target":
+            self._build_target()
+            return
+        if self.mode == "bag":
+            self._build_bag()
+            return
+        phase = st["phase"]
+        if phase == "battle":
+            self._build_battle()
+        elif phase == "doors":
+            self._build_doors()
+        else:
+            self._build_room()
+
+    def _pending_row(self):
+        pend = self.state.get("pending") or []
+        if pend:
+            opts = [_opt(UC.pending_label(p), str(i)) for i, p in enumerate(pend[:25])]
+            self.add_item(_select("📦 撿起放不下的東西…", opts, self.on_take))
+
+    def _build_battle(self):
+        st, b = self.state, self.state["battle"]
+        self.add_item(UC.build_run_container(st, self.notice))
+        ready = [m for m in st["party"] if combat.can_act(st, m)]
+        if self.actor not in [m["uid"] for m in ready]:
+            self.actor = ready[0]["uid"] if ready else None
+        if ready:
+            opts = []
+            for m in ready:
+                why = combat.spell_ready(st, m)
+                spell = m.get("spell_name") or "符卡"
+                opts.append(_opt(f"{m['emoji']} {m['name']}", m["uid"], f"✨ {spell}：" + ("可以放" if not why else why),
+                                 default=m["uid"] == self.actor))
+            self.add_item(_select("🙋 誰行動？", opts, self.on_actor))
+        actor = combat.find_unit(st, self.actor) if self.actor else None
+        why = combat.spell_ready(st, actor) if actor else "沒有人能行動"
+        rel = actor.get("relic") if actor else None
+        ofuda = bool(rel and data.relics()[rel["rid"]]["type"] == "ofuda" and rel.get("left", 0) > 0 and not b["ofuda_used"])
+        smoke = st["bag"]["items"].get("smoke_bomb", 0) > 0
+        cost = 0 if smoke else rules.flee_cost(rules.zone_of(st["floor"]), combat.has_guide(st), b["kind"])
+        flee = "🏃 逃跑" + ("" if b["kind"] == "boss" else (" (💨 煙霧彈)" if smoke else f" (🧭 −{cost})"))
+        self.add_item(ui.ActionRow(
+            _btn("⚔️ 普攻", PRIMARY, self.on_attack, disabled=actor is None),
+            _btn("✨ 符卡", SUCCESS, self.on_spell, disabled=bool(why)),
+            _btn("🎒 道具", SECONDARY, self.on_bag, disabled=not R.usable_items(st)),
+            _btn("📜 御札", SECONDARY, self.on_ofuda, disabled=not ofuda),
+            _btn(flee, SECONDARY, self.on_flee, disabled=b["kind"] == "boss"),
+        ))
+        self.add_item(ui.ActionRow(_btn("📖 狀態表", SECONDARY, self.on_status_table), _btn("🏳️ 放棄", DANGER, self.on_abandon)))
+
+    def _build_doors(self):
+        st = self.state
+        self.add_item(UC.build_run_container(st, self.notice))
+        revealed = R.doors_revealed(st)
+        doors = [_btn(UC.door_label(st, i, d, revealed), DANGER if d["type"] == "boss" else PRIMARY, self._door_cb(i))
+                 for i, d in enumerate(st["doors"][:5])]
+        if doors:
+            self.add_item(ui.ActionRow(*doors))
+        self._pending_row()
+        row = [_btn("🎒 背包", SECONDARY, self.on_bag)]
+        caster = next((m for m in combat.living(st["party"]) if data.spells()[m["cid"]].get("outside")), None)
+        if caster:
+            row.append(_btn(f"✨ {caster['name']}的符卡", SUCCESS, self._outside_cb(caster["uid"]),
+                            disabled=bool(combat.spell_ready(st, caster, in_battle=False))))
+        row += [_btn("📖 狀態表", SECONDARY, self.on_status_table), _btn("🏳️ 放棄", DANGER, self.on_abandon)]
+        self.add_item(ui.ActionRow(*row))
+
+    def _build_room(self):
+        st, phase = self.state, self.state["phase"]
+        room = st.get("room") or {}
+        self.add_item(UC.build_run_container(st, self.notice))
+        row = []
+        if phase == "chest":
+            if not room.get("opened"):
+                locked = room.get("locked")
+                no_key = locked and st["bag"]["items"].get("chest_key", 0) <= 0
+                row.append(_btn("🗝️ 用鑰匙打開" if locked else "🔓 打開寶箱", SUCCESS, self.on_open, disabled=bool(no_key)))
+                row.append(_btn("🚪 不開了，往前走", PRIMARY, self.on_leave))
+            else:
+                row.append(_btn("🚪 繼續前進", PRIMARY, self.on_leave))
+        elif phase == "event":
+            pc = room.get("pending_choice")
+            if pc:
+                do = data.events()[pc]["effect"]["do"]
+                if do == "upgrade_treasure":
+                    first = {}
+                    for i, t in enumerate(st["bag"]["treasures"]):
+                        if t["rarity"] != "LR":
+                            first.setdefault((t["id"], t["rarity"]), i)   # 同一種只列一次
+                    ts = sorted(first.items(), key=lambda kv: UC.RARITY_SORT.get(kv[0][1], 0))
+                    if ts:
+                        opts = [_opt(f"{UC.treasure_name(tid)}〔{r}〕", str(i), "獻上這個，換高一階的寶物") for (tid, r), i in ts[:25]]
+                        self.add_item(_select("⛩️ 獻上哪一個寶物？", opts, self.on_offer))
+                elif do == "trade_items_for_relic":
+                    units = [(f"{iid}#{k}", iid) for iid, n in st["bag"]["items"].items() for k in range(n)][:25]
+                    need = data.events()[pc]["effect"]["items"]
+                    if len(units) >= need:
+                        opts = [_opt(UC.item_name(iid), v) for v, iid in units]
+                        self.add_item(_select(f"🦊 選 {need} 個道具交給狐狸…", opts, self.on_trade, max_values=need, min_values=need))
+                elif do == "trial":
+                    row.append(_btn("🔥 接受試煉", SUCCESS, self.on_trial))
+                else:
+                    row.append(_btn("✅ 好", SUCCESS, self.on_accept))
+                row.append(_btn("❌ 不要", SECONDARY, self.on_decline))
+            else:
+                row.append(_btn("🚪 繼續前進", PRIMARY, self.on_leave))
+        elif phase == "trap":
+            row.append(_btn("🚪 繼續前進", PRIMARY, self.on_leave))
+        elif phase == "merchant":
+            stock = [(i, s) for i, s in enumerate(room.get("stock", [])) if s["qty"] > 0]
+            if stock:
+                opts = [_opt(UC.item_name(s["id"]) if s["kind"] == "item" else UC.relic_name(s["relic"]), str(i),
+                             f"{s['price']:,} 賽錢｜剩 {s['qty']}") for i, s in stock]
+                self.add_item(_select("🛒 買一個…", opts, self.on_buy))
+            row.append(_btn("🚪 離開", PRIMARY, self.on_leave))
+        elif phase == "boss_clear":
+            row += [_btn("🏁 撤離 (帶東西回去)", SUCCESS, self.on_evacuate), _btn("➡️ 繼續前進", PRIMARY, self.on_continue)]
+        self._pending_row()
+        row += [_btn("🎒 背包", SECONDARY, self.on_bag), _btn("🏳️ 放棄", DANGER, self.on_abandon)]
+        self.add_item(ui.ActionRow(*row[:5]))
+
+    def _build_bag(self):
+        st = self.state
+        self.add_item(UC.build_run_container(st, self.notice, UC.bag_text(st)))
+        usable = R.usable_items(st)
+        if usable:
+            opts = [_opt(UC.item_name(i), i, UC.item_option_desc(i, st["bag"]["items"][i])) for i in usable]
+            self.add_item(_select("🧪 使用道具…", opts, self.on_use))
+        bag = st["bag"]
+        if st["phase"] != "battle":
+            opts = [_opt(f"{UC.item_name(i)} (丟 1 個)", f"items|{i}", f"有 {n} 個") for i, n in bag["items"].items()]
+            opts += [_opt(f"{UC.material_info(m)[1]} {UC.material_info(m)[0]} (全部丟掉)", f"materials|{m}", f"{n} 個")
+                     for m, n in bag["materials"].items()]
+            seen = {}
+            for i, t in enumerate(bag["treasures"]):
+                key = (t["id"], t["rarity"])
+                if key not in seen:
+                    seen[key] = i
+            for (tid, r), i in sorted(seen.items(), key=lambda kv: UC.RARITY_SORT.get(kv[0][1], 0)):
+                opts.append(_opt(f"{UC.treasure_name(tid)}〔{r}〕(丟 1 個)", f"treasures|{i}"))
+            opts += [_opt(f"{UC.relic_name(r)} (丟掉)", f"relics|{i}") for i, r in enumerate(bag["relics"])]
+            if opts:
+                self.add_item(_select("🗑️ 丟掉…", opts, self.on_discard))
+            if bag["relics"]:
+                ropts = [_opt(UC.relic_name(r), str(i), data.relics().get(r["rid"], {}).get("desc", "")) for i, r in enumerate(bag["relics"][:25])]
+                self.add_item(_select("🦊 把法具裝給誰…", ropts, self.on_relic))
+            self._pending_row()
+        self.add_item(ui.ActionRow(_btn("↩️ 返回", SECONDARY, self.on_back)))
+
+    def _build_target(self):
+        st, p = self.state, self.pending
+        self.add_item(UC.build_run_container(st, self.notice))
+        kind = p["kind"]
+        if kind == "enemy":
+            pool = combat.living((st.get("battle") or {}).get("foes", []))
+        elif kind == "dead":
+            pool = [m for m in st["party"] if not m["alive"]]
+        elif kind == "member":
+            pool = list(st["party"])
+        else:
+            pool = combat.living(st["party"])
+        opts = [_opt(f"{u['emoji']} {u['name']}", u["uid"],
+                     f"❤️ {u['hp']} / {combat.max_hp(u)}" if u["alive"] else "💀 倒下") for u in pool]
+        what = {"attack": "⚔️ 普攻", "spell": "✨ 符卡", "ofuda": "📜 御札", "relic": "🦊 裝備法具", "trial": "🔥 試煉"}.get(
+            p["action"], UC.item_name(p.get("item") or ""))
+        if opts:
+            self.add_item(_select(f"🎯 {what}：選目標", opts, self.on_target))
+        self.add_item(ui.ActionRow(_btn("↩️ 取消", SECONDARY, self.on_back)))
+
+    # ---------- 按鈕 ----------
+    def _door_cb(self, idx: int):
+        async def cb(interaction: discord.Interaction):
+            await self.act(interaction, lambda s, g: R.choose_door(s, idx, g))
+        return cb
+
+    def _outside_cb(self, uid: str):
+        async def cb(interaction: discord.Interaction):
+            await self.act(interaction, lambda s, g: R.cast_outside(s, uid, g))
+        return cb
+
+    async def on_back(self, interaction):
+        self.mode, self.pending, self.notice = "main", None, None
+        await self.redraw(interaction)
+
+    async def on_bag(self, interaction):
+        self.mode, self.notice = "bag", None
+        await self.redraw(interaction)
+
+    async def on_abandon(self, interaction):
+        self.mode, self.notice = "abandon", None
+        await self.redraw(interaction)
+
+    async def on_abandon_yes(self, interaction):
+        await self.act(interaction, lambda s, g: R.abandon(s))
+
+    async def on_status_table(self, interaction):
+        view = ui.LayoutView(timeout=None)
+        view.add_item(UC.build_status_table())
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+    async def on_actor(self, interaction):
+        self.actor = interaction.data["values"][0]
+        await self.redraw(interaction)
+
+    async def battle(self, interaction, action: str, item: str | None = None, target: str | None = None):
+        uid = self.actor
+        if target is None:
+            kind = R.target_kind(self.state, action, uid, item)
+            if kind:
+                self.pending, self.mode = {"action": action, "item": item, "kind": kind}, "target"
+                await self.redraw(interaction)
+                return
+        await self.act(interaction, lambda s, g: R.battle_action(s, action, g, uid=uid, target=target, item=item))
+
+    async def on_attack(self, interaction):
+        await self.battle(interaction, "attack")
+
+    async def on_spell(self, interaction):
+        await self.battle(interaction, "spell")
+
+    async def on_ofuda(self, interaction):
+        await self.battle(interaction, "ofuda")
+
+    async def on_flee(self, interaction):
+        await self.battle(interaction, "flee")
+
+    async def on_use(self, interaction):
+        iid = interaction.data["values"][0]
+        if self.state["phase"] == "battle":
+            await self.battle(interaction, "item", item=iid)
+            return
+        kind = R.target_kind(self.state, "item", item=iid)
+        if kind:
+            self.pending, self.mode = {"action": "item_out", "item": iid, "kind": kind}, "target"
+            await self.redraw(interaction)
+            return
+        await self.act(interaction, lambda s, g: R.use_item(s, iid, None, g), keep=True)
+
+    async def on_target(self, interaction):
+        t, p = interaction.data["values"][0], self.pending or {}
+        a = p.get("action")
+        if a in ("attack", "spell", "ofuda", "item"):
+            await self.battle(interaction, a, item=p.get("item"), target=t)
+        elif a == "item_out":
+            await self.act(interaction, lambda s, g: R.use_item(s, p["item"], t, g))
+        elif a == "relic":
+            await self.act(interaction, lambda s, g: R.equip_relic(s, p["idx"], t))
+        elif a == "trial":
+            await self.act(interaction, lambda s, g: R.event_choice(s, True, g, pick=t))
+        else:
+            await self.on_back(interaction)
+
+    async def on_take(self, interaction):
+        idx = int(interaction.data["values"][0])
+        await self.act(interaction, lambda s, g: R.take_pending(s, idx), keep=True)
+
+    async def on_discard(self, interaction):
+        kind, key = interaction.data["values"][0].split("|", 1)
+        if kind in ("treasures", "relics"):
+            key = int(key)
+        n = self.state["bag"]["materials"].get(key, 1) if kind == "materials" else 1
+        await self.act(interaction, lambda s, g: R.discard(s, kind, key, n), keep=True)
+
+    async def on_relic(self, interaction):
+        idx = int(interaction.data["values"][0])
+        if len(self.state["party"]) == 1:
+            uid = self.state["party"][0]["uid"]
+            await self.act(interaction, lambda s, g: R.equip_relic(s, idx, uid), keep=True)
+            return
+        self.pending, self.mode = {"action": "relic", "idx": idx, "kind": "member"}, "target"
+        await self.redraw(interaction)
+
+    async def on_open(self, interaction):
+        await self.act(interaction, lambda s, g: R.open_chest(s, g), keep=True)
+
+    async def on_leave(self, interaction):
+        await self.act(interaction, lambda s, g: R.leave_room(s, g))
+
+    async def on_accept(self, interaction):
+        await self.act(interaction, lambda s, g: R.event_choice(s, True, g), keep=True)
+
+    async def on_decline(self, interaction):
+        await self.act(interaction, lambda s, g: R.event_choice(s, False, g), keep=True)
+
+    async def on_offer(self, interaction):
+        idx = int(interaction.data["values"][0])
+        await self.act(interaction, lambda s, g: R.event_choice(s, True, g, pick=idx), keep=True)
+
+    async def on_trade(self, interaction):
+        picks = [v.split("#")[0] for v in interaction.data["values"]]
+        await self.act(interaction, lambda s, g: R.event_choice(s, True, g, pick=picks), keep=True)
+
+    async def on_trial(self, interaction):
+        alive = combat.living(self.state["party"])
+        if len(alive) == 1:
+            uid = alive[0]["uid"]
+            await self.act(interaction, lambda s, g: R.event_choice(s, True, g, pick=uid), keep=True)
+            return
+        self.pending, self.mode = {"action": "trial", "kind": "ally"}, "target"
+        await self.redraw(interaction)
+
+    async def on_buy(self, interaction):
+        idx = int(interaction.data["values"][0])
+        await self.act(interaction, lambda s, g: R.buy(s, idx), keep=True)
+
+    async def on_evacuate(self, interaction):
+        await self.act(interaction, lambda s, g: R.evacuate(s))
+
+    async def on_continue(self, interaction):
+        await self.act(interaction, lambda s, g: R.continue_after_boss(s, g))
+
+
+# =========================================================
+# 🚀 出發 ①：選隊伍 (卡池 ➔ 角色 ➔ 那位角色的哪張卡)
+# =========================================================
+class PartyPickerView(GroupPickerView):
+    GROUP_PLACEHOLDER = "🎰 卡池"
+    ITEM_PLACEHOLDER = "🧍 選角色"
+    DENY_TEXT = DENY
+
+    def __init__(self, cog, user, cards: list[dict], groups: dict):
+        super().__init__(user.id, user, groups, timeout=VIEW_TIMEOUT)
+        self.cog = cog
+        self.cards = cards
+        self.picked: list[str] = []    # instance_id (照選的順序)
+        self.card_choice = None
+
+    @classmethod
+    async def create(cls, cog, user):
+        cards = await ura.candidate_cards(user.id)
+        if not any(c["ok"] for c in cards):
+            return None
+        pool = load_gacha_pool()
+        owned = []
+        for c in cards:
+            if c["character_key"] not in owned:
+                owned.append(c["character_key"])
+        groups = {k: [] for k in GACHA_POOLS}
+        for cid in data.characters():
+            if cid in owned:
+                groups.setdefault(pool.get(cid, {}).get("pool") or "other", []).append(cid)
+        view = cls(cog, user, cards, groups)
+        view.open_at(next(c["character_key"] for c in cards if c["ok"]))
+        view.build()
+        return view
+
+    async def load(self):
+        self.cards = await ura.candidate_cards(self.user.id)
+        ids = {c["instance_id"]: c for c in self.cards}
+        self.picked = [i for i in self.picked if i in ids and ids[i]["ok"]]
+
+    def card(self, iid: str) -> dict | None:
+        return next((c for c in self.cards if c["instance_id"] == iid), None)
+
+    def char(self, cid: str) -> dict:
+        return data.characters().get(cid, {})
+
+    def picked_char(self, cid: str) -> str | None:
+        return next((i for i in self.picked if (self.card(i) or {}).get("character_key") == cid), None)
+
+    def group_name(self, key):
+        return GACHA_POOLS.get(key, {}).get("name", "📌 其他")
+
+    def group_status(self, key):
+        return f"{len(self.groups[key])} 位角色有卡"
+
+    def item_label(self, cid):
+        ch = self.char(cid)
+        return f"{'✅ ' if self.picked_char(cid) else ''}{ch.get('emoji', '')} {ch.get('name', cid)}"
+
+    def item_status(self, cid):
+        mine = [c for c in self.cards if c["character_key"] == cid]
+        return f"{UC.CLASS_NAMES.get(self.char(cid).get('class'), '')}｜{len(mine)} 張，可以派 {sum(c['ok'] for c in mine)} 張"
+
+    def header(self):
+        lines = [f"## 🚀 出發：選隊伍 ({len(self.picked)} / {rules.MAX_PARTY})"]
+        for i in self.picked:
+            c, ch = self.card(i), self.char(self.card(i)["character_key"])
+            lines.append(f"{ch.get('emoji', '')} **{ch.get('name', '')}**〔{c['rarity']}〕 完整度 {c['completeness']:.4f}（{UC.CLASS_NAMES.get(ch.get('class'), '')}）")
+        if not self.picked:
+            lines.append("-# 還沒有人。選角色 ➔ 選卡 ➔ ➕ 加入隊伍")
+        lines.append("-# 同一位角色只能派一張；收藏冊的卡、完整度不到 0.3 的不能派。失敗 / 放棄時派出的卡完整度 −0.1")
+        return "\n".join(lines)
+
+    def detail(self, cid):
+        ch = self.char(cid)
+        sp = data.spells().get(cid, {})
+        return (f"{ch.get('emoji', '')} **{ch.get('name', cid)}**　{UC.CLASS_NAMES.get(ch.get('class'), '')}\n"
+                f"✨ {ch.get('spell_name', '符卡')}：{sp.get('desc', '')}\n-# B 點 {sp.get('b', '?')}、冷卻 {sp.get('cd', '?')} 步")
+
+    def accent(self):
+        return UC.COLOR_RUN
+
+    def select_item(self, item):
+        self.selected = item
+        mine = sorted([c for c in self.cards if c["character_key"] == item and c["ok"]],
+                      key=lambda c: (-UC.RARITY_SORT.get(c["rarity"], 0), -c["completeness"]))
+        self.card_choice = mine[0]["instance_id"] if mine else None
+
+    def actions(self):
+        cid = self.selected
+        has = cid and self.picked_char(cid)
+        return [("➕ 加入隊伍", SUCCESS, self.on_add, not (cid and self.card_choice and not has and len(self.picked) < rules.MAX_PARTY)),
+                ("➖ 移出隊伍", SECONDARY, self.on_remove, not has),
+                ("➡️ 下一步：整裝", PRIMARY, self.on_next, not self.picked)]
+
+    def build(self):
+        super().build()
+        if not self.selected:
+            return
+        last = self.children[-1]
+        self.remove_item(last)
+        mine = sorted([c for c in self.cards if c["character_key"] == self.selected],
+                      key=lambda c: (not c["ok"], -UC.RARITY_SORT.get(c["rarity"], 0), -c["completeness"]))[:25]
+        opts = [_opt(f"{'' if c['ok'] else '🚫 '}〔{c['rarity']}〕完整度 {c['completeness']:.4f}", c["instance_id"],
+                     c["why"] or "可以出征", default=c["instance_id"] == self.card_choice) for c in mine]
+        if opts:
+            self.add_item(_select("🎴 派哪一張卡？", opts, self.on_card))
+        self.add_item(last)
+
+    async def on_card(self, interaction):
+        c = self.card(interaction.data["values"][0])
+        if not c or not c["ok"]:
+            await self.done(interaction, f"❌ 這張不能派：{(c or {}).get('why') or '找不到這張卡'}")
+            return
+        self.card_choice = c["instance_id"]
+        await self.done(interaction)
+
+    async def on_add(self, interaction):
+        if self.card_choice and self.card_choice not in self.picked and len(self.picked) < rules.MAX_PARTY \
+                and not self.picked_char(self.selected):
+            self.picked.append(self.card_choice)
+        await self.done(interaction)
+
+    async def on_remove(self, interaction):
+        i = self.picked_char(self.selected)
+        if i:
+            self.picked.remove(i)
+        await self.done(interaction)
+
+    async def on_next(self, interaction):
+        await self.load()
+        if not self.picked:
+            await self.done(interaction, "❌ 隊伍裡的卡已經不能派了，請重新選")
+            return
+        view = await LoadoutView.create(self.cog, self.user, self)
+        await interaction.response.edit_message(view=view)
+
+
+# =========================================================
+# 🚀 出發 ②：整裝 (道具、額外背包、帶多少賽錢) ➔ 出發
+# =========================================================
+class PocketModal(ui.Modal, title="💰 帶多少賽錢進去？"):
+    amount = ui.TextInput(label="賽錢 (流浪商人用；只有成功撤離才帶得回來)", placeholder="例如 30000", max_length=12)
+
+    def __init__(self, owner):
+        super().__init__()
+        self.owner = owner
+        self.amount.default = str(owner.pocket)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = str(self.amount.value).replace(",", "").strip()
+        if not raw.isdigit():
+            await send_notice(interaction, "❌ 請輸入 0 以上的整數")
+            return
+        n = int(raw)
+        money = (await get_or_create_user(self.owner.user.id))["money"]
+        if n > money:
+            await send_notice(interaction, f"❌ 賽錢不夠 (你只有 {money:,})")
+            return
+        self.owner.pocket, self.owner.money, self.owner.notice = n, money, None
+        await self.owner.redraw(interaction)
+
+
+class LoadoutView(ui.LayoutView):
+    def __init__(self, cog, user, picker: PartyPickerView, storage: dict, record: dict, money: int):
+        super().__init__(timeout=VIEW_TIMEOUT)
+        self.cog, self.user, self.picker = cog, user, picker
+        self.storage, self.record, self.money = storage, record, money
+        self.carry: dict[str, int] = {}
+        self.bag_row = None
+        self.pocket = 0
+        self.sel = None
+        self.notice = None
+        self.build()
+
+    @classmethod
+    async def create(cls, cog, user, picker):
+        storage = await ura.get_storage(user.id)
+        record = await ura.get_record(user.id)
+        money = (await get_or_create_user(user.id))["money"]
+        return cls(cog, user, picker, storage, record, money)
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.user.id:
+            await send_notice(interaction, DENY)
+            return False
+        return True
+
+    def capacity(self) -> tuple[int, str | None]:
+        bag = next((b for b in self.storage["bags"] if b["id"] == self.bag_row), None)
+        if not bag or bag["bag_id"] not in data.bags():
+            return rules.BAG_SLOTS, None
+        info = data.bags()[bag["bag_id"]]
+        return rules.BAG_SLOTS + info["slots"], f"{info['name']} (+{info['slots']} 格)"
+
+    def add(self, iid: str, n: int) -> str | None:
+        """多帶 n 個；回傳停下來的原因"""
+        cap, _ = self.capacity()
+        for _ in range(n):
+            if self.storage["items"].get(iid, 0) - self.carry.get(iid, 0) <= 0:
+                return f"倉庫的{UC.item_name(iid)}不夠"
+            why = R.item_limit_reason(self.carry, iid, 1)
+            if why:
+                return why
+            trial = dict(self.carry)
+            trial[iid] = trial.get(iid, 0) + 1
+            if R.slots_used({"items": trial, "materials": {}, "treasures": [], "relics": []}) > cap:
+                return f"背包只有 {cap} 格"
+            self.carry = trial
+        return None
+
+    def party(self) -> list[dict]:
+        out = []
+        for i in self.picker.picked:
+            c = self.picker.card(i)
+            ch = data.characters().get(c["character_key"], {})
+            out.append({"emoji": ch.get("emoji", ""), "name": ch.get("name", ""), "rarity": c["rarity"],
+                        "completeness": c["completeness"], "cls": ch.get("class")})
+        return out
+
+    def build(self):
+        self.clear_items()
+        cap, bag_name = self.capacity()
+        self.add_item(UC.build_loadout_container(self.party(), self.carry, self.storage, cap, bag_name, self.pocket,
+                                                 self.money, self.notice))
+        have = [(i, n) for i, n in self.storage["items"].items() if n > 0 and i in data.items()]
+        if have:
+            opts = [_opt(UC.item_name(i), i, f"倉庫 {n}｜帶 {self.carry.get(i, 0)}｜{data.items()[i].get('desc', '')}",
+                         default=i == self.sel) for i, n in have[:25]]
+            self.add_item(_select("🧪 選一個道具…", opts, self.on_sel))
+            self.add_item(ui.ActionRow(
+                _btn("➕ 1", SUCCESS, self._add_cb(1), disabled=not self.sel),
+                _btn("➕ 5", SUCCESS, self._add_cb(5), disabled=not self.sel),
+                _btn("➖ 1", SECONDARY, self.on_minus, disabled=not (self.sel and self.carry.get(self.sel))),
+                _btn("🧹 全部不帶", SECONDARY, self.on_clear, disabled=not self.carry),
+                _btn("💾 儲存這組", SECONDARY, self.on_save, disabled=not self.carry),
+            ))
+        bags = [b for b in self.storage["bags"] if b["bag_id"] in data.bags()]
+        if bags:
+            opts = [_opt("不帶額外背包", "none", default=self.bag_row is None)]
+            opts += [_opt(f"🎒 {data.bags()[b['bag_id']]['name']} (+{data.bags()[b['bag_id']]['slots']} 格)", str(b["id"]),
+                          f"還能用 {b['uses_left']} 次 (這次出發用掉 1 次)", default=b["id"] == self.bag_row) for b in bags[:24]]
+            self.add_item(_select("🎒 額外背包", opts, self.on_bag))
+        self.add_item(ui.ActionRow(
+            _btn("⚡ 快速整裝", PRIMARY, self.on_quick, disabled=not self.record.get("loadout")),
+            _btn("💰 帶賽錢", SECONDARY, self.on_pocket),
+            _btn("🚀 出發！", SUCCESS, self.on_go),
+            _btn("↩️ 上一步", SECONDARY, self.on_back),
+        ))
+
+    async def redraw(self, interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
+
+    def _add_cb(self, n: int):
+        async def cb(interaction):
+            why = self.add(self.sel, n) if self.sel else "先選一個道具"
+            self.notice = f"⚠️ {why}" if why else None
+            await self.redraw(interaction)
+        return cb
+
+    async def on_sel(self, interaction):
+        self.sel = interaction.data["values"][0]
+        await self.redraw(interaction)
+
+    async def on_minus(self, interaction):
+        if self.carry.get(self.sel):
+            self.carry[self.sel] -= 1
+            if not self.carry[self.sel]:
+                del self.carry[self.sel]
+        self.notice = None
+        await self.redraw(interaction)
+
+    async def on_clear(self, interaction):
+        self.carry, self.notice = {}, None
+        await self.redraw(interaction)
+
+    async def on_save(self, interaction):
+        await ura.save_loadout(self.user.id, self.carry)
+        self.record = await ura.get_record(self.user.id)
+        self.notice = "💾 存好了，下次出發可以按 ⚡ 快速整裝一鍵帶齊"
+        await self.redraw(interaction)
+
+    async def on_quick(self, interaction):
+        self.carry = {}
+        short = []
+        for iid, n in self.record.get("loadout", {}).items():
+            why = self.add(iid, n)
+            if why:
+                short.append(f"{UC.item_name(iid)}：{why}")
+        self.notice = ("⚠️ 有些沒帶齊\n-# " + "\n-# ".join(short)) if short else "⚡ 帶齊了！"
+        await self.redraw(interaction)
+
+    async def on_bag(self, interaction):
+        v = interaction.data["values"][0]
+        old = self.bag_row
+        self.bag_row = None if v == "none" else int(v)
+        cap, _ = self.capacity()
+        if R.slots_used({"items": self.carry, "materials": {}, "treasures": [], "relics": []}) > cap:
+            self.bag_row, self.notice = old, f"⚠️ 現在帶的道具超過 {cap} 格，先少帶一點"
+        else:
+            self.notice = None
+        await self.redraw(interaction)
+
+    async def on_pocket(self, interaction):
+        await interaction.response.send_modal(PocketModal(self))
+
+    async def on_back(self, interaction):
+        await self.picker.refresh()
+        await interaction.response.edit_message(view=self.picker)
+
+    async def on_go(self, interaction):
+        res = await ura.start_run(self.user.id, list(self.picker.picked), self.carry, self.pocket, self.bag_row,
+                                  channel_id=interaction.channel_id)
+        if not res["ok"]:
+            self.storage = await ura.get_storage(self.user.id)
+            self.money = (await get_or_create_user(self.user.id))["money"]
+            self.notice = f"❌ {res['reason']}"
+            await self.redraw(interaction)
+            return
+        view = RunView(self.cog, self.user, res, notice="🌀 出發了！穿過裂縫，眼前是一片陌生的竹林……")
+        view.last = interaction
+        await interaction.response.edit_message(view=view)
+        self.stop()
+        self.picker.stop()
+        await self.cog.track(view)
+
+
+# =========================================================
+# 🛒 商店
+# =========================================================
+class ShopView(ui.LayoutView):
+    def __init__(self, user, money: int, storage: dict):
+        super().__init__(timeout=600)
+        self.user, self.money, self.storage = user, money, storage
+        self.group, self.sel, self.notice = "heal", None, None
+        self.build()
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.user.id:
+            await send_notice(interaction, DENY)
+            return False
+        return True
+
+    def build(self):
+        self.clear_items()
+        self.add_item(UC.build_shop_container(self.group, self.money, self.storage, self.sel, self.notice))
+        gopts = [_opt(name, key, default=key == self.group) for key, name in UC.SHOP_GROUPS.items()]
+        self.add_item(_select("🗂️ 分類", gopts, self.on_group))
+        items = UC.shop_items(self.group)
+        opts = []
+        for i in items:
+            info = data.bags()[i] if self.group == "bags" else data.items()[i]
+            label = f"🎒 {info['name']}" if self.group == "bags" else f"{info['emoji']} {info['name']}"
+            opts.append(_opt(label, i, f"{info['price']:,} 賽錢", default=i == self.sel))
+        if opts:
+            self.add_item(_select("🛍️ 選要買的東西…", opts, self.on_sel))
+        qtys = (1,) if self.group == "bags" else (1, 5, 10)
+        self.add_item(ui.ActionRow(*[_btn(f"🛒 買 {q} 個", SUCCESS, self._buy_cb(q), disabled=not self.sel) for q in qtys]))
+
+    async def redraw(self, interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
+
+    async def on_group(self, interaction):
+        self.group, self.sel, self.notice = interaction.data["values"][0], None, None
+        await self.redraw(interaction)
+
+    async def on_sel(self, interaction):
+        self.sel, self.notice = interaction.data["values"][0], None
+        await self.redraw(interaction)
+
+    def _buy_cb(self, qty: int):
+        async def cb(interaction):
+            res = await ura.shop_buy(self.user.id, self.sel, qty)
+            if res["ok"]:
+                self.notice = f"✅ 買了 {UC.item_name(self.sel)} ×{qty}，花了 {res['cost']:,} 賽錢 (放進 `/ura inventory`)"
+                self.money = res["money"]
+            elif res["reason"] == "not_enough":
+                self.notice = f"❌ 賽錢不夠 (要 {res['cost']:,}，你有 {res['money']:,})"
+            else:
+                self.notice = "❌ 沒有這個東西"
+            self.storage = await ura.get_storage(self.user.id)
+            await self.redraw(interaction)
+        return cb
+
+
+# =========================================================
+# 📦 倉庫 (寶物 / 道具 / 額外背包；寶物可以篩選後一鍵賣掉)
+# =========================================================
+class StorageView(ui.LayoutView):
+    def __init__(self, user, storage: dict):
+        super().__init__(timeout=600)
+        self.user, self.storage = user, storage
+        self.page_kind, self.page = "treasures", 1
+        self.rarity, self.zone = None, None
+        self.confirm, self.notice = False, None
+        self.build()
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.user.id:
+            await send_notice(interaction, DENY)
+            return False
+        return True
+
+    def rows(self):
+        return UC.treasure_rows(self.storage, self.rarity, self.zone)
+
+    def build(self):
+        self.clear_items()
+        if self.page_kind == "treasures":
+            rows = self.rows()
+            pg = paginate(rows, self.page, STORAGE_PER_PAGE)
+            zone_name = next((z["name"] for z in data.zones() if z["id"] == self.zone), None)
+            filters = f"篩選：{self.rarity or '全部階級'}、{zone_name or '全部區域'}"
+            total = sum(data.treasure_prices()[info["rarity"]] * n for _, info, n in rows)
+            self.add_item(UC.build_storage_container("treasures", self.storage, rows, pg.items, filters, self.notice,
+                                                     confirm_total=total if self.confirm else None))
+        elif self.page_kind == "items":
+            items = [(i, n) for i, n in self.storage["items"].items() if n > 0]
+            pg = paginate(items, self.page, STORAGE_PER_PAGE)
+            self.add_item(UC.build_storage_container("items", self.storage, items, pg.items, "", self.notice))
+        else:
+            pg = paginate(self.storage["bags"], self.page, STORAGE_PER_PAGE)
+            self.add_item(UC.build_storage_container("bags", self.storage, self.storage["bags"], pg.items, "", self.notice))
+        self.page = pg.page
+        kinds = [("treasures", "💎 寶物"), ("items", "🧪 道具"), ("bags", "🎒 額外背包")]
+        self.add_item(_select("📦 看哪一頁", [_opt(n, k, default=k == self.page_kind) for k, n in kinds], self.on_kind))
+        if self.confirm:
+            self.add_item(ui.ActionRow(_btn("💰 確定全部賣掉", DANGER, self.on_sell_yes), _btn("↩️ 取消", SECONDARY, self.on_cancel)))
+            return
+        if self.page_kind == "treasures":
+            ropts = [_opt("全部階級", "all", default=self.rarity is None)] + [_opt(r, r, default=r == self.rarity) for r in rules.RARITIES]
+            self.add_item(_select("⭐ 篩選階級", ropts, self.on_rarity))
+            zones, seen = [], set()
+            for z in data.zones():
+                if z["id"] not in seen and not z.get("borrowed"):
+                    seen.add(z["id"])
+                    zones.append(z)
+            zopts = [_opt("全部區域", "all", default=self.zone is None)] + [
+                _opt(f"{z['emoji']} {z['name']}", z["id"], default=z["id"] == self.zone) for z in zones]
+            self.add_item(_select("🗺️ 篩選區域", zopts, self.on_zone))
+        row = nav_buttons(pg.page, pg.total, self.set_page) if pg.total > 1 else []
+        if self.page_kind == "treasures":
+            row.append(_btn("💰 篩選出來的全部賣掉", SUCCESS, self.on_sell, disabled=not self.rows()))
+        if row:
+            self.add_item(ui.ActionRow(*row))
+
+    async def redraw(self, interaction):
+        self.build()
+        await interaction.response.edit_message(view=self)
+
+    async def set_page(self, interaction, page):
+        self.page = page
+        await self.redraw(interaction)
+
+    async def on_kind(self, interaction):
+        self.page_kind, self.page, self.confirm, self.notice = interaction.data["values"][0], 1, False, None
+        await self.redraw(interaction)
+
+    async def on_rarity(self, interaction):
+        v = interaction.data["values"][0]
+        self.rarity, self.page, self.notice = (None if v == "all" else v), 1, None
+        await self.redraw(interaction)
+
+    async def on_zone(self, interaction):
+        v = interaction.data["values"][0]
+        self.zone, self.page, self.notice = (None if v == "all" else v), 1, None
+        await self.redraw(interaction)
+
+    async def on_sell(self, interaction):
+        self.confirm, self.notice = True, None
+        await self.redraw(interaction)
+
+    async def on_cancel(self, interaction):
+        self.confirm = False
+        await self.redraw(interaction)
+
+    async def on_sell_yes(self, interaction):
+        sell = {tid: n for tid, _, n in self.rows()}
+        res = await ura.sell_treasures(self.user.id, sell)
+        self.confirm = False
+        self.storage = await ura.get_storage(self.user.id)
+        self.notice = (f"✅ 賣掉 {res['count']} 個寶物，拿到 {res['money']:,} 賽錢" if res["ok"]
+                       else "❌ 倉庫的寶物有變動，請重新確認")
+        await self.redraw(interaction)
+
+
+# =========================================================
+# 🌀 /ura 指令
+# =========================================================
+class UraCog(commands.GroupCog, group_name="ura", group_description="🌀 裏世界探索：派角色深入裏世界，帶寶物回來"):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        self.live: dict[int, RunView] = {}   # 每人目前的探索畫面 (新畫面打開時把舊的收起來)
+
+    async def track(self, view: RunView):
+        old = self.live.get(view.user.id)
+        self.live[view.user.id] = view
+        if old is not None and old is not view and not old.retired:
+            old.retired = True
+            old.stop()
+            if old.last is not None:
+                try:
+                    await old.last.edit_original_response(view=notice_view("↪️ 這個畫面已經移到新的訊息了"))
+                except discord.HTTPException:
+                    pass
+
+    def forget(self, view: RunView):
+        if self.live.get(view.user.id) is view:
+            del self.live[view.user.id]
+
+    async def announce(self, interaction: discord.Interaction, state: dict, settle: dict):
+        """結算公開到頻道 (資料卡設成私人就不發)"""
+        user = await get_or_create_user(interaction.user.id)
+        if not user.get("is_public", 1):
+            return
+        view = ui.LayoutView(timeout=None)
+        view.add_item(UC.build_public_settle_container(interaction.user.display_name, settle))
+        try:
+            await interaction.followup.send(view=view, ephemeral=False)
+        except discord.HTTPException:
+            pass
+
+    async def show_run(self, interaction: discord.Interaction, row: dict, mode: str = "main", notice: str | None = None):
+        view = RunView(self, interaction.user, row, mode=mode, notice=notice)
+        view.last = interaction
+        await interaction.response.send_message(view=view, ephemeral=True)
+        await self.track(view)
+
+    @app_commands.command(name="explore", description="🌀 出發探索裏世界 (派 1～3 位角色；已經有一局就接著打)")
+    async def explore(self, interaction: discord.Interaction):
+        row = await ura.get_run(interaction.user.id)
+        if row:
+            await self.show_run(interaction, row, notice="⚠️ 你已經有一局在進行中了，接著打吧")
+            return
+        view = await PartyPickerView.create(self, interaction.user)
+        if view is None:
+            await send_notice(interaction, "❌ 你還沒有可以出征的卡",
+                              footer="完整度要 0.3 以上、不能放在收藏冊；用 /card gacha 抽卡")
+            return
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+    @app_commands.command(name="resume", description="🔄 接回進行中的裏世界探索 (畫面過期、機器人重開時用)")
+    async def resume(self, interaction: discord.Interaction):
+        row = await ura.get_run(interaction.user.id)
+        if not row:
+            await send_notice(interaction, "❌ 現在沒有進行中的探索", footer="用 /ura explore 出發")
+            return
+        await self.show_run(interaction, row)
+
+    @app_commands.command(name="abandon", description="🏳️ 放棄進行中的裏世界探索 (會先確認)")
+    async def abandon(self, interaction: discord.Interaction):
+        row = await ura.get_run(interaction.user.id)
+        if not row:
+            await send_notice(interaction, "❌ 現在沒有進行中的探索")
+            return
+        await self.show_run(interaction, row, mode="abandon")
+
+    @app_commands.command(name="shop", description="🛒 裏世界商店：買探索用的道具和額外背包")
+    async def shop(self, interaction: discord.Interaction):
+        money = (await get_or_create_user(interaction.user.id))["money"]
+        view = ShopView(interaction.user, money, await ura.get_storage(interaction.user.id))
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+    @app_commands.command(name="inventory", description="📦 裏世界倉庫：寶物 (可以賣)、道具、額外背包")
+    async def inventory(self, interaction: discord.Interaction):
+        view = StorageView(interaction.user, await ura.get_storage(interaction.user.id))
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+    @app_commands.command(name="status", description="📖 裏世界的狀態表 (所有狀態的效果)")
+    async def status(self, interaction: discord.Interaction):
+        view = ui.LayoutView(timeout=None)
+        view.add_item(UC.build_status_table())
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+
+async def setup(bot: commands.Bot):
+    await bot.add_cog(UraCog(bot))
