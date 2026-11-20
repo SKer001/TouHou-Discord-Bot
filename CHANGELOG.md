@@ -13,6 +13,9 @@
 
 ---
 
+## 0.35.085 — docs：CLAUDE.md 補上 /ura 的 Cog 與資料層
+- CLAUDE.md 專案結構加 `Cogs/load-ura/`、`Database/Ura_DB_Manager.py`，文件樹的裏世界改成「引擎、畫面完成」。統整 session 驗過 0.35.084：全部測試 9145 項過。
+
 ## 0.35.084 — 2026-11-20：🌀 裏世界 第二階段 (2)：`/ura` 畫面 (筆電，玩法 session)
 - **新 Cog `Cogs/load-ura/ura.py`** (畫面文字在 `Components/ura_components.py`)：`/ura explore` 出發、`resume` 接回、`abandon` 放棄 (直接到確認)、`shop` 商店、`inventory` 倉庫、`status` 狀態表。全部 ephemeral，結算另外公開發在頻道 (資料卡私人就不發)，大標題 `# 💰 123,456 賽錢` 不縮寫 + 小字淨賺。
 - **出發**：卡池 ➔ 角色 ➔ 哪一張卡 (共用 `GroupPickerView`，不能派的標 🚫 + 原因) ➔ 整裝 (倉庫道具 ➕1 / ➕5、💾 儲存 / ⚡ 快速整裝、額外背包、💰 帶賽錢彈窗) ➔ 出發。
