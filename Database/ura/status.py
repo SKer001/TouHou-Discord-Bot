@@ -5,6 +5,8 @@
 - 同一個狀態只有 1 層 (max_stacks > 1 的才能疊)；再被施加 ➔ 刷新持續時間
 - 名字不同的狀態可以同時存在、效果互加
 - 倍率：同一類 (group：item / relic / spell / env) 相加，不同類相乘
+- 敵人在敵方回合施加的「N 回合」狀態 (fresh)：從我方下一回合才開始算 ➔ 剛好蓋到我方 N 回合
+  (那個敵方回合結尾不扣回合數、也不觸發回合結束的效果；使用者 2026-11-20 決定，狂氣、燒傷、四重存在都一樣)
 """
 from Database.ura import data
 
@@ -41,7 +43,7 @@ def has_flag(u: dict, flag: str) -> bool:
 
 
 def apply(u: dict, sid: str, turns: int | None = None, value=None, src_atk: float | None = None,
-          is_boss: bool = False, rng=None) -> bool:
+          is_boss: bool = False, rng=None, fresh: bool = False) -> bool:
     """
     施加狀態；成功回傳 True
     BOSS：boss_immune 的無效；boss_half 的回合數減半 (無條件捨去，0 = 無效)，每被控一次下次成功率再減半 (u["ctrl_count"])
@@ -59,9 +61,12 @@ def apply(u: dict, sid: str, turns: int | None = None, value=None, src_atk: floa
         u["ctrl_count"] = u.get("ctrl_count", 0) + 1
     if d.get("duration") in ("battle", "run"):
         left = 1
+    fresh = fresh and d.get("duration") == "rounds"
     cur = find(u, sid)
     if cur:
         cur["left"] = max(cur["left"], left) if d.get("duration") == "count" else left
+        if fresh:
+            cur["fresh"] = True
         if cur["stacks"] < d.get("max_stacks", 1):
             cur["stacks"] += 1
         if value is not None:
@@ -70,6 +75,8 @@ def apply(u: dict, sid: str, turns: int | None = None, value=None, src_atk: floa
             cur["src_atk"] = src_atk
         return True
     inst = {"id": sid, "left": left, "stacks": 1}
+    if fresh:
+        inst["fresh"] = True
     if value is not None:
         inst["value"] = value
     if src_atk is not None:
@@ -129,6 +136,8 @@ def actions(u: dict, trigger: str) -> list[tuple[dict, dict]]:
     """這個時機要做的動作：[(狀態實例, 動作 dict (value / mult 已換成數字)), ...]"""
     out = []
     for s in list(u.get("statuses", [])):
+        if trigger == "round_end" and s.get("fresh"):   # 剛被敵人施加的：這個回合結束先不算
+            continue
         for act in info(s["id"]).get("on", {}).get(trigger, []):
             a = {k: _resolve(v, s) for k, v in act.items()}
             out.append((s, a))
@@ -139,6 +148,9 @@ def tick(u: dict, duration: str):
     """持續方式是 duration (rounds / steps) 的狀態 −1，用完的拿掉"""
     keep = []
     for s in u.get("statuses", []):
+        if duration == "rounds" and s.pop("fresh", False):   # 剛被敵人施加的：從下一回合才開始扣
+            keep.append(s)
+            continue
         if info(s["id"]).get("duration") == duration:
             s["left"] -= 1
             if s["left"] <= 0:

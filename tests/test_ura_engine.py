@@ -425,18 +425,46 @@ for i in range(400):   # 同一局一直生門：活動 BOSS 門可以出現很�
     gen_boss += bool(dd.get("fest_boss"))
 check("seen stops new boss doors", gen_boss == 0)
 
-# 敵人在敵方回合施加的「N 回合」狀態，同一個敵方回合結尾就先 −1 (現有慣例：狂氣、燒傷一樣) ➔ 實際蓋到我方 N − 1 回合
+# 敵人在敵方回合施加的「N 回合」狀態：從我方下一回合才開始算 ➔ 剛好蓋到我方 N 回合 (使用者 2026-11-20)
+def our_turns_with(unit, sid, rng_seed=1):
+    """敵方回合剛施加完 ➔ 數接下來我方有幾回合還帶著這個狀態 (每個敵方回合照真的流程跑)"""
+    n = 0
+    while status.has(unit, sid) and n < 10:
+        n += 1                                    # 我方一回合
+        for u in combat.living(run["party"]) + combat.living(run["battle"]["foes"]):
+            combat._trigger(run, u, "round_end", Rng())
+        for u in run["party"] + run["battle"]["foes"]:
+            status.tick(u, "rounds")
+    return n
 run = battle(foes=("bamboo_wraith",))
 fl = combat.make_foe(0, "scarlet_flandre", "fest_boss", 1)
 fl["fest_boss"], fl["kind"] = True, "boss"
 run["battle"]["foes"], run["battle"]["kind"] = [fl], "boss"
-status.apply(fl, "fest_quad", turns=2)   # 等於敵人在敵方回合用了「四重存在」
-status.tick(fl, "rounds")                 # 那個敵方回合結尾
-covered = 0
-while status.has(fl, "fest_quad"):
-    covered += 1                          # 我方一回合
-    status.tick(fl, "rounds")             # 下一個敵方回合結尾
-check(f"enemy status covers {covered} of our turns", covered == 1)
+quad = next(s for s in fl["skills"] if s["id"] == "four_of_a_kind")
+run["battle"]["round"] = 2                        # BOSS 偶數回合放招
+fl["rot"] = fl["skills"].index(quad)
+combat._foe_act(run, fl, Rng())                   # 芙蘭在敵方回合用「四重存在」
+check("quad applied fresh", status.find(fl, "fest_quad") and status.find(fl, "fest_quad").get("fresh"))
+for u in run["party"] + run["battle"]["foes"]:   # 那個敵方回合結尾
+    status.tick(u, "rounds")
+check(f"quad covers 2 of our turns", our_turns_with(fl, "fest_quad") == 2)
+# 燒傷 3 回合：一樣扣 3 次，也蓋到我方 3 回合
+run = battle(foes=("bamboo_wraith",))
+mei = run["party"][1]
+status.apply(mei, "burn", turns=3, fresh=True)
+for u in combat.living(run["party"]):             # 施加的那個敵方回合結尾：還不扣
+    combat._trigger(run, u, "round_end", Rng())
+check("fresh burn no tick same round", mei["hp"] == combat.max_hp(mei))
+for u in run["party"]:
+    status.tick(u, "rounds")
+hp0 = mei["hp"]
+turns = our_turns_with(mei, "burn")
+dot = max(1, rules.round_half(combat.max_hp(mei) * 0.05))
+check(f"burn 3 turns 3 ticks {turns}", turns == 3 and mei["hp"] == hp0 - 3 * dot)
+# 我方施加的照舊 (例：符卡的凍住、強化)：施加的那個敵方回合結尾就開始扣
+run = battle(foes=("bamboo_wraith",))
+status.apply(run["battle"]["foes"][0], "freeze", turns=1)
+check("ally-applied unchanged", not status.find(run["battle"]["foes"][0], "freeze").get("fresh"))
 # 環境：紅霧 (全隊回合結束 −2%、守護者受傷 −10%、錢 ×1.5)
 run = new()
 run["floor"], run["room"] = 1, {"type": "battle", "fest": F}

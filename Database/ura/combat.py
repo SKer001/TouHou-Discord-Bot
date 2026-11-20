@@ -573,7 +573,7 @@ def _foe_act(run: dict, foe: dict, rng):
             d = deal(run, foe, t, skill.get("mult", 1.0), rng)
             _log(run, f"{name} ➔ {t['name']} {d}")
             if skill.get("status") and d and t["alive"]:
-                status.apply(t, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"))
+                status.apply(t, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"), fresh=True)
     elif do == "attack_all":
         alive = living(run["party"])
         taunt = [m for m in alive if status.has_flag(m, "taunt")]
@@ -588,10 +588,10 @@ def _foe_act(run: dict, foe: dict, rng):
         _log(run, f"{name}：回復 {heal(foe, skill['value'])}")
     elif do == "apply_party":
         for m in living(run["party"]):
-            status.apply(m, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"))
+            status.apply(m, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"), fresh=True)
         _log(run, f"{name}：全隊 {status.info(skill['status'])['name']}")
     elif do == "apply_self":
-        status.apply(foe, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"))
+        status.apply(foe, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"), fresh=True)
         _log(run, f"{name}：{status.info(skill['status'])['name']}")
 
 
