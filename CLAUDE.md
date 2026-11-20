@@ -21,7 +21,7 @@
 | CodeGraph 安裝 | `docs/setup.md` |
 | 雲端部署 (Google Cloud)、本機 ⇄ 雲端交接、雲端 DB 備份 | `docs/deploy.md` |
 | 外掛 skill（Matt Pocock skill 包）哪些能用、需要什麼工具 | `docs/skills.md`（不要用的清單在第 7 節） |
-| 🌀 裏世界 (`/ura`) 搜打撤玩法的計畫 (設計中) | `docs/ura.md` |
+| 🌀 裏世界 (`/ura`) 搜打撤玩法的規則 (實作中，第一階段引擎已完成) | `docs/ura.md` |
 | 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
 
 ## 1. 專案概觀
@@ -50,6 +50,7 @@ Database/
   Item_DB_Manager.py         道具資料庫（Item.db）所有存取
   Economy_DB_Manager.py      經濟系統（神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳），資料也在 Users.db；所有數值常數都在檔案開頭
   shrine_data.py             神社的遊戲資料：素材、料理配方、採集地點與事件、雜貨店價格、參拜客 (最愛、提示、台詞)
+  ura/                       🌀 裏世界探索的遊戲引擎 (純邏輯，不 import discord、亂數由呼叫端注入)：rules / status / combat / run；資料檔在 ura/data/*.json (敵人、狀態、符卡、道具、法具、寶物、事件、區域)；設計用模擬 tools/ura_sim/spells.py 直接呼叫它
   events.py                  讀 Events/*.json，把進行中的活動跟 shrine_data 合併成當下規則 (game_rules)
 Events/                      活動資料檔，一個活動一檔 (th06_scarlet_mist.json = 紅霧異變)；README.md = 格式與所有預留位
   Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 5 節）
