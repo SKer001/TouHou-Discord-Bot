@@ -38,6 +38,7 @@
 | 📅 簽到額外道具 | 🍙 飯糰 ×1 | `daily_items [[道具, 數量]]` | 加送 |
 | 📜 活動任務 | 沒有 | `quests [{id, name, desc, type, target, count, reward: {money, exp}}]` | `/event quest` 看進度、按「🎁 領取」拿賽錢 + 經驗值 (見下面「活動任務」) |
 | 🏷️ 活動稱號 | 沒有 | `quest_titles [{id, name, rarity, desc, min_quests}]` | 領取的任務數 ≥ `min_quests` 就**永久**獲得 (活動結束也保留) |
+| 🌀 裏世界的活動關卡 | 沒有 | `ura {environment, normals, elite, boss, statuses, enemies, treasures, relics, events}` (見下面「裏世界」) | 活動期間每一關 10% 有一扇 🎪 門 (每區最多 2 扇)；內容不管活動有沒有在進行都會讀進來 (活動寶物活動結束也賣得掉) |
 
 - `modifiers`：
   - 神社：`shrine_income` 每小時收入、`youkai_spawn` 妖怪出現機率、`guest_spawn` 參拜客來訪機率 (機率最多 100%)、`youkai_reward` 打退妖怪的賽錢
@@ -47,6 +48,20 @@
   - 祈願 / 交易：`gacha_cost` 祈願價格 (結果畫面與「繼續祈願」按鈕顯示實際價格；指令選項上的價格固定寫原價)、`market_fee` 市場買家手續費 (原本 5%)、`transfer_fee` 轉帳手續費 (原本 5%)；設 0 = 免手續費
 - 台詞池用客人 ID 挑一句，同一位客人每次打開畫面都是同一句。
 - 素材 / 料理要在 `items` 定義才會在活動結束時被清掉；`extra_drops` / `shop` 放一般素材也可以，但不會被清除。
+
+## 🌀 裏世界 (`ura`，0.35.087 起；規則在 `docs/ura.md`「活動融入」)
+- **規則是固定的** (`Database/ura/rules.py` 的 `FEST_*`)：活動期間每一關 10% 其中一扇門 (戰鬥 / 精英 / 寶箱 / 事件) 變成 🎪 活動門、保留原本房間類型；每區最多 2 扇；第 9 關 (商人)、第 10 關 (BOSS) 不換；同時有兩個活動時每扇門隨機挑一個。每走一關都看「當下」有沒有活動 (資料層寫進 `run["live_fests"]`)。
+- **活動檔只放內容** (程式 `Database/ura/fest.py`、讀取 `Database/ura/data.fests()`)：
+  | 欄位 | 內容 |
+  |---|---|
+  | `environment {name, emoji, desc, statuses: [狀態], class_statuses: {職業: [狀態]}, money_mult}` | 🎪 房間的戰鬥裡全隊套用 `statuses`，那個職業再加 `class_statuses`，打倒敵人的錢 × `money_mult`；狀態用 `duration: "battle"` (打完就消失)。`desc` 寫在門上和戰鬥畫面 |
+  | `normals [敵人]`、`elite`、`boss` | 🎪 戰鬥的敵人從 `normals` 抽 (隻數照原本的門)；🎪 精英 = `elite` + `normals` 小弟；🎪 精英門 25% 換成 `boss` (一局最多一次，數值 HP ×6、ATK ×1.5、DEF ×1.4，當成 BOSS 戰：不能逃、有第二階段、不狂暴)；🎪 寶箱怪也用 `elite` |
+  | `enemies {id: {...}}` | 格式同 `Database/ura/data/enemies.json`；招式施加的狀態要數值時寫 `status_value` (例 `debuff_atk` 0.15 = ATK −15%) |
+  | `statuses {id: {...}}` | 格式同 `statuses.json`；新的修正：`dodge_pct` 閃避 (只閃單體)、`lifesteal_pct` 打出的傷害回成 HP |
+  | `treasures {SSR / UR / LR: [[id, 名稱, emoji], ...]}` | 活動寶物 (只有 SSR / UR / LR，同階級平均抽，賣價照 `treasures.json` 的階級價目)。**🎪 活動保留格**：🎪 房間裡本來就會掉寶物時多擲一格 0 / 1 / 2 個 (20 / 70 / 10%)；活動 BOSS 一定掉 1 / 2 個 (80 / 20%)。倉庫的區域篩選「🎪 活動寶物」；活動結束也保留 |
+  | `relics {id: {...}}` | 格式同 `relics.json`；🎪 房間掉的法具 50% 換成活動法具 (等級不變)，活動 BOSS 一定給 1 個；一般掉落和流浪商人不會出現。御札的 `active.do` 多一種 `extra_action` (這回合多一次行動) |
+  | `events {id: {...}}` | 格式同 `events.json` (`type` good / bad / special)；🎪 事件門照 40 / 30 / 30 抽這裡的事件；`effect.do` 多一種 `buy_fest_treasure` (`cost` × 區域數換 1 個活動寶物，`choice: true`) |
+- id 不要跟一般資料撞名 (紅霧異變全部用 `fest_` 開頭或自己的名字)；測試會檢查招式用到的狀態都存在。
 
 ## 📜 活動任務 (`quests` / `quest_titles`)
 | `type` | `target` | 進度怎麼算 |

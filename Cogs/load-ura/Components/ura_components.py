@@ -5,7 +5,7 @@
 import discord
 from discord import ui
 
-from Database.ura import combat, data, rules, run as R, status
+from Database.ura import combat, data, fest, rules, run as R, status
 from Database import shrine_data
 
 DOOR_NAMES = {"battle": "⚔️ 戰鬥", "elite": "💀 精英", "chest": "💰 寶箱", "event": "❓ 事件", "trap": "🕳️ 陷阱",
@@ -81,7 +81,7 @@ def loot_lines(loot: dict, money: int | None = None) -> list[str]:
         out.append("🧺 " + "、".join(f"{material_info(m)[1]} {material_info(m)[0]} ×{n}" for m, n in loot["materials"].items()))
     if loot.get("treasures"):
         ts = sorted(loot["treasures"], key=lambda t: -RARITY_SORT.get(t["rarity"], 0))
-        out.append("💎 " + "、".join(f"{treasure_name(t['id'])}〔{t['rarity']}〕" for t in ts))
+        out.append("💎 " + "、".join(f"{'🎪 ' if t.get('fest') else ''}{treasure_name(t['id'])}〔{t['rarity']}〕" for t in ts))
     if loot.get("relics"):
         out.append("🦊 " + "、".join(relic_name(r) for r in loot["relics"]))
     return out
@@ -117,7 +117,7 @@ def ally_lines(run: dict, m: dict, battle: dict | None = None) -> str:
 def foe_lines(run: dict, f: dict) -> str:
     if not f["alive"]:
         return f"{f['emoji']} ~~{f['name']}~~"
-    tag = {"elite": "💀 ", "boss": "👹 ", "mimic": "📦 "}.get(f["kind"], "")
+    tag = "🎪 👹 " if f.get("fest_boss") else {"elite": "💀 ", "boss": "👹 ", "mimic": "📦 "}.get(f["kind"], "")
     first = f"{f['emoji']} {tag}**{f['name']}**　❤️ {f['hp']} / {combat.max_hp(f)}"
     if f.get("phase2"):
         first += "　🔥"
@@ -161,14 +161,19 @@ def door_label(run: dict, idx: int, door: dict, revealed: bool) -> str:
         label = "🔍 隱藏寶箱"
     if v["type"] == "battle":
         label += f" ×{v['count']}"
+    if v.get("fest"):
+        label = "🎪 " + label
     return f"{idx + 1}. {label}"
 
 
 def door_detail(run: dict, door: dict, revealed: bool) -> str | None:
     v = R.door_view(run, door, revealed)
-    if not revealed:
-        return None
     bits = []
+    if v.get("fest"):   # 🎪 活動門：活動名稱和環境一定看得到
+        f = fest.info(v["fest"])
+        bits.append(f"🎪 {f.get('name', '')}" + (f"｜{fest.env_text(v['fest'])}" if fest.env_text(v["fest"]) else ""))
+    if not revealed:
+        return "　".join(bits) or None
     if v.get("foes"):
         bits.append("、".join(v["foes"]))
     if v["type"] == "chest":
@@ -223,12 +228,24 @@ def event_result_text(run: dict, res: dict | None) -> str | None:
         return f"🔥 {res['target']} 承受了試煉，全隊 ATK 提升到這區 BOSS 為止"
     if do == "trade_items_for_relic":
         return f"🦊 換到了 {relic_name(res['relic'])}"
+    if do == "buy_fest_treasure":
+        t = res["treasure"]
+        return f"😈 付了 {res['cost']:,} 賽錢，換到 🎪 {treasure_name(t['id'])}〔{t['rarity']}〕"
     if do == "sealed_box":
         return {"key": "🗝️ 用鑰匙打開了箱子", "forced": "💪 硬撬開了箱子！", "mimic": "😱 箱子張開大嘴——是寶箱怪！"}.get(res.get("how"))
     return None
 
 
 def room_text(run: dict) -> str:
+    """房間的內容；🎪 活動房間上面多一行活動名稱"""
+    text = _room_text(run)
+    fid = (run.get("room") or {}).get("fest")
+    if fid and run["phase"] in ("chest", "event"):
+        return f"-# 🎪 {fest.info(fid).get('name', '活動')}的特別關卡\n{text}"
+    return text
+
+
+def _room_text(run: dict) -> str:
     phase, room = run["phase"], run.get("room") or {}
     if phase == "chest":
         if room.get("opened"):
@@ -405,8 +422,14 @@ def build_run_container(run: dict, notice: str | None = None, body: str | None =
     if phase == "battle":
         b = run["battle"]
         kind = {"normal": "⚔️ 戰鬥", "elite": "💀 精英戰", "mimic": "📦 寶箱怪", "boss": "👹 BOSS 戰"}.get(b["kind"], "戰鬥")
+        if b.get("fest_boss"):
+            kind = "🎪 👹 活動 BOSS 戰"
+        elif b.get("fest"):
+            kind = "🎪 " + kind
         enrage = "　😡 狂暴中" if b["kind"] != "boss" and b["round"] > rules.ENRAGE_AFTER else ""
-        c.add_item(ui.TextDisplay(f"### {kind}　第 {b['round']} 回合{enrage}\n" + "\n".join(foe_lines(run, f) for f in b["foes"])))
+        env = fest.env_text(b.get("fest"))
+        envline = f"-# 🎪 {fest.info(b['fest']).get('name', '')}｜{env}\n" if env else ""
+        c.add_item(ui.TextDisplay(f"### {kind}　第 {b['round']} 回合{enrage}\n{envline}" + "\n".join(foe_lines(run, f) for f in b["foes"])))
         c.add_item(ui.Separator())
         left = f"-# 這回合還能行動 {b['actions_left']} 次" + ("　📜 御札已用" if b["ofuda_used"] else "")
         c.add_item(ui.TextDisplay("**我方**\n" + party_block(run, b) + "\n" + left))
@@ -508,7 +531,9 @@ def treasure_rows(storage: dict, rarity: str | None = None, zone: str | None = N
         info = data.treasure_info(tid) or {"name": tid, "emoji": "💎", "rarity": "N", "zone_key": "?"}
         if rarity and info["rarity"] != rarity:
             continue
-        if zone and info.get("zone_key") != zone:
+        if zone == "fest" and not str(info.get("zone_key", "")).startswith("fest:"):
+            continue
+        if zone and zone != "fest" and info.get("zone_key") != zone:
             continue
         rows.append((tid, info, n))
     return sorted(rows, key=lambda r: (-RARITY_SORT.get(r[1]["rarity"], 0), r[1]["name"]))

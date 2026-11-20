@@ -106,5 +106,312 @@
          "desc": "在遮蔽天空的紅霧裡，依然來到了博麗神社。"},
         {"id": "resolver", "name": "紅霧異變的解決者", "rarity": "SSR", "min_quests": 8,
          "desc": "在紅霧散去之前，你見證了整場異變的始末。"}
-    ]
+    ],
+    "ura": {
+        "_說明": "🌀 裏世界的活動內容 (格式見 Events/README.md「裏世界」；規則 docs/ura.md「活動融入」)",
+        "environment": {
+            "name": "紅霧",
+            "emoji": "🌫️",
+            "desc": "我方每回合結束 −2% HP (最低留 1)、打倒敵人的錢 ×1.5、🛡️ 守護者受到的傷害 −10%",
+            "statuses": [
+                "fest_scarlet_mist"
+            ],
+            "class_statuses": {
+                "guard": [
+                    "fest_mist_guard"
+                ]
+            },
+            "money_mult": 1.5
+        },
+        "normals": [
+            "scarlet_fairy",
+            "vampire_bat",
+            "rogue_grimoire"
+        ],
+        "elite": "fairy_maid_chief",
+        "boss": "scarlet_flandre",
+        "statuses": {
+            "fest_scarlet_mist": {
+                "name": "紅霧",
+                "emoji": "🌫️",
+                "good": false,
+                "duration": "battle",
+                "default": 1,
+                "max_stacks": 1,
+                "group": "env",
+                "on": {
+                    "round_end": [
+                        {
+                            "do": "dot_max_hp_pct",
+                            "value": 0.02,
+                            "min_hp": 1
+                        }
+                    ]
+                },
+                "desc": "回合結束扣 2% 最大 HP，最低留 1 (🎪 活動環境)"
+            },
+            "fest_mist_guard": {
+                "name": "紅霧中的門番",
+                "emoji": "🏯",
+                "good": true,
+                "duration": "battle",
+                "default": 1,
+                "max_stacks": 1,
+                "group": "env",
+                "mods": {
+                    "dmg_taken_pct": -0.1
+                },
+                "desc": "守護者在紅霧裡受到的傷害 −10% (🎪 活動環境)"
+            },
+            "fest_quad": {
+                "name": "四重存在",
+                "emoji": "👥",
+                "good": true,
+                "duration": "rounds",
+                "default": 2,
+                "max_stacks": 1,
+                "mods": {
+                    "dodge_pct": 0.4
+                },
+                "desc": "閃避 +40% (只閃普攻和單體招，全體攻擊必中)"
+            },
+            "fest_vampire": {
+                "name": "吸血鬼的契約",
+                "emoji": "🦇",
+                "good": true,
+                "duration": "run",
+                "default": 1,
+                "max_stacks": 1,
+                "group": "relic",
+                "mods": {
+                    "lifesteal_pct": "value"
+                },
+                "desc": "打出的傷害有一部分回成自己的 HP (法具)"
+            }
+        },
+        "enemies": {
+            "scarlet_fairy": {
+                "name": "紅霧妖精",
+                "emoji": "🧚",
+                "hp": 0.8,
+                "atk": 1,
+                "def": 0.8,
+                "dodge": 0.15,
+                "skills": [
+                    {
+                        "id": "mist_prank",
+                        "name": "霧中惡作劇",
+                        "do": "attack_one",
+                        "mult": 1.2,
+                        "status": "debuff_atk",
+                        "status_value": 0.15,
+                        "turns": 2
+                    }
+                ],
+                "desc": "在紅霧裡玩得很開心的妖精，15% 閃避普攻和單體招；惡作劇會讓人 ATK −15%。"
+            },
+            "vampire_bat": {
+                "name": "吸血蝙蝠",
+                "emoji": "🦇",
+                "hp": 0.7,
+                "atk": 1.2,
+                "def": 0.8,
+                "dodge": 0,
+                "skills": [
+                    {
+                        "id": "bat_drain",
+                        "name": "吸血",
+                        "do": "heal_self",
+                        "value": 0.15,
+                        "when_hp_below": 0.7
+                    }
+                ],
+                "desc": "從紅魔館飛出來的蝙蝠，受傷了就會吸血回復。"
+            },
+            "rogue_grimoire": {
+                "name": "失控的魔導書",
+                "emoji": "📕",
+                "hp": 0.9,
+                "atk": 0.9,
+                "def": 1.5,
+                "dodge": 0,
+                "skills": [
+                    {
+                        "id": "grimoire_barrage",
+                        "name": "魔法彈幕",
+                        "do": "attack_all",
+                        "mult": 0.6
+                    }
+                ],
+                "desc": "從大圖書館飛出來的魔導書，書皮硬得像盾牌。"
+            },
+            "fairy_maid_chief": {
+                "name": "妖精女僕隊長",
+                "emoji": "🔪",
+                "hp": 1,
+                "atk": 1,
+                "def": 1,
+                "dodge": 0,
+                "skills": [
+                    {
+                        "id": "knife_throw",
+                        "name": "飛刀連擲",
+                        "do": "attack_all",
+                        "mult": 0.8
+                    },
+                    {
+                        "id": "cleaning_time",
+                        "name": "打掃時間",
+                        "do": "apply_self",
+                        "status": "buff_def",
+                        "status_value": 0.2,
+                        "turns": 3
+                    }
+                ],
+                "desc": "帶著一群妖精女僕巡邏的隊長，學著女僕長丟飛刀；打掃時間 DEF +20%。"
+            },
+            "scarlet_flandre": {
+                "name": "紅霧・芙蘭朵露",
+                "emoji": "🩸",
+                "hp": 1,
+                "atk": 1,
+                "def": 1,
+                "dodge": 0,
+                "skills": [
+                    {
+                        "id": "cranberry_trap",
+                        "name": "禁忌「紅莓陷阱」",
+                        "do": "attack_all",
+                        "mult": 0.9
+                    },
+                    {
+                        "id": "laevatein",
+                        "name": "禁忌「萊瓦汀」",
+                        "do": "attack_one",
+                        "mult": 1.8,
+                        "status": "burn",
+                        "turns": 3
+                    },
+                    {
+                        "id": "four_of_a_kind",
+                        "name": "禁忌「四重存在」",
+                        "do": "apply_self",
+                        "status": "fest_quad",
+                        "turns": 2
+                    },
+                    {
+                        "id": "qed",
+                        "name": "QED「495 年的波紋」",
+                        "do": "attack_all",
+                        "mult": 1.3,
+                        "phase2": true
+                    }
+                ],
+                "desc": "被紅霧引出地下室的妹妹。分身時很難打中，但全體攻擊一定打得到。"
+            }
+        },
+        "treasures": {
+            "SSR": [
+                [
+                    "fest_scarlet_teacup",
+                    "紅魔館的紅茶杯",
+                    "🍷"
+                ],
+                [
+                    "fest_mist_crystal",
+                    "紅霧的結晶",
+                    "🩸"
+                ]
+            ],
+            "UR": [
+                [
+                    "fest_silver_watch",
+                    "咲夜的銀懷錶",
+                    "⏱️"
+                ],
+                [
+                    "fest_forbidden_book",
+                    "大圖書館的禁書",
+                    "📕"
+                ]
+            ],
+            "LR": [
+                [
+                    "fest_gungnir_shard",
+                    "神槍「岡格尼爾」的碎片",
+                    "🔱"
+                ]
+            ]
+        },
+        "relics": {
+            "fest_vampire_pact": {
+                "name": "吸血鬼的契約",
+                "emoji": "🦇",
+                "type": "blessing",
+                "passive": "fest_vampire",
+                "values": [
+                    0.1,
+                    0.15,
+                    0.2
+                ],
+                "class": "atk",
+                "class_bonus": {
+                    "add": 0.05
+                },
+                "desc": "打出的傷害有一部分回成自己的 HP (🎪 紅霧異變)"
+            },
+            "fest_maid_watch": {
+                "name": "女僕長的懷錶",
+                "emoji": "⏱️",
+                "type": "ofuda",
+                "uses": [
+                    1,
+                    2,
+                    3
+                ],
+                "active": {
+                    "do": "extra_action"
+                },
+                "class": "sup",
+                "class_bonus": {
+                    "uses": 1
+                },
+                "desc": "這回合多一次行動，另一位隊友也能動 (🎪 紅霧異變)"
+            }
+        },
+        "events": {
+            "fest_maid_tea": {
+                "type": "good",
+                "name": "女僕的下午茶",
+                "emoji": "🍰",
+                "effect": {
+                    "do": "heal_all",
+                    "pct": 0.3
+                },
+                "text": "迷路的妖精女僕端來了紅茶和蛋糕：「女僕長說客人要好好招待……大概吧。」全隊回 30% HP。"
+            },
+            "fest_thick_mist": {
+                "type": "bad",
+                "name": "紅霧變濃了",
+                "emoji": "🌫️",
+                "effect": {
+                    "do": "sanity",
+                    "floor_mult": -3
+                },
+                "text": "紅霧突然濃得伸手不見五指，大家走著走著就分不清方向了。"
+            },
+            "fest_imp_deal": {
+                "type": "special",
+                "name": "小惡魔的交易",
+                "emoji": "😈",
+                "choice": true,
+                "effect": {
+                    "do": "buy_fest_treasure",
+                    "cost": 3000,
+                    "per_zone": true
+                },
+                "text": "大圖書館的小惡魔從書架後面探出頭：「付點錢，我就偷偷拿一樣館裡的寶貝給你～」(3,000 × 區域數賽錢換 1 個活動寶物)"
+            }
+        }
+    }
 }

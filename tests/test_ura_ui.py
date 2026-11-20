@@ -303,6 +303,34 @@ async def main():
     view = ui.LayoutView(); view.add_item(UC.build_status_table()); limits(view, "status table")
     check("status table has all", all(s["name"] in texts(view) for k, s in data.statuses().items() if not k.startswith("_")))
 
+    # 🎪 活動門 / 活動戰鬥 / 活動 BOSS / 小惡魔的交易 的畫面
+    F = "th06_scarlet_mist"
+    stub = StubCog()
+    def rv(state):
+        return cogmod.RunView(stub, types.SimpleNamespace(id=1), {"rev": 0, "state": state})
+    fst = R.new_run("festui", cards, {}, 5000, random.Random(1), capacity=25, live_fests=[F])
+    fst["doors"] = [{"type": "battle", "foes": ["scarlet_fairy", "vampire_bat"], "fest": F}, {"type": "chest", "locked": False, "mimic": False}]
+    v = rv(fst); t = texts(v)
+    check("fest door label", "1. 🎪 ⚔️ 戰鬥 ×2" in t and "🎪 紅霧異變｜🌫️ 紅霧：我方每回合結束" in t and find(v, label="1. 🎪"))
+    R.choose_door(fst, 0, random.Random(2))
+    v = rv(fst); t = texts(v)
+    check("fest battle header", "### 🎪 ⚔️ 戰鬥" in t and "-# 🎪 紅霧異變｜🌫️ 紅霧" in t and "🌫️ 紅霧" in t.split("**我方**")[1])
+    render_all(fst, "fest battle")
+    fb = R.new_run("festboss", cards, {}, 5000, random.Random(1), capacity=25, live_fests=[F])
+    fb["floor"], fb["room"] = 3, {"type": "elite", "fest": F, "fest_boss": True}
+    C.start(fb, "elite", ["scarlet_flandre"], random.Random(1), fest_boss=True)
+    v = rv(fb); t = texts(v)
+    check("fest boss screen", "### 🎪 👹 活動 BOSS 戰" in t and "🎪 👹 **紅霧・芙蘭朵露**" in t and find(v, label="🏃 逃跑").disabled)
+    render_all(fb, "fest boss")
+    imp = R.new_run("festimp", cards, {}, 5000, random.Random(1), capacity=25, live_fests=[F])
+    imp["floor"], imp["phase"] = 2, "event"
+    imp["room"] = {"type": "event", "fest": F, "event": "fest_imp_deal", "etype": "special", "pending_choice": "fest_imp_deal"}
+    v = rv(imp); t = texts(v)
+    check("imp deal screen", "😈 小惡魔的交易" in t and "紅霧異變的特別關卡" in t and find(v, label="✅ 好"))
+    R.event_choice(imp, True, random.Random(1))
+    t = texts(rv(imp))
+    check("imp deal result", "😈 付了 3,000 賽錢，換到 🎪" in t)
+
     # ===== 2. 假互動：整個流程 =====
     await udm.init_db()
     UID = 777
@@ -573,7 +601,7 @@ async def main():
 
     # 倉庫：賣寶物 (先確認)
     async with udm.connect() as db:
-        for tid, n in (("ura_bamboo_shoot", 3), ("ura_tanzaku", 2), ("ura_hourai_branch", 1)):
+        for tid, n in (("ura_bamboo_shoot", 3), ("ura_tanzaku", 2), ("ura_hourai_branch", 1), ("fest_gungnir_shard", 1)):
             await db.execute("INSERT INTO ura_storage (user_id, kind, key, qty) VALUES (?, 'treasure', ?, ?)", (UID, tid, n))
         await db.commit()
     it = It(UID); await cogmod.UraCog.inventory.callback(cog, it)
@@ -586,7 +614,11 @@ async def main():
     m0 = (await udm.get_or_create_user(UID))["money"]
     await press(inv, UID, label="💰 確定全部賣掉")
     check("sold N only", (await udm.get_or_create_user(UID))["money"] == m0 + 3 * data.treasure_prices()["N"]
-          and (await ura.get_storage(UID))["treasures"] == {"ura_tanzaku": 2, "ura_hourai_branch": 1})
+          and (await ura.get_storage(UID))["treasures"] == {"ura_tanzaku": 2, "ura_hourai_branch": 1, "fest_gungnir_shard": 1})
+    await press(inv, UID, placeholder="⭐", values=["all"])
+    await press(inv, UID, placeholder="🗺️", values=["fest"])
+    t = texts(inv)
+    check("filter fest", "岡格尼爾" in t and "七夕的短冊" not in t and "🎪 活動寶物" in t)
     for k in ("items", "bags"):
         await press(inv, UID, placeholder="📦", values=[k]); limits(inv, f"storage {k}")
     it = It(UID); await cogmod.UraCog.status.callback(cog, it)

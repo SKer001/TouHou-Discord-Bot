@@ -250,6 +250,18 @@ async def main():
     lb = (await ura.get_leaderboard_records([U2])).get(U2, {})
     check(f"zero net counts {lb}", lb.get("money", {}).get("value") == 0 and lb["money"]["at"] and lb.get("depth", {}).get("value") == 0)
 
+    # 🎪 每一步看「當下」有沒有活動 (紅霧異變 auto_start ➔ 沒有紀錄時就在進行)；活動結束後下一步就變成 []
+    from Database import Economy_DB_Manager as econ
+    F = "th06_scarlet_mist"
+    r = await ura.start_run(U2, ["z1"], {}, 0, None, seed="fest")
+    check(f"start live fests {r['state'].get('live_fests')}", r["ok"] and r["state"]["live_fests"] == [F])
+    r = await ura.act(U2, 0, lambda s, g: None)
+    check("act keeps live fests", r["ok"] and (await ura.get_run(U2))["state"]["live_fests"] == [F])
+    await econ.admin_end_event(F)
+    r = await ura.act(U2, 1, lambda s, g: None)
+    check("event ended -> no fests", r["ok"] and (await ura.get_run(U2))["state"]["live_fests"] == [])
+    await ura.act(U2, 2, lambda s, g: R.abandon(s))
+
 
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")

@@ -1,4 +1,10 @@
-"""🌀 裏世界的資料檔 (Database/ura/data/*.json)；讀一次快取，reload() 重讀"""
+"""🌀 裏世界的資料檔 (Database/ura/data/*.json)；讀一次快取，reload() 重讀
+
+🎪 活動的裏世界內容寫在各活動檔 (Events/<id>.json) 的 "ura" 區塊 (格式見 Events/README.md)：
+狀態 / 敵人 / 法具 / 事件 / 寶物**不管活動有沒有在進行都會併進來** (活動寶物活動結束也要賣得掉、
+進行中的那一局要能打完)；活動有沒有在進行只決定會不會出 🎪 門 (run["live_fests"]，資料層每一步更新)。
+併進來的法具 / 事件帶 "fest": 活動 id，一般的掉落池、事件池都會排除它們。
+"""
 import json
 import os
 
@@ -17,8 +23,36 @@ def reload():
     _cache.clear()
 
 
+# =========================================================
+# 🎪 活動 (Events/*.json 的 "ura")
+# =========================================================
+def fests() -> dict:
+    """{活動 id: ura 區塊 + id / name / emoji}"""
+    if "fests" not in _cache:
+        from Database.events import load_events
+        out = {}
+        for eid, ev in load_events().items():
+            u = ev.get("ura")
+            if isinstance(u, dict):
+                out[eid] = {**u, "id": eid, "name": ev.get("name", eid), "emoji": ev.get("emoji", "🎪")}
+        _cache["fests"] = out
+    return _cache["fests"]
+
+
+def _merged(key: str, base: dict) -> dict:
+    """一般資料 + 每個活動的同名區塊 (帶 "fest" 標記)"""
+    ck = f"merged:{key}"
+    if ck not in _cache:
+        out = dict(base)
+        for eid, f in fests().items():
+            for k, v in (f.get(key) or {}).items():
+                out[k] = {**v, "fest": eid}
+        _cache[ck] = out
+    return _cache[ck]
+
+
 def statuses() -> dict:
-    return _load("statuses")
+    return _merged("statuses", _load("statuses"))
 
 
 def spells() -> dict:
@@ -26,7 +60,7 @@ def spells() -> dict:
 
 
 def enemies() -> dict:
-    return _load("enemies")
+    return _merged("enemies", _load("enemies"))
 
 
 def items() -> dict:
@@ -42,11 +76,17 @@ def bags() -> dict:
 
 
 def relics() -> dict:
-    return _load("relics")["relics"]
+    """全部法具 (含活動法具，帶 "fest")；一般掉落用 base_relics()"""
+    return _merged("relics", _load("relics")["relics"])
+
+
+def base_relics() -> dict:
+    return {k: v for k, v in relics().items() if not v.get("fest")}
 
 
 def events() -> dict:
-    return _load("events")["events"]
+    """全部事件 (含活動事件，帶 "fest")；一般的 ❓ 事件門只抽沒有 "fest" 的"""
+    return _merged("events", _load("events")["events"])
 
 
 def event_weights() -> dict:
@@ -81,8 +121,13 @@ def treasures(zone: int) -> dict:
     return {r: [tuple(x) for x in lst] for r, lst in t[zone_info(zone)["treasure_zone"]].items()}
 
 
+def fest_treasures(fid: str) -> dict:
+    """活動寶物 {階級: [(id, 名稱, emoji), ...]} (只有 SSR / UR / LR)"""
+    return {r: [tuple(x) for x in lst] for r, lst in (fests().get(fid, {}).get("treasures") or {}).items()}
+
+
 def treasure_info(tid: str) -> dict | None:
-    """寶物 id ➔ {id, name, emoji, rarity, zone_key}"""
+    """寶物 id ➔ {id, name, emoji, rarity, zone_key}；活動寶物的 zone_key = "fest:<活動 id>" """
     for zkey, by_r in _load("treasures").items():
         if zkey == "sell_price":
             continue
@@ -90,6 +135,11 @@ def treasure_info(tid: str) -> dict | None:
             for x in lst:
                 if x[0] == tid:
                     return {"id": x[0], "name": x[1], "emoji": x[2], "rarity": r, "zone_key": zkey}
+    for fid in fests():
+        for r, lst in fest_treasures(fid).items():
+            for x in lst:
+                if x[0] == tid:
+                    return {"id": x[0], "name": x[1], "emoji": x[2], "rarity": r, "zone_key": f"fest:{fid}"}
     return None
 
 

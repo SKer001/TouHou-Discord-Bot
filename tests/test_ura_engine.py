@@ -32,8 +32,19 @@ check("enemy statuses exist", all(sk.get("status") is None or sk["status"] in da
 check("relic statuses exist", all(r.get("passive") is None or r["passive"] in data.statuses() for r in data.relics().values()))
 check("item statuses exist", all(i["effect"].get("status") is None or i["effect"]["status"] in data.statuses() for i in data.items().values()))
 check("15 treasures zone 1", [len(v) for v in data.treasures(1).values()] == [4, 3, 3, 2, 2, 1])
-check("15 events", len(data.events()) == 15 and sorted(e["type"] for e in data.events().values()).count("good") == 5)
-check("10 relics", len(data.relics()) == 10)
+base_events = {k: e for k, e in data.events().items() if not e.get("fest")}
+check("15 events", len(base_events) == 15 and sorted(e["type"] for e in base_events.values()).count("good") == 5)
+check("10 relics", len(data.base_relics()) == 10)
+# 🎪 紅霧異變的裏世界內容 (活動檔 "ura") 併進來，帶 fest 標記
+F = "th06_scarlet_mist"
+check("fest loaded", F in data.fests() and data.fests()[F]["boss"] == "scarlet_flandre")
+check("fest events tagged", sorted(k for k, e in data.events().items() if e.get("fest") == F) == ["fest_imp_deal", "fest_maid_tea", "fest_thick_mist"])
+check("fest relics tagged", sorted(k for k, r in data.relics().items() if r.get("fest") == F) == ["fest_maid_watch", "fest_vampire_pact"])
+check("fest treasures SSR+", set(data.fest_treasures(F)) == {"SSR", "UR", "LR"} and data.treasure_info("fest_gungnir_shard")["zone_key"] == f"fest:{F}")
+check("fest statuses / enemies", {"fest_scarlet_mist", "fest_quad", "fest_vampire"} <= set(data.statuses())
+      and {"scarlet_fairy", "vampire_bat", "rogue_grimoire", "fairy_maid_chief", "scarlet_flandre"} <= set(data.enemies()))
+bad_refs = [s["status"] for e in data.enemies().values() for s in e.get("skills", []) if s.get("status") and s["status"] not in data.statuses()]
+check(f"enemy skill statuses exist {bad_refs}", not bad_refs)
 check("zones", [z["name"] for z in data.zones()] == ["迷途竹林", "魔界", "妖怪之山", "冥界", "彼岸"] and data.zone_info(6)["id"] == "bamboo")
 from Database import shrine_data
 check("zone materials exist", all(m in [x[0] for x in shrine_data.MATERIAL_ITEMS] for m in data.zone_info(1)["materials"]))
@@ -359,6 +370,166 @@ check("evacuate settle", s["money"] == 5000 and s["exp"] == 101 and s["penalty"]
 run["result"] = "failed"
 s = R.settle(run)
 check("fail settle", s["money"] == 0 and s["exp"] == 50 and s["penalty"] == ["c0", "c1", "c2"] and not s["treasures"] and s["deepest"] is None)
+
+# ---------------- 🎪 活動關卡 (紅霧異變) ----------------
+from Database.ura import fest
+check("exp mult", rules.exp_for("normal", 1) == 5 and rules.exp_for("normal", 5) == 7 and rules.exp_floor(10) == 19
+      and rules.exp_for("fest_boss", 1) == 100 and rules.exp_for("boss", 3) == 240)
+# 沒有活動：完全不出 🎪 門，也不多擲亂數 (同一個 seed 的地圖跟以前一樣)
+a, b2 = new(seed="nofest"), R.new_run("nofest", [card(c, r, i=i) for i, (c, r) in enumerate((("marisa", "SR"), ("meiling", "SR"), ("daiyousei", "SR")))], {}, 0, random.Random(5), live_fests=[])
+check("no fest same doors", a["doors"] == b2["doors"] and not any(d.get("fest") for d in a["doors"]))
+# 有活動：大約 10% 的關卡有一扇 🎪 門；第 9、10 關不換；每區最多 2 扇；保留房間類型
+seen_types, per_zone, bad, fest_doors, total = set(), {}, [], 0, 0
+for i in range(300):
+    run = R.new_run(f"f{i}", [card("marisa", "SR")], {}, 0, random.Random(i), live_fests=[F])
+    for floor in range(1, 31):
+        ds = R.gen_doors(run, floor, random.Random(f"{i}:{floor}"))
+        total += 1
+        for d in ds:
+            if d.get("fest"):
+                fest_doors += 1
+                seen_types.add(d["type"])
+                per_zone[(i, rules.zone_of(floor))] = per_zone.get((i, rules.zone_of(floor)), 0) + 1
+                if rules.floor_in_zone(floor) >= 9 or d["type"] not in rules.FEST_ROOM_TYPES or d.get("hidden"):
+                    bad.append((floor, d))
+                if d["type"] == "battle" and not set(d["foes"]) <= set(data.fests()[F]["normals"]):
+                    bad.append(("foes", d))
+                if d["type"] == "event" and data.events()[d["event"]].get("fest") != F:
+                    bad.append(("event", d))
+check(f"fest door rate {fest_doors}/{total}", 0.05 < fest_doors / total < 0.11)
+check(f"fest door rules {bad[:2]}", not bad and max(per_zone.values()) <= rules.FEST_ZONE_CAP)
+check(f"fest door types {seen_types}", {"battle", "event"} <= seen_types and "trap" not in seen_types)
+# 活動 BOSS：精英門 25%，一局最多一次
+run = new()
+run["live_fests"] = [F]
+d1, d2 = {"type": "elite", "foes": ["mad_rabbit", "lost_spirit"]}, {"type": "elite", "foes": ["mad_rabbit"]}
+fest.convert(run, d1, F, Rng(values=[0.1] * 3))   # 假 Rng 的 choice() 也會吃 random() 的值 (先排精英小弟)
+fest.convert(run, d2, F, Rng(values=[0.1] * 3))
+check("fest boss doors", d1.get("fest_boss") and d1["foes"] == ["scarlet_flandre"] and d2.get("fest_boss")
+      and not run.get("fest_boss_seen"))   # 「一局一次」等真的打到才算 (換門、偷看下下一關、選別扇都不會用掉)
+view = R.door_view(run, d1, False)
+check("door view fest", view.get("fest") == F and "foes" not in view)
+run["floor"], run["doors"] = 2, [d1]
+R.choose_door(run, 0, random.Random(1))
+check("fight fest boss marks seen", run["battle"]["fest_boss"] and run["fest_boss_seen"])
+run["phase"], run["battle"], run["doors"] = "doors", None, [d2]
+R.choose_door(run, 0, random.Random(1))
+check("second boss door falls back", not run["battle"]["fest_boss"] and run["battle"]["foes"][0]["eid"] == "fairy_maid_chief"
+      and run["battle"]["kind"] == "elite")
+gen_boss = 0
+for i in range(400):   # 同一局一直生門：活動 BOSS 門可以出現很多次，但打過一次之後就不會再打到
+    r2 = R.new_run(f"b{i}", [card("marisa", "SR")], {}, 0, random.Random(i), live_fests=[F])
+    r2["fest_boss_seen"] = True
+    dd = {"type": "elite", "foes": ["mad_rabbit"]}
+    fest.convert(r2, dd, F, random.Random(i))
+    gen_boss += bool(dd.get("fest_boss"))
+check("seen stops new boss doors", gen_boss == 0)
+
+# 敵人在敵方回合施加的「N 回合」狀態，同一個敵方回合結尾就先 −1 (現有慣例：狂氣、燒傷一樣) ➔ 實際蓋到我方 N − 1 回合
+run = battle(foes=("bamboo_wraith",))
+fl = combat.make_foe(0, "scarlet_flandre", "fest_boss", 1)
+fl["fest_boss"], fl["kind"] = True, "boss"
+run["battle"]["foes"], run["battle"]["kind"] = [fl], "boss"
+status.apply(fl, "fest_quad", turns=2)   # 等於敵人在敵方回合用了「四重存在」
+status.tick(fl, "rounds")                 # 那個敵方回合結尾
+covered = 0
+while status.has(fl, "fest_quad"):
+    covered += 1                          # 我方一回合
+    status.tick(fl, "rounds")             # 下一個敵方回合結尾
+check(f"enemy status covers {covered} of our turns", covered == 1)
+# 環境：紅霧 (全隊回合結束 −2%、守護者受傷 −10%、錢 ×1.5)
+run = new()
+run["floor"], run["room"] = 1, {"type": "battle", "fest": F}
+combat.start(run, "normal", ["scarlet_fairy"], Rng())
+bt = run["battle"]
+check("env statuses", all(status.has(m, "fest_scarlet_mist") for m in run["party"])
+      and status.has(run["party"][1], "fest_mist_guard") and not status.has(run["party"][0], "fest_mist_guard")
+      and bt["money_mult"] == 1.5 and bt["fest"] == F)
+hp0 = [m["hp"] for m in run["party"]]
+bt["foes"][0]["statuses"].append({"id": "freeze", "left": 3, "stacks": 1})   # 敵人不動，只看紅霧
+combat.enemy_phase(run, Rng())
+check("mist dot", all(m["hp"] == h - max(1, rules.round_half(combat.max_hp(m) * 0.02)) for m, h in zip(run["party"], hp0)))
+combat.finish(run)
+check("env ends with battle", not any(status.has(m, "fest_scarlet_mist") for m in run["party"]))
+# 四重存在：單體攻擊 40% 閃開，全體必中
+f0 = make = combat.make_foe(0, "scarlet_fairy", "normal", 1)
+f0["dodge"] = 0
+status.apply(f0, "fest_quad")
+run = new(); run["floor"] = 1; combat.start(run, "normal", ["lost_spirit"], Rng()); run["battle"]["foes"] = [f0]
+check("quad dodge single", combat.deal(run, run["party"][0], f0, 1.0, Rng(values=[0.3]), single=True) == 0)
+check("quad no dodge all", combat.deal(run, run["party"][0], f0, 1.0, Rng(values=[0.3])) > 0)
+# 吸血鬼的契約：打出的傷害 20% 回血
+run = battle(foes=("bamboo_wraith",))
+mar = run["party"][0]
+mar["hp"] = 10
+R._equip(mar, {"rid": "fest_vampire_pact", "tier": 2})
+d = combat.deal(run, mar, run["battle"]["foes"][0], 1.0, Rng(), single=True)
+check(f"lifesteal {d}", mar["hp"] == min(combat.max_hp(mar), 10 + max(1, rules.round_half(d * 0.25))))   # 攻擊手 +5%
+# 女僕長的懷錶：這回合多一次行動
+run = battle(foes=("bamboo_wraith",))
+run["battle"]["foes"][0]["base_hp"] = run["battle"]["foes"][0]["hp"] = 9999   # 打不死，才看得到換敵方回合
+R._equip(run["party"][2], {"rid": "fest_maid_watch", "tier": 0, "left": 1})
+check("watch uses + sup bonus", run["party"][2]["relic"]["left"] == 2)
+why = combat.use_ofuda(run, "p2", None, Rng())
+check(f"watch extra action {why}", why is None and run["battle"]["actions_left"] == 2)
+combat.attack(run, "p0", None, Rng())
+check("still our turn", run["battle"]["round"] == 1 and run["battle"]["actions_left"] == 1)
+combat.attack(run, "p1", None, Rng())
+check("then enemy turn", run["battle"]["round"] == 2)
+# 活動 BOSS 戰：當成 BOSS (不能逃)，數值 ×6 / ×1.5 / ×1.4；打完不是 boss_clear，給活動法具 + 保留格
+run = new()
+run["floor"], run["room"] = 3, {"type": "elite", "fest": F, "fest_boss": True}
+combat.start(run, "elite", ["scarlet_flandre"], Rng(), fest_boss=True)
+fb = run["battle"]["foes"][0]
+hp, atk, df = rules.enemy_stats(1, "fest_boss")
+check("fest boss stats", run["battle"]["kind"] == "boss" and fb["fest_boss"] and fb["base_hp"] == hp == 180
+      and abs(atk - 7.5) < 1e-9 and fb["skills"])
+check("fest boss no flee", R.battle_action(run, "flee", Rng()) == "BOSS 戰不能逃")
+fb["hp"] = 1
+exp0 = run["exp"]
+R.battle_action(run, "attack", Rng(), uid="p0")
+last = run["last"]
+check("fest boss after", run["phase"] == "doors" and run["boss_cleared"] == 0 and run["exp"] - exp0 == 100)
+loot = last["loot"]
+fest_t = [t for t in loot["treasures"] if t.get("fest") == F]
+check(f"fest boss loot {loot['relics']}", any(data.relics()[r["rid"]].get("fest") == F for r in loot["relics"])
+      and 1 <= len(fest_t) <= 2 and all(t["rarity"] in ("SSR", "UR", "LR") for t in fest_t)
+      and len(loot["treasures"]) == len(fest_t))
+# 保留格：本來就有寶物才擲 (0 / 1 / 2 = 20 / 70 / 10%)；法具 50% 換成活動法具 (等級不變)
+cnt = {0: 0, 1: 0, 2: 0}
+g = random.Random(1)
+for _ in range(4000):
+    lt = {"treasures": [{"id": "ura_pebble", "rarity": "N", "zone": 1}], "relics": []}
+    fest.decorate_loot({}, F, "normal", lt, 1, g)
+    cnt[len(lt["treasures"]) - 1] += 1
+check(f"slot dist {cnt}", abs(cnt[0] / 4000 - 0.2) < 0.03 and abs(cnt[1] / 4000 - 0.7) < 0.03 and abs(cnt[2] / 4000 - 0.1) < 0.03)
+lt = {"treasures": [], "relics": []}
+fest.decorate_loot({}, F, "normal", lt, 1, g)
+check("no treasure no slot", lt["treasures"] == [])
+lt = {"treasures": [], "relics": [{"rid": "war_blessing", "tier": 1}]}
+fest.decorate_loot({}, F, "elite", lt, 1, Rng(values=[0.1]))
+check("relic swapped keeps tier", data.relics()[lt["relics"][0]["rid"]].get("fest") == F and lt["relics"][0]["tier"] == 1)
+check("normal relic pool no fest", all(not data.relics()[R.roll_relic(1, random.Random(i))["rid"]].get("fest") for i in range(200)))
+check("normal event door no fest", all(not data.events()[R._event_door({}, random.Random(i))["event"]].get("fest") for i in range(200)))
+# 🎪 寶箱：保留格；小惡魔的交易
+run = new(bag={})
+run["floor"], run["phase"], run["room"] = 1, "chest", {"type": "chest", "fest": F, "locked": False, "mimic": False}
+R.open_chest(run, random.Random(3))
+check("fest chest", "loot" in run["room"])
+run = new()
+run["floor"], run["phase"], run["pocket"] = 2, "event", 5000
+run["room"] = {"type": "event", "fest": F, "event": "fest_imp_deal", "etype": "special", "pending_choice": "fest_imp_deal"}
+why = R.event_choice(run, True, random.Random(1))
+check(f"imp deal {why}", why is None and run["pocket"] == 2000 and run["bag"]["treasures"][-1].get("fest") == F)
+run["room"]["pending_choice"], run["pocket"] = "fest_imp_deal", 100
+check("imp deal poor", "不夠" in R.event_choice(run, True, random.Random(1)))
+# 活動門進去：🎪 戰鬥的敵人是活動怪物、環境生效
+run = new()
+run["live_fests"] = [F]
+run["doors"] = [{"type": "battle", "foes": ["scarlet_fairy", "vampire_bat"], "fest": F}]
+R.choose_door(run, 0, random.Random(2))
+check("enter fest battle", run["phase"] == "battle" and run["battle"]["fest"] == F
+      and {f["eid"] for f in run["battle"]["foes"]} == {"scarlet_fairy", "vampire_bat"})
 
 # ---------------- 給畫面用：要不要選目標、現在能用的道具 ----------------
 run = battle(foes=("lost_spirit", "shadow_rabbit"), bag={"eientei_salve": 1, "dango": 1, "telescope": 1, "phoenix_feather": 1, "bomb": 1})

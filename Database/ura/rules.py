@@ -40,13 +40,26 @@ BREACH_ATK = 1.1
 BREACH_DEF = 0.9
 
 # ---- 獎勵 ----
-EXP_FLOOR, EXP_KILL = 10, {"normal": 5, "elite": 30, "mimic": 30, "boss": 200}
+# 經驗 = 基數 × (1 + (區域數 − 1) / 10) (使用者 2026-11-20 改，原本 × 區域數怕深處膨脹太快)
+EXP_FLOOR, EXP_KILL = 10, {"normal": 5, "elite": 30, "mimic": 30, "boss": 200, "fest_boss": 100}
 FAIL_EXP_RATIO = 0.5
 REWARDS = {   # 一隻敵人 (含勸走) 給的東西
     "normal": {"materials": (3, 5), "money": (500, 1000), "treasure_chance": 0.1, "treasure_table": "monster"},
     "elite": {"items": (1, 3), "money": (1000, 5000), "relic_chance": 0.2, "treasure_chance": 0.5, "treasure_table": "monster"},
     "boss": {"materials": (3, 5), "items": (2, 3), "relics": (1, 1), "money": (10000, 15000), "treasures": (3, 5), "treasure_table": "boss"},
+    # 🎪 活動 BOSS：照區域 BOSS 但不掉一般法具 / 寶物 (另外一定給 1 個活動法具 + 活動保留格，見 fest.py)
+    "fest_boss": {"materials": (3, 5), "items": (2, 3), "money": (10000, 15000)},
 }
+
+# ---- 🎪 活動關卡 (docs/ura.md「活動融入」B 組，使用者 2026-11-20) ----
+FEST_STAGE_CHANCE = 0.1         # 活動期間每一關有 10% 其中一扇門變成 🎪 活動門
+FEST_ZONE_CAP = 2               # 每區最多 2 扇
+FEST_ROOM_TYPES = ("battle", "elite", "chest", "event")   # 有活動版的房間 (陷阱沒有；商人關、BOSS 關不換)
+FEST_BOSS_CHANCE = 0.25         # 🎪 精英門換成活動 BOSS (一局最多一次)
+FEST_BOSS_MULT = (6, 1.5, 1.4)  # 活動 BOSS HP / ATK / DEF (跟同一區一般怪比；區域 BOSS 是 10 / 1.6 / 1.5)
+FEST_TREASURE_SLOT = ((0, 20), (1, 70), (2, 10))   # 🎪 活動保留格：本來就會掉寶物時多擲 (0 / 1 / 2 個)
+FEST_BOSS_TREASURE_SLOT = ((1, 80), (2, 20))       # 活動 BOSS 一定掉
+FEST_RELIC_CHANCE = 0.5         # 🎪 房間掉法具時換成活動法具的機率
 CHESTS = {
     "normal": {"money": (1000, 3000), "materials": (3, 5), "items": (1, 2), "relic_chance": 0.15, "treasures": (1, 3), "table": "chest"},
     "locked": {"money": (3000, 5000), "materials": (3, 5), "items": (2, 3), "relic_chance": 0.7, "treasures": (2, 5), "table": "locked"},
@@ -85,13 +98,15 @@ def zone_mult(zone: int) -> float:
 
 
 def enemy_stats(zone: int, kind: str, mods: dict | None = None) -> tuple[float, float, float]:
-    """(HP, ATK, DEF)；DEF 只長一半；kind = normal / elite / mimic / boss；mods = 敵人自己的倍率"""
+    """(HP, ATK, DEF)；DEF 只長一半；kind = normal / elite / mimic / boss / fest_boss (🎪 活動 BOSS)；mods = 敵人自己的倍率"""
     k = zone_mult(zone)
     hp, atk, df = ENEMY_BASE[0] * k, ENEMY_BASE[1] * k, ENEMY_BASE[2] * (1 + (k - 1) / 2)
     if kind in ("elite", "mimic"):
         hp, atk, df = hp * ELITE_MULT[0], atk * ELITE_MULT[1], df * ELITE_MULT[2]
     elif kind == "boss":
         hp, atk, df = hp * BOSS_MULT[0], atk * BOSS_MULT[1], df * BOSS_MULT[2]
+    elif kind == "fest_boss":
+        hp, atk, df = hp * FEST_BOSS_MULT[0], atk * FEST_BOSS_MULT[1], df * FEST_BOSS_MULT[2]
     mods = mods or {}
     return hp * mods.get("hp", 1), atk * mods.get("atk", 1), df * mods.get("def", 1)
 
@@ -176,5 +191,19 @@ def mimic_money(zone: int) -> int:
     return round_half(10000 * (1 + ((zone - 1) / 10) ** 2))
 
 
+def exp_mult(zone: int) -> float:
+    """經驗的區域倍率 1 + (區域數 − 1) / 10 (第 1 區 ×1、第 5 區 ×1.4、第 10 區 ×1.9)"""
+    return 1 + (zone - 1) / 10
+
+
 def exp_for(kind: str, zone: int) -> int:
-    return EXP_KILL.get(kind, 0) * zone
+    return round_half(EXP_KILL.get(kind, 0) * exp_mult(zone))
+
+
+def exp_floor(zone: int) -> int:
+    return round_half(EXP_FLOOR * exp_mult(zone))
+
+
+def pick_weighted(table, rng) -> int:
+    """((值, 權重), ...) 抽一個值 (活動保留格的 0 / 1 / 2 個)"""
+    return rng.choices([v for v, _ in table], weights=[w for _, w in table])[0]

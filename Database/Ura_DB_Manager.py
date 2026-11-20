@@ -14,6 +14,7 @@ import secrets
 from datetime import datetime, timezone
 
 from Database.User_DB_Manager import connect, _ensure_user, _load_inventory, calc_exp_change, add_player_stat
+from Database.Economy_DB_Manager import _active_events   # 🎪 進行中的活動 (過期的會在這裡結束)
 from Database.ura import data, rules, run as R
 from Utils import card_cache
 from Utils.character_data import apply_current_names   # 錯誤訊息的卡名用目前的角色檔
@@ -23,6 +24,11 @@ BAG_USES = 3   # 額外背包用 3 次就壞
 
 def _now(now: datetime | None) -> str:
     return (now or datetime.now(timezone.utc)).isoformat()
+
+
+async def _live_fests(db, now: datetime | None) -> list[str]:
+    """(交易裡) 現在進行中、有裏世界內容 (活動檔的 "ura") 的活動 id"""
+    return [ev["id"] for ev in await _active_events(db, now or datetime.now(timezone.utc)) if isinstance(ev.get("ura"), dict)]
 
 
 # =========================================================
@@ -225,7 +231,8 @@ async def start_run(user_id: int, card_ids: list[str], items: dict, pocket: int,
             seed = seed or secrets.token_hex(8)
             cards = [({"instance_id": i, "character_key": rows[i]["character_key"], "rarity": rows[i]["rarity"],
                        "completeness": rows[i]["completeness"]}, chars[rows[i]["character_key"]]) for i in card_ids]
-            state = R.new_run(seed, cards, carry, pocket, random.Random(seed), capacity=capacity)
+            state = R.new_run(seed, cards, carry, pocket, random.Random(seed), capacity=capacity,
+                              live_fests=await _live_fests(db, now))
             if bag:
                 state["bag_name"] = data.bags()[bag["bag_id"]]["name"]
             ts = _now(now)
@@ -261,6 +268,7 @@ async def act(user_id: int, rev: int, fn, now: datetime | None = None) -> dict:
                 await db.rollback()
                 return {"ok": False, "reason": "stale", "rev": row["rev"]}
             state = json.loads(row["state"])
+            state["live_fests"] = await _live_fests(db, now)   # 🎪 每一步看「現在」有沒有活動 (結束了就不再出活動門)
             why = fn(state, R.action_rng(state))
             if why:
                 await db.rollback()

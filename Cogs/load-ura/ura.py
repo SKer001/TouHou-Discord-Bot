@@ -868,7 +868,7 @@ class StorageView(ui.LayoutView):
         if self.page_kind == "treasures":
             rows = self.rows()
             pg = paginate(rows, self.page, STORAGE_PER_PAGE)
-            zone_name = next((z["name"] for z in data.zones() if z["id"] == self.zone), None)
+            zone_name = "🎪 活動寶物" if self.zone == "fest" else next((z["name"] for z in data.zones() if z["id"] == self.zone), None)
             filters = f"篩選：{self.rarity or '全部階級'}、{zone_name or '全部區域'}"
             total = sum(data.treasure_prices()[info["rarity"]] * n for _, info, n in rows)
             self.add_item(UC.build_storage_container("treasures", self.storage, rows, pg.items, filters, self.notice,
@@ -895,7 +895,8 @@ class StorageView(ui.LayoutView):
                     seen.add(z["id"])
                     zones.append(z)
             zopts = [_opt("全部區域", "all", default=self.zone is None)] + [
-                _opt(f"{z['emoji']} {z['name']}", z["id"], default=z["id"] == self.zone) for z in zones]
+                _opt(f"{z['emoji']} {z['name']}", z["id"], default=z["id"] == self.zone) for z in zones] + [
+                _opt("🎪 活動寶物", "fest", "活動結束也保留，可以賣", default=self.zone == "fest")]
             self.add_item(_select("🗺️ 篩選區域", zopts, self.on_zone))
         row = nav_buttons(pg.page, pg.total, self.set_page) if pg.total > 1 else []
         if self.page_kind == "treasures":

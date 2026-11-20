@@ -7,7 +7,7 @@
 """
 import math
 
-from Database.ura import data, rules, status
+from Database.ura import data, fest, rules, status
 
 ALLY, ENEMY = "ally", "enemy"
 
@@ -32,8 +32,11 @@ def make_member(idx: int, card: dict, char: dict) -> dict:
 
 
 def make_foe(idx: int, eid: str, kind: str, zone: int, suffix: str = "") -> dict:
+    """kind = fest_boss (🎪 活動 BOSS)：數值用活動 BOSS 的倍率，之後當成 BOSS (kind = boss + fest_boss 標記)"""
     e = data.enemies()[eid]
     hp, atk, df = rules.enemy_stats(zone, kind, e)
+    if kind == "fest_boss":
+        kind = "boss"
     u = {"uid": f"e{idx}", "side": ENEMY, "eid": eid, "name": e["name"] + suffix, "emoji": e["emoji"], "kind": kind,
          "base_hp": hp, "base_atk": atk, "base_def": df, "alive": True, "dodge": e.get("dodge", 0),
          "skills": list(e.get("skills", [])), "cds": {}, "phase2": False, "ctrl_count": 0, "rot": 0, "statuses": []}
@@ -99,16 +102,25 @@ def _log(run: dict, text: str):
 # =========================================================
 # 🎬 開始 / 結束
 # =========================================================
-def start(run: dict, kind: str, foe_ids: list[str], rng) -> dict:
-    """kind = normal / elite / mimic / boss；foe_ids[0] 是主角 (精英 / BOSS)，其他是小弟"""
+def start(run: dict, kind: str, foe_ids: list[str], rng, fest_boss: bool = False) -> dict:
+    """
+    kind = normal / elite / mimic / boss；foe_ids[0] 是主角 (精英 / BOSS)，其他是小弟
+    fest_boss = 🎪 活動 BOSS (從精英門換來的)：當成 BOSS 戰 (不能逃、第二階段、不狂暴)，數值用活動 BOSS 倍率
+    🎪 活動房間 (run["room"]["fest"]) 的戰鬥套用那個活動的環境
+    """
     zone = rules.zone_of(run["floor"])
+    fid = (run.get("room") or {}).get("fest")
+    if fest_boss:
+        kind = "boss"
     foes = []
     names = {}
     for i, eid in enumerate(foe_ids):
         fkind = kind if i == 0 and kind != "normal" else "normal"
         names[eid] = names.get(eid, 0) + 1
-        foe = make_foe(i, eid, fkind, zone)
-        if fkind == "boss" and data.zone_info(zone).get("borrowed"):   # 第 2～5 區還沒有自己的 BOSS：借來的只普攻 (使用者 2026-11-20)
+        foe = make_foe(i, eid, "fest_boss" if fest_boss and i == 0 else fkind, zone)
+        if fest_boss and i == 0:
+            foe["fest_boss"] = True
+        elif fkind == "boss" and data.zone_info(zone).get("borrowed"):   # 第 2～5 區還沒有自己的 BOSS：借來的只普攻 (使用者 2026-11-20)
             foe["skills"] = []
         foes.append(foe)
     seen = {}
@@ -121,8 +133,10 @@ def start(run: dict, kind: str, foe_ids: list[str], rng) -> dict:
         money_mult = 1.5
     run["battle"] = {"kind": kind, "foes": foes, "round": 1, "acted": [], "actions_left": 1, "time_stop": None,
                      "ofuda_used": False, "persuade_tried": [], "money_mult": money_mult, "spell_money": 1.0,
-                     "killed": [], "log": [], "over": None}
+                     "killed": [], "log": [], "over": None, "fest": fid, "fest_boss": fest_boss}
     run["phase"] = "battle"
+    if fid:
+        fest.apply_environment(run, run["battle"], fid)   # 🌫️ 環境 (這場戰鬥有效)
     for u in living(run["party"]) + foes:
         _trigger(run, u, "battle_start", rng)
     return run["battle"]
@@ -150,7 +164,8 @@ def deal(run: dict, attacker: dict | None, target: dict, mult: float, rng, *, si
     b = run.get("battle")
     if not target["alive"]:
         return 0
-    if single and target.get("dodge") and rng.random() < target["dodge"]:
+    dodge = (target.get("dodge") or 0) + status.mod(target, "dodge_pct")
+    if single and dodge > 0 and rng.random() < dodge:
         _log(run, f"💨 {target['name']} 閃開了！")
         return 0
     atk = (source_atk if source_atk is not None else eff_atk(attacker, b)) * mult
@@ -168,6 +183,11 @@ def deal(run: dict, attacker: dict | None, target: dict, mult: float, rng, *, si
         status.consume(target, "shield")
     dmg = max(1, rules.round_half(dmg))
     target["hp"] -= dmg
+    if attacker is not None and attacker["alive"] and not counter:
+        steal = status.mod(attacker, "lifesteal_pct")   # 🦇 吸血鬼的契約
+        if steal > 0:
+            heal_amt = max(1, rules.round_half(dmg * steal))
+            attacker["hp"] = min(max_hp(attacker), attacker["hp"] + heal_amt)
     if status.has(target, "sleep"):
         status.remove(target, "sleep")
     if not counter and attacker is not None and attacker["alive"]:
@@ -214,7 +234,7 @@ def down(run: dict, u: dict):
         return
     u["hp"], u["alive"] = 0, False
     b = run["battle"]
-    b["killed"].append({"eid": u["eid"], "kind": u["kind"], "how": "killed"})
+    b["killed"].append({"eid": u["eid"], "kind": "fest_boss" if u.get("fest_boss") else u["kind"], "how": "killed"})
     add_b(run, rules.B_KILL)
     _log(run, f"✨ 打倒了 {u['name']}")
 
@@ -428,6 +448,11 @@ def use_ofuda(run: dict, uid: str, target_uid: str | None, rng) -> str | None:
         for m in living(run["party"]):
             status.apply(m, act["status"], value=value)
         _log(run, f"📜 全隊 {status.info(act['status'])['name']}")
+    elif act["do"] == "extra_action":   # ⏱️ 女僕長的懷錶：這回合多一次行動 (另一位隊友也能動)
+        if not any(m["alive"] and m["uid"] not in b["acted"] for m in run["party"]) or b["actions_left"] >= len(living(run["party"])):
+            return "沒有其他隊友可以多行動"
+        b["actions_left"] += 1
+        _log(run, "⏱️ 這回合多一次行動！")
     elif act["do"] == "damage_all":
         mult = value * (rd.get("class_bonus", {}).get("mult", 1) if u["cls"] == rd.get("class") else 1)
         for f in living(b["foes"]):
@@ -548,7 +573,7 @@ def _foe_act(run: dict, foe: dict, rng):
             d = deal(run, foe, t, skill.get("mult", 1.0), rng)
             _log(run, f"{name} ➔ {t['name']} {d}")
             if skill.get("status") and d and t["alive"]:
-                status.apply(t, skill["status"], turns=skill.get("turns"))
+                status.apply(t, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"))
     elif do == "attack_all":
         alive = living(run["party"])
         taunt = [m for m in alive if status.has_flag(m, "taunt")]
@@ -563,10 +588,10 @@ def _foe_act(run: dict, foe: dict, rng):
         _log(run, f"{name}：回復 {heal(foe, skill['value'])}")
     elif do == "apply_party":
         for m in living(run["party"]):
-            status.apply(m, skill["status"], turns=skill.get("turns"))
+            status.apply(m, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"))
         _log(run, f"{name}：全隊 {status.info(skill['status'])['name']}")
     elif do == "apply_self":
-        status.apply(foe, skill["status"], turns=skill.get("turns"))
+        status.apply(foe, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"))
         _log(run, f"{name}：{status.info(skill['status'])['name']}")
 
 

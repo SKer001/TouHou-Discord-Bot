@@ -8,7 +8,7 @@ run["phase"]：doors 選門 / battle 戰鬥 / chest 寶箱 / event 事件 / trap
 import math
 import random
 
-from Database.ura import combat, data, rules, status
+from Database.ura import combat, data, fest, rules, status
 
 VERSION = 1
 
@@ -158,7 +158,7 @@ def roll_treasure(table: str, zone: int, rng, rarity: str | None = None) -> dict
 
 def roll_relic(zone: int, rng, classes: list[str] | None = None, shift: int = 0) -> dict:
     """法具：等級用 BOSS 那張表 (SSR 起跳)；classes = 只挑隊上有人職業對得上的 (BOSS)"""
-    pool = data.relics()
+    pool = data.base_relics()   # 活動法具只從 🎪 房間來 (fest.py)
     keys = [k for k, r in pool.items() if not classes or r.get("class") in classes] or list(pool)
     rid = rng.choice(keys)
     order = ["SSR", "UR", "LR"]
@@ -252,7 +252,7 @@ def _chest_door(run: dict, floor: int, rng, hidden: bool = False) -> dict:
 def _event_door(run: dict, rng) -> dict:
     w = data.event_weights()
     etype = rng.choices(list(w), weights=list(w.values()))[0]
-    ids = [k for k, e in data.events().items() if e["type"] == etype]
+    ids = [k for k, e in data.events().items() if e["type"] == etype and not e.get("fest")]
     return {"type": "event", "event": rng.choice(ids), "etype": etype}
 
 
@@ -314,6 +314,7 @@ def gen_doors(run: dict, floor: int, rng) -> list[dict]:
     for d in doors:
         if d["type"] in rules.ROOM_CAPS and not d.get("hidden"):
             caps[d["type"]] = caps.get(d["type"], 0) + 1
+    fest.maybe_convert(run, floor, doors, rng)   # 🎪 活動期間 10% 其中一扇變成活動門
     return doors
 
 
@@ -321,6 +322,8 @@ def door_view(run: dict, door: dict, revealed: bool) -> dict:
     """門上顯示的東西 (沒有斥候只看得到類型；有斥候 / 望遠鏡 / 提燈多看細節)"""
     t = door["type"]
     v = {"type": t}
+    if door.get("fest"):
+        v["fest"] = door["fest"]   # 🎪 一定看得到 (環境也寫在門上)
     if t == "battle":
         v["count"] = len(door["foes"])
     if not revealed:
@@ -354,7 +357,7 @@ def _set_doors(run: dict, rng):
 # 🆕 開局
 # =========================================================
 def new_run(seed: str, cards: list[tuple[dict, dict]], bag_items: dict, pocket: int, rng,
-            capacity: int = rules.BAG_SLOTS) -> dict:
+            capacity: int = rules.BAG_SLOTS, live_fests: list[str] | None = None) -> dict:
     """cards = [(卡牌 {instance_id, character_key, rarity, completeness}, 角色資料 data.characters()[id]), ...]"""
     party = [combat.make_member(i, card, char) for i, (card, char) in enumerate(cards)]
     run = {"v": VERSION, "seed": seed, "act": 0, "step": 0, "floor": 0, "sanity": rules.SANITY_START, "b": rules.B_START,
@@ -362,7 +365,7 @@ def new_run(seed: str, cards: list[tuple[dict, dict]], bag_items: dict, pocket: 
            "bag": {"items": {k: v for k, v in bag_items.items() if v > 0}, "materials": {}, "treasures": [], "relics": []},
            "team": {"statuses": []}, "phase": "doors", "doors": [], "room": None, "battle": None, "last": None,
            "caps": {}, "guaranteed": {}, "peek": None, "revealed": None, "pending": [], "exp": 0,
-           "kills": {}, "boss_cleared": 0, "result": None, "log": []}
+           "kills": {}, "boss_cleared": 0, "result": None, "log": [], "live_fests": list(live_fests or [])}
     _set_doors(run, rng)
     return run
 
@@ -404,7 +407,7 @@ def _enter_floor(run: dict, rng):
         for inst, act in status.actions(m, "floor_enter"):
             if act["do"] == "b_point":
                 combat.add_b(run, act["value"])
-    run["exp"] += rules.EXP_FLOOR * zone
+    run["exp"] += rules.exp_floor(zone)
     _check_sanity(run)
 
 
@@ -425,7 +428,14 @@ def _start_room(run: dict, door: dict, rng):
             return _set_doors(run, rng)
         combat.start(run, "normal", door["foes"], rng)
     elif t == "elite":
-        combat.start(run, "elite", door["foes"], rng)
+        boss = bool(door.get("fest_boss"))
+        if boss and run.get("fest_boss_seen"):   # 🎪 活動 BOSS 一局只打一次：已經打過 ➔ 這扇退回活動精英
+            boss = False
+            run["room"]["fest_boss"] = False
+            run["room"]["foes"] = list(door.get("elite_foes") or door["foes"])
+        if boss:
+            run["fest_boss_seen"] = True
+        combat.start(run, "elite", run["room"]["foes"], rng, fest_boss=boss)
     elif t == "boss":
         combat.start(run, "boss", door["foes"], rng)
     elif t == "chest":
@@ -540,7 +550,10 @@ def _after_battle_step(run: dict, rng):
     mult = b["money_mult"] * b["spell_money"]
     total = {"items": {}, "materials": {}, "treasures": [], "relics": [], "money": 0}
     for k in b["killed"]:
-        _merge(total, foe_loot(run, k["kind"], rng, mult))
+        loot = foe_loot(run, k["kind"], rng, mult)
+        if b.get("fest"):
+            fest.decorate_loot(run, b["fest"], k["kind"], loot, zone, rng)   # 🎪 活動保留格 / 活動法具
+        _merge(total, loot)
         run["exp"] += rules.exp_for(k["kind"], zone)
         run["kills"][k["eid"]] = run["kills"].get(k["eid"], 0) + 1
     money = total.pop("money")
@@ -549,7 +562,7 @@ def _after_battle_step(run: dict, rng):
     run["last"] = {"kind": b["kind"], "over": over, "killed": list(b["killed"]), "loot": total, "money": money,
                    "floor": run["floor"]}
     combat.finish(run)
-    if over == "win" and b["kind"] == "boss":
+    if over == "win" and b["kind"] == "boss" and not b.get("fest_boss"):
         run["boss_cleared"] = zone
         run["phase"] = "boss_clear"
         run["battle"] = None
@@ -586,6 +599,8 @@ def open_chest(run: dict, rng, force: bool = False) -> str | None:
             "relics": [roll_relic(zone, rng)] if rng.random() < c["relic_chance"] else []}
     if room.get("guaranteed"):
         loot["treasures"].append(roll_treasure(c["table"], zone, rng, rarity=room["guaranteed"]))
+    if room.get("fest"):
+        fest.decorate_loot(run, room["fest"], "chest", loot, zone, rng)   # 🎪 活動保留格 / 活動法具
     money = rules.money_roll(lo * zone, hi * zone, rng)
     run["pocket"] += money
     stash(run, loot)
@@ -625,7 +640,10 @@ def _start_event(run: dict, door: dict, rng):
     eid = door["event"]
     ev = data.events()[eid]
     if ev["type"] != "good" and status.consume_flag(run["team"], "good_event"):
-        eid = rng.choice([k for k, e in data.events().items() if e["type"] == "good"])
+        fid = door.get("fest")
+        pool = ([k for k, e in data.events().items() if e["type"] == "good" and e.get("fest") == fid]
+                or [k for k, e in data.events().items() if e["type"] == "good" and not e.get("fest")])
+        eid = rng.choice(pool)
         ev = data.events()[eid]
     room = run["room"]
     room["event"], room["etype"] = eid, ev["type"]
@@ -734,6 +752,16 @@ def event_choice(run: dict, accept: bool, rng, pick=None) -> str | None:
         rel = roll_relic(zone, rng)
         stash(run, {"relics": [rel]})
         res.update(relic=rel)
+    elif do == "buy_fest_treasure":   # 😈 小惡魔的交易：付錢換 1 個活動寶物
+        cost = eff["cost"] * (zone if eff.get("per_zone") else 1)
+        if run["pocket"] < cost:
+            return f"口袋的錢不夠 (要 {cost:,})"
+        t = fest.roll_treasure(room.get("fest") or ev.get("fest"), zone, rng)
+        if not t:
+            return "這個活動沒有活動寶物"
+        run["pocket"] -= cost
+        stash(run, {"treasures": [t]})
+        res.update(cost=cost, treasure=t)
     elif do == "sealed_box":
         room["mimic"] = False
         if run["bag"]["items"].get("chest_key", 0) > 0:
@@ -769,7 +797,7 @@ def _merchant_stock(run: dict, rng) -> list[dict]:
     if rng.random() < rules.MERCHANT_RELIC_CHANCE:
         r = rng.random()
         tier, price = (0, rules.MERCHANT_RELIC[0][2]) if r < rules.MERCHANT_RELIC[0][1] else (1, rules.MERCHANT_RELIC[1][2])
-        rid = rng.choice(list(data.relics()))
+        rid = rng.choice(list(data.base_relics()))
         rel = {"rid": rid, "tier": tier}
         if data.relics()[rid]["type"] == "ofuda":
             rel["left"] = data.relics()[rid]["uses"][tier]
