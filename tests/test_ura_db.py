@@ -250,9 +250,36 @@ async def main():
     lb = (await ura.get_leaderboard_records([U2])).get(U2, {})
     check(f"zero net counts {lb}", lb.get("money", {}).get("value") == 0 and lb["money"]["at"] and lb.get("depth", {}).get("value") == 0)
 
+    # 🎪 活動任務 (裏世界)：打倒當下就算 (含還在打的那一場、失敗也算)；撤離 / 帶出活動寶物要成功撤離才算
+    F = "th06_scarlet_mist"
+    async def qs():
+        return {r["stat"]: r["value"] for r in await q("SELECT stat, value FROM event_quest_stats WHERE user_id = ?", U2)}
+    base = await qs()
+    def delta(now_):
+        return {k: v - base.get(k, 0) for k, v in now_.items() if v != base.get(k, 0)}
+    r = await ura.start_run(U2, ["z1"], {}, 0, None, seed="q1")
+    fairy = {"eid": "scarlet_fairy", "kind": "normal", "how": "killed"}
+    r = await ura.act(U2, 0, lambda s, g: s.update(battle={"killed": [fairy]}))   # 打到一半打倒了一隻
+    check(f"kill counted mid-battle {delta(await qs())}", delta(await qs()) == {"ura_kill:scarlet_fairy": 1})
+    r = await ura.act(U2, 1, lambda s, g: s.update(battle=None, kills={"scarlet_fairy": 1}))   # 打完那一場 (併進 kills)
+    check("no double count", delta(await qs()) == {"ura_kill:scarlet_fairy": 1})
+    r = await ura.act(U2, 2, lambda s, g: s.update(kills={"scarlet_fairy": 1, "scarlet_flandre": 1}))
+    check(f"fest boss counted {delta(await qs())}", delta(await qs()) == {"ura_kill:scarlet_fairy": 1, "ura_kill:scarlet_flandre": 1,
+                                                                         "ura_fest_boss": 1})
+    lr = {"id": "fest_gungnir_shard", "rarity": "LR", "zone": 1, "fest": F}
+    r = await ura.act(U2, 3, end_with("evacuated", bag={"treasures": [lr, {"id": "ura_pebble", "rarity": "N", "zone": 1}]}))
+    d = delta(await qs())
+    check(f"evacuate counted {d}", d.get("ura_evacuate") == 1 and d.get("ura_fest_treasure") == 1)
+    check("fest treasure stored", (await ura.get_storage(U2))["treasures"].get("fest_gungnir_shard") == 1)
+    r = await ura.start_run(U2, ["z1"], {}, 0, None, seed="q2")
+    r = await ura.act(U2, 0, lambda s, g: s.update(battle={"killed": [fairy]}, result="failed", phase="ended",
+                                                  bag={**s["bag"], "treasures": [lr]}))   # 全滅：那一場打倒的照算，其他不算
+    d = delta(await qs())
+    check(f"fail counts kills only {d}", d.get("ura_kill:scarlet_fairy") == 2 and d.get("ura_evacuate") == 1
+          and d.get("ura_fest_treasure") == 1)
+
     # 🎪 每一步看「當下」有沒有活動 (紅霧異變 auto_start ➔ 沒有紀錄時就在進行)；活動結束後下一步就變成 []
     from Database import Economy_DB_Manager as econ
-    F = "th06_scarlet_mist"
     r = await ura.start_run(U2, ["z1"], {}, 0, None, seed="fest")
     check(f"start live fests {r['state'].get('live_fests')}", r["ok"] and r["state"]["live_fests"] == [F])
     r = await ura.act(U2, 0, lambda s, g: None)

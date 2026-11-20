@@ -99,13 +99,30 @@
          "reward": {"money": 100000, "exp": 500}},
         {"id": "incident_survey", "name": "異變調查", "type": "daily", "count": 7,
          "desc": "異變期間每天都到神社報到。靈夢說這叫「調查」，其實只是在等紅霧自己散掉。",
-         "reward": {"money": 100000, "exp": 500}}
+         "reward": {"money": 100000, "exp": 500}},
+        {"id": "ura_scarlet_small", "name": "紅霧裡的小怪", "type": "ura_kill", "target": ["scarlet_fairy", "vampire_bat", "rogue_grimoire"], "count": 15,
+         "desc": "裏世界的紅霧裡跑出了一堆妖精、蝙蝠和亂飛的魔導書。在 🎪 活動關卡把牠們打回去吧——勸走的也算。",
+         "reward": {"money": 50000, "exp": 300}},
+        {"id": "ura_maid_chief", "name": "女僕隊長的巡邏", "type": "ura_kill", "target": "fairy_maid_chief", "count": 3,
+         "desc": "妖精女僕隊長帶著飛刀在紅霧裡巡邏。打倒她三次，讓她知道神社的人不好惹。",
+         "reward": {"money": 50000, "exp": 300}},
+        {"id": "ura_flandre", "name": "地下室的妹妹", "type": "ura_fest_boss", "count": 1,
+         "desc": "紅霧把地下室的妹妹引了出來。她分身的時候就用全體攻擊——四個裡面總有一個是真的。",
+         "reward": {"money": 100000, "exp": 500}},
+        {"id": "ura_collection", "name": "紅魔館的收藏品", "type": "ura_fest_treasure", "count": 3,
+         "desc": "紅茶杯、懷錶、禁書……從裏世界帶回三件紅魔館的東西。小惡魔說借走一下應該沒關係。",
+         "reward": {"money": 100000, "exp": 500}},
+        {"id": "ura_safe_return", "name": "平安歸來", "type": "ura_evacuate", "count": 3,
+         "desc": "在紅霧瀰漫的裏世界裡，能平安回到神社就是最大的收穫。成功撤離三次吧。",
+         "reward": {"money": 50000, "exp": 300}}
     ],
     "quest_titles": [
         {"id": "visitor", "name": "紅霧中的參拜者", "rarity": "R", "min_quests": 4,
          "desc": "在遮蔽天空的紅霧裡，依然來到了博麗神社。"},
         {"id": "resolver", "name": "紅霧異變的解決者", "rarity": "SSR", "min_quests": 8,
-         "desc": "在紅霧散去之前，你見證了整場異變的始末。"}
+         "desc": "在紅霧散去之前，你見證了整場異變的始末。"},
+        {"id": "uninvited_guest", "name": "紅魔館的不速之客", "rarity": "UR", "min_quests": 13,
+         "desc": "從神社的廚房到紅魔館的地下室，這場異變的每個角落你都去過了。"}
     ],
     "ura": {
         "_說明": "🌀 裏世界的活動內容 (格式見 Events/README.md「裏世界」；規則 docs/ura.md「活動融入」)",

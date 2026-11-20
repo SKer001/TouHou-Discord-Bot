@@ -112,13 +112,17 @@ async def main():
     # ================= 活動檔格式 =================
     ev = events.load_events()[EV]
     check("validate th06", events.validate_quests(ev) == [])
-    check("8 quests", len(ev["quests"]) == 8 and len({q["id"] for q in ev["quests"]}) == 8)
-    check("2 titles", [(t["rarity"], t["name"], t["min_quests"]) for t in ev["quest_titles"]]
-          == [("R", "紅霧中的參拜者", 4), ("SSR", "紅霧異變的解決者", 8)])
+    check("13 quests", len(ev["quests"]) == 13 and len({q["id"] for q in ev["quests"]}) == 13)
+    check("3 titles", [(t["rarity"], t["name"], t["min_quests"]) for t in ev["quest_titles"]]
+          == [("R", "紅霧中的參拜者", 4), ("SSR", "紅霧異變的解決者", 8), ("UR", "紅魔館的不速之客", 13)])
     expect = [("初探紅魔館廚房", "explore_location", 10, 50000, 300), ("女僕長的食譜", "cook_each", 3, 50000, 300),
               ("款待妖精女僕", "serve_guest", 5, 50000, 300), ("使魔的晚餐", "serve_guest", 5, 50000, 300),
               ("紅色的午茶時間", "serve_event_dish", 30, 100000, 500), ("完美的款待", "serve_favorite", 10, 50000, 300),
-              ("紅霧中的祈願", "gacha_pool", 50, 100000, 500), ("異變調查", "daily", 7, 100000, 500)]
+              ("紅霧中的祈願", "gacha_pool", 50, 100000, 500), ("異變調查", "daily", 7, 100000, 500),
+              # 🌀 裏世界 (0.35.090，使用者 2026-11-20)
+              ("紅霧裡的小怪", "ura_kill", 15, 50000, 300), ("女僕隊長的巡邏", "ura_kill", 3, 50000, 300),
+              ("地下室的妹妹", "ura_fest_boss", 1, 100000, 500), ("紅魔館的收藏品", "ura_fest_treasure", 3, 100000, 500),
+              ("平安歸來", "ura_evacuate", 3, 50000, 300)]
     check("quest table", [(q["name"], q["type"], events.quest_need(q), q["reward"]["money"], q["reward"]["exp"])
                           for q in ev["quests"]] == expect)
     check("targets", ev["quests"][0]["target"] == "scarlet_kitchen" and ev["quests"][2]["target"] == "fairy_maid"
@@ -133,6 +137,24 @@ async def main():
     goal = events.quest_goal(ev["quests"][0], ev, items)
     check(f"goal text {goal}", goal == "在「🏰紅魔館廚房」採集 {p} 次")
     check("goal guest", "妖精女僕" in events.quest_goal(ev["quests"][2], ev, items))
+    # 🌀 裏世界任務：進度、文字、格式檢查
+    uq = {q["id"]: q for q in ev["quests"]}
+    check("ura_kill sums targets", events.quest_progress(uq["ura_scarlet_small"], {"ura_kill:scarlet_fairy": 4, "ura_kill:vampire_bat": 3,
+          "ura_kill:rogue_grimoire": 2, "ura_kill:lost_spirit": 9}) == 9)
+    check("ura_kill single", events.quest_progress(uq["ura_maid_chief"], {"ura_kill:fairy_maid_chief": 5}) == 3)
+    check("ura counters", events.quest_progress(uq["ura_flandre"], {"ura_fest_boss": 1}) == 1
+          and events.quest_progress(uq["ura_collection"], {"ura_fest_treasure": 2}) == 2
+          and events.quest_progress(uq["ura_safe_return"], {"ura_evacuate": 5}) == 3)
+    goals = {k: events.quest_goal(q, ev, items) for k, q in uq.items() if k.startswith("ura_")}
+    check(f"ura goals {goals}", goals["ura_scarlet_small"] == "🌀 在裏世界打倒🧚紅霧妖精、🦇吸血蝙蝠、📕失控的魔導書 合計 {p} 隻"
+          and goals["ura_maid_chief"] == "🌀 在裏世界打倒🔪妖精女僕隊長 {p} 隻"
+          and goals["ura_flandre"] == "🌀 在裏世界打倒活動 BOSS 🩸紅霧・芙蘭朵露 {p} 次"
+          and goals["ura_collection"] == "🌀 從裏世界帶出🔴紅霧異變的活動寶物 {p} 個"
+          and goals["ura_safe_return"] == "🌀 從裏世界成功撤離 {p} 次")
+    enemy_ids = set(ev["ura"]["enemies"])
+    check("ura_kill targets exist", all(set(events._as_list(q["target"])) <= enemy_ids for q in ev["quests"] if q["type"] == "ura_kill"))
+    check("validate ura_kill target", any("ura_kill" in p for p in events.validate_quests(
+        {"quests": [{"id": "u", "name": "u", "desc": "u", "type": "ura_kill", "target": [1], "count": 1}]})))
     check("goal cook", "草莓鮮奶油蛋糕" in events.quest_goal(ev["quests"][1], ev, items))
     check("goal gacha pool", events.quest_goal(ev["quests"][6], ev, items) == "在「🔴 紅魔鄉卡池」祈願 {p} 抽")
     check("goal event pool warns", "還沒有活動限定卡池" in events.quest_goal({"type": "gacha_event_pool", "count": 5}, ev, items))
@@ -180,7 +202,7 @@ async def main():
           and st.get("gacha_pool:classic") == 1 and st.get("daily") == 1)
 
     board = await qdm.get_quest_board(A, now=NOW)
-    check("board one event", len(board) == 1 and board[0]["run"] == AUTO and board[0]["total"] == 8)
+    check("board one event", len(board) == 1 and board[0]["run"] == AUTO and board[0]["total"] == 13)
     qs = {q["id"]: q for q in board[0]["quests"]}
     check("progress explore", (qs["kitchen_explore"]["cur"], qs["kitchen_explore"]["need"]) == (3, 10) and not qs["kitchen_explore"]["done"])
     check("cook_each done", qs["maid_recipes"]["cur"] == 3 and qs["maid_recipes"]["done"])
@@ -238,7 +260,7 @@ async def main():
     check("title unlocked", VISITOR in state["unlocked"] and RESOLVER not in state["unlocked"])
     check("equip", await udm.set_equipped_title(A, VISITOR) and (await udm.get_title_state(A))["equipped"] == VISITOR)
     board = await qdm.get_quest_board(A, now=T1)
-    check("board titles", [t["earned"] for t in board[0]["titles"]] == [True, False] and board[0]["claimed"] == 4)
+    check("board titles", [t["earned"] for t in board[0]["titles"]] == [True, False, False] and board[0]["claimed"] == 4)
     # 稱號私訊 (通知 loop 也把 earned_titles 算進已解鎖)
     found = [n for n in await ndm.collect_notices(T1) if n["kind"] == "title_unlocked" and n["user_id"] == A
              and n["key"].startswith("event_")]   # (其他稱號：祈願 / 財富 / 火力也剛好解鎖)
@@ -272,7 +294,7 @@ async def main():
     # 補發：稱號紀錄不見了 (例如之後才加的稱號 / 門檻改低) ➔ 打開 /event quest 時已達標的補進 earned_titles
     sql("DELETE FROM earned_titles WHERE user_id = ? AND title_id = ?", (A, VISITOR))
     board = await qdm.get_quest_board(A, now=T2)
-    check("catch-up grant", [t["earned"] for t in board[0]["titles"]] == [True, True]
+    check("catch-up grant", [t["earned"] for t in board[0]["titles"]] == [True, True, False]
           and VISITOR in (await udm.get_title_state(A))["unlocked"])
     # 活動檔還沒全部重載、TITLES 裡沒有的稱號 id：結果文字不會壞掉
     check("unknown title text", "🎁 領到" in importlib.import_module("Cogs.load-general.event").claim_result_text(
@@ -290,16 +312,16 @@ async def main():
     board = await qdm.get_quest_board(B, now=T3)
     view = ev_mod.QuestView(B, board, items)
     btns = {b.label: b for b in buttons(view)}
-    labels = [b.label for b in buttons(view)]
-    check(f"8 quest buttons {labels}", len(labels) == 8)
+    labels = [b.label for b in buttons(view) if b.label in ("🎁 領取", "✅ 已領取", "未完成")]
+    check(f"9 quest buttons on page 1 {labels}", len(labels) == 9)   # 13 個任務 ➔ 9 + 4 兩頁
     check("claim button", labels.count("🎁 領取") == 1 and not btns["🎁 領取"].disabled
           and btns["🎁 領取"].style == discord.ButtonStyle.success)
     check("claimed button", labels.count("✅ 已領取") == 1 and btns["✅ 已領取"].disabled)
-    check("not done buttons", labels.count("未完成") == 6 and all(b.disabled for b in buttons(view) if b.label == "未完成"))
+    check("not done buttons", labels.count("未完成") == 7 and all(b.disabled for b in buttons(view) if b.label == "未完成"))
     check(f"components {total(view)}", total(view) <= 40)
     t = texts(view)
     check("view texts", "紅霧異變任務" in t and "**1. 初探紅魔館廚房**" in t and "`3 / 10`" in t and "`50,000` 賽錢 + `300` EXP" in t)
-    check("view footer", "已完成 `2 / 8`" in t and "已領取 `1 / 8`" in t and "紅霧中的參拜者" in t and "<t:" in t)
+    check("view footer", "已完成 `2 / 13`" in t and "已領取 `1 / 13`" in t and "紅霧中的參拜者" in t and "<t:" in t)
     check("text length", len(t) <= 4000)
     # 本人才能按
     it = FakeInteraction(C)
@@ -319,7 +341,7 @@ async def main():
     many["total"] = 20
     v = ev_mod.QuestView(B, [many, board[0]], items)
     pages = ev_mod.quest_pages(v.board)
-    check(f"pages {pages}", len(pages) == 4)
+    check(f"pages {pages}", len(pages) == 5)   # 20 個 ➔ 3 頁、紅霧異變 13 個 ➔ 2 頁
     worst = 0
     for p in range(len(pages)):
         v.page = p; v.build(); worst = max(worst, total(v))

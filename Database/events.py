@@ -166,6 +166,11 @@ QUEST_TYPES = {
     "gacha_event_pool": None,               # 這個活動的活動限定卡池祈願抽數
     "gacha_pool": "卡池 id (classic / th06)",  # 活動期間在那個一般卡池祈願的抽數 (2026-11-14：紅霧異變算紅魔鄉卡池)
     "daily": None,                          # 活動期間簽到天數
+    # 🌀 裏世界 (0.35.090)：打倒 / 活動 BOSS 當下就算 (那一局後來失敗也算)；帶出活動寶物 / 撤離在成功撤離結算時才算
+    "ura_kill": "敵人 id 或 [敵人 id, ...]",   # 打倒 / 勸走那些敵人的隻數 (好幾種就加總)
+    "ura_fest_boss": None,                  # 打倒這個活動的活動 BOSS 次數
+    "ura_fest_treasure": None,              # 成功撤離時帶出這個活動的活動寶物個數
+    "ura_evacuate": None,                   # 活動期間成功撤離的次數
 }
 TITLE_RARITIES = ("N", "R", "SR", "SSR", "UR", "LR")
 
@@ -187,6 +192,8 @@ def validate_quests(event: dict) -> list[str]:
             problems.append(f"{qid}：{q['type']} 要填 target ({QUEST_TYPES[q['type']]})")
         if q.get("type") == "cook_each" and not isinstance(q.get("target"), list):
             problems.append(f"{qid}：cook_each 的 target 要是料理 id 清單")
+        if q.get("type") == "ura_kill" and not all(isinstance(e, str) and e for e in _as_list(q.get("target"))):
+            problems.append(f"{qid}：ura_kill 的 target 要是敵人 id 或敵人 id 清單")
         if q.get("type") != "cook_each" and not (isinstance(q.get("count"), int) and q["count"] >= 1):
             problems.append(f"{qid}：count 要是 >= 1 的整數")
         reward = q.get("reward", {})
@@ -226,7 +233,10 @@ def quest_progress(quest: dict, stats: dict) -> int:
         cur = stats.get(f"serve_guest:{target}", 0)
     elif t == "gacha_pool":
         cur = stats.get(f"gacha_pool:{target}", 0)
-    elif t in ("serve_event_dish", "serve_favorite", "gacha_event_pool", "daily"):
+    elif t == "ura_kill":
+        cur = sum(stats.get(f"ura_kill:{e}", 0) for e in _as_list(target))
+    elif t in ("serve_event_dish", "serve_favorite", "gacha_event_pool", "daily",
+               "ura_fest_boss", "ura_fest_treasure", "ura_evacuate"):
         cur = stats.get(t, 0)
     else:
         cur = 0
@@ -270,6 +280,20 @@ def quest_goal(quest: dict, event: dict, items: dict | None = None) -> str:
         return f"在「{GACHA_POOLS.get(target, {}).get('name', target)}」祈願 {{p}} 抽"
     if t == "daily":
         return "活動期間簽到 {p} 天"
+    if t in ("ura_kill", "ura_fest_boss", "ura_fest_treasure"):
+        u = event.get("ura") or {}
+        enemies = u.get("enemies") or {}
+
+        def foe(e):
+            info = enemies.get(e) or {}
+            return f"{info.get('emoji', '')}{info.get('name', e)}"
+        if t == "ura_kill":
+            return f"🌀 在裏世界打倒{'、'.join(foe(e) for e in _as_list(target))}{' 合計' if len(_as_list(target)) > 1 else ''} {{p}} 隻"
+        if t == "ura_fest_boss":
+            return f"🌀 在裏世界打倒活動 BOSS {foe(u.get('boss', ''))} {{p}} 次"
+        return f"🌀 從裏世界帶出{event.get('emoji', '🎪')}{event.get('name', '')}的活動寶物 {{p}} 個"
+    if t == "ura_evacuate":
+        return "🌀 從裏世界成功撤離 {p} 次"
     return "{p}"
 
 

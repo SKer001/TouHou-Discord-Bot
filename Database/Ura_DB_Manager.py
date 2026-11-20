@@ -13,7 +13,7 @@ import random
 import secrets
 from datetime import datetime, timezone
 
-from Database.User_DB_Manager import connect, _ensure_user, _load_inventory, calc_exp_change, add_player_stat
+from Database.User_DB_Manager import connect, _ensure_user, _load_inventory, calc_exp_change, add_player_stat, add_quest_stats
 from Database.Economy_DB_Manager import _active_events   # 🎪 進行中的活動 (過期的會在這裡結束)
 from Database.ura import data, rules, run as R
 from Utils import card_cache
@@ -24,6 +24,27 @@ BAG_USES = 3   # 額外背包用 3 次就壞
 
 def _now(now: datetime | None) -> str:
     return (now or datetime.now(timezone.utc)).isoformat()
+
+
+def _kill_tally(state: dict) -> dict:
+    """這一局到目前為止打倒 / 勸走的 {敵人: 隻數}，含還在打的這一場 (全滅 / 放棄時那一場已經打倒的也算)"""
+    tally = dict(state.get("kills") or {})
+    for k in (state.get("battle") or {}).get("killed", []):
+        tally[k["eid"]] = tally.get(k["eid"], 0) + 1
+    return tally
+
+
+async def _quest_kills(db, user_id: int, before: dict, after: dict, now: datetime | None):
+    """(交易裡) 🎪 活動任務：這一步新打倒的 ➔ ura_kill:<敵人>；活動 BOSS 再記給那個活動 ura_fest_boss"""
+    diff = {e: n - before.get(e, 0) for e, n in after.items() if n > before.get(e, 0)}
+    if not diff:
+        return
+    per_event: dict = {}
+    for e, n in diff.items():
+        fid = data.enemies().get(e, {}).get("fest")
+        if fid and data.fests().get(fid, {}).get("boss") == e:
+            per_event.setdefault(fid, {})["ura_fest_boss"] = per_event.get(fid, {}).get("ura_fest_boss", 0) + n
+    await add_quest_stats(db, user_id, now, {f"ura_kill:{e}": n for e, n in diff.items()}, per_event)
 
 
 async def _live_fests(db, now: datetime | None) -> list[str]:
@@ -269,10 +290,12 @@ async def act(user_id: int, rev: int, fn, now: datetime | None = None) -> dict:
                 return {"ok": False, "reason": "stale", "rev": row["rev"]}
             state = json.loads(row["state"])
             state["live_fests"] = await _live_fests(db, now)   # 🎪 每一步看「現在」有沒有活動 (結束了就不再出活動門)
+            tally0 = _kill_tally(state)
             why = fn(state, R.action_rng(state))
             if why:
                 await db.rollback()
                 return {"ok": False, "reason": why, "rev": rev}
+            await _quest_kills(db, user_id, tally0, _kill_tally(state), now)   # 🎪 活動任務：打倒當下就算
             if state["phase"] == "ended":
                 summary = await _settle(db, user_id, state, now)
                 await db.commit()
@@ -332,6 +355,11 @@ async def _settle(db, user_id: int, state: dict, now: datetime | None) -> dict:
         await db.execute("UPDATE ura_records SET deepest = ?, deepest_at = ?, deepest_party = ? "
                          "WHERE user_id = ? AND (deepest < ? OR deepest_at IS NULL)", (s["floor"], ts, party, user_id, s["floor"]))
         await add_player_stat(db, user_id, "ura_evacuated")
+        fest_t: dict = {}
+        for t in s["treasures"]:   # 🎪 活動任務：成功撤離才算 (撤離次數、帶出的活動寶物)
+            if t.get("fest"):
+                fest_t.setdefault(t["fest"], {"ura_fest_treasure": 0})["ura_fest_treasure"] += 1
+        await add_quest_stats(db, user_id, now, {"ura_evacuate": 1}, fest_t)
     for eid, n in s["kills"].items():
         await add_player_stat(db, user_id, f"ura_kill:{eid}", n)
     await db.execute("DELETE FROM ura_runs WHERE user_id = ?", (user_id,))

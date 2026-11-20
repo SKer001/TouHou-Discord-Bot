@@ -97,7 +97,8 @@ SCHEMA_STATEMENTS = [
     )
     """,
     # 🎪 活動任務 (Database/Quest_DB_Manager.py)：活動進行中才記的計數，一輪 (run) = 活動 id + 這次開始時間
-    #    stat 例：explore:<地點>、cook:<料理>、serve_guest:<客人>、serve_event_dish、serve_favorite、gacha_event_pool、daily
+    #    stat 例：explore:<地點>、cook:<料理>、serve_guest:<客人>、serve_event_dish、serve_favorite、gacha_event_pool、daily、
+    #    🌀 裏世界 ura_kill:<敵人>、ura_fest_boss、ura_fest_treasure、ura_evacuate (0.35.090，Ura_DB_Manager)
     """
     CREATE TABLE IF NOT EXISTS event_quest_stats (
         user_id INTEGER NOT NULL,
