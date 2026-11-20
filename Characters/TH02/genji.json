@@ -23,10 +23,11 @@
             "SR": "萬年修行的靈龜"
         }
     },
+    "ura_class": "guard",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 140,
+        "atk": 13.5,
+        "def": 22
     },
     "special_powers": {
         "id": "genji_SP",
@@ -35,26 +36,26 @@
             "N": {
                 "id": "genji_SP_I",
                 "name": "Easy・初陣・仙龜「玄爺飛行」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "buff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全隊 DEF 提升 3 回合"
             },
             "R": {
                 "id": "genji_SP_II",
                 "name": "Lunatic・瘋狂・仙龜「玄爺飛行」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "buff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全隊 DEF 提升 3 回合"
             },
             "SR": {
                 "id": "genji_SP_III",
                 "name": "Phantasm・幻象・仙龜「玄爺飛行」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "buff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全隊 DEF 提升 3 回合"
             }
         }
     }

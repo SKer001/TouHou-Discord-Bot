@@ -1,332 +1,171 @@
-"""🌀 裏世界戰鬥模擬 (含符卡)：python tools/ura_sim/spells.py [-n 次數]
-規則照 docs/ura.md「戰鬥」「符卡設計」；設計用，還沒有正式程式。沒有法具 / 陷阱 / 事件 / 商人。
+"""🌀 裏世界模擬：python tools/ura_sim/spells.py [-n 次數] [--teams 關鍵字] [--max-zone 10]
+0.35.079 起直接呼叫正式引擎 (Database/ura/)，模擬跟遊戲用同一套規則，不會各算各的。
+這裡只有「自動玩家」的決策 (選哪扇門、什麼時候放符卡 / 用道具)；戰鬥、地圖、獎勵全部是引擎算的。
 """
 import argparse
-import math
+import os
 import random
 import statistics
+import sys
 
-# ---------------- 規則 ----------------
-def red(d):
-    return 0.6 * (1 - math.exp(-d / 20))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
+os.chdir(ROOT)
 
-LATE_STEP = 0.5   # 第 6 區以後每區 +幾 (docs/ura.md：+0.5)
+from Database.ura import combat, data, rules, run as R   # noqa: E402
 
-def mult(a):
-    return 1 + 0.1875 * (a - 1) ** 2 if a <= 5 else 4 + LATE_STEP * (a - 5)
+# ---------------- 自動玩家 ----------------
+HEAL_KINDS = {"daiyousei": "heal1", "yuki_mai": "healall"}
+DOOR_PRIORITY = {"chest": 0, "event": 1, "battle": 2, "trap": 3, "elite": 4, "merchant": 0, "boss": 0}
 
-def enemy(a, kind):
-    k = mult(a)
-    hp, atk, df = 30 * k, 5 * k, 5 * (1 + (k - 1) / 2)
-    if kind == "elite":
-        hp, atk, df = hp * 2.5, atk * 1.5, df * 1.3
-    if kind == "boss":
-        hp, atk, df = hp * BOSS_HP, atk * BOSS_ATK, df * 1.5
-    return {"hp": hp, "max": hp, "atk": atk, "def": df, "kind": kind, "skip": 0, "down": 0, "down_pct": 0}
 
-CLASS = {"atk": (80, 30, 8), "guard": (140, 15, 20), "sup": (100, 18, 12), "scout": (90, 22, 10), "guide": (100, 18, 12)}
-RARITY = {"N": 1.0, "R": 1.1, "SR": 1.2, "SSR": 1.3, "UR": 1.4, "LR": 1.5}
+def pick_door(run):
+    revealed = R.doors_revealed(run)
+    best, best_key = 0, None
+    for i, d in enumerate(run["doors"]):
+        key = DOOR_PRIORITY.get(d["type"], 5)
+        if d["type"] == "chest" and revealed and (d.get("mimic") or (d.get("locked") and not run["bag"]["items"].get("chest_key"))):
+            key = 6
+        if d["type"] == "battle":
+            key += len(d["foes"]) * 0.1
+        if best_key is None or key < best_key:
+            best, best_key = i, key
+    return best
 
-# 角色：職業、階級範圍、符卡 (種類, 特色)
-CHARS = {
-    "marisa": ("atk", ["SR", "SSR", "UR"], "single", {}),
-    "flandre": ("atk", ["SSR", "UR", "LR"], "single", {"big": 1.2}),
-    "remilia": ("atk", ["SSR", "UR", "LR"], "single", {"drain": 0.2}),
-    "shinki": ("atk", ["SSR", "UR", "LR"], "aoe", {"bonus": 0.2}),
-    "cirno": ("atk", ["SR", "SSR", "UR"], "aoe", {"freeze": 0.3}),
-    "sakuya": ("atk", ["SR", "SSR", "UR"], "world", {}),
-    "meiling": ("guard", ["R", "SR", "SSR"], "taunt", {"self_heal": 0.15}),
-    "yumeko": ("guard", ["R", "SR", "SSR"], "shield", {}),
-    "daiyousei": ("sup", ["N", "R", "SR"], "heal1", {}),
-    "yuki_mai": ("sup", ["N", "R", "SR"], "healall", {}),
-    "rumia": ("scout", ["R", "SR", "SSR"], "atkdown", {}),
-    "reimu": ("guide", ["SR", "SSR", "UR"], "muso", {}),
-}
-COST = {"single": (8, 3), "aoe": (12, 4), "heal1": (6, 3), "healall": (10, 5), "taunt": (8, 4), "shield": (8, 4),
-        "atkdown": (6, 4), "world": (20, 8), "muso": (20, 8)}
-POWER = {"single": (2.5, 3.0, 3.5), "aoe": (1.2, 1.5, 1.8), "heal1": (0.30, 0.35, 0.40), "healall": (0.15, 0.20, 0.25),
-         "atkdown": (0.20, 0.25, 0.30), "shield": (0.30, 0.35, 0.40), "muso": (1.2, 1.5, 1.8)}
-B_MAX, B_START, B_FLOOR, B_ROUND, B_KILL = 50, 25, 1, 2, 1
-BOSS_HP = 10   # BOSS HP 倍率 (docs/ura.md：×10)
-BOSS_ATK = 1.6   # BOSS ATK 倍率 (docs/ura.md：×1.6)
-STALL = False   # True = 玩家刻意留一隻一般怪拖回合，把血補滿再打 (驗證拖回合漏洞)
-GUARD_WEIGHT = 4   # 守護者被選中的比重倍率 (docs/ura.md：× 4)
-ENRAGE = 10     # 一般 / 精英戰超過幾回合後敵人每回合 ATK +10% (0 = 沒有；防拖回合的規則候選；BOSS 不算)
-RELIC = 0.12   # 粗估法具：每打完一隻 BOSS，還沒有法具的一位 ATK / DEF + 這個比例 (SSR +10%、UR +15%…)；0 = 不算
 
-def comp_mult(c):
-    return 0.8 + 0.4 * (c - 0.3) / 0.7
+def use_sanity_items(run, rng):
+    per = rules.sanity_per_floor(rules.zone_of(run["floor"] + 1), combat.has_guide(run))
+    for iid in ("gensokyo_engi", "bunbunmaru", "shrine_tea"):
+        while run["sanity"] <= per * 2 and run["bag"]["items"].get(iid):
+            R.use_item(run, iid, None, rng)
 
-def member(cid, rarity, comp):
-    cls, rarities, kind, extra = CHARS[cid]
-    hp, atk, df = CLASS[cls]
-    m = RARITY[rarity] * comp_mult(comp)
-    cost, cd = COST[kind]
-    if comp > 0.8:
-        cd = max(1, math.floor(cd * 0.9))
-    return {"id": cid, "cls": cls, "hp": hp * m, "max": hp * m, "atk": atk * m, "def": df * m, "alive": True,
-            "kind": kind, "extra": extra, "tier": rarities.index(rarity), "cost": cost, "cd_max": cd, "cd": 0,
-            "shield": 0}
 
-def per_floor_sanity(a, guide):
-    return (10 + 5 * (a - 1)) * (0.7 if guide else 1)
+def heal_items(run, rng):
+    alive = combat.living(run["party"])
+    low = [m for m in alive if m["hp"] < combat.max_hp(m) * 0.3]
+    if not low:
+        return
+    bag = run["bag"]["items"]
+    if len(low) >= 2 and bag.get("eirin_elixir"):
+        return R.battle_action(run, "item", rng, item="eirin_elixir")
+    m = min(low, key=lambda x: x["hp"] / combat.max_hp(x))
+    for iid in ("eientei_salve", "bamboo_herb"):
+        if bag.get(iid):
+            return R.battle_action(run, "item", rng, item=iid, target=m["uid"])
+    if bag.get("eirin_elixir"):
+        return R.battle_action(run, "item", rng, item="eirin_elixir")
 
-def weighted_count(lo, hi, rng):
-    ks = list(range(lo, hi + 1))
-    return rng.choices(ks, weights=list(range(len(ks), 0, -1)))[0]
 
-# ---------------- 戰鬥 ----------------
-class Battle:
-    def __init__(self, party, foes, bag, st, rng):
-        self.p, self.f, self.bag, self.st, self.rng = party, foes, bag, st, rng
-        self.taunt = 0
-        self.rnd = 0
-        self.invuln = False
+def try_spell(run, actors, rng):
+    b = run["battle"]
+    foes = combat.living(b["foes"])
+    alive = combat.living(run["party"])
+    healer = any(m["cid"] in HEAL_KINDS for m in alive)
+    strong = any(f["kind"] in ("boss", "elite", "mimic") for f in foes)
+    danger = len(foes) >= 2 or strong
 
-    def alive(self):
-        return [m for m in self.p if m["alive"]]
+    def ready(m, heal=False):
+        reserve = 0 if heal or not healer else 6
+        return combat.spell_ready(run, m) is None and run["b"] >= m["b_cost"] + reserve
 
-    def living(self):
-        return [f for f in self.f if f["hp"] > 0]
-
-    def hit(self, f, dmg, ignore_half=False):
-        df = f["def"] / 2 if ignore_half else f["def"]
-        before = f["hp"] > 0
-        f["hp"] -= dmg * self.rng.uniform(0.9, 1.1) * (1 - red(df))
-        if before and f["hp"] <= 0:
-            self.st["b"] = min(B_MAX, self.st["b"] + B_KILL)
-
-    def basic(self, m, mul=1.0):
-        live = self.living()
-        if live:
-            self.hit(min(live, key=lambda x: x["hp"]), m["atk"] * mul)
-
-    def heal(self, m, pct):
-        m["hp"] = min(m["max"], m["hp"] + m["max"] * pct)
-
-    def try_spell(self):
-        st, live, alive = self.st, self.living(), self.alive()
-        healer = any(m["kind"] in ("heal1", "healall") for m in alive)
-        reserve = 6 if healer else 0
-        boss = any(f["kind"] in ("boss", "elite") for f in live)
-        def ready(m, need_reserve=True):
-            return m["alive"] and m["cd"] == 0 and st["b"] >= m["cost"] + (reserve if need_reserve and m["kind"] not in ("heal1", "healall") else 0)
-        def cast(m):
-            st["b"] -= m["cost"]
-            m["cd"] = m["cd_max"]
-        # 1. 回血
-        for m in alive:
-            if m["kind"] == "healall" and ready(m) and sum(x["hp"] < x["max"] * 0.6 for x in alive) >= 2:
-                cast(m)
-                for x in alive:
-                    self.heal(x, POWER["healall"][m["tier"]])
-                return True
-            if m["kind"] == "heal1" and ready(m):
-                low = min(alive, key=lambda x: x["hp"] / x["max"])
-                if low["hp"] < low["max"] * 0.45:
-                    cast(m)
-                    self.heal(low, POWER["heal1"][m["tier"]])
-                    return True
-        danger = len(live) >= 2 or boss
-        for m in alive:
-            k = m["kind"]
-            if not ready(m):
-                continue
-            if k == "muso" and danger and any(x["hp"] < x["max"] * 0.5 for x in alive):
-                cast(m)
-                self.invuln = True
-                for f in live:
-                    self.hit(f, m["atk"] * POWER["muso"][m["tier"]])
-                return True
-            if k == "taunt" and danger:
-                cast(m)
-                self.taunt = 2
-                self.heal(m, m["extra"]["self_heal"])
-                return True
-            if k == "shield" and danger:
-                cast(m)
-                for x in alive:
-                    x["shield"] = POWER["shield"][m["tier"]]
-                return True
-            if k == "atkdown" and danger:
-                cast(m)
-                for f in live:
-                    f["down"], f["down_pct"] = 3, POWER["atkdown"][m["tier"]]
-                return True
-            if k == "aoe" and len(live) >= 2:
-                cast(m)
-                mul = POWER["aoe"][m["tier"]] + m["extra"].get("bonus", 0)
-                for f in live:
-                    self.hit(f, m["atk"] * mul)
-                    if self.rng.random() < m["extra"].get("freeze", 0):
-                        f["skip"] = max(f["skip"], 1)
-                return True
-            if k == "world" and danger:
-                cast(m)
-                for x in self.alive():
-                    self.basic(x, 1.2 if m["tier"] == 2 else 1.0)
-                return True
-            if k == "single":
-                tgt = max(live, key=lambda f: f["hp"])
-                if tgt["hp"] > m["atk"] * 1.5:
-                    cast(m)
-                    mul = POWER["single"][m["tier"]] * (m["extra"].get("big", 1) if tgt["kind"] != "normal" else 1)
-                    hp0 = tgt["hp"]
-                    self.hit(tgt, m["atk"] * mul)
-                    if m["extra"].get("drain"):
-                        self.heal(m, 0)
-                        m["hp"] = min(m["max"], m["hp"] + (hp0 - max(tgt["hp"], 0)) * m["extra"]["drain"])
-                    return True
-        return False
-
-    def stall(self):
-        """只剩一隻一般怪、有人沒滿血 ➔ 補血或空過，不打死它"""
-        live, alive = self.living(), self.alive()
-        if not STALL or len(live) != 1 or live[0]["kind"] != "normal":
-            return False
-        if all(m["hp"] >= m["max"] * 0.9 for m in alive):
-            return False
-        if ENRAGE and self.rnd >= ENRAGE:   # 快狂暴了就不拖
-            return False
-        for m in alive:
-            if m["kind"] in ("heal1", "healall") and m["cd"] == 0 and self.st["b"] >= m["cost"]:
-                low = min(alive, key=lambda x: x["hp"] / x["max"])
-                if low["hp"] < low["max"] * 0.95:
-                    self.st["b"] -= m["cost"]
-                    m["cd"] = m["cd_max"]
-                    if m["kind"] == "heal1":
-                        self.heal(low, POWER["heal1"][m["tier"]])
-                    else:
-                        for x in alive:
-                            self.heal(x, POWER["healall"][m["tier"]])
-        return True   # 空過 (不攻擊)
-
-    def our_turn(self):
-        if self.stall():
-            return
-        if not self.try_spell():
-            self.basic(max(self.alive(), key=lambda m: m["atk"]))
-
-    def enemy_turn(self):
-        for f in self.living():
-            if f["skip"]:
-                f["skip"] -= 1
-                continue
-            alive = self.alive()
-            if not alive:
-                return
-            guard = [m for m in alive if m["cls"] == "guard"]
-            if guard and self.taunt:
-                t = guard[0]
-            else:   # 照目前血量的比重抽，守護者 × GUARD_WEIGHT
-                t = self.rng.choices(alive, weights=[m["hp"] * (GUARD_WEIGHT if m["cls"] == "guard" else 1) for m in alive])[0]
-            if self.invuln:
-                continue
-            atk = f["atk"] * (1.3 if f["kind"] == "boss" and f["hp"] < f["max"] / 2 else 1)
-            if ENRAGE and self.rnd > ENRAGE and f["kind"] != "boss":   # BOSS 戰本來就長，不狂暴
-                atk *= 1 + 0.1 * (self.rnd - ENRAGE)
-            if f["down"]:
-                atk *= 1 - f["down_pct"]
-            dmg = atk * self.rng.uniform(0.9, 1.1) * (1 - red(t["def"]))
-            if t["shield"]:
-                dmg *= 1 - t["shield"]
-                t["shield"] = 0
-            t["hp"] -= dmg
-            if t["hp"] <= 0:
-                if self.bag.get("doll", 0) > 0:
-                    self.bag["doll"] -= 1
-                    t["hp"] = 1
-                elif self.bag.get("revive", 0) > 0:
-                    self.bag["revive"] -= 1
-                    t["hp"] = t["max"] / 2
-                else:
-                    t["alive"], t["hp"] = False, 0
-        for f in self.f:
-            if f["down"]:
-                f["down"] -= 1
-        self.invuln = False
-        if self.taunt:
-            self.taunt -= 1
-
-    def items(self):
-        alive = self.alive()
-        low = [m for m in alive if m["hp"] < m["max"] * 0.3]
-        if not low:
-            return
-        if len(low) >= 2 and self.bag.get("g30"):
-            self.bag["g30"] -= 1
-            for m in alive:
-                self.heal(m, 0.3)
-            return
-        m = min(low, key=lambda x: x["hp"] / x["max"])
-        for k, pct in (("s50", 0.5), ("s30", 0.3), ("g30", 0.3)):
-            if self.bag.get(k):
-                self.bag[k] -= 1
-                for t in (alive if k.startswith("g") else [m]):
-                    self.heal(t, pct)
-                return
-
-    def run(self):
-        for rnd in range(1, 300):
-            self.rnd = rnd
-            if not self.alive():
-                return False
-            self.items()
-            live = self.living()
-            if len(live) >= 2 and self.bag.get("bomb"):
-                self.bag["bomb"] -= 1
-                top = max(m["atk"] for m in self.alive())
-                for f in live:
-                    self.hit(f, top * 1.5)
-            if not self.living():
-                return True
-            self.our_turn()
-            if not self.living():
-                return True
-            self.enemy_turn()
-            self.st["b"] = min(B_MAX, self.st["b"] + B_ROUND)
-            for m in self.p:
-                m["cd"] = max(0, m["cd"] - 1)
-        return False
-
-# ---------------- 一局 ----------------
-def run(team, bag0, rng, max_area=15):
-    party = [member(*t) for t in team]
-    bag = dict(bag0)
-    guide = any(CHARS[t[0]][0] == "guide" for t in team)
-    sanity, sanity_items = 1000, sorted(bag.pop("sanity", []), reverse=True)
-    st = {"b": B_START}
-    cleared = 0
-    for floor in range(1, max_area * 10 + 1):
-        a = (floor - 1) // 10 + 1
-        sanity -= per_floor_sanity(a, guide)
-        while sanity <= 0 and sanity_items:
-            sanity += sanity_items.pop()
-        if sanity <= 0:
-            return floor - 1, cleared, "sanity"
-        st["b"] = min(B_MAX, st["b"] + B_FLOOR)
-        for m in party:
-            m["cd"] = max(0, m["cd"] - 1)
-        pos = floor % 10
-        if pos == 0:
-            foes = [enemy(a, "boss")]
-        elif pos in (2, 4, 6, 8):
-            foes = [enemy(a, "normal") for _ in range(weighted_count(1, 3, rng))]
-        elif pos == 5 or (pos == 7 and rng.random() < 0.5):
-            foes = [enemy(a, "elite")] + [enemy(a, "normal") for _ in range(weighted_count(0, 2, rng))]
-        else:
+    for m in actors:
+        kind = HEAL_KINDS.get(m["cid"])
+        if kind == "healall" and ready(m, True) and sum(x["hp"] < combat.max_hp(x) * 0.6 for x in alive) >= 2:
+            return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
+        if kind == "heal1" and ready(m, True):
+            low = min(alive, key=lambda x: x["hp"] / combat.max_hp(x))
+            if low["hp"] < combat.max_hp(low) * 0.45:
+                return R.battle_action(run, "spell", rng, uid=m["uid"], target=low["uid"]) is None
+    for m in actors:
+        if not ready(m):
             continue
-        if not Battle(party, foes, bag, st, rng).run():
-            return floor, cleared, "wiped"
-        if pos == 0:
-            cleared = a
-            free = [m for m in party if m["alive"] and not m.get("relic")]
-            if RELIC and free:   # BOSS 一定掉 1 個法具 (依職業給)
-                m = max(free, key=lambda x: x["atk"])
-                m["relic"] = True
-                m["atk"] *= 1 + RELIC
-                m["def"] *= 1 + RELIC
-    return max_area * 10, cleared, "cap"
+        sp = data.spells()[m["cid"]]
+        k = sp["kind"]
+        if m["cid"] == "reimu" and danger and any(x["hp"] < combat.max_hp(x) * 0.5 for x in alive):
+            return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
+        if k == "shield" and m["cid"] != "reimu" and danger:
+            return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
+        if k in ("debuff", "buff", "control") and danger:
+            tgt = max(foes, key=lambda f: f["hp"])["uid"]
+            return R.battle_action(run, "spell", rng, uid=m["uid"], target=tgt) is None
+        if sp["target"] in ("enemy_all", "none") and k == "damage" and len(foes) >= 2:
+            return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
+        if k == "action" and danger:
+            return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
+        if sp["target"] == "enemy_one" and k == "damage":
+            tgt = max(foes, key=lambda f: f["hp"])
+            if tgt["hp"] > combat.eff_atk(m) * 1.5:
+                return R.battle_action(run, "spell", rng, uid=m["uid"], target=tgt["uid"]) is None
+    return False
+
+
+def battle_turn(run, rng):
+    b = run["battle"]
+    heal_items(run, rng)
+    if run["phase"] != "battle":
+        return
+    foes = combat.living(b["foes"])
+    if len(foes) >= 2 and run["bag"]["items"].get("bomb") and b["round"] == 1:
+        R.battle_action(run, "item", rng, item="bomb")
+        if run["phase"] != "battle":
+            return
+    round_now = b["round"]
+    while run["phase"] == "battle" and run["battle"]["round"] == round_now and run["battle"]["actions_left"] > 0:
+        actors = [m for m in combat.living(run["party"]) if combat.can_act(run, m)]
+        if not actors:
+            break
+        if try_spell(run, actors, rng):
+            continue
+        m = max(actors, key=lambda x: combat.eff_atk(x))
+        tgt = min(combat.living(run["battle"]["foes"]), key=lambda f: f["hp"])
+        R.battle_action(run, "attack", rng, uid=m["uid"], target=tgt["uid"])
+
+
+def equip_relics(run):
+    """背包裡的法具給還沒有法具的隊友 (職業對得上的優先)"""
+    while run["bag"]["relics"]:
+        free = [m for m in combat.living(run["party"]) if not m.get("relic")]
+        if not free:
+            return
+        rel = run["bag"]["relics"][0]
+        cls = data.relics()[rel["rid"]].get("class")
+        m = next((x for x in free if x["cls"] == cls), free[0])
+        R.equip_relic(run, 0, m["uid"])
+
+
+def play(team, bag, rng, max_zone):
+    chars = data.characters()
+    cards = [({"instance_id": f"c{i}", "character_key": cid, "rarity": r, "completeness": c}, chars[cid])
+             for i, (cid, r, c) in enumerate(team)]
+    run = R.new_run(str(rng.random()), cards, bag, pocket=0, rng=rng)
+    guard = 0
+    while run["phase"] != "ended" and guard < 20000:
+        guard += 1
+        ph = run["phase"]
+        equip_relics(run)
+        if ph == "doors":
+            if rules.zone_of(run["floor"] + 1) > max_zone:
+                break
+            use_sanity_items(run, rng)
+            R.choose_door(run, pick_door(run), rng)
+        elif ph == "battle":
+            battle_turn(run, rng)
+        elif ph == "chest":
+            room = run["room"]
+            if not room.get("opened") and (not room.get("locked") or run["bag"]["items"].get("chest_key")):
+                R.open_chest(run, rng)
+            if run["phase"] == "chest":
+                R.leave_room(run, rng)
+        elif ph == "event":
+            if run["room"].get("pending_choice"):
+                R.event_choice(run, False, rng)
+            R.leave_room(run, rng)
+        elif ph in ("trap", "merchant"):
+            R.leave_room(run, rng)
+        elif ph == "boss_clear":
+            R.continue_after_boss(run, rng)
+    return run
+
 
 TEAMS = {
     "一般隊 (魔理沙 SR / 美鈴 SR / 大妖精 SR，完整度 0.65)": [("marisa", "SR", 0.65), ("meiling", "SR", 0.65), ("daiyousei", "SR", 0.65)],
@@ -336,40 +175,34 @@ TEAMS = {
     "靈夢隊 (靈夢 UR / 美鈴 SSR / 大妖精 SR，0.9)": [("reimu", "UR", 0.9), ("meiling", "SSR", 0.9), ("daiyousei", "SR", 0.9)],
     "頂尖 (神綺 LR / 蕾米莉亞 LR / 大妖精 SR，1.0)": [("shinki", "LR", 1.0), ("remilia", "LR", 1.0), ("daiyousei", "SR", 1.0)],
 }
-BAGS = {
-    "輕裝": ({"s30": 2, "sanity": [100, 100]}, 16_000),
-    "一般": ({"s50": 2, "g30": 1, "s30": 2, "sanity": [300, 300, 300, 500, 500], "bomb": 5}, 145_000),
-    "重裝": ({"s50": 2, "g30": 1, "s30": 2, "sanity": [500] * 5, "bomb": 5, "revive": 1, "doll": 1}, 220_000),
+BAGS = {   # 道具 id ➔ 數量 (同 docs/ura.md 的輕裝 / 一般 / 重裝)
+    "輕裝": {"bamboo_herb": 2, "shrine_tea": 2},
+    "一般": {"eientei_salve": 2, "eirin_elixir": 1, "bamboo_herb": 2, "bunbunmaru": 3, "gensokyo_engi": 2, "bomb": 5},
+    "重裝": {"eientei_salve": 2, "eirin_elixir": 1, "bamboo_herb": 2, "gensokyo_engi": 5, "bomb": 5,
+             "phoenix_feather": 1, "substitute_doll": 1},
 }
+
+
+def bag_cost(bag):
+    return sum(data.items()[i]["price"] * n for i, n in bag.items())
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("-n", type=int, default=600)
-    ap.add_argument("--boss-hp", type=float, default=10)
-    ap.add_argument("--boss-atk", type=float, default=1.6)
+    ap.add_argument("-n", type=int, default=200)
     ap.add_argument("--teams", default="")
-    ap.add_argument("--late-step", type=float, default=0.5)
-    ap.add_argument("--relic", type=float, default=0.12)
-    ap.add_argument("--stall", action="store_true")
-    ap.add_argument("--enrage", type=int, default=10)
-    ap.add_argument("--guard-weight", type=float, default=4)
+    ap.add_argument("--max-zone", type=int, default=10)
     args = ap.parse_args()
-    BOSS_HP = args.boss_hp
-    BOSS_ATK = args.boss_atk
-    LATE_STEP = args.late_step
-    RELIC = args.relic
-    STALL = args.stall
-    ENRAGE = args.enrage
-    GUARD_WEIGHT = args.guard_weight
     rng = random.Random(1)
     for tname, team in TEAMS.items():
         if args.teams and not any(k in tname for k in args.teams.split(",")):
             continue
         print(f"\n=== {tname} ===")
-        for bname, (bag, cost) in BAGS.items():
-            res = [run(team, bag, rng) for _ in range(args.n)]
-            cl = [r[1] for r in res]
-            p = lambda k: sum(c >= k for c in cl) / args.n
-            why = statistics.mode([r[2] for r in res])
-            print(f"  {bname} ({cost // 1000}K) 中位第 {statistics.median(r[0] for r in res):.0f} 關 ({why}) | 打完 BOSS："
-                  + " ".join(f"{k}區 {p(k):.0%}" for k in (3, 4, 5, 6, 7, 8, 10)))
+        for bname, bag in BAGS.items():
+            runs = [play(team, bag, rng, args.max_zone) for _ in range(args.n)]
+            cleared = [r["boss_cleared"] for r in runs]
+            p = lambda k: sum(c >= k for c in cleared) / args.n
+            why = statistics.mode([(r["result"] or "cap") + ":" + (r["log"][-1][:6] if r["log"] else "") for r in runs])
+            money = statistics.median(r["pocket"] for r in runs)
+            print(f"  {bname} ({bag_cost(bag) // 1000}K) 中位第 {statistics.median(r['floor'] for r in runs):.0f} 關 ({why})"
+                  f" 口袋中位 {money / 1000:.0f}K | 打完 BOSS：" + " ".join(f"{k}區 {p(k):.0%}" for k in (3, 4, 5, 6, 7, 8, 10)))

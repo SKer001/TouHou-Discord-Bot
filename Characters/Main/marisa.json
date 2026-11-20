@@ -23,10 +23,11 @@
             "UR": "極光之魔彈專家"
         }
     },
+    "ura_class": "atk",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 76,
+        "atk": 33,
+        "def": 7.2
     },
     "special_powers": {
         "id": "marisa_SP",
@@ -36,25 +37,25 @@
                 "id": "marisa_SP_I",
                 "name": "Easy・初陣・戀符「Master Spark」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體大傷害 (傷害最高的單體招)"
             },
             "SSR": {
                 "id": "marisa_SP_II",
                 "name": "Lunatic・瘋狂・戀符「Master Spark」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體大傷害 (傷害最高的單體招)"
             },
             "UR": {
                 "id": "marisa_SP_III",
                 "name": "Phantasm・幻象・戀符「Master Spark」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體大傷害 (傷害最高的單體招)"
             }
         }
     }

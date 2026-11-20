@@ -1,0 +1,12 @@
+{
+    "_說明": "💎 裏世界的寶物 (撤離後存進 /ura inventory，可以賣)。每區至少 15 種：N 4、R 3、SR 3、SSR 2、UR 2、LR 1。說明之後補。",
+    "bamboo": {
+        "N": [["ura_bamboo_shoot", "竹筍", "🎍"], ["ura_rabbit_fur", "兔子毛", "🐇"], ["ura_dry_leaf", "枯竹葉", "🍂"], ["ura_pebble", "竹林的小石子", "🪨"]],
+        "R": [["ura_tanzaku", "七夕的短冊", "🎋"], ["ura_bamboo_flask", "竹筒水壺", "🫙"], ["ura_bamboo_map", "迷途竹林的地圖", "🗺️"]],
+        "SR": [["ura_rabbit_pestle", "月兔的杵", "🔨"], ["ura_medicine_box", "永遠亭的藥箱", "💊"], ["ura_mokou_ofuda", "妹紅的符札", "📜"]],
+        "SSR": [["ura_swallow_shell", "燕的子安貝", "🐚"], ["ura_buddha_bowl", "佛的御石之缽", "🥣"]],
+        "UR": [["ura_fire_rat_robe", "火鼠的皮衣", "🔥"], ["ura_dragon_jewel", "龍頸之玉", "🐉"]],
+        "LR": [["ura_hourai_branch", "蓬萊之玉枝", "🌸"]]
+    },
+    "sell_price": {"N": 150, "R": 400, "SR": 1000, "SSR": 2500, "UR": 6000, "LR": 20000}
+}

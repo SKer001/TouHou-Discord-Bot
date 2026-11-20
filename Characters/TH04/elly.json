@@ -23,10 +23,11 @@
             "SR": "夢幻館的最後防線"
         }
     },
+    "ura_class": "guard",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 130,
+        "atk": 16.5,
+        "def": 20
     },
     "special_powers": {
         "id": "elly_SP",
@@ -35,26 +36,26 @@
             "N": {
                 "id": "elly_SP_I",
                 "name": "Easy・初陣・死鐮「迴旋斬擊」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "吸引全部攻擊 2 回合，被打時反擊"
             },
             "R": {
                 "id": "elly_SP_II",
                 "name": "Lunatic・瘋狂・死鐮「迴旋斬擊」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "吸引全部攻擊 2 回合，被打時反擊"
             },
             "SR": {
                 "id": "elly_SP_III",
                 "name": "Phantasm・幻象・死鐮「迴旋斬擊」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "吸引全部攻擊 2 回合，被打時反擊"
             }
         }
     }

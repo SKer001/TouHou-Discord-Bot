@@ -23,10 +23,11 @@
             "SSR": "時空空間之主宰"
         }
     },
+    "ura_class": "atk",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 76,
+        "atk": 31,
+        "def": 8.8
     },
     "special_powers": {
         "id": "yumemi_SP",
@@ -36,25 +37,25 @@
                 "id": "yumemi_SP_I",
                 "name": "Easy・初陣・十字架光束兵器",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體傷害，無視敵人一半 DEF"
             },
             "SR": {
                 "id": "yumemi_SP_II",
                 "name": "Lunatic・瘋狂・十字架光束兵器",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體傷害，無視敵人一半 DEF"
             },
             "SSR": {
                 "id": "yumemi_SP_III",
                 "name": "Phantasm・幻象・十字架光束兵器",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體傷害，無視敵人一半 DEF"
             }
         }
     }

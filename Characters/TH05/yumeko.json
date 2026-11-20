@@ -23,10 +23,11 @@
             "SSR": "神綺的終極刃舞"
         }
     },
+    "ura_class": "guard",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 136,
+        "atk": 16,
+        "def": 22
     },
     "special_powers": {
         "id": "yumeko_SP",
@@ -35,26 +36,26 @@
             "R": {
                 "id": "yumeko_SP_I",
                 "name": "Easy・初陣・劍技「魔界之刃」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "全隊護盾 (擋下一次傷害的一部分)"
             },
             "SR": {
                 "id": "yumeko_SP_II",
                 "name": "Lunatic・瘋狂・劍技「魔界之刃」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "全隊護盾 (擋下一次傷害的一部分)"
             },
             "SSR": {
                 "id": "yumeko_SP_III",
                 "name": "Phantasm・幻象・劍技「魔界之刃」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "全隊護盾 (擋下一次傷害的一部分)"
             }
         }
     }

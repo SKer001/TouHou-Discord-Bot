@@ -23,10 +23,11 @@
             "SR": "花樣戰車大師"
         }
     },
+    "ura_class": "scout",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 86,
+        "atk": 23,
+        "def": 11
     },
     "special_powers": {
         "id": "rika_SP",
@@ -35,26 +36,26 @@
             "N": {
                 "id": "rika_SP_I",
                 "name": "Easy・初陣・邪眼「Evil Eye Σ」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "一隻敵人 DEF 大幅下降 3 回合"
             },
             "R": {
                 "id": "rika_SP_II",
                 "name": "Lunatic・瘋狂・邪眼「Evil Eye Σ」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "一隻敵人 DEF 大幅下降 3 回合"
             },
             "SR": {
                 "id": "rika_SP_III",
                 "name": "Phantasm・幻象・邪眼「Evil Eye Σ」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "一隻敵人 DEF 大幅下降 3 回合"
             }
         }
     }

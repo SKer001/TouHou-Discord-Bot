@@ -23,10 +23,11 @@
             "SSR": "封印解放之宵暗"
         }
     },
+    "ura_class": "scout",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 92,
+        "atk": 21,
+        "def": 10
     },
     "special_powers": {
         "id": "rumia_SP",
@@ -35,26 +36,26 @@
             "R": {
                 "id": "rumia_SP_I",
                 "name": "Easy・初陣・闇符「Demarcation」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "敵人全體 ATK 下降 3 回合"
             },
             "SR": {
                 "id": "rumia_SP_II",
                 "name": "Lunatic・瘋狂・闇符「Demarcation」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "敵人全體 ATK 下降 3 回合"
             },
             "SSR": {
                 "id": "rumia_SP_III",
                 "name": "Phantasm・幻象・闇符「Demarcation」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "敵人全體 ATK 下降 3 回合"
             }
         }
     }

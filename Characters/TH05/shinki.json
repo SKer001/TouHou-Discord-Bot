@@ -23,10 +23,11 @@
             "LR": "魔界宇宙之創世主"
         }
     },
+    "ura_class": "atk",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 88,
+        "atk": 32,
+        "def": 8.8
     },
     "special_powers": {
         "id": "shinki_SP",
@@ -36,25 +37,25 @@
                 "id": "shinki_SP_I",
                 "name": "Easy・初陣・魔界神「創世之光」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "全體傷害 (全體招最強)"
             },
             "UR": {
                 "id": "shinki_SP_II",
                 "name": "Lunatic・瘋狂・魔界神「創世之光」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "全體傷害 (全體招最強)"
             },
             "LR": {
                 "id": "shinki_SP_III",
                 "name": "Phantasm・幻象・魔界神「創世之光」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "全體傷害 (全體招最強)"
             }
         }
     }

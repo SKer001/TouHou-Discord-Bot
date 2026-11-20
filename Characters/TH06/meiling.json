@@ -23,10 +23,11 @@
             "SSR": "太極拳之終極衛士"
         }
     },
+    "ura_class": "guard",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 154,
+        "atk": 16,
+        "def": 18
     },
     "special_powers": {
         "id": "meiling_SP",
@@ -35,26 +36,26 @@
             "R": {
                 "id": "meiling_SP_I",
                 "name": "Easy・初陣・彩符「彩雨」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "吸引全部攻擊 2 回合，自己回血"
             },
             "SR": {
                 "id": "meiling_SP_II",
                 "name": "Lunatic・瘋狂・彩符「彩雨」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "吸引全部攻擊 2 回合，自己回血"
             },
             "SSR": {
                 "id": "meiling_SP_III",
                 "name": "Phantasm・幻象・彩符「彩雨」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "吸引全部攻擊 2 回合，自己回血"
             }
         }
     }

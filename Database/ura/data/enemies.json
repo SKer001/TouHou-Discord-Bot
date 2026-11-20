@@ -1,0 +1,23 @@
+{
+    "_說明": "👹 裏世界的敵人。hp / atk / def 是跟那一區一般怪基本數值的倍率 (精英 / BOSS 的倍率由程式另外乘)。",
+    "_skills": "do：attack_one 打一位 / attack_all 打全體 / sanity 扣常識度 / heal_self 自己回血 / apply_party 我方全隊施加狀態 / apply_self 自己施加狀態；status 打中時順便施加；cd 冷卻；phase2 第二階段才會用；taunt_redirect 有人嘲諷時只打那位；when_hp_below 血量低於這個比例才用",
+    "lost_spirit": {"name": "迷途怨靈", "emoji": "👻", "hp": 1, "atk": 1, "def": 1, "dodge": 0,
+                    "skills": [{"id": "confuse", "name": "迷惑", "do": "sanity", "value": 10}],
+                    "desc": "在竹林裡迷路的怨靈，靠近時腦袋會變得模模糊糊。"},
+    "shadow_rabbit": {"name": "影兔", "emoji": "🐇", "hp": 1, "atk": 1, "def": 1, "dodge": 0.2,
+                      "skills": [], "desc": "跳來跳去的影子兔子，20% 閃避普攻和單體招 (全體招必中)。"},
+    "bamboo_wraith": {"name": "竹之魍魎", "emoji": "🎋", "hp": 0.8, "atk": 1, "def": 1.5, "dodge": 0,
+                      "skills": [{"id": "bamboo_spear", "name": "竹槍", "do": "attack_one", "mult": 1.3}],
+                      "desc": "竹子成精的魍魎，身體硬得像竹節。"},
+    "mad_rabbit": {"name": "狂氣的月兔", "emoji": "🌙", "hp": 1, "atk": 1, "def": 1, "dodge": 0,
+                   "skills": [{"id": "madness_eye", "name": "狂氣之瞳", "do": "apply_party", "status": "madness", "turns": 2},
+                              {"id": "moon_bullet", "name": "月面彈", "do": "attack_one", "mult": 1.5}],
+                   "desc": "被狂氣染紅雙眼的月兔，看著牠的眼睛會失去力氣。"},
+    "ura_mokou": {"name": "裏・藤原妹紅", "emoji": "🔥", "hp": 1, "atk": 1, "def": 1, "dodge": 0,
+                  "skills": [{"id": "phoenix", "name": "火之鳥", "do": "attack_all", "mult": 0.8, "taunt_redirect": true},
+                             {"id": "phoenix_tail", "name": "不死鳥之尾", "do": "attack_one", "mult": 1.8, "status": "burn", "turns": 3},
+                             {"id": "hourai", "name": "蓬萊之藥", "do": "heal_self", "value": 0.1, "cd": 4, "when_hp_below": 0.9},
+                             {"id": "possessed_phoenix", "name": "Possessed by Phoenix", "do": "apply_self", "status": "blaze", "turns": 3, "cd": 4, "phase2": true}],
+                  "hint": "守護者嘲諷時，「火之鳥」只會打守護者",
+                  "desc": "在裏世界燃燒了千年的不死之人。火焰燒不盡，怨恨也燒不盡。"}
+}

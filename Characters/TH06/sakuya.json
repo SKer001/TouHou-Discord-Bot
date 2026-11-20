@@ -23,10 +23,11 @@
             "UR": "操縱時間的幻影女僕"
         }
     },
+    "ura_class": "atk",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 80,
+        "atk": 28,
+        "def": 8.8
     },
     "special_powers": {
         "id": "sakuya_SP",
@@ -35,26 +36,26 @@
             "SR": {
                 "id": "sakuya_SP_I",
                 "name": "Easy・初陣・幻世「The World」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "action",
+                "spent": 20,
+                "cooldown": 8,
+                "desc": "時間停止：這回合我方全員各行動一次 (最高階再加傷害 × 1.2)"
             },
             "SSR": {
                 "id": "sakuya_SP_II",
                 "name": "Lunatic・瘋狂・幻世「The World」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "action",
+                "spent": 20,
+                "cooldown": 8,
+                "desc": "時間停止：這回合我方全員各行動一次 (最高階再加傷害 × 1.2)"
             },
             "UR": {
                 "id": "sakuya_SP_III",
                 "name": "Phantasm・幻象・幻世「The World」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "action",
+                "spent": 20,
+                "cooldown": 8,
+                "desc": "時間停止：這回合我方全員各行動一次 (最高階再加傷害 × 1.2)"
             }
         }
     }

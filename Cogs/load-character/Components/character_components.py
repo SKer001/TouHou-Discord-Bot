@@ -25,7 +25,10 @@ SP_TYPE_NAMES = {
     "heal": "💚 治療",
     "buff": "⬆️ 增益",
     "debuff": "⬇️ 減益",
-    "shield": "🛡️ 護盾",
+    "shield": "🛡️ 守護",
+    "control": "⛓️ 控制",
+    "action": "⏱️ 加行動",
+    "explore": "🧭 探索",
 }
 
 

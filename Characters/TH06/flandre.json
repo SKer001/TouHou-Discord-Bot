@@ -23,10 +23,11 @@
             "LR": "破壞萬物的禁忌之妹"
         }
     },
+    "ura_class": "atk",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 72,
+        "atk": 33,
+        "def": 7.2
     },
     "special_powers": {
         "id": "flandre_SP",
@@ -36,25 +37,25 @@
                 "id": "flandre_SP_I",
                 "name": "Easy・初陣・禁忌「Lävatein」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體傷害，對精英 / BOSS × 1.2"
             },
             "UR": {
                 "id": "flandre_SP_II",
                 "name": "Lunatic・瘋狂・禁忌「Lävatein」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體傷害，對精英 / BOSS × 1.2"
             },
             "LR": {
                 "id": "flandre_SP_III",
                 "name": "Phantasm・幻象・禁忌「Lävatein」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "單體傷害，對精英 / BOSS × 1.2"
             }
         }
     }

@@ -23,10 +23,11 @@
             "SR": "惡夢之女補佐"
         }
     },
+    "ura_class": "scout",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 88,
+        "atk": 23,
+        "def": 10
     },
     "special_powers": {
         "id": "mugetsu_SP",
@@ -35,26 +36,26 @@
             "N": {
                 "id": "mugetsu_SP_I",
                 "name": "Easy・初陣・夢月「惡夢侵蝕」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "control",
+                "spent": 10,
+                "cooldown": 5,
+                "desc": "一隻敵人睡著 (第二檔 50% 睡 2 回合)"
             },
             "R": {
                 "id": "mugetsu_SP_II",
                 "name": "Lunatic・瘋狂・夢月「惡夢侵蝕」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "control",
+                "spent": 10,
+                "cooldown": 5,
+                "desc": "一隻敵人睡著 (第二檔 50% 睡 2 回合)"
             },
             "SR": {
                 "id": "mugetsu_SP_III",
                 "name": "Phantasm・幻象・夢月「惡夢侵蝕」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "control",
+                "spent": 10,
+                "cooldown": 5,
+                "desc": "一隻敵人睡著 (第二檔 50% 睡 2 回合)"
             }
         }
     }

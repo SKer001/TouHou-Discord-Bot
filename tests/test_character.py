@@ -69,7 +69,9 @@ async def main():
             t = texts(i3.view)
             ok_page = (ch["name"] in t and ch["special_powers"]["name"] in t
                        and all(lv["name"] in t for lv in ch["special_powers"]["levels"].values())
-                       and "HP `0`" in t and "B 點 `0`" in t and "威力" not in t and thumbs(i3.view) == expect_art(ch)
+                       and f"HP `{ch['base_stats']['hp']:,}`" in t   # 0.35.079 起填了裏世界的數值與符卡 B 點
+                       and all(f"B 點 `{lv['spent']}`" in t for lv in ch["special_powers"]["levels"].values())
+                       and "威力" not in t and thumbs(i3.view) == expect_art(ch)
                        and ch["special_powers"]["name"] != ch["profile"]["ability"]
                        and all(set(lv) == {"id", "name", "type", "spent", "cooldown", "desc"}
                                and lv["name"].endswith("・" + ch["special_powers"]["name"])

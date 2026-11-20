@@ -23,10 +23,11 @@
             "UR": "博麗大結界之守護者"
         }
     },
+    "ura_class": "guide",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 100,
+        "atk": 19.8,
+        "def": 12
     },
     "special_powers": {
         "id": "reimu_SP",
@@ -35,26 +36,26 @@
             "SR": {
                 "id": "reimu_SP_I",
                 "name": "Easy・初陣・夢想天生",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 20,
+                "cooldown": 8,
+                "desc": "全隊無敵 1 回合 + 全體傷害"
             },
             "SSR": {
                 "id": "reimu_SP_II",
                 "name": "Lunatic・瘋狂・夢想天生",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 20,
+                "cooldown": 8,
+                "desc": "全隊無敵 1 回合 + 全體傷害"
             },
             "UR": {
                 "id": "reimu_SP_III",
                 "name": "Phantasm・幻象・夢想天生",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "shield",
+                "spent": 20,
+                "cooldown": 8,
+                "desc": "全隊無敵 1 回合 + 全體傷害"
             }
         }
     }

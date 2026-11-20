@@ -23,10 +23,11 @@
             "SR": "時空船之助手"
         }
     },
+    "ura_class": "guide",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 96,
+        "atk": 18,
+        "def": 12
     },
     "special_powers": {
         "id": "chiyuri_SP",
@@ -35,26 +36,26 @@
             "N": {
                 "id": "chiyuri_SP_I",
                 "name": "Easy・初陣・空間「可能性移動船」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "explore",
+                "spent": 10,
+                "cooldown": 6,
+                "desc": "重抽這一關的門 (選門時)，或跳過一場一般戰鬥 (沒有獎勵)"
             },
             "R": {
                 "id": "chiyuri_SP_II",
                 "name": "Lunatic・瘋狂・空間「可能性移動船」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "explore",
+                "spent": 10,
+                "cooldown": 6,
+                "desc": "重抽這一關的門 (選門時)，或跳過一場一般戰鬥 (沒有獎勵)"
             },
             "SR": {
                 "id": "chiyuri_SP_III",
                 "name": "Phantasm・幻象・空間「可能性移動船」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "explore",
+                "spent": 10,
+                "cooldown": 6,
+                "desc": "重抽這一關的門 (選門時)，或跳過一場一般戰鬥 (沒有獎勵)"
             }
         }
     }

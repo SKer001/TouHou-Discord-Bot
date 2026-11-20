@@ -23,10 +23,11 @@
             "UR": "元素極致之大魔導士"
         }
     },
+    "ura_class": "sup",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 90,
+        "atk": 19.8,
+        "def": 11
     },
     "special_powers": {
         "id": "patchouli_SP",
@@ -35,26 +36,26 @@
             "SR": {
                 "id": "patchouli_SP_I",
                 "name": "Easy・初陣・日符「Royal Flare」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全體小傷害 + 敵人 DEF 下降 3 回合"
             },
             "SSR": {
                 "id": "patchouli_SP_II",
                 "name": "Lunatic・瘋狂・日符「Royal Flare」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全體小傷害 + 敵人 DEF 下降 3 回合"
             },
             "UR": {
                 "id": "patchouli_SP_III",
                 "name": "Phantasm・幻象・日符「Royal Flare」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "debuff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全體小傷害 + 敵人 DEF 下降 3 回合"
             }
         }
     }

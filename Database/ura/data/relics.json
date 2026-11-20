@@ -1,0 +1,29 @@
+{
+    "_說明": "🦊 法具 (式神 / 御札 / 加護)，等級 SSR / UR / LR 三檔 (values[0..2])。passive = 裝上就施加的狀態 (value = 那檔的數字)；active = 御札 (主動、有次數、一回合一次、不算行動)；class / class_bonus = 職業對了的加成 (mult 乘數值、add 加數值、uses 多幾次)。",
+    "tier_order": ["SSR", "UR", "LR"],
+    "relics": {
+        "nine_tails": {"name": "九尾式神", "emoji": "🦊", "type": "shiki", "passive": "shiki_fox", "values": [0.3, 0.4, 0.5],
+                       "class": "atk", "class_bonus": {"mult": 1.5}, "desc": "每回合自動打一隻敵人 (裝的人 ATK × 倍率)"},
+        "bakeneko": {"name": "化貓式神", "emoji": "🐱", "type": "shiki", "passive": "shiki_cat", "values": [0.05, 0.07, 0.1],
+                     "class": "sup", "class_bonus": {"mult": 1.5}, "desc": "每回合幫血最少的隊友回最大 HP 的一部分"},
+        "crow": {"name": "使魔鴉", "emoji": "🐦", "type": "shiki", "passive": "shiki_crow", "values": [1, 1, 2],
+                 "class": "guide", "class_bonus": {"add": 1}, "desc": "戰鬥中每回合多回 B 點"},
+        "seal_ofuda": {"name": "封魔札", "emoji": "📜", "type": "ofuda", "uses": [2, 3, 4],
+                       "active": {"do": "apply", "status": "seal", "target": "enemy_one", "turns": 1},
+                       "class": "scout", "class_bonus": {"uses": 1}, "desc": "封印一隻敵人 1 回合 (BOSS 無效)"},
+        "blast_ofuda": {"name": "爆符", "emoji": "📜", "type": "ofuda", "uses": [2, 2, 2], "values": [0.8, 1.0, 1.2],
+                        "active": {"do": "damage_all", "mult": "value"},
+                        "class": "atk", "class_bonus": {"mult": 1.2}, "desc": "敵人全體受傷 (裝的人 ATK × 倍率)"},
+        "barrier_ofuda": {"name": "結界札", "emoji": "📜", "type": "ofuda", "uses": [2, 2, 2], "values": [0.2, 0.25, 0.3],
+                          "active": {"do": "apply", "status": "shield", "target": "allies", "value": "value"},
+                          "class": "guard", "class_bonus": {"uses": 1}, "desc": "全隊護盾 (擋下一次傷害的一部分)"},
+        "war_blessing": {"name": "戰神加護", "emoji": "✨", "type": "blessing", "passive": "relic_atk", "values": [0.1, 0.15, 0.2],
+                         "class": "atk", "class_bonus": {"add": 0.05}, "desc": "ATK 提升"},
+        "iron_blessing": {"name": "鐵壁加護", "emoji": "✨", "type": "blessing", "passive": "relic_guard", "values": [0.1, 0.15, 0.2],
+                          "class": "guard", "class_bonus": {"add": 0.05}, "desc": "受到傷害降低"},
+        "life_blessing": {"name": "生命加護", "emoji": "✨", "type": "blessing", "passive": "relic_life", "values": [0.1, 0.15, 0.2],
+                          "class": "sup", "class_bonus": {"add": 0.05}, "desc": "最大 HP 提升"},
+        "spirit_blessing": {"name": "靈力加護", "emoji": "✨", "type": "blessing", "passive": "relic_spirit", "values": [1, 1, 2],
+                            "class": "guide", "class_bonus": {"add": 1}, "desc": "每進一關多回 B 點"}
+    }
+}

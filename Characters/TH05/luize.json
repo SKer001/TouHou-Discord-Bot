@@ -23,10 +23,11 @@
             "SR": "邊境流浪魔導士"
         }
     },
+    "ura_class": "guide",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 104,
+        "atk": 17,
+        "def": 12
     },
     "special_powers": {
         "id": "luize_SP",
@@ -35,26 +36,26 @@
             "N": {
                 "id": "luize_SP_I",
                 "name": "Easy・初陣・魔界「旅人的彈幕」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "explore",
+                "spent": 8,
+                "cooldown": 5,
+                "desc": "常識度回復 + 全體小傷害"
             },
             "R": {
                 "id": "luize_SP_II",
                 "name": "Lunatic・瘋狂・魔界「旅人的彈幕」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "explore",
+                "spent": 8,
+                "cooldown": 5,
+                "desc": "常識度回復 + 全體小傷害"
             },
             "SR": {
                 "id": "luize_SP_III",
                 "name": "Phantasm・幻象・魔界「旅人的彈幕」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "explore",
+                "spent": 8,
+                "cooldown": 5,
+                "desc": "常識度回復 + 全體小傷害"
             }
         }
     }

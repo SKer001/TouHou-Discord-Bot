@@ -23,10 +23,11 @@
             "SSR": "漆黑夢幻之支配者"
         }
     },
+    "ura_class": "atk",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 78,
+        "atk": 32,
+        "def": 8
     },
     "special_powers": {
         "id": "gengetsu_SP",
@@ -36,25 +37,25 @@
                 "id": "gengetsu_SP_I",
                 "name": "Easy・初陣・發狂發散彈幕",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "打 2～4 下，每下隨機一隻"
             },
             "SR": {
                 "id": "gengetsu_SP_II",
                 "name": "Lunatic・瘋狂・發狂發散彈幕",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "打 2～4 下，每下隨機一隻"
             },
             "SSR": {
                 "id": "gengetsu_SP_III",
                 "name": "Phantasm・幻象・發狂發散彈幕",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "打 2～4 下，每下隨機一隻"
             }
         }
     }

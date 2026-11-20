@@ -23,10 +23,11 @@
             "SR": "翠綠的大自然精靈"
         }
     },
+    "ura_class": "sup",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 104,
+        "atk": 16.2,
+        "def": 12
     },
     "special_powers": {
         "id": "daiyousei_SP",
@@ -35,26 +36,26 @@
             "N": {
                 "id": "daiyousei_SP_I",
                 "name": "Easy・初陣・妖精「湖畔守護」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "heal",
+                "spent": 6,
+                "cooldown": 3,
+                "desc": "一位回血"
             },
             "R": {
                 "id": "daiyousei_SP_II",
                 "name": "Lunatic・瘋狂・妖精「湖畔守護」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "heal",
+                "spent": 6,
+                "cooldown": 3,
+                "desc": "一位回血"
             },
             "SR": {
                 "id": "daiyousei_SP_III",
                 "name": "Phantasm・幻象・妖精「湖畔守護」",
-                "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "type": "heal",
+                "spent": 6,
+                "cooldown": 3,
+                "desc": "一位回血"
             }
         }
     }

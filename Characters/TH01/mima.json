@@ -23,10 +23,11 @@
             "UR": "憑依博麗之陰影"
         }
     },
+    "ura_class": "atk",
     "base_stats": {
-        "hp": 0,
-        "atk": 0,
-        "def": 0
+        "hp": 84,
+        "atk": 31,
+        "def": 8.4
     },
     "special_powers": {
         "id": "mima_SP",
@@ -36,25 +37,25 @@
                 "id": "mima_SP_I",
                 "name": "Easy・初陣・魅魔「Twilight Spark」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "全體傷害，打完自己 ATK +10% (2 回合，最多 3 層)"
             },
             "SSR": {
                 "id": "mima_SP_II",
                 "name": "Lunatic・瘋狂・魅魔「Twilight Spark」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "全體傷害，打完自己 ATK +10% (2 回合，最多 3 層)"
             },
             "UR": {
                 "id": "mima_SP_III",
                 "name": "Phantasm・幻象・魅魔「Twilight Spark」",
                 "type": "damage",
-                "spent": 0,
-                "cooldown": 0,
-                "desc": ""
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "全體傷害，打完自己 ATK +10% (2 回合，最多 3 層)"
             }
         }
     }

@@ -1,0 +1,12 @@
+{
+    "_說明": "🗺️ 裏世界的區域 (每 10 關一區，第 6 區以後主題從頭輪，敵人繼續變強)。copy_of = 名單還沒定，暫時借那一區的敵人 / 寶物 (docs/ura.md：先做齊第 1 區)。",
+    "zones": [
+        {"id": "bamboo", "name": "迷途竹林", "emoji": "🎋",
+         "normals": ["lost_spirit", "shadow_rabbit", "bamboo_wraith"], "elite": "mad_rabbit", "boss": "ura_mokou",
+         "materials": ["mat_herb", "mat_rice", "mat_chestnut", "mat_glow_mushroom", "mat_wild_vegetable"]},
+        {"id": "makai", "name": "魔界", "emoji": "🌌", "copy_of": "bamboo"},
+        {"id": "mountain", "name": "妖怪之山", "emoji": "⛰️", "copy_of": "bamboo"},
+        {"id": "netherworld", "name": "冥界", "emoji": "🌸", "copy_of": "bamboo"},
+        {"id": "higan", "name": "彼岸", "emoji": "🌊", "copy_of": "bamboo"}
+    ]
+}
