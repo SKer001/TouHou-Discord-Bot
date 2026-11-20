@@ -49,6 +49,9 @@ POWER = {"single": (2.5, 3.0, 3.5), "aoe": (1.2, 1.5, 1.8), "heal1": (0.30, 0.35
 B_MAX, B_START, B_FLOOR, B_ROUND, B_KILL = 50, 25, 1, 2, 1
 BOSS_HP = 10   # BOSS HP 倍率 (docs/ura.md：×10)
 BOSS_ATK = 1.6   # BOSS ATK 倍率 (docs/ura.md：×1.6)
+STALL = False   # True = 玩家刻意留一隻一般怪拖回合，把血補滿再打 (驗證拖回合漏洞)
+GUARD_WEIGHT = 1.7   # 守護者被選中的比重倍率
+ENRAGE = 10     # 一般 / 精英戰超過幾回合後敵人每回合 ATK +10% (0 = 沒有；防拖回合的規則候選；BOSS 不算)
 RELIC = 0.12   # 粗估法具：每打完一隻 BOSS，還沒有法具的一位 ATK / DEF + 這個比例 (SSR +10%、UR +15%…)；0 = 不算
 
 def comp_mult(c):
@@ -77,6 +80,7 @@ class Battle:
     def __init__(self, party, foes, bag, st, rng):
         self.p, self.f, self.bag, self.st, self.rng = party, foes, bag, st, rng
         self.taunt = 0
+        self.rnd = 0
         self.invuln = False
 
     def alive(self):
@@ -175,7 +179,31 @@ class Battle:
                     return True
         return False
 
+    def stall(self):
+        """只剩一隻一般怪、有人沒滿血 ➔ 補血或空過，不打死它"""
+        live, alive = self.living(), self.alive()
+        if not STALL or len(live) != 1 or live[0]["kind"] != "normal":
+            return False
+        if all(m["hp"] >= m["max"] * 0.9 for m in alive):
+            return False
+        if ENRAGE and self.rnd >= ENRAGE:   # 快狂暴了就不拖
+            return False
+        for m in alive:
+            if m["kind"] in ("heal1", "healall") and m["cd"] == 0 and self.st["b"] >= m["cost"]:
+                low = min(alive, key=lambda x: x["hp"] / x["max"])
+                if low["hp"] < low["max"] * 0.95:
+                    self.st["b"] -= m["cost"]
+                    m["cd"] = m["cd_max"]
+                    if m["kind"] == "heal1":
+                        self.heal(low, POWER["heal1"][m["tier"]])
+                    else:
+                        for x in alive:
+                            self.heal(x, POWER["healall"][m["tier"]])
+        return True   # 空過 (不攻擊)
+
     def our_turn(self):
+        if self.stall():
+            return
         if not self.try_spell():
             self.basic(max(self.alive(), key=lambda m: m["atk"]))
 
@@ -188,13 +216,15 @@ class Battle:
             if not alive:
                 return
             guard = [m for m in alive if m["cls"] == "guard"]
-            if guard and (self.taunt or self.rng.random() < 0.7):
+            if guard and self.taunt:
                 t = guard[0]
-            else:
-                t = self.rng.choices(alive, weights=[m["hp"] for m in alive])[0]
+            else:   # 照目前血量的比重抽，守護者 × GUARD_WEIGHT (docs/ura.md：× 1.7)
+                t = self.rng.choices(alive, weights=[m["hp"] * (GUARD_WEIGHT if m["cls"] == "guard" else 1) for m in alive])[0]
             if self.invuln:
                 continue
             atk = f["atk"] * (1.3 if f["kind"] == "boss" and f["hp"] < f["max"] / 2 else 1)
+            if ENRAGE and self.rnd > ENRAGE and f["kind"] != "boss":   # BOSS 戰本來就長，不狂暴
+                atk *= 1 + 0.1 * (self.rnd - ENRAGE)
             if f["down"]:
                 atk *= 1 - f["down_pct"]
             dmg = atk * self.rng.uniform(0.9, 1.1) * (1 - red(t["def"]))
@@ -238,6 +268,7 @@ class Battle:
 
     def run(self):
         for rnd in range(1, 300):
+            self.rnd = rnd
             if not self.alive():
                 return False
             self.items()
@@ -319,11 +350,17 @@ if __name__ == "__main__":
     ap.add_argument("--teams", default="")
     ap.add_argument("--late-step", type=float, default=0.5)
     ap.add_argument("--relic", type=float, default=0.12)
+    ap.add_argument("--stall", action="store_true")
+    ap.add_argument("--enrage", type=int, default=10)
+    ap.add_argument("--guard-weight", type=float, default=1.7)
     args = ap.parse_args()
     BOSS_HP = args.boss_hp
     BOSS_ATK = args.boss_atk
     LATE_STEP = args.late_step
     RELIC = args.relic
+    STALL = args.stall
+    ENRAGE = args.enrage
+    GUARD_WEIGHT = args.guard_weight
     rng = random.Random(1)
     for tname, team in TEAMS.items():
         if args.teams and not any(k in tname for k in args.teams.split(",")):
