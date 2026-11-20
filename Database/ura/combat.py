@@ -80,6 +80,11 @@ def has_scout(run: dict) -> bool:
     return any(m["alive"] and m["cls"] == "scout" for m in run["party"]) or status.has_flag(run["team"], "scout")
 
 
+def add_sanity(run: dict, n: int):
+    """回常識度，最多 1000 (超過的浪費掉；使用者 2026-11-20)"""
+    run["sanity"] = min(rules.SANITY_START, run["sanity"] + int(n))
+
+
 def add_b(run: dict, n: float):
     run["b"] = max(0, min(rules.B_MAX, run["b"] + int(n)))
 
@@ -102,7 +107,10 @@ def start(run: dict, kind: str, foe_ids: list[str], rng) -> dict:
     for i, eid in enumerate(foe_ids):
         fkind = kind if i == 0 and kind != "normal" else "normal"
         names[eid] = names.get(eid, 0) + 1
-        foes.append(make_foe(i, eid, fkind, zone))
+        foe = make_foe(i, eid, fkind, zone)
+        if fkind == "boss" and data.zone_info(zone).get("borrowed"):   # 第 2～5 區還沒有自己的 BOSS：借來的只普攻 (使用者 2026-11-20)
+            foe["skills"] = []
+        foes.append(foe)
     seen = {}
     for f in foes:   # 同名的加 A / B / C
         if foe_ids.count(f["eid"]) > 1:
@@ -371,7 +379,7 @@ def cast(run: dict, uid: str, target_uid: str | None, rng) -> str | None:
             b["actions_left"] += len(others)
             _log(run, "⏱️ 時間停止！全員再行動一次")
         elif do == "sanity":
-            run["sanity"] += int(e["value"])
+            add_sanity(run, int(e["value"]))
             _log(run, f"🧭 常識度 +{int(e['value'])}")
         elif do == "money_mult" and in_battle:
             run["battle"]["spell_money"] = max(run["battle"]["spell_money"], e["value"])
@@ -569,7 +577,7 @@ def _trigger(run: dict, u: dict, trigger: str, rng):
         do = act["do"]
         if do == "dot_max_hp_pct":
             d = max(1, rules.round_half(max_hp(u) * act["value"]))
-            floor_hp = act.get("min_hp", 0)
+            floor_hp = act.get("min_hp", 1)   # 持續扣血最多扣到剩 1，不會直接打死 (使用者 2026-11-20)
             u["hp"] = max(floor_hp, u["hp"] - d)
             _log(run, f"{status.info(inst['id'])['emoji']} {u['name']} −{d}")
             if u["hp"] <= 0:

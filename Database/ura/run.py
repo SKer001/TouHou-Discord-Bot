@@ -778,7 +778,7 @@ def use_item(run: dict, iid: str, target: str | None, rng) -> str | None:
         for m in combat.living(run["party"]):
             combat.heal(m, eff["pct"])
     elif do == "sanity":
-        run["sanity"] += eff["value"]
+        combat.add_sanity(run, eff["value"])
     elif do == "revive":
         t = combat._pick_ally(run, target, dead=True)
         if not t:

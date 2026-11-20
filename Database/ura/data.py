@@ -64,7 +64,8 @@ def zones() -> list[dict]:
     out = []
     for z in raw:
         src = by_id.get(z.get("copy_of"), z)
-        out.append({**src, **{k: z[k] for k in ("id", "name", "emoji")}, "treasure_zone": src["id"]})
+        out.append({**src, **{k: z[k] for k in ("id", "name", "emoji")}, "treasure_zone": src["id"],
+                    "borrowed": bool(z.get("copy_of"))})
     return out
 
 

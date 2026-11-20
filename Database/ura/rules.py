@@ -52,7 +52,7 @@ CHESTS = {
     "locked": {"money": (3000, 5000), "materials": (3, 5), "items": (2, 3), "relic_chance": 0.7, "treasures": (2, 5), "table": "locked"},
 }
 MIMIC_ITEMS, MIMIC_RELICS = (3, 5), (1, 2)
-MIMIC_TREASURES = (2, 5)        # ❓ docs/ura.md 沒寫寶箱怪給幾個寶物 (只寫 SSR 起跳) ➔ 暫時用上鎖寶箱的 2～5，等使用者確認
+MIMIC_TREASURES = (2, 5)        # 寶箱怪的寶物個數跟上鎖寶箱一樣 2～5 (SSR 起跳；使用者 2026-11-20)
 MERCHANT_KINDS, MERCHANT_QTY, MERCHANT_MARKUP = 4, (1, 3), 1.2
 MERCHANT_RELIC_CHANCE = 0.3
 MERCHANT_RELIC = (("SSR", 0.8, 30000), ("UR", 0.2, 150000))

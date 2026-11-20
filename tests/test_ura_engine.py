@@ -249,6 +249,22 @@ combat._foe_act(b, boss, Rng())
 combat._pick_skill = orig
 check("phoenix redirect to taunt", b["party"][0]["hp"] == hp0[0] and b["party"][2]["hp"] == hp0[2] and b["party"][1]["hp"] < hp0[1])
 
+# 2026-11-20 使用者決定：借來的 BOSS 只普攻、持續扣血最低留 1、常識度最多 1000
+b = battle(foes=("ura_mokou",), kind="boss", floor=20)
+check("borrowed boss no skills", b["battle"]["foes"][0]["skills"] == [])
+b = battle(foes=("ura_mokou",), kind="boss", floor=10)
+check("zone 1 boss keeps skills", len(b["battle"]["foes"][0]["skills"]) == 4)
+b = battle(foes=("ura_mokou",), kind="boss", floor=60)
+check("zone 6 (竹林再輪) keeps skills", len(b["battle"]["foes"][0]["skills"]) == 4)
+b = battle(team=(("marisa", "SR"),))
+m0 = b["party"][0]; m0["hp"] = 2
+status.apply(m0, "burn")
+combat._trigger(b, m0, "round_end", Rng())
+check("burn leaves 1", m0["alive"] and m0["hp"] == 1)
+run = new(bag={"gensokyo_engi": 1}); run["sanity"] = 800
+R.use_item(run, "gensokyo_engi", None, Rng())
+check("sanity cap 1000", run["sanity"] == 1000)
+
 # ---------------- 背包 ----------------
 run = new(bag={"bamboo_herb": 5})
 check("heal cat max", R.can_add(run, "items", "village_onigiri") is not None)
@@ -310,12 +326,12 @@ check("buy", R.buy(run, 0) is None and run["pocket"] < 10 ** 6)
 # ---------------- 道具 ----------------
 run = new(bag={"bunbunmaru": 1, "reroll_dice": 1, "sukima": 1, "return_talisman": 1})
 R.use_item(run, "bunbunmaru", None, Rng())
-check("sanity item", run["sanity"] == 1300)
+check("sanity item (cap 1000)", run["sanity"] == 1000)
 old = run["doors"]
 R.use_item(run, "reroll_dice", None, random.Random(99))
 check("reroll", "reroll_dice" not in run["bag"]["items"])
 R.use_item(run, "sukima", None, random.Random(3))
-check("sukima skip floor", run["floor"] == 1 and run["phase"] == "doors" and run["sanity"] == 1290)
+check("sukima skip floor", run["floor"] == 1 and run["phase"] == "doors" and run["sanity"] == 990)
 R.use_item(run, "return_talisman", None, Rng())
 check("return talisman", run["phase"] == "ended" and run["result"] == "evacuated")
 
