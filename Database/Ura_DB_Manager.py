@@ -89,6 +89,35 @@ async def get_record(user_id: int) -> dict:
     return d
 
 
+async def get_leaderboard_records(user_ids: list[int]) -> dict:
+    """
+    🏆 排行榜用：{玩家: {"money": 紀錄, "depth": 紀錄}} (只有成功撤離過的那一項才有)
+    紀錄 = {"value", "at" (達成時間，同分時早的排前面), "party" [{cid, rarity, name, alive}], "relics", "net", "floor"}
+    💰 money：value = 淨賺、floor = 那一局走到第幾關；🕳️ depth：value = 關數、net = 那一局的淨賺
+    """
+    out: dict = {}
+    if not user_ids:
+        return out
+    marks = ", ".join("?" for _ in user_ids)
+    async with connect() as db:
+        async with db.execute(f"SELECT * FROM ura_records WHERE user_id IN ({marks})", tuple(user_ids)) as cur:
+            rows = [dict(r) for r in await cur.fetchall()]
+    for r in rows:
+        rec = {}
+        if r.get("best_money_at"):
+            p = json.loads(r["best_money_party"] or "{}")
+            rec["money"] = {"value": r["best_money"], "at": r["best_money_at"], "party": p.get("party", []),
+                            "relics": p.get("relics", []), "net": r["best_money"], "floor": p.get("floor")}
+        if r.get("deepest_at"):
+            p = json.loads(r["deepest_party"] or "{}")
+            rec["depth"] = {"value": r["deepest"], "at": r["deepest_at"], "party": p.get("party", []),
+                            "relics": p.get("relics", []), "net": max(0, p.get("money", 0) - p.get("brought", 0)),
+                            "floor": r["deepest"]}
+        if rec:
+            out[r["user_id"]] = rec
+    return out
+
+
 async def save_loadout(user_id: int, items: dict) -> None:
     """💾 快速整裝：存下這次要帶的道具"""
     clean = {k: int(v) for k, v in items.items() if k in data.items() and int(v) > 0}
@@ -285,14 +314,15 @@ async def _settle(db, user_id: int, state: dict, now: datetime | None) -> dict:
     await db.execute(f"UPDATE gacha_cards SET expedition = 0 WHERE user_id = ? AND instance_id IN ({marks})", (user_id, *cards))
     net = max(0, s["money"] - s["brought"])   # 💰 排行榜用淨賺 (帶出 − 帶進，2026-11-20 使用者決定)；結算大標題寫帶回的總額
     if s["result"] == "evacuated":
-        party = json.dumps({"party": s["party"], "relics": s["relics"], "money": s["money"], "brought": s["brought"]},
-                           ensure_ascii=False)
+        party = json.dumps({"party": s["party"], "relics": s["relics"], "money": s["money"], "brought": s["brought"],
+                            "floor": s["floor"]}, ensure_ascii=False)
         ts = _now(now)
         await db.execute("INSERT INTO ura_records (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING", (user_id,))
+        # 第一次撤離 (*_at 還是 NULL) 一定記；之後要「更好」才換 (一樣 = 留著先達成的那一筆，排行榜同分時它排前面)
         await db.execute("UPDATE ura_records SET best_money = ?, best_money_at = ?, best_money_party = ? "
-                         "WHERE user_id = ? AND best_money < ?", (net, ts, party, user_id, net))
+                         "WHERE user_id = ? AND (best_money < ? OR best_money_at IS NULL)", (net, ts, party, user_id, net))
         await db.execute("UPDATE ura_records SET deepest = ?, deepest_at = ?, deepest_party = ? "
-                         "WHERE user_id = ? AND deepest < ?", (s["floor"], ts, party, user_id, s["floor"]))
+                         "WHERE user_id = ? AND (deepest < ? OR deepest_at IS NULL)", (s["floor"], ts, party, user_id, s["floor"]))
         await add_player_stat(db, user_id, "ura_evacuated")
     for eid, n in s["kills"].items():
         await add_player_stat(db, user_id, f"ura_kill:{eid}", n)

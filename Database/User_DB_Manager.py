@@ -653,7 +653,8 @@ async def update_user_inventory(user_id: int, inventory: dict):
 async def get_leaderboard_stats(user_ids: list[int]) -> list[dict]:
     """
     排行榜用：指定玩家的各項統計 (只會回傳資料庫裡有的玩家)
-    [{"user_id", "money", "level", "is_public", "total_draws", "total_fusions", "card_count", "char_count"}, ...]
+    [{"user_id", "money", "level", "is_public", "total_draws", "total_fusions", "card_count", "char_count", "kind_count"}, ...]
+    卡牌三項都算卡冊 + 收藏冊 + 出征中 (上架中的卡在市場託管，不算)；kind_count = 🃏 收集卡種 (角色 × 階級)
     """
     if not user_ids:
         return []
@@ -665,7 +666,8 @@ async def get_leaderboard_stats(user_ids: list[int]) -> list[dict]:
                    COALESCE(s.total_draws, 0)   AS total_draws,
                    COALESCE(s.total_fusions, 0) AS total_fusions,
                    COUNT(c.instance_id)            AS card_count,
-                   COUNT(DISTINCT c.character_key) AS char_count
+                   COUNT(DISTINCT c.character_key) AS char_count,
+                   COUNT(DISTINCT c.character_key || ':' || c.rarity) AS kind_count
             FROM users u
             LEFT JOIN gacha_stats s ON s.user_id = u.user_id
             LEFT JOIN gacha_cards c ON c.user_id = u.user_id

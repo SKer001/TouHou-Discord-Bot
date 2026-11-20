@@ -43,7 +43,7 @@
   - 這局結束 (撤離 / 失敗 / 放棄) 就在同一個交易裡結算 (`_settle`)：發賽錢 + 經驗 (`calc_exp_change`)、素材進 `users.inventory`、道具 / 寶物進倉庫、扣完整度 (卡已經不在也不會失敗)、解除出征鎖、更新 `ura_records`、記 `player_stats`、刪掉這一局。
 - `start_run(uid, card_ids, items, pocket, bag_row)`：出發，單一交易 (檢查卡 / 倉庫道具 / 一局上限 / 背包格數 / 賽錢 ➔ 扣倉庫、扣賽錢、額外背包耐久 −1 (用完刪掉)、卡上出征鎖、寫進度)；失敗 `{"ok": False, "reason"}` 什麼都不寫。
 - `ura_storage(user_id, kind, key, qty)` PK (user_id, kind, key)：裏世界倉庫，kind = `item` (商店買的道具、撤離帶回沒用完的) / `treasure` (寶物)。`ura_bags(id PK, user_id, bag_id, uses_left)`：額外背包一個一列，用 3 次就壞。
-- `ura_records(user_id PK, best_money, best_money_at, best_money_party, deepest, deepest_at, deepest_party, loadout)`：排行榜紀錄 (只有成功撤離才更新；💰 `best_money` 是**淨賺** = 帶出 − 帶進)，`*_party` = 結算那一刻的隊伍 / 法具 (JSON)；`loadout` = ⚡ 快速整裝存的道具。
+- `ura_records(user_id PK, best_money, best_money_at, best_money_party, deepest, deepest_at, deepest_party, loadout)`：排行榜紀錄 (只有成功撤離才更新；💰 `best_money` 是**淨賺** = 帶出 − 帶進)，`*_party` = 結算那一刻的隊伍 (cid / rarity / name / alive) / 法具 / money / brought / floor (JSON)；`*_at` = 達成時間 (NULL = 這一項還沒成功撤離過 ➔ 不上榜；第一次撤離一定記，之後要更好才換，同分留先達成的)；`loadout` = ⚡ 快速整裝存的道具。排行榜讀 `get_leaderboard_records(user_ids)`。
 - 其他：`get_run`、`candidate_cards` (可出征的卡 + 不能派的原因)、`get_storage`、`get_record`、`save_loadout`、`shop_buy`、`sell_treasures` (數量不夠整筆不賣)、`set_message`。
 - `player_stats`：`ura_runs` (出發次數)、`ura_evacuated` (撤離次數)、`ura_kill:<敵人>`。
 

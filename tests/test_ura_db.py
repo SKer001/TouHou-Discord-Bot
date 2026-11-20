@@ -180,6 +180,11 @@ async def main():
     check("expedition cleared", await exped("a") == 0 and await exped("b") == 0)
     rec = await ura.get_record(UID)
     check(f"record net {rec}", rec["best_money"] == 7345 and rec["deepest"] == 1 and json.loads(rec["best_money_party"])["brought"] == 5000)
+    lb = await ura.get_leaderboard_records([UID, 31337])
+    m, d = lb.get(UID, {}).get("money", {}), lb.get(UID, {}).get("depth", {})
+    check(f"leaderboard records {lb}", m.get("value") == 7345 and m.get("floor") == 1 and m.get("at")
+          and d.get("value") == 1 and d.get("net") == 7345 and len(m.get("party", [])) == 2 and 31337 not in lb)
+    check("dead flag in record", [p["alive"] for p in m["party"]] == [True, False])
     stats = await udm.get_player_stats(UID)
     check(f"stats {stats}", stats.get("ura_runs") == 1 and stats.get("ura_evacuated") == 1 and stats.get("ura_kill:lost_spirit") == 2)
     r = await ura.act(UID, 3, lambda s, g: None); check("no run", r["reason"] == "none")
@@ -230,6 +235,20 @@ async def main():
     check("loadout saved", (await ura.get_record(UID))["loadout"] == {"eientei_salve": 2})
     check("record unchanged by loadout", (await ura.get_record(UID))["best_money"] == 7345)
     check("new user record", (await ura.get_record(999))["loadout"] == {})
+
+    # 第一次撤離淨賺 0 (帶多少出來多少) 也算上榜；快速整裝存過的 (沒撤離) 不算
+    U2 = 4343
+    await udm.get_or_create_user(U2)
+    async with udm.connect() as db:
+        await udm._insert_cards(db, U2, [card("z1", A)])
+        await db.commit()
+    await ura.save_loadout(U2, {"eientei_salve": 1})
+    check("loadout only not on board", U2 not in await ura.get_leaderboard_records([U2]))
+    r = await ura.start_run(U2, ["z1"], {}, 500, None, seed="z")
+    check(f"zero net start {r.get('reason')}", r["ok"])
+    r = await ura.act(U2, 0, end_with("evacuated"))
+    lb = (await ura.get_leaderboard_records([U2])).get(U2, {})
+    check(f"zero net counts {lb}", lb.get("money", {}).get("value") == 0 and lb["money"]["at"] and lb.get("depth", {}).get("value") == 0)
 
 
 asyncio.run(main())

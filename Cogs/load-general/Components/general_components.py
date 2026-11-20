@@ -6,6 +6,7 @@ from Database.User_DB_Manager import get_required_exp_for_level
 from Database.Item_DB_Manager import CATEGORY_NAMES
 from Database.Economy_DB_Manager import TRADE_UNLOCK_DAILY
 from Database import title_data
+from Database.ura import data as ura_data   # 🌀 排行榜的法具名稱
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 
@@ -328,53 +329,97 @@ def build_inventory_container(
 # 🏆 排行榜 (Components V2)
 # ---------------------------------------------------------
 # 排行項目：key ➔ (顯示名稱, 統計欄位, 數值格式)
+# 🌀 裏世界兩項 (0.35.086) 的欄位由 leaderboard.py 從 ura_records 補上 (只有成功撤離過的玩家上榜)
 LEADERBOARD_TYPES = {
-    "money":    ("💰 賽錢",     "money",         lambda v: f"{fmt_money(v)} 兩"),
-    "assets":   ("💎 資產總值", "assets",        lambda v: f"{v:,} 兩"),
-    "level":    ("🔴 P點",      "level",         lambda v: f"{v / 10:.1f} P"),
-    "chars":    ("📚 收集角色", "char_count",    lambda v: f"{v} 位"),
-    "cards":    ("🎴 卡牌總數", "card_count",    lambda v: f"{v:,} 張"),
-    "draws":    ("🎰 祈願次數", "total_draws",   lambda v: f"{v:,} 抽"),
-    "fusions":  ("🔮 融合次數", "total_fusions", lambda v: f"{v:,} 次"),
+    "money":     ("💰 賽錢",       "money",         lambda v: f"{fmt_money(v)} 兩"),
+    "assets":    ("💎 資產總值",   "assets",        lambda v: f"{v:,} 兩"),
+    "level":     ("🔴 P點",        "level",         lambda v: f"{v / 10:.1f} P"),
+    "chars":     ("📚 收集角色",   "char_count",    lambda v: f"{v} 位"),
+    "kinds":     ("🃏 收集卡種",   "kind_count",    lambda v: f"{v} 種"),
+    "cards":     ("🎴 卡牌總數",   "card_count",    lambda v: f"{v:,} 張"),
+    "draws":     ("🎰 祈願次數",   "total_draws",   lambda v: f"{v:,} 抽"),
+    "fusions":   ("🔮 融合次數",   "total_fusions", lambda v: f"{v:,} 次"),
+    "ura_money": ("💰 裏世界・帶出最多錢", "ura_money", lambda v: f"{fmt_money(v)} 兩"),
+    "ura_depth": ("🕳️ 裏世界・最深入", "ura_depth",  lambda v: f"第 {v} 關"),
 }
-TOP_N = 10
+URA_TYPES = {"ura_money", "ura_depth"}
+PER_PAGE = 10       # 一頁幾名 (使用者 2026-11-20：裏世界兩項 5 名，其他 10 名)
+URA_PER_PAGE = 5
 MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
 
 
-def build_leaderboard_container(guild: discord.Guild, type_key: str, rows: list[dict], viewer_id: int) -> ui.Container:
+def leaderboard_per_page(type_key: str) -> int:
+    return URA_PER_PAGE if type_key in URA_TYPES else PER_PAGE
+
+
+def _ura_relic_name(rel: dict) -> str:
+    rd = ura_data.relics().get(rel.get("rid"), {})
+    return f"{rd.get('emoji', '🦊')} {rd.get('name', rel.get('rid', '?'))}"
+
+
+def leaderboard_entry(type_key: str, rank: int, row: dict, viewer_id: int) -> str:
     """
-    rows 已依該項目由高到低排序，每筆含 "member"；有戴稱號的再含 "title" (稱號 id，名字後面顯示)。
-    私人資料卡的玩家仍會計入名次，但不顯示名字和稱號 (本人除外)。
+    一位玩家一塊 (條列式，docs/ura.md「排行榜」)：
+      🥇 名字 · [SR] 稱號
+      (裏世界兩項) 角色：[SR] 琪露諾 💀 / [N] 大妖精　法具：🦊 九尾式神
+      項目：數字
+    私人資料卡的玩家計入名次，但名字、稱號、角色、法具都不顯示 (本人除外)
     """
     title, field, fmt = LEADERBOARD_TYPES[type_key]
-    container = ui.Container(accent_color=discord.Color.gold())
+    is_viewer = row["user_id"] == viewer_id
+    shown = row["is_public"] or is_viewer
+    head = f"{MEDALS.get(rank, f'`#{rank}`')} **{row['member'].display_name if shown else '🔒 私人玩家'}**"
+    if shown and row.get("title") in title_data.TITLES:
+        head += f" · {title_data.title_label(row['title'])}"
+    if is_viewer:
+        head += "　⬅️ 你"
+    lines = [head]
+    if type_key in URA_TYPES:
+        rec = row["ura"]
+        if shown:
+            party = " / ".join(f"[{p.get('rarity', '?')}] {p.get('name', '?')}" + ("" if p.get("alive", True) else " 💀")
+                               for p in rec.get("party", []))
+            lines.append(f"角色：{party or '—'}")
+            if rec.get("relics"):
+                lines.append("法具：" + " / ".join(_ura_relic_name(r) for r in rec["relics"]))
+        money = f"賽錢：{fmt_money(rec.get('net', 0))} 兩"
+        depth = f"探索深度：第 {rec['floor']} 關" if rec.get("floor") is not None else "探索深度：—"
+        lines += [money, depth] if type_key == "ura_money" else [depth, money]
+    else:
+        lines.append(f"{title.split(' ', 1)[1]}：{fmt(row[field])}")
+    return "\n".join(lines)
+
+
+def build_leaderboard_container(guild: discord.Guild, type_key: str, rows: list[dict], page, viewer_id: int) -> ui.Container:
+    """
+    rows 已依該項目由高到低排序 (同分：裏世界兩項先達成的在前)，每筆含 "member"，這一頁的再含 "title" (戴著的稱號 id)
+    page = Utils.pagination.paginate() 切好的這一頁
+    """
+    title, field, fmt = LEADERBOARD_TYPES[type_key]
+    ura = type_key in URA_TYPES
+    container = ui.Container(accent_color=discord.Color.dark_purple() if ura else discord.Color.gold())
+    who = f"成功撤離過的 {len(rows)} 位" if ura else f"有遊玩紀錄的 {len(rows)} 位居民"
     container.add_item(ui.TextDisplay(
         f"## 🏆 {guild.name} 排行榜：{title}\n"
-        f"-# 只比較本伺服器中有遊玩紀錄的 {len(rows)} 位居民 · 私人資料卡的玩家不顯示名字"
+        f"-# 只比較本伺服器中{who} · 私人資料卡的玩家不顯示名字"
+        + ("\n-# 💰 算的是淨賺 (帶出 − 帶進)；🕳️ 只算成功撤離的局" if ura else "")
     ))
     container.add_item(ui.Separator())
-
-    def line(rank: int, row: dict) -> str:
-        is_viewer = row["user_id"] == viewer_id
-        shown = row["is_public"] or is_viewer
-        name = row["member"].display_name if shown else "🔒 私人玩家"
-        mark = "　⬅️ 你" if is_viewer else ""
-        title = f" · *{title_data.title_label(row['title'])}*" if shown and row.get("title") in title_data.TITLES else ""
-        return f"{MEDALS.get(rank, f'`#{rank}`')} **{name}**{title}　`{fmt(row[field])}`{mark}"
-
-    if rows:
-        lines = [line(rank, row) for rank, row in enumerate(rows[:TOP_N], start=1)]
-        container.add_item(ui.TextDisplay("\n".join(lines)))
+    if page.items:
+        blocks = [leaderboard_entry(type_key, page.start + i + 1, row, viewer_id) for i, row in enumerate(page.items)]
+        container.add_item(ui.TextDisplay("\n\n".join(blocks)))
+    elif ura:
+        container.add_item(ui.TextDisplay("*（這個伺服器還沒有人從裏世界成功撤離）*"))
     else:
         container.add_item(ui.TextDisplay("*（這個伺服器還沒有人留下遊玩紀錄）*"))
 
-    # 自己不在前 N 名時，額外顯示自己的名次
     my_rank = next((i for i, row in enumerate(rows, start=1) if row["user_id"] == viewer_id), None)
     container.add_item(ui.Separator())
     if my_rank is None:
-        container.add_item(ui.TextDisplay("-# 你還沒有遊玩紀錄，快去 `/daily` 或 `/card gacha` 吧！"))
-    elif my_rank > TOP_N:
-        container.add_item(ui.TextDisplay(line(my_rank, rows[my_rank - 1])))
+        container.add_item(ui.TextDisplay("-# 你還沒有成功撤離過，用 `/ura explore` 出發吧！" if ura
+                                          else "-# 你還沒有遊玩紀錄，快去 `/daily` 或 `/card gacha` 吧！"))
+    elif not page.start < my_rank <= page.start + len(page.items):
+        container.add_item(ui.TextDisplay(f"-# 📍 你目前是第 {my_rank} 名 ({fmt(rows[my_rank - 1][field])})"))
     return container
 
 
