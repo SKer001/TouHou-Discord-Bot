@@ -10,7 +10,7 @@ import statistics
 def red(d):
     return 0.6 * (1 - math.exp(-d / 20))
 
-LATE_STEP = 1.0   # 第 6 區以後每區 +幾 (docs/ura.md：+1)
+LATE_STEP = 0.5   # 第 6 區以後每區 +幾 (docs/ura.md：+0.5)
 
 def mult(a):
     return 1 + 0.1875 * (a - 1) ** 2 if a <= 5 else 4 + LATE_STEP * (a - 5)
@@ -21,7 +21,7 @@ def enemy(a, kind):
     if kind == "elite":
         hp, atk, df = hp * 2.5, atk * 1.5, df * 1.3
     if kind == "boss":
-        hp, atk, df = hp * BOSS_HP, atk * 2, df * 1.5
+        hp, atk, df = hp * BOSS_HP, atk * BOSS_ATK, df * 1.5
     return {"hp": hp, "max": hp, "atk": atk, "def": df, "kind": kind, "skip": 0, "down": 0, "down_pct": 0}
 
 CLASS = {"atk": (80, 30, 8), "guard": (140, 15, 20), "sup": (100, 18, 12), "scout": (90, 22, 10), "guide": (100, 18, 12)}
@@ -48,6 +48,7 @@ POWER = {"single": (2.5, 3.0, 3.5), "aoe": (1.2, 1.5, 1.8), "heal1": (0.30, 0.35
          "atkdown": (0.20, 0.25, 0.30), "shield": (0.30, 0.35, 0.40), "muso": (1.2, 1.5, 1.8)}
 B_MAX, B_START, B_FLOOR, B_ROUND, B_KILL = 50, 25, 1, 2, 1
 BOSS_HP = 10   # BOSS HP 倍率 (docs/ura.md：×10)
+BOSS_ATK = 1.6   # BOSS ATK 倍率 (docs/ura.md：×1.6)
 RELIC = 0.12   # 粗估法具：每打完一隻 BOSS，還沒有法具的一位 ATK / DEF + 這個比例 (SSR +10%、UR +15%…)；0 = 不算
 
 def comp_mult(c):
@@ -314,11 +315,13 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", type=int, default=600)
     ap.add_argument("--boss-hp", type=float, default=10)
+    ap.add_argument("--boss-atk", type=float, default=1.6)
     ap.add_argument("--teams", default="")
-    ap.add_argument("--late-step", type=float, default=1.0)
+    ap.add_argument("--late-step", type=float, default=0.5)
     ap.add_argument("--relic", type=float, default=0.12)
     args = ap.parse_args()
     BOSS_HP = args.boss_hp
+    BOSS_ATK = args.boss_atk
     LATE_STEP = args.late_step
     RELIC = args.relic
     rng = random.Random(1)
