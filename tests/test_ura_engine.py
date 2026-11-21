@@ -63,6 +63,14 @@ tids = [x[0] for z in real for lst in data.theme_treasures(z).values() for x in 
 check("treasure ids unique", len(tids) == len(set(tids)))
 check("makai treasure info", data.treasure_info("ura_genesis_seed") == {"id": "ura_genesis_seed", "name": "魔界的創世之種", "emoji": "🌌", "rarity": "LR", "zone_key": "makai"})
 check("tea house text generic", "竹林" not in data.events()["tea_house"]["text"])
+# 🌸 冥界 (2026-11-21)
+nw = data.zone_by_id("netherworld")
+check("netherworld own roster", not nw["borrowed"] and nw["boss"] == "ura_yuyuko" and nw["elite"] == "phantom_warrior"
+      and nw["normals"] == ["netherworld_ghost", "sakura_youkai", "wandering_dead"])
+check("netherworld materials", nw["materials"] == ["mat_sakura", "mat_shiratama", "mat_matcha", "mat_rice", "mat_sugar"])
+check("netherworld 15 treasures", [len(v) for v in data.theme_treasures(nw).values()] == [4, 3, 3, 2, 2, 1])
+check("death butterfly status", data.statuses()["death_butterfly"]["on"]["round_end"][0] == {"do": "dot_max_hp_pct", "value": 0.03}
+      and "cleanse" in data.statuses()["death_butterfly"]["flags"])
 check("char file b / cd match spells", all(
     lv["spent"] == data.spells()[cid]["b"] and lv["cooldown"] == data.spells()[cid]["cd"]
     for cid in chars for lv in json.load(open(next(p for p in __import__("glob").glob(f"Characters/*/{cid}.json")), encoding="utf-8"))["special_powers"]["levels"].values()))
@@ -248,6 +256,37 @@ b = battle(team=(("marisa", "SR"), ("meiling", "SR")), foes=("lost_spirit", "los
 status.apply(b["party"][1], "debuff_def", value=0.25, turns=2)
 R.battle_action(b, "spell", Rng(), uid="p0", target="e0")
 check("non-sup spell no cleanse", status.has(b["party"][1], "debuff_def"))
+# 🧭 嚮導：敵人扣常識度的招式也少扣 30% (四捨五入)
+def sanity_hit(team, eid, kind="normal", floor=1):
+    b = battle(team=team, foes=(eid,), kind=kind, floor=floor)
+    foe = b["battle"]["foes"][0]
+    foe["skills"] = [s for s in foe["skills"] if s["do"] == "sanity"]
+    if kind == "boss":
+        b["battle"]["round"] = 2
+    s0 = b["sanity"]
+    combat._foe_act(b, foe, Rng([0.0]))
+    return s0 - b["sanity"], b
+lost, _ = sanity_hit((("marisa", "SR"),), "lost_spirit")
+lost_g, bg = sanity_hit((("chiyuri", "R"),), "lost_spirit")
+sak_g, _ = sanity_hit((("chiyuri", "R"),), "sakura_youkai")
+yu, _ = sanity_hit((("marisa", "SR"),), "ura_yuyuko", "boss", 10)
+yu_g, _ = sanity_hit((("chiyuri", "R"),), "ura_yuyuko", "boss", 10)
+check(f"enemy sanity guide discount {lost, lost_g, sak_g, yu, yu_g}", (lost, lost_g, sak_g, yu, yu_g) == (10, 7, 11, 40, 28))
+check("guide discount logged", any("嚮導少扣" in x for x in bg["battle"]["log"]))
+b = battle(team=(("chiyuri", "R"), ("marisa", "SR")), foes=("lost_spirit",))
+b["party"][0]["alive"] = False
+foe = b["battle"]["foes"][0]; s0 = b["sanity"]
+combat._foe_act(b, foe, Rng([0.0]))
+check("dead guide no discount", s0 - b["sanity"] == 10)
+# 🦋 死蝶：回合結束扣 3% 最大 HP
+b = battle(team=(("marisa", "SR"),))
+m0 = b["party"][0]
+status.apply(m0, "death_butterfly")
+hp0 = m0["hp"]
+combat._trigger(b, m0, "round_end", Rng())
+check(f"death butterfly dot {hp0 - m0['hp']}", hp0 - m0["hp"] == max(1, rules.round_half(combat.max_hp(m0) * 0.03)))
+b = battle(foes=("ura_yuyuko",), kind="boss", floor=10)
+check("yuyuko zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["bomin_village", "death_butterflies", "resurrection_butterfly", "saigyouji_nirvana"])
 b = battle(foes=("ura_shinki",), kind="boss", floor=10)
 check("shinki zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["genesis_light", "mother_curse", "makai_mercy", "six_wings"])
 b = battle(team=(("remilia", "SSR"),), foes=("ura_mokou",), kind="boss", floor=10)

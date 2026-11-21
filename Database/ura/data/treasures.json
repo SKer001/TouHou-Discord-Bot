@@ -16,5 +16,13 @@
         "UR": [["ura_shinki_feather", "神綺的六翼之羽", "🪽"], ["ura_makai_jewel", "魔界神的寶珠", "💎"]],
         "LR": [["ura_genesis_seed", "魔界的創世之種", "🌌"]]
     },
+    "netherworld": {
+        "N": [["ura_nether_petal", "冥界的櫻花瓣", "🌸"], ["ura_ghost_shard", "幽靈的碎片", "👻"], ["ura_grave_shard", "無名墓碑的碎片", "🪦"], ["ura_dead_lantern", "熄滅的燈籠", "🏮"]],
+        "R": [["ura_hakugyokurou_teapot", "白玉樓的茶壺", "🫖"], ["ura_death_register", "亡者的名簿", "📒"], ["ura_nether_chime", "冥界的風鈴", "🎐"]],
+        "SR": [["ura_yuyuko_fan", "幽幽子的扇子", "🪭"], ["ura_gardener_broom", "庭師的竹掃把", "🧹"], ["ura_poltergeist_violin", "騷靈的小提琴", "🎻"]],
+        "SSR": [["ura_hakurouken", "白樓劍", "🗡️"], ["ura_barrier_bell", "冥界結界的鈴", "🔔"]],
+        "UR": [["ura_roukanken", "樓觀劍", "⚔️"], ["ura_butterfly_dust", "反魂蝶的鱗粉", "🦋"]],
+        "LR": [["ura_saigyou_branch", "西行妖的櫻枝", "🌳"]]
+    },
     "sell_price": {"N": 150, "R": 400, "SR": 1000, "SSR": 2500, "UR": 6000, "LR": 20000}
 }

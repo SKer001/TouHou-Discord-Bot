@@ -585,9 +585,13 @@ def _foe_act(run: dict, foe: dict, rng):
         for t in tgts:
             deal(run, foe, t, skill.get("mult", 1.0), rng)
         _log(run, f"{name} 打" + ("嘲諷中的 " + tgts[0]["name"] if len(tgts) == 1 and taunt else "全隊"))
-    elif do == "sanity":
-        run["sanity"] -= int(skill["value"])
-        _log(run, f"{name}：常識度 −{int(skill['value'])}")
+    elif do == "sanity":   # 🧭 嚮導的「少扣 30%」也算在敵人扣常識度的招式上 (裏・幽幽子的破解，2026-11-21 使用者定)
+        n = int(skill["value"])
+        guide = has_guide(run)
+        if guide:
+            n = rules.round_half(n * (1 - rules.GUIDE_DISCOUNT))
+        run["sanity"] -= n
+        _log(run, f"{name}：常識度 −{n}" + (" (🧭 嚮導少扣 30%)" if guide else ""))
     elif do == "heal_self":
         _log(run, f"{name}：回復 {heal(foe, skill['value'])}")
     elif do == "apply_party":

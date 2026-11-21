@@ -8,7 +8,9 @@
          "normals": ["makai_wanderer", "floating_eye", "makai_statue"], "elite": "greater_demon", "boss": "ura_shinki",
          "materials": ["mat_wild_berry", "mat_butter", "mat_milk", "mat_coffee_bean", "mat_ice"]},
         {"id": "mountain", "name": "妖怪之山", "emoji": "⛰️", "copy_of": "bamboo"},
-        {"id": "netherworld", "name": "冥界", "emoji": "🌸", "copy_of": "bamboo"},
+        {"id": "netherworld", "name": "冥界", "emoji": "🌸",
+         "normals": ["netherworld_ghost", "sakura_youkai", "wandering_dead"], "elite": "phantom_warrior", "boss": "ura_yuyuko",
+         "materials": ["mat_sakura", "mat_shiratama", "mat_matcha", "mat_rice", "mat_sugar"]},
         {"id": "higan", "name": "彼岸", "emoji": "🌊", "copy_of": "bamboo"}
     ]
 }
