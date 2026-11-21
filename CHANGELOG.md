@@ -13,6 +13,9 @@
 
 ---
 
+## 0.35.104 — docs：CLAUDE.md 補上裏世界怪物圖鑑
+- CLAUDE.md 第 2 節：`Database/ura/` 模組清單加 `bestiary` (📖 怪物圖鑑)、`Ura_DB_Manager.py` 加 `ura_bestiary_claims`、`load-ura/` 指令加 `bestiary`。統整 session 驗過 0.35.103：全部測試 9173 項過。
+
 ## 0.35.103 — 2026-11-21：📖 裏世界怪物圖鑑 + 💎 寶物說明 + 擊殺漏記修正 (筆電，玩法 session)
 - **📖 怪物圖鑑 `/ura bestiary`** (使用者第一輪全部照建議；`docs/ura.md`「📖 怪物圖鑑」)：
   - 純邏輯 `Database/ura/bestiary.py`：分區 (5 個主題 + 每個有裏世界內容的活動)、完成度、全收獎勵、第 1 區時的數值、招式白話說明 (`skill_text`)。
