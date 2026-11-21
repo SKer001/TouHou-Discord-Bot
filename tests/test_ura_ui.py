@@ -15,6 +15,15 @@ cogmod = importlib.import_module("Cogs.load-ura.ura")
 ura.secrets.token_hex = lambda n=8: "uitest"   # 出發的 seed 固定 (測試結果每次一樣)
 UC = importlib.import_module("Cogs.load-ura.Components.ura_components")
 
+# _select 會默默只留前 25 個選項 (Discord 上限)：測試裡改成記下來，最後檢查沒有選單被截掉 (= 有東西選不到)
+_over = []
+_orig_select = cogmod._select
+def _loud_select(placeholder, options, *a, **kw):
+    if len(options) > 25:
+        _over.append((placeholder, len(options)))
+    return _orig_select(placeholder, options, *a, **kw)
+cogmod._select = _loud_select
+
 ok = fail = 0
 def check(name, cond):
     global ok, fail
@@ -545,8 +554,9 @@ async def main():
     for seed, team in enumerate(teams):
         team = [t for t in team if t in data.characters()] or keys[:3]
         pressed |= await fuzz(cog, FUZZ, [f"f_{t}" for t in team], carry, seed, 300)
-    want = {"⚔️ 普攻", "✨ 符卡", "🎒 道具", "🎒 背包", "🧪 使用道具…", "🗑️ 丟掉…", "↩️ 返回", "🚪 繼續前進"}
+    want = {"⚔️ 普攻", "✨ 符卡", "🎒 道具", "🎒 背包", "🧪 使用道具…", "↩️ 返回", "🚪 繼續前進"}
     check(f"fuzz covered {sorted(want - pressed)}", want <= pressed)
+    check("fuzz discarded", any(p.startswith("🗑️ 丟掉") for p in pressed))
     print("   fuzz pressed:", len(pressed), "種；沒按到：", sorted({"📜 御札", "🏃 逃跑", "🛒 買一個…", "✅ 好", "🔥 接受試煉",
           "⛩️ 獻上哪一個寶物？", "🦊 把法具裝給誰…", "📦 撿起放不下的東西…", "🏁 撤離 (帶東西回去)", "➡️ 繼續前進"} - pressed))
     check("fuzz runs cleaned", await ura.get_run(FUZZ) is None)
@@ -654,6 +664,166 @@ async def main():
         for i in range(5):
             await press(bv, UID, placeholder="📖", values=[str(i)]); limits(bv, f"bestiary {key} #{i}")
     check("fest locked page", "活動期間才會出現" in texts(bv) and "❓ ？？？" in texts(bv))
+
+    await long_lists(cog, staged, event_room, FUZZ)
+    check(f"no select cut at 25 {_over[:3]}", not _over)
+
+
+async def page_values(view, uid, placeholder):
+    """一個會翻頁的選單：每一頁都看一次 (檢查上限)，回傳全部選項 {value: label}；看完停在最後一頁"""
+    got = {}
+    for _ in range(20):
+        sel = find(view, placeholder=placeholder)
+        assert sel is not None, f"找不到 {placeholder}"
+        got.update({o.value: o.label for o in sel.options})
+        limits(view, f"pages {placeholder}")
+        nxt = find(view, label="下一頁")
+        if not nxt or nxt.disabled:
+            break
+        await press(view, uid, label="下一頁")
+    return got
+
+
+async def long_lists(cog, staged, event_room, uid):
+    """
+    0.35.108 修：背包東西多 (超過 25 項) 時丟掉選單只列前 25 項，排在最後的法具丟不掉
+    ➔ 背包「整理」先選一類、每類超過 25 項翻頁；待撿、獻寶物、狐狸、整裝道具也一樣
+    """
+    from Database.shrine_data import MATERIAL_ITEMS
+    check("usable items fit one select", sum(1 for i in data.items().values() if i.get("use") != "passive") <= 25)
+    async with udm.connect() as db:   # 前面的局放棄 / 失敗扣過完整度、口袋錢：補回來 (下面要再出發 3 次)
+        await db.execute("UPDATE gacha_cards SET completeness = 1.0 WHERE user_id = ?", (uid,))
+        await db.execute("UPDATE users SET money = money + 1000000 WHERE user_id = ?", (uid,))
+        await db.commit()
+    treasures = []   # 30 種不同的寶物 (5 個主題的名單輪流拿)
+    for z, theme in enumerate(data.zones(), 1):
+        for rows in data.theme_treasures(theme).values():
+            treasures += [{"id": row[0], "rarity": "N", "zone": z} for row in rows]
+    treasures = treasures[:30]
+    check(f"test treasures {len(treasures)}", len(treasures) == 30)
+
+    def big_bag(s, g):
+        s["floor"], s["phase"], s["room"], s["capacity"] = 3, "doors", None, 300
+        s["bag"]["items"] = {iid: 2 for iid in data.items()}                   # 27 種
+        s["bag"]["materials"] = {m[0]: 3 for m in MATERIAL_ITEMS[:26]}         # 26 種
+        s["bag"]["treasures"] = [dict(t) for t in treasures] + [dict(treasures[0])]   # 30 種 (第一種 2 個)
+        s["bag"]["relics"] = [R.roll_relic(1, g) for _ in range(30)]           # 30 個
+        s["pending"] = [{"kind": "treasures", "key": dict(treasures[i % 30])} for i in range(30)]
+    v = await staged(big_bag)
+    bag0 = v.state["bag"]
+    limits(v, "big bag doors")
+    check("main pending -> button", find(v, label="📦 撿起放不下的東西 (30 樣") is not None and find(v, placeholder="📦") is None)
+    await press(v, uid, label="🎒 背包")
+    limits(v, "big bag")
+    tabsel = find(v, placeholder="🎒 整理背包")
+    check("bag tabs", tabsel and [o.value for o in tabsel.options] == list(cogmod.BAG_TABS))
+
+    # ① 每一類翻完所有頁：每一樣都找得到
+    want = {
+        "items": {f"items|{i}" for i in bag0["items"]},
+        "materials": {f"materials|{m}" for m in bag0["materials"]},
+        "treasures": {f"treasures|{i}" for i in range(30)},   # 同一種只列第一個 (第 31 個跟第 1 個同種)
+        "relics": {f"relics|{i}" for i in range(30)},
+        "equip": {str(i) for i in range(30)},
+        "pending": {str(i) for i in range(30)},
+    }
+    for tab, ph in (("items", "🗑️ 丟掉"), ("materials", "🗑️ 丟掉"), ("treasures", "🗑️ 丟掉"), ("relics", "🗑️ 丟掉"),
+                    ("equip", "🦊"), ("pending", "📦")):
+        await press(v, uid, placeholder="🎒 整理背包", values=[tab])
+        got = await page_values(v, uid, ph)
+        check(f"bag tab {tab} lists all ({len(want[tab] - set(got))} missing)", want[tab] == set(got))
+        check(f"bag tab {tab} paged", len(got) > 25)
+
+    # ② 每一樣都丟得掉：每次選最後一類 (法具 ➔ 寶物 ➔ 素材 ➔ 道具)、翻到最後一頁丟最後一個，直到背包空了
+    def things(bag):   # 背包裡總共幾樣 (疊在同一格的道具丟 1 個格數不會變，所以數個數)
+        return sum(bag["items"].values()) + sum(bag["materials"].values()) + len(bag["treasures"]) + len(bag["relics"])
+    relic_dropped = 0
+    for step in range(400):
+        if things(v.state["bag"]) == 0:
+            break
+        tabsel = find(v, placeholder="🎒 整理背包")
+        drop = [o.value for o in tabsel.options if o.value in ("items", "materials", "treasures", "relics")] if tabsel else []
+        if drop:
+            await press(v, uid, placeholder="🎒 整理背包", values=[drop[-1]])
+        await page_values(v, uid, "🗑️ 丟掉")
+        sel = find(v, placeholder="🗑️ 丟掉")
+        before, n_rel = things(v.state["bag"]), len(v.state["bag"]["relics"])
+        await press(v, uid, placeholder="🗑️ 丟掉", values=[sel.options[-1].value])
+        relic_dropped += n_rel - len(v.state["bag"]["relics"])
+        if things(v.state["bag"]) >= before:
+            check(f"discard step {step} shrinks", False)
+            break
+    check(f"bag emptied ({R.slots_used(v.state['bag'])} left)", R.slots_used(v.state["bag"]) == 0 and relic_dropped == 30)
+    check("still bag mode", v.mode == "bag")
+
+    # ③ 待撿 30 樣：在背包裡翻到第 2 頁撿；主畫面 25 樣以內才直接列選單
+    await page_values(v, uid, "📦")
+    sel = find(v, placeholder="📦")
+    await press(v, uid, placeholder="📦", values=[sel.options[-1].value])
+    check("took from page 2", len(v.state["pending"]) == 29 and len(v.state["bag"]["treasures"]) == 1)
+    await press(v, uid, label="↩️ 返回")
+    await press(v, uid, label="📦 撿起放不下的東西 (29 樣")
+    check("button opens pending tab", v.mode == "bag" and find(v, placeholder="📦") is not None)
+    for _ in range(4):
+        await press(v, uid, placeholder="📦", values=[find(v, placeholder="📦").options[0].value])
+    await press(v, uid, label="↩️ 返回")
+    check("main pending select at 25", len(v.state["pending"]) == 25 and find(v, placeholder="📦 撿起放不下的東西…") is not None)
+    await ura.act(uid, v.rev, lambda s, g: R.abandon(s))
+
+    # ④ 祠堂：30 種寶物，獻第 2 頁的
+    def shrine(s, g):
+        event_room("shrine_altar")(s, g)
+        s["bag"]["treasures"] = [dict(t) for t in treasures]
+    v = await staged(shrine)
+    got = await page_values(v, uid, "⛩️")
+    check("offer lists 30", len(got) == 30)
+    sel = find(v, placeholder="⛩️")
+    await press(v, uid, placeholder="⛩️", values=[sel.options[-1].value])
+    check("offered page 2", v.state["room"].get("result", {}).get("do") == "upgrade_treasure"
+          and sorted(t["rarity"] for t in v.state["bag"]["treasures"]).count("R") == 1)
+    await ura.act(uid, v.rev, lambda s, g: R.abandon(s))
+
+    # ⑤ 狐狸：道具種類多 (每種最多列 3 份還是超過 25) ➔ 分次選、可以跨頁
+    def fox(s, g):
+        event_room("fox_trade")(s, g)
+        s["bag"]["items"] = {iid: 3 for iid in list(data.items())[:13]}
+    v = await staged(fox)
+    items0 = dict(v.state["bag"]["items"])
+    sel = find(v, placeholder="🦊 選 3 個")
+    check("fox paged", sel is not None and "頁" in sel.placeholder and sel.min_values == 1 and find(v, label="下一頁"))
+    await page_values(v, uid, "🦊")
+    last = find(v, placeholder="🦊").options[-1].value
+    await press(v, uid, placeholder="🦊", values=[last])
+    check("fox picked 1", v.fox == [last.split("#")[0]] and "已選" in find(v, placeholder="🦊").placeholder
+          and v.state["room"].get("pending_choice") == "fox_trade")
+    await press(v, uid, label="🧹 重選")
+    check("fox reset", v.fox == [])
+    await press(v, uid, placeholder="🦊", values=[last])
+    await press(v, uid, label="◀️ 上一頁")
+    first = [o.value for o in find(v, placeholder="🦊").options[:2]]
+    await press(v, uid, placeholder="🦊", values=first)
+    gave = [x.split("#")[0] for x in [last] + first]
+    left = {i: items0[i] - gave.count(i) for i in items0 if items0[i] - gave.count(i) > 0}
+    check(f"fox traded", v.state["room"].get("result", {}).get("do") == "trade_items_for_relic"
+          and v.state["bag"]["items"] == left and v.fox == [])
+    await ura.act(uid, v.rev, lambda s, g: R.abandon(s))
+
+    # ⑥ 整裝：倉庫 27 種道具 (翻頁)、30 個額外背包 (同種同次數合成一個選項)
+    storage = {"items": {iid: 2 for iid in data.items()}, "treasures": {},
+               "bags": [{"id": k + 1, "bag_id": list(data.bags())[k % 6], "uses_left": 1 + k % 3} for k in range(30)]}
+    picker = types.SimpleNamespace(picked=[], card=lambda i: None)
+    load = cogmod.LoadoutView(cog, types.SimpleNamespace(id=uid), picker, storage, {}, 0)
+    limits(load, "loadout many")
+    got = await page_values(load, uid, "🧪")
+    check("loadout items all", set(got) == set(data.items()))
+    pick = find(load, placeholder="🧪").options[-1].value
+    await press(load, uid, placeholder="🧪", values=[pick])
+    await press(load, uid, label="➕ 1")
+    check("loadout page 2 carry", load.carry == {pick: 1})
+    bsel = find(load, placeholder="🎒")
+    check("loadout bags grouped", bsel and len(bsel.options) == 1 + 6 and "×5" in bsel.options[1].label)
+    await press(load, uid, placeholder="🎒", values=[bsel.options[-1].value])
+    check("loadout bag picked", load.bag_row == int(bsel.options[-1].value) and load.capacity()[0] > rules.BAG_SLOTS)
 
 
 asyncio.run(main())
