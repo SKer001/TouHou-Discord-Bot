@@ -259,6 +259,7 @@ TITLE_GROUPS = {
     "trek":    {"name": "🗺️ 足跡", "stats": ()},   # 一般採集地點的稱號 + 幻想鄉踏破 (_add_trek_titles())；活動地點每個活動一組
     "luck":    {"name": "🍀 運氣", "stats": ()},
     "gourmet": {"name": "🍳 美食家", "stats": ()},   # 料理圖鑑、吃體力料理、分類全收 (_add_gourmet_titles())；活動食譜每個活動一組   # 採集事件、運勢、保底、舊作歐氣 (_add_luck_titles())；其他卡池的歐氣每個卡池一組
+    "ura":     {"name": "🌀 裏世界", "stats": ()},   # 📖 怪物圖鑑的全收稱號 (_add_ura_titles())；活動怪的也放這組 (不另開子分組)
     "pool":    {"name": "📚 卡池收集", "stats": ("pool_chars:", "pool_cards:", "all_cards")},
     "event":   {"name": "🎪 活動", "stats": ("evq:",)},   # 活動任務稱號 (下面 _add_event_titles() 從 Events/*.json 自動加)
     # 💕 推角：每個卡池一組 (一組最多 24 個)，在下面 _add_oshi_titles() 自動加
@@ -608,6 +609,54 @@ def _add_gourmet_titles():
 _add_gourmet_titles()
 
 
+# 🌀 裏世界・📖 怪物圖鑑 (0.35.103，使用者 2026-11-21 定)：每區全收 SR、一般主題全收 UR、每個活動的活動怪全收 SSR
+#    全部 keep (第一次達成就永久保留；之後某區加怪，門檻跟著變，已經拿到的不會失去)；門檻從圖鑑的分區自動算；活動的稱號也放「🌀 裏世界」這組
+URA_DEX_TITLE_TEXT = {   # 主題 ➔ (名稱, 說明)；新主題沒寫的用「<主題>的征服者」
+    "bamboo": ("竹林的除妖人", "迷途竹林裡的妖怪你全都交過手了，連不死之人都記得你的臉。"),
+    "makai": ("魔界的觀光客", "魔界的居民你全都見過一輪，連上級惡魔都不敢再拿契約給你簽。"),
+    "mountain": ("闖山的人類", "山上的天狗和河童都被你打過一輪，文文。新聞的頭條又是你。"),
+    "netherworld": ("冥界的送魂人", "冥界的幽靈和亡者你全都超渡過一次，連死蝶都認得你了。"),
+    "higan": ("三途河的渡河人", "彼岸的亡魂、獄卒和死神你全都打過一輪，閻魔的判決書上多了你的名字。"),
+}
+URA_DEX_ALL_ID = "ura_dex_all"
+
+
+def _add_ura_titles():
+    from Database.ura import bestiary
+    base = 0
+    for sec in bestiary.sections():
+        n = len(sec["enemies"])
+        if sec["kind"] == "zone":
+            base += n
+            name, desc = URA_DEX_TITLE_TEXT.get(sec["id"], (f"{sec['name']}的征服者", f"{sec['name']}的怪物你全都打倒過了。"))
+            TITLES[f"ura_dex_{sec['id']}"] = {"name": name, "rarity": "SR", "group": "ura", "stat": f"ura_dex:{sec['id']}",
+                                              "min": n, "keep": True, "zone_name": sec["name"], "desc": desc}
+        else:
+            from Database.events import load_events
+            ev = load_events().get(sec["id"], {})
+            desc = (ev.get("bestiary_title") or {}).get("desc") or f"{sec['name']}期間出現的怪物你全都打倒過了。"
+            TITLES[f"ura_dex_{sec['id']}"] = {"name": f"{sec['name']} • 怪物全收", "rarity": "SSR",
+                                              "group": "ura",   # 不另開子分組 (分組超過 25 個選單就要翻頁)
+                                              "stat": f"ura_dex_ev:{sec['id']}", "min": n, "keep": True,
+                                              "event_name": sec["name"], "desc": desc}
+    TITLES[URA_DEX_ALL_ID] = {"name": "裏世界的博物學者", "rarity": "UR", "group": "ura", "stat": "ura_dex", "min": base,
+                              "keep": True, "desc": "五個區域的怪物全部登錄進圖鑑，稗田家的人都想跟你借筆記。"}
+
+
+_add_ura_titles()
+
+
+def ura_stats(stats: dict) -> dict:
+    """(純計算) 📖 怪物圖鑑用的統計：ura_dex = 一般主題登錄幾隻、ura_dex:<主題>、ura_dex_ev:<活動> (stats 要有 ps:ura_kill:<敵人>)"""
+    from Database.ura import bestiary
+    prog = bestiary.progress(bestiary.kills_from_stats({k: v for k, v in stats.items() if k.startswith("ps:ura_kill:")}))
+    out = {"ura_dex": prog["base"][0]}
+    for key, (done, _) in prog["sections"].items():
+        kind, sid = key.split(":", 1)
+        out[f"ura_dex:{sid}" if kind == "zone" else f"ura_dex_ev:{sid}"] = done
+    return out
+
+
 def gourmet_stats(stats: dict) -> dict:
     """(純計算) 美食家用的統計：dex = 做過幾種料理、dex_cat:<分類>、dex_ev:<活動> (stats 要有 ps:cook:<料理>)"""
     def done(d):
@@ -622,8 +671,8 @@ def gourmet_stats(stats: dict) -> dict:
 
 
 def derived_stats(stats: dict) -> dict:
-    """從 player_stats 算出來的稱號統計 (踏破 + 美食家)；udm.get_title_stats 與通知 loop 都用這個"""
-    return {**trek_stats(stats), **gourmet_stats(stats)}
+    """從 player_stats 算出來的稱號統計 (踏破 + 美食家 + 📖 怪物圖鑑)；udm.get_title_stats 與通知 loop 都用這個"""
+    return {**trek_stats(stats), **gourmet_stats(stats), **ura_stats(stats)}
 
 
 def trek_stats(stats: dict) -> dict:
@@ -728,6 +777,12 @@ def _stat_text(t: dict) -> str:
         return f"{t.get('category_label', stat[8:])}類的料理全部做過 ({t['min']} 道)"
     if stat.startswith("dex_ev:"):
         return f"{t.get('event_name', stat[7:])}的活動料理全部做過 ({t['min']} 道)"
+    if stat == "ura_dex":   # 🌀 裏世界・📖 怪物圖鑑
+        return f"一般主題的 {t['min']} 隻怪物全部登錄進圖鑑 (打倒或勸走過；活動怪不算)"
+    if stat.startswith("ura_dex:"):
+        return f"{t.get('zone_name', stat[8:])}的 {t['min']} 隻怪物全部打倒或勸走過"
+    if stat.startswith("ura_dex_ev:"):
+        return f"{t.get('event_name', stat[11:])}的 {t['min']} 隻活動怪全部打倒或勸走過"
     if stat in LUCK_STAT_TEXT:   # 🍀 運氣稱號
         return LUCK_STAT_TEXT[stat].format(f"{t['min']:,}")
     if stat.startswith("ps:tenpull_2ur:"):

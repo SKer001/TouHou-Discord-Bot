@@ -255,6 +255,15 @@ SCHEMA_STATEMENTS = [
         loadout          TEXT
     )
     """,
+    # 📖 裏世界怪物圖鑑的領獎紀錄 (0.35.103)：reward_id = zone:<主題> / all / fest:<活動>；主鍵防重複領
+    """
+    CREATE TABLE IF NOT EXISTS ura_bestiary_claims (
+        user_id    INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+        reward_id  TEXT NOT NULL,
+        claimed_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, reward_id)
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS shrines (
         user_id     INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
@@ -724,7 +733,7 @@ PLAYER_STATS = {
     # 🍀 運氣稱號 (0.35.005 起)：explore_good / explore_bad (採集好 / 壞事件)、fortune_5 / fortune_0 (簽到大吉 / 凶)、
     #    gacha_pity (觸發保底張數，所有卡池合計)、tenpull_2ur:<卡池> (一次十連出 2 張以上 UR 的次數)
     # 🍳 美食家稱號 (0.35.007 起)：cook:<料理> (每道料理的鍋數)、eat_stamina (吃了幾個體力道具，含飯糰)
-    # 🌀 裏世界 (0.35.083 起)：ura_runs (出發次數)、ura_evacuated (成功撤離次數)、ura_kill:<敵人> (打倒隻數)
+    # 🌀 裏世界 (0.35.083 起)：ura_runs (出發次數)、ura_evacuated (成功撤離次數)、ura_kill:<敵人> (打倒 / 勸走隻數；0.35.103 起打倒當下就記，📖 怪物圖鑑用)
 }
 
 

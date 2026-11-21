@@ -138,19 +138,19 @@ def fest_treasures(fid: str) -> dict:
 
 
 def treasure_info(tid: str) -> dict | None:
-    """寶物 id ➔ {id, name, emoji, rarity, zone_key}；活動寶物的 zone_key = "fest:<活動 id>" """
+    """寶物 id ➔ {id, name, emoji, rarity, zone_key, desc}；活動寶物的 zone_key = "fest:<活動 id>"；desc = 第 4 欄的說明 (沒寫 = 空字串)"""
     for zkey, by_r in _load("treasures").items():
         if zkey == "sell_price":
             continue
         for r, lst in by_r.items():
             for x in lst:
                 if x[0] == tid:
-                    return {"id": x[0], "name": x[1], "emoji": x[2], "rarity": r, "zone_key": zkey}
+                    return {"id": x[0], "name": x[1], "emoji": x[2], "rarity": r, "zone_key": zkey, "desc": x[3] if len(x) > 3 else ""}
     for fid in fests():
         for r, lst in fest_treasures(fid).items():
             for x in lst:
                 if x[0] == tid:
-                    return {"id": x[0], "name": x[1], "emoji": x[2], "rarity": r, "zone_key": f"fest:{fid}"}
+                    return {"id": x[0], "name": x[1], "emoji": x[2], "rarity": r, "zone_key": f"fest:{fid}", "desc": x[3] if len(x) > 3 else ""}
     return None
 
 

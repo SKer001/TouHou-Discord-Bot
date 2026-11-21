@@ -270,6 +270,7 @@ async def main():
     r = await ura.act(U2, 3, end_with("evacuated", bag={"treasures": [lr, {"id": "ura_pebble", "rarity": "N", "zone": 1}]}))
     d = delta(await qs())
     check(f"evacuate counted {d}", d.get("ura_evacuate") == 1 and d.get("ura_fest_treasure") == 1)
+    check(f"dex_new on settle {r['settle'].get('dex_new')}", r["settle"].get("dex_new") == ["scarlet_fairy", "scarlet_flandre"])
     check("fest treasure stored", (await ura.get_storage(U2))["treasures"].get("fest_gungnir_shard") == 1)
     r = await ura.start_run(U2, ["z1"], {}, 0, None, seed="q2")
     r = await ura.act(U2, 0, lambda s, g: s.update(battle={"killed": [fairy]}, result="failed", phase="ended",
@@ -277,6 +278,25 @@ async def main():
     d = delta(await qs())
     check(f"fail counts kills only {d}", d.get("ura_kill:scarlet_fairy") == 2 and d.get("ura_evacuate") == 1
           and d.get("ura_fest_treasure") == 1)
+    # 📖 永久擊殺紀錄也是打倒當下就記：全滅那一場打倒的也算 (0.35.103 修：以前在結算才記，那一場會漏掉)
+    ps = await udm.get_player_stats(U2)
+    check(f"player kill stats incl. wiped battle {ps}", ps.get("ura_kill:scarlet_fairy") == 2 and ps.get("ura_kill:scarlet_flandre") == 1)
+    check("already registered -> no dex_new", r["settle"].get("dex_new") == [])
+    # 📖 圖鑑：讀取 / 全收才能領 / 只能領一次
+    b = await ura.get_bestiary(U2)
+    check(f"bestiary kills {b}", b["kills"].get("scarlet_fairy") == 2 and b["claimed"] == set())
+    r = await ura.claim_bestiary(U2, "fest:th06_scarlet_mist"); check("not ready", not r["ok"] and r["reason"] == "not_ready")
+    r = await ura.claim_bestiary(U2, "nope"); check("unknown reward", not r["ok"] and r["reason"] == "not_found")
+    async with udm.connect() as db:
+        for e in ("vampire_bat", "rogue_grimoire", "fairy_maid_chief"):
+            await udm.add_player_stat(db, U2, f"ura_kill:{e}", 1)
+        await db.commit()
+    m0 = (await udm.get_or_create_user(U2))["money"]
+    r = await ura.claim_bestiary(U2, "fest:th06_scarlet_mist")
+    check(f"claim fest {r}", r["ok"] and r["money"] == 100000 and r["exp"] == 300)
+    check("claim money", (await udm.get_or_create_user(U2))["money"] == m0 + 100000)
+    r = await ura.claim_bestiary(U2, "fest:th06_scarlet_mist"); check("no double claim", not r["ok"] and r["reason"] == "claimed")
+    check("claimed listed", (await ura.get_bestiary(U2))["claimed"] == {"fest:th06_scarlet_mist"})
 
     # 🎪 每一步看「當下」有沒有活動 (紅霧異變 auto_start ➔ 沒有紀錄時就在進行)；活動結束後下一步就變成 []
     from Database import Economy_DB_Manager as econ

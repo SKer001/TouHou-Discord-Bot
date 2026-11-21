@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from Database.User_DB_Manager import connect, _ensure_user, _load_inventory, calc_exp_change, add_player_stat, add_quest_stats
 from Database.Economy_DB_Manager import _active_events   # 🎪 進行中的活動 (過期的會在這裡結束)
-from Database.ura import data, rules, run as R
+from Database.ura import bestiary, data, rules, run as R
 from Utils import card_cache
 from Utils.character_data import apply_current_names   # 錯誤訊息的卡名用目前的角色檔
 
@@ -34,9 +34,26 @@ def _kill_tally(state: dict) -> dict:
     return tally
 
 
+def _kill_diff(before: dict, after: dict) -> dict:
+    """這一步新打倒 / 勸走的 {敵人: 隻數}"""
+    return {e: n - before.get(e, 0) for e, n in after.items() if n > before.get(e, 0)}
+
+
+async def _record_kills(db, user_id: int, diff: dict) -> list[str]:
+    """(交易裡) 📖 永久擊殺紀錄 ura_kill:<敵人>：打倒當下就記 (全滅 / 常識度歸零 / 放棄的那一場也算)；回傳第一次打倒的敵人 (圖鑑新登錄)"""
+    new = []
+    for e, n in diff.items():
+        async with db.execute("SELECT value FROM player_stats WHERE user_id = ? AND stat = ?", (user_id, f"ura_kill:{e}")) as cur:
+            row = await cur.fetchone()
+        if not row or row["value"] <= 0:
+            new.append(e)
+        await add_player_stat(db, user_id, f"ura_kill:{e}", n)
+    return new
+
+
 async def _quest_kills(db, user_id: int, before: dict, after: dict, now: datetime | None):
     """(交易裡) 🎪 活動任務：這一步新打倒的 ➔ ura_kill:<敵人>；活動 BOSS 再記給那個活動 ura_fest_boss"""
-    diff = {e: n - before.get(e, 0) for e, n in after.items() if n > before.get(e, 0)}
+    diff = _kill_diff(before, after)
     if not diff:
         return
     per_event: dict = {}
@@ -295,7 +312,11 @@ async def act(user_id: int, rev: int, fn, now: datetime | None = None) -> dict:
             if why:
                 await db.rollback()
                 return {"ok": False, "reason": why, "rev": rev}
-            await _quest_kills(db, user_id, tally0, _kill_tally(state), now)   # 🎪 活動任務：打倒當下就算
+            tally1 = _kill_tally(state)
+            await _quest_kills(db, user_id, tally0, tally1, now)   # 🎪 活動任務：打倒當下就算
+            new = await _record_kills(db, user_id, _kill_diff(tally0, tally1))   # 📖 永久紀錄也是打倒當下就算
+            if new:
+                state["dex_new"] = list(state.get("dex_new") or []) + [e for e in new if e not in (state.get("dex_new") or [])]
             if state["phase"] == "ended":
                 summary = await _settle(db, user_id, state, now)
                 await db.commit()
@@ -360,15 +381,63 @@ async def _settle(db, user_id: int, state: dict, now: datetime | None) -> dict:
             if t.get("fest"):
                 fest_t.setdefault(t["fest"], {"ura_fest_treasure": 0})["ura_fest_treasure"] += 1
         await add_quest_stats(db, user_id, now, {"ura_evacuate": 1}, fest_t)
-    for eid, n in s["kills"].items():
-        await add_player_stat(db, user_id, f"ura_kill:{eid}", n)
+    # 擊殺紀錄 ura_kill:<敵人> 在 act() 每一步就記了 (0.35.103 起；以前在這裡記，全滅 / 放棄那一場打倒的會漏掉)
     await db.execute("DELETE FROM ura_runs WHERE user_id = ?", (user_id,))
-    return {**s, "net": net if s["result"] == "evacuated" else 0, "exp_result": exp}
+    return {**s, "net": net if s["result"] == "evacuated" else 0, "exp_result": exp, "dex_new": list(state.get("dex_new") or [])}
 
 
 async def _storage_add(db, user_id: int, kind: str, key: str, n: int):
     await db.execute("INSERT INTO ura_storage (user_id, kind, key, qty) VALUES (?, ?, ?, ?) "
                      "ON CONFLICT(user_id, kind, key) DO UPDATE SET qty = qty + excluded.qty", (user_id, kind, key, n))
+
+
+# =========================================================
+# 📖 怪物圖鑑 (打倒過才解鎖；全收獎勵按「🎁 領取」才發，ura_bestiary_claims 防重複領)
+# =========================================================
+async def _kills(db, user_id: int) -> dict:
+    async with db.execute("SELECT stat, value FROM player_stats WHERE user_id = ? AND stat LIKE 'ura_kill:%'", (user_id,)) as cur:
+        return bestiary.kills_from_stats({r["stat"]: r["value"] for r in await cur.fetchall()})
+
+
+async def get_bestiary(user_id: int) -> dict:
+    """{"kills": {敵人: 打倒 / 勸走隻數}, "claimed": {獎勵 id, ...}}"""
+    async with connect() as db:
+        kills = await _kills(db, user_id)
+        async with db.execute("SELECT reward_id FROM ura_bestiary_claims WHERE user_id = ?", (user_id,)) as cur:
+            claimed = {r["reward_id"] for r in await cur.fetchall()}
+    return {"kills": kills, "claimed": claimed}
+
+
+async def claim_bestiary(user_id: int, reward_id: str, now: datetime | None = None) -> dict:
+    """
+    領圖鑑的全收獎勵 (單一交易：確認全收 ➔ 寫領取紀錄 (主鍵擋重複) ➔ 加賽錢 + 經驗)
+    reason：not_found 沒有這個獎勵 / not_ready 還沒全收 / claimed 已經領過
+    """
+    info = bestiary.reward_info(reward_id)
+    if not info:
+        return {"ok": False, "reason": "not_found"}
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            if not bestiary.reward_ready(await _kills(db, user_id), reward_id):
+                await db.rollback()
+                return {"ok": False, "reason": "not_ready"}
+            cur = await db.execute("INSERT OR IGNORE INTO ura_bestiary_claims (user_id, reward_id, claimed_at) VALUES (?, ?, ?)",
+                                   (user_id, reward_id, _now(now)))
+            if cur.rowcount != 1:
+                await db.rollback()
+                return {"ok": False, "reason": "claimed"}
+            async with db.execute("SELECT level, exp FROM users WHERE user_id = ?", (user_id,)) as c2:
+                u = await c2.fetchone()
+            exp = calc_exp_change(u["level"], u["exp"], info["exp"])
+            await db.execute("UPDATE users SET money = money + ?, level = ?, exp = ? WHERE user_id = ?",
+                             (info["money"], exp["new_level"], exp["current_exp"], user_id))
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {"ok": True, "money": info["money"], "exp": info["exp"], "label": info["label"], "exp_result": exp}
 
 
 # =========================================================

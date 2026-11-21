@@ -34,6 +34,7 @@
 | 🎴 祈願階級機率 | `RARITY_WEIGHTS` [75, 22, 3] | `gacha.rarity_weights [低, 中, 高]` | 取代 (後面的活動蓋前面)；保底不受影響 |
 | 🎪 活動限定卡池 | 舊作 / 紅魔鄉兩個卡池 | `gacha.pool {name, desc, characters: [角色 id]}` | `/card gacha` 選「🎪 活動限定卡池」就抽這裡 (角色可以跨卡池)；保底獨立記在 `event_<活動 id>`；同時有多個活動時後面的蓋前面；`name` 沒寫 = 「<emoji> <活動名>卡池」 |
 | 🍳 活動食譜稱號 | 沒有 | `recipe_title {desc}` (照那個活動的料理特色寫) | 有 `recipes` / `stamina_recipes` 的活動自動有「<活動名> • 食譜全收」SSR (活動料理全部做過，永久保留)，一組「🍳 美食家・<活動名>」；沒寫 desc = 「<活動名>的活動料理你全部做過了。」 |
+| 📖 活動怪物圖鑑稱號 | 沒有 | `bestiary_title {desc}` | 有 `ura` 區塊 (活動怪) 的活動自動在 📖 怪物圖鑑多一區 (🎪)，並有「<活動名> • 怪物全收」SSR (那個活動的活動怪全部打倒或勸走過，永久保留；放在「🌀 裏世界」組)，全收獎勵 100,000 賽錢 + 300 經驗；沒寫 desc = 「<活動名>期間出現的怪物你全都打倒過了。」 |
 | 🍀 卡池歐氣稱號 | 舊作 (普池) / 紅魔鄉各 3 個 (`title_data.LUCK_POOL_TEXT`) | `gacha.pool.luck_titles {ssr / ur / lr: {name, desc}}` | 有活動限定卡池的活動自動一組「🍀 運氣・<活動名>」：一次十連出 2 張以上 UR 1 / 5 / 10 次 = SSR / UR / LR；沒寫 = 「〇〇的幸運兒 / 寵兒 / 歐皇」 |
 | 📅 簽到額外道具 | 🍙 飯糰 ×1 | `daily_items [[道具, 數量]]` | 加送 |
 | 📜 活動任務 | 沒有 | `quests [{id, name, desc, type, target, count, reward: {money, exp}}]` | `/event quest` 看進度、按「🎁 領取」拿賽錢 + 經驗值 (見下面「活動任務」) |
@@ -58,7 +59,7 @@
   | `normals [敵人]`、`elite`、`boss` | 🎪 戰鬥的敵人從 `normals` 抽 (隻數照原本的門)；🎪 精英 = `elite` + `normals` 小弟；🎪 精英門 25% 換成 `boss` (一局最多一次，數值 HP ×6、ATK ×1.5、DEF ×1.4，當成 BOSS 戰：不能逃、有第二階段、不狂暴)；🎪 寶箱怪也用 `elite` |
   | `enemies {id: {...}}` | 格式同 `Database/ura/data/enemies.json`；招式施加的狀態要數值時寫 `status_value` (例 `debuff_atk` 0.15 = ATK −15%) |
   | `statuses {id: {...}}` | 格式同 `statuses.json`；新的修正：`dodge_pct` 閃避 (只閃單體)、`lifesteal_pct` 打出的傷害回成 HP |
-  | `treasures {SSR / UR / LR: [[id, 名稱, emoji], ...]}` | 活動寶物 (只有 SSR / UR / LR，同階級平均抽，賣價照 `treasures.json` 的階級價目)。**🎪 活動保留格**：🎪 房間裡本來就會掉寶物時多擲一格 0 / 1 / 2 個 (20 / 70 / 10%)；活動 BOSS 一定掉 1 / 2 個 (80 / 20%)。倉庫的區域篩選「🎪 活動寶物」；活動結束也保留 |
+  | `treasures {SSR / UR / LR: [[id, 名稱, emoji, 說明], ...]}` | 活動寶物 (說明 = 倉庫「🔍 看說明」顯示的那段，0.35.103 起；只有 SSR / UR / LR，同階級平均抽，賣價照 `treasures.json` 的階級價目)。**🎪 活動保留格**：🎪 房間裡本來就會掉寶物時多擲一格 0 / 1 / 2 個 (20 / 70 / 10%)；活動 BOSS 一定掉 1 / 2 個 (80 / 20%)。倉庫的區域篩選「🎪 活動寶物」；活動結束也保留 |
   | `relics {id: {...}}` | 格式同 `relics.json`；🎪 房間掉的法具 50% 換成活動法具 (等級不變)，活動 BOSS 一定給 1 個；一般掉落和流浪商人不會出現。御札的 `active.do` 多一種 `extra_action` (這回合多一次行動) |
   | `events {id: {...}}` | 格式同 `events.json` (`type` good / bad / special)；🎪 事件門照 40 / 30 / 30 抽這裡的事件；`effect.do` 多一種 `buy_fest_treasure` (`cost` × 區域數換 1 個活動寶物，`choice: true`) |
 - id 不要跟一般資料撞名 (紅霧異變全部用 `fest_` 開頭或自己的名字)；測試會檢查招式用到的狀態都存在。

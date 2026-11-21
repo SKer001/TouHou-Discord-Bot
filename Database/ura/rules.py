@@ -60,6 +60,9 @@ FEST_BOSS_MULT = (6, 1.5, 1.4)  # 活動 BOSS HP / ATK / DEF (跟同一區一般
 FEST_TREASURE_SLOT = ((0, 20), (1, 70), (2, 10))   # 🎪 活動保留格：本來就會掉寶物時多擲 (0 / 1 / 2 個)
 FEST_BOSS_TREASURE_SLOT = ((1, 80), (2, 20))       # 活動 BOSS 一定掉
 FEST_RELIC_CHANCE = 0.5         # 🎪 房間掉法具時換成活動法具的機率
+
+# ---- 📖 怪物圖鑑的全收獎勵 (賽錢, 經驗)；使用者 2026-11-21 定 ----
+BESTIARY_REWARDS = {"zone": (200000, 500), "all": (500000, 750), "fest": (100000, 300)}
 CHESTS = {
     "normal": {"money": (1000, 3000), "materials": (3, 5), "items": (1, 2), "relic_chance": 0.15, "treasures": (1, 3), "table": "chest"},
     "locked": {"money": (3000, 5000), "materials": (3, 5), "items": (2, 3), "relic_chance": 0.7, "treasures": (2, 5), "table": "locked"},

@@ -621,8 +621,39 @@ async def main():
     check("filter fest", "岡格尼爾" in t and "七夕的短冊" not in t and "🎪 活動寶物" in t)
     for k in ("items", "bags"):
         await press(inv, UID, placeholder="📦", values=[k]); limits(inv, f"storage {k}")
+    await press(inv, UID, placeholder="📦", values=["treasures"])
+    await press(inv, UID, placeholder="🔍", values=["fest_gungnir_shard"])
+    limits(inv, "storage peek")
+    check("peek shows desc", data.treasure_info("fest_gungnir_shard")["desc"][:10] in texts(inv))
+    await press(inv, UID, placeholder="🗺️", values=["all"])
     it = It(UID); await cogmod.UraCog.status.callback(cog, it)
     check("status cmd", "狀態表" in texts(it.view))
+
+    # 📖 怪物圖鑑：竹林 5 隻全打過 ➔ 一隻一頁、領全收獎勵
+    async with udm.connect() as db:
+        for e in ("lost_spirit", "shadow_rabbit", "bamboo_wraith", "mad_rabbit", "ura_mokou"):
+            await udm.add_player_stat(db, UID, f"ura_kill:{e}", 2)
+        await db.commit()
+    it = It(UID); await cogmod.UraCog.bestiary.callback(cog, it)
+    bv = it.view; limits(bv, "bestiary list")
+    t = texts(bv)
+    base = cogmod.B.progress((await ura.get_bestiary(UID))["kills"])["base"]   # 前面走過的局也有打倒別的怪 (打倒當下就登錄)
+    check(f"bestiary list {base}", "迷途竹林　5 / 5" in t and "裏・藤原妹紅" in t and f"一般主題 {base[0]} / 25" in t
+          and "🎁 可以領" in t and base[0] >= 5)
+    await press(bv, UID, placeholder="📖", values=["4"]); limits(bv, "bestiary boss page")
+    t = texts(bv)
+    check("boss page", "火之鳥" in t and "第 2 區起只普攻" in t and "💡" in t and "第 5 / 5 隻" in t)
+    await press(bv, UID, label="◀️"); check("prev", "第 4 / 5 隻" in texts(bv) and "狂氣的月兔" in texts(bv))
+    await press(bv, UID, label="↩️ 回清單"); check("back to list", "✅" in texts(bv))
+    m0 = (await udm.get_or_create_user(UID))["money"]
+    await press(bv, UID, label="🎁 領取：🎋 迷途竹林全收")
+    check("claimed zone", "領到" in texts(bv) and (await udm.get_or_create_user(UID))["money"] == m0 + 200000 and "✅ 已領" in texts(bv))
+    check("claim button gone", not any(isinstance(b, ui.Button) and "迷途竹林全收" in (b.label or "") for b in bv.walk_children()))
+    for key in [s_["key"] for s_ in cogmod.B.sections()]:
+        await press(bv, UID, placeholder="🗺️", values=[key]); limits(bv, f"bestiary {key}")
+        for i in range(5):
+            await press(bv, UID, placeholder="📖", values=[str(i)]); limits(bv, f"bestiary {key} #{i}")
+    check("fest locked page", "活動期間才會出現" in texts(bv) and "❓ ？？？" in texts(bv))
 
 
 asyncio.run(main())

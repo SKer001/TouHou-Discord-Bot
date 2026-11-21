@@ -61,7 +61,40 @@ check("real zones: enemies / materials exist", all(e in data.enemies() for z in 
 tids = [x[0] for z in real for lst in data.theme_treasures(z).values() for x in lst] + \
        [x[0] for f in data.fests() for lst in data.fest_treasures(f).values() for x in lst]
 check("treasure ids unique", len(tids) == len(set(tids)))
-check("makai treasure info", data.treasure_info("ura_genesis_seed") == {"id": "ura_genesis_seed", "name": "魔界的創世之種", "emoji": "🌌", "rarity": "LR", "zone_key": "makai"})
+ti = data.treasure_info("ura_genesis_seed")
+check("makai treasure info", {k: v for k, v in ti.items() if k != "desc"} == {"id": "ura_genesis_seed", "name": "魔界的創世之種", "emoji": "🌌", "rarity": "LR", "zone_key": "makai"})
+# 💎 寶物說明 (2026-11-21)：每個寶物 (含活動寶物) 都有 30～60 字的說明
+all_t = [x for z in data.zones() for lst in data.theme_treasures(z).values() for x in lst] +         [x for f in data.fests() for lst in data.fest_treasures(f).values() for x in lst]
+check("every treasure has desc", all(len(x) == 4 and 20 <= len(x[3]) <= 70 for x in all_t))
+check("treasure_info desc", len(data.treasure_info("fest_gungnir_shard")["desc"]) > 20 and len(data.treasure_info("ura_bamboo_shoot")["desc"]) > 20)
+# 📖 怪物圖鑑 (Database/ura/bestiary.py)
+from Database.ura import bestiary as BX
+secs = BX.sections()
+check("bestiary sections", [x["key"] for x in secs] == ["zone:bamboo", "zone:makai", "zone:mountain", "zone:netherworld", "zone:higan", "fest:th06_scarlet_mist"]
+      and all(len(x["enemies"]) == 5 for x in secs))
+eids = [e for x in secs for e, _ in x["enemies"]]
+check("bestiary no duplicates", len(eids) == len(set(eids)) == 30)
+check("roles", [r for _, r in secs[0]["enemies"]] == ["normal", "normal", "normal", "elite", "boss"] and secs[-1]["enemies"][-1][1] == "fest_boss")
+kz = {e: 1 for e, _ in secs[0]["enemies"]}
+pg = BX.progress(kz)
+check("progress", pg["base"] == (5, 25) and pg["sections"]["zone:bamboo"] == (5, 5) and pg["fest"] == {"th06_scarlet_mist": (0, 5)})
+check("reward ready", BX.reward_ready(kz, "zone:bamboo") and not BX.reward_ready(kz, "zone:makai") and not BX.reward_ready(kz, "all"))
+check("all ready", BX.reward_ready({e: 1 for x in secs[:5] for e, _ in x["enemies"]}, "all"))
+check("reward amounts", BX.reward_info("zone:bamboo")["money"] == 200000 and BX.reward_info("all")["exp"] == 750
+      and BX.reward_info("fest:th06_scarlet_mist")["money"] == 100000 and BX.reward_info("nope") is None)
+check("kills_from_stats", BX.kills_from_stats({"ps:ura_kill:a": 2, "ura_kill:b": 1, "ps:other": 5}) == {"a": 2, "b": 1})
+check("locked entry hides", BX.entry("ura_mokou", "boss", {}) == {"eid": "ura_mokou", "role": "boss", "role_name": "👹 BOSS", "unlocked": False, "kills": 0})
+en = BX.entry("ura_mokou", "boss", {"ura_mokou": 3})
+check("entry stats zone 1 boss", en["stats"] == (300, 8, 8) and en["kills"] == 3 and en["hint"])
+txt = {sk["name"]: (sk["text"], sk["conds"]) for sk in en["skills"]}
+check(f"skill text {txt}", txt["火之鳥"][0] == "打全體 ATK × 0.8；有人嘲諷時只打那一位"
+      and txt["不死鳥之尾"] == ("打一位 ATK × 1.4，附加 🔥 燒傷 2 回合", ["冷卻 4 回合"])
+      and txt["蓬萊之藥"] == ("自己回 5% HP", ["冷卻 4 回合", "HP 低於 90% 才用"])
+      and txt["Possessed by Phoenix"][1] == ["冷卻 4 回合", "第二階段才用"])
+check("skill text hits / sanity / party", BX.skill_text({"do": "attack_one", "mult": 0.6, "hits": 3}) == "打一位 ATK × 0.6，連打 3 下"
+      and BX.skill_text({"do": "sanity", "value": 40}) == "常識度 −40"
+      and BX.skill_text({"do": "apply_party", "status": "debuff_def", "status_value": 0.25, "turns": 2}) == "我方全隊 💔 弱化・DEF 25% 2 回合")
+check("dodge shown", BX.entry("crow_tengu", "normal", {"crow_tengu": 1})["dodge"] == 0.2)
 check("tea house text generic", "竹林" not in data.events()["tea_house"]["text"])
 # 🌸 冥界 (2026-11-21)
 nw = data.zone_by_id("netherworld")

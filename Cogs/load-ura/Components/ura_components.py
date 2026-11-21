@@ -377,6 +377,9 @@ def build_settle_container(run: dict, settle: dict) -> ui.Container:
     kills = sum(settle.get("kills", {}).values())
     if kills:
         lines.append(f"⚔️ 打倒 {kills} 隻")
+    new = [data.enemies()[e] for e in settle.get("dex_new", []) if e in data.enemies()]
+    if new:   # 📖 只寫在自己看得到的結算 (公開的不寫)
+        lines.append("📖 圖鑑新登錄：" + "、".join(f"{e['emoji']} {e['name']}" for e in new) + "\n-# 用 `/ura bestiary` 看圖鑑")
     c.add_item(ui.TextDisplay("\n".join(lines)))
     if ok:
         got = loot_lines({"items": settle["items"], "materials": settle["materials"], "treasures": settle["treasures"]})
@@ -542,7 +545,8 @@ def treasure_rows(storage: dict, rarity: str | None = None, zone: str | None = N
 
 
 def build_storage_container(page: str, storage: dict, rows: list, page_items: list, filters: str, notice: str | None,
-                            confirm_total: int | None = None) -> ui.Container:
+                            confirm_total: int | None = None, peek: str | None = None) -> ui.Container:
+    """peek = 選了「🔍 看說明」的寶物 id (在寶物清單下面顯示它的說明)"""
     c = ui.Container(accent_color=COLOR_WARN if confirm_total is not None else COLOR_RUN)
     if notice:
         c.add_item(ui.TextDisplay(notice))
@@ -557,6 +561,10 @@ def build_storage_container(page: str, storage: dict, rows: list, page_items: li
         lines = [f"{info['emoji']} **{info['name']}**〔{info['rarity']}〕 ×{n}（一個 {prices[info['rarity']]:,}）"
                  for _, info, n in page_items]
         c.add_item(ui.TextDisplay(head + "\n" + ("\n".join(lines) or "-# 沒有寶物")))
+        info = data.treasure_info(peek) if peek else None
+        if info and confirm_total is None:
+            c.add_item(ui.Separator())
+            c.add_item(ui.TextDisplay(f"🔍 {info['emoji']} **{info['name']}**〔{info['rarity']}〕\n{info.get('desc') or '-# 還沒有說明'}"))
         if confirm_total is not None:
             c.add_item(ui.Separator())
             c.add_item(ui.TextDisplay(f"⚠️ 確定要把上面篩選出來的寶物**全部賣掉**嗎？可以拿到 `{confirm_total:,}` 賽錢，賣掉就拿不回來。"))
@@ -590,4 +598,86 @@ def build_loadout_container(party: list[dict], carry: dict, storage: dict, capac
         f"**💰 帶進去的賽錢** `{pocket:,}`\n-# 持有 {money:,}；口袋的錢只有成功撤離才帶得回來"))
     stock = "、".join(f"{item_name(i)} ×{n - carry.get(i, 0)}" for i, n in storage["items"].items() if n - carry.get(i, 0) > 0)
     c.add_item(ui.TextDisplay(f"-# 倉庫剩下：{stock or '沒有道具 (用 /ura shop 買)'}"))
+    return c
+
+
+# =========================================================
+# 📖 怪物圖鑑 (/ura bestiary)
+# =========================================================
+def _reward_state(rid: str, kills: dict, claimed: set) -> str:
+    from Database.ura import bestiary as B
+    if rid in claimed:
+        return "✅ 已領"
+    if B.reward_ready(kills, rid):
+        return "🎁 可以領"
+    if rid == B.ALL_REWARD:
+        done, total = B.progress(kills)["base"]
+    else:
+        sec = B.section(rid)
+        done, total = B.done_count(kills, sec), len(sec["enemies"])
+    return f"還差 {total - done} 隻"
+
+
+def _reward_line(rid: str, kills: dict, claimed: set) -> str:
+    from Database.ura import bestiary as B
+    info = B.reward_info(rid)
+    return f"🎁 {info['label']}：{info['money']:,} 賽錢 + {info['exp']:,} 經驗（{_reward_state(rid, kills, claimed)}）"
+
+
+def build_bestiary_container(key: str, idx: int | None, kills: dict, claimed: set, notice: str | None = None) -> ui.Container:
+    """圖鑑畫面：idx = None 是那一區的清單，數字是那一區第幾隻的圖鑑頁 (一隻一頁)"""
+    from Database.ura import bestiary as B
+    sec = B.section(key) or B.sections()[0]
+    prog = B.progress(kills)
+    c = ui.Container(accent_color=COLOR_RUN)
+    if notice:
+        c.add_item(ui.TextDisplay(notice))
+        c.add_item(ui.Separator())
+    fest_text = "　".join(f"🎪 {B.section('fest:' + f)['name']} {d} / {t}" for f, (d, t) in prog["fest"].items())
+    c.add_item(ui.TextDisplay(f"## 📖 裏世界怪物圖鑑\n-# 📖 一般主題 {prog['base'][0]} / {prog['base'][1]}" +
+                              (f"　{fest_text}" if fest_text else "") + "　(打倒或用糰子勸走過就登錄)"))
+    c.add_item(ui.Separator())
+    done, total = prog["sections"][sec["key"]]
+    if idx is None:
+        lines = []
+        for eid, role in sec["enemies"]:
+            e = B.entry(eid, role, kills)
+            if e["unlocked"]:
+                lines.append(f"✅ {e['emoji']} **{e['name']}**（{e['role_name']}）打倒 {e['kills']:,} 次")
+            else:
+                lines.append(f"❓ ？？？（{e['role_name']}）")
+        c.add_item(ui.TextDisplay(f"### {sec['emoji']} {sec['name']}　{done} / {total}\n" + "\n".join(lines)))
+        c.add_item(ui.Separator())
+        rws = [sec["key"]] + ([B.ALL_REWARD] if sec["kind"] == "zone" else [])
+        foot = "\n".join(_reward_line(r, kills, claimed) for r in rws)
+        if sec["kind"] == "fest":
+            foot += "\n-# 🎪 活動怪只在活動期間出現；活動結束後已登錄的照樣保留"
+        c.add_item(ui.TextDisplay(foot + "\n-# 用下面的選單看每一隻的圖鑑頁"))
+        return c
+    eid, role = sec["enemies"][max(0, min(idx, len(sec["enemies"]) - 1))]
+    e = B.entry(eid, role, kills)
+    where = f"{sec['emoji']} {sec['name']}"
+    if not e["unlocked"]:
+        text = f"## ❓ ？？？\n-# {e['role_name']}・出沒：{where}\n還沒打倒過。"
+        if sec["kind"] == "fest":
+            text += "\n-# 🎪 活動期間才會出現"
+        c.add_item(ui.TextDisplay(text))
+    else:
+        c.add_item(ui.TextDisplay(f"## {e['emoji']} {e['name']}\n-# {e['role_name']}・出沒：{where}\n{e['desc']}"))
+        c.add_item(ui.Separator())
+        hp, atk, df = e["stats"]
+        stat = f"❤️ {hp:,}　⚔️ {atk:,}　🛡️ {df:,}" + (f"　💨 閃避 {round(e['dodge'] * 100):g}%" if e["dodge"] else "")
+        if e["skills"]:
+            sk = "\n".join(f"・**{s['name']}**：{s['text']}" + (f"（{'、'.join(s['conds'])}）" if s["conds"] else "") for s in e["skills"])
+        else:
+            sk = "-# 只會普攻"
+        extra = []
+        if role == "boss":
+            extra.append(f"-# 區域 BOSS {B.BOSS_DEEP_NOTE}")
+        if e["hint"]:
+            extra.append(f"💡 {e['hint']}")
+        c.add_item(ui.TextDisplay(f"{stat}\n-# 第 1 區時的數值 (越深的區越強)\n**招式**\n{sk}" + ("\n" + "\n".join(extra) if extra else "")))
+        c.add_item(ui.Separator())
+        c.add_item(ui.TextDisplay(f"⚔️ 打倒 {e['kills']:,} 次 (含勸走)"))
+    c.add_item(ui.TextDisplay(f"-# {sec['emoji']} {sec['name']}　第 {idx + 1} / {len(sec['enemies'])} 隻"))
     return c
