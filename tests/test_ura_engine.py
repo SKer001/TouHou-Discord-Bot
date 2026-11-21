@@ -69,7 +69,7 @@ check("netherworld own roster", not nw["borrowed"] and nw["boss"] == "ura_yuyuko
       and nw["normals"] == ["netherworld_ghost", "sakura_youkai", "wandering_dead"])
 check("netherworld materials", nw["materials"] == ["mat_sakura", "mat_shiratama", "mat_matcha", "mat_rice", "mat_sugar"])
 check("netherworld 15 treasures", [len(v) for v in data.theme_treasures(nw).values()] == [4, 3, 3, 2, 2, 1])
-check("death butterfly status", data.statuses()["death_butterfly"]["on"]["round_end"][0] == {"do": "dot_max_hp_pct", "value": 0.03}
+check("death butterfly status", data.statuses()["death_butterfly"]["on"]["round_end"][0] == {"do": "dot_max_hp_pct", "value": 0.05}
       and "cleanse" in data.statuses()["death_butterfly"]["flags"])
 check("char file b / cd match spells", all(
     lv["spent"] == data.spells()[cid]["b"] and lv["cooldown"] == data.spells()[cid]["cd"]
@@ -278,13 +278,13 @@ b["party"][0]["alive"] = False
 foe = b["battle"]["foes"][0]; s0 = b["sanity"]
 combat._foe_act(b, foe, Rng([0.0]))
 check("dead guide no discount", s0 - b["sanity"] == 10)
-# 🦋 死蝶：回合結束扣 3% 最大 HP
+# 🦋 死蝶：回合結束扣 5% 最大 HP (原本 3%，使用者 2026-11-21 改)
 b = battle(team=(("marisa", "SR"),))
 m0 = b["party"][0]
 status.apply(m0, "death_butterfly")
 hp0 = m0["hp"]
 combat._trigger(b, m0, "round_end", Rng())
-check(f"death butterfly dot {hp0 - m0['hp']}", hp0 - m0["hp"] == max(1, rules.round_half(combat.max_hp(m0) * 0.03)))
+check(f"death butterfly dot {hp0 - m0['hp']}", hp0 - m0["hp"] == max(1, rules.round_half(combat.max_hp(m0) * 0.05)))
 b = battle(foes=("ura_yuyuko",), kind="boss", floor=10)
 check("yuyuko zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["bomin_village", "death_butterflies", "resurrection_butterfly", "saigyouji_nirvana"])
 b = battle(foes=("ura_shinki",), kind="boss", floor=10)
