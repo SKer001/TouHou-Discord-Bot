@@ -22,6 +22,7 @@
 | 雲端部署 (Google Cloud)、本機 ⇄ 雲端交接、雲端 DB 備份 | `docs/deploy.md` |
 | 外掛 skill（Matt Pocock skill 包）哪些能用、需要什麼工具 | `docs/skills.md`（不要用的清單在第 7 節） |
 | 🌀 裏世界 (`/ura`) 搜打撤玩法的規則與進度 (三階段做完，待實機試玩) | `docs/ura.md` |
+| 🌀 裏世界角色 / 敵人數值一覽 (自動產生，不要手改；資料改了跑 `python tools/ura_roster.py` 重產) | `docs/ura_roster.md` |
 | 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
 
 ## 1. 專案概觀
