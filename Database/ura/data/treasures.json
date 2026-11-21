@@ -8,5 +8,13 @@
         "UR": [["ura_fire_rat_robe", "火鼠的皮衣", "🔥"], ["ura_dragon_jewel", "龍頸之玉", "🐉"]],
         "LR": [["ura_hourai_branch", "蓬萊之玉枝", "🌸"]]
     },
+    "makai": {
+        "N": [["ura_makai_sand", "魔界的黑砂", "🌑"], ["ura_demon_feather", "惡魔的羽毛", "🪶"], ["ura_withered_flower", "枯萎的魔界花", "🥀"], ["ura_imp_horn", "小惡魔的角", "🦴"]],
+        "R": [["ura_makai_ticket", "魔界旅遊的門票", "🎫"], ["ura_makai_candle", "魔界的燭台", "🕯️"], ["ura_makai_potion", "魔界的藥水", "🧪"]],
+        "SR": [["ura_alice_grimoire", "究極的魔導書", "📕"], ["ura_yumeko_sword", "夢子的銀劍", "🗡️"], ["ura_luize_hat", "露易絲的帽子", "👒"]],
+        "SSR": [["ura_crystal_ball", "魔界的水晶球", "🔮"], ["ura_pandaemonium_plate", "萬魔殿的門牌", "🏰"]],
+        "UR": [["ura_shinki_feather", "神綺的六翼之羽", "🪽"], ["ura_makai_jewel", "魔界神的寶珠", "💎"]],
+        "LR": [["ura_genesis_seed", "魔界的創世之種", "🌌"]]
+    },
     "sell_price": {"N": 150, "R": 400, "SR": 1000, "SSR": 2500, "UR": 6000, "LR": 20000}
 }

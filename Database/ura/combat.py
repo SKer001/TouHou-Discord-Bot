@@ -406,6 +406,10 @@ def cast(run: dict, uid: str, target_uid: str | None, rng) -> str | None:
         elif do == "skip_battle" and in_battle:
             run["battle"]["over"] = "skipped"
             _log(run, "🚢 可能性移動船：跳過了這場戰鬥")
+    if u["cls"] == "sup":   # 💚 輔助放任何符卡 ➔ 順便淨化全隊可以清除的壞狀態 (裏・神綺的破解，2026-11-21 使用者定)
+        n = sum(status.cleanse(m) for m in living(run["party"]))
+        if n:
+            _log(run, f"✨ 淨化：清掉了全隊 {n} 個壞狀態")
     if in_battle:
         _used(run, u, rng)
     return None

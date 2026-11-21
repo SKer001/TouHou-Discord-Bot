@@ -3,7 +3,7 @@
     "weights": {"good": 40, "bad": 30, "special": 30},
     "events": {
         "tea_house": {"type": "good", "name": "迷途的茶屋", "emoji": "🍵", "effect": {"do": "heal_all", "pct": 0.2},
-                      "text": "竹林深處冒出一間沒人顧的茶屋，茶還是熱的。全隊回 20% HP。"},
+                      "text": "路邊冒出一間沒人顧的茶屋，茶還是熱的。全隊回 20% HP。"},
         "lost_offering": {"type": "good", "name": "被遺忘的賽錢箱", "emoji": "💰", "effect": {"do": "money", "range": [500, 2000], "per_zone": true},
                           "text": "路邊倒著一個被遺忘的賽錢箱，裡面還有一些錢。"},
         "kind_fairy": {"type": "good", "name": "好心的妖精", "emoji": "🧚", "effect": {"do": "cheap_item", "count": 1},

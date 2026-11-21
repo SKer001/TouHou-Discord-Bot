@@ -48,6 +48,21 @@ check(f"enemy skill statuses exist {bad_refs}", not bad_refs)
 check("zones", [z["name"] for z in data.zones()] == ["迷途竹林", "魔界", "妖怪之山", "冥界", "彼岸"] and data.zone_info(6)["id"] == "bamboo")
 from Database import shrine_data
 check("zone materials exist", all(m in [x[0] for x in shrine_data.MATERIAL_ITEMS] for m in data.zone_info(1)["materials"]))
+# 🌌 魔界 (2026-11-21)：自己的名單，不再借竹林
+mk = data.zone_by_id("makai")
+check("makai own roster", not mk["borrowed"] and mk["treasure_zone"] == "makai" and mk["boss"] == "ura_shinki"
+      and mk["normals"] == ["makai_wanderer", "floating_eye", "makai_statue"] and mk["elite"] == "greater_demon")
+check("makai materials", mk["materials"] == ["mat_wild_berry", "mat_butter", "mat_milk", "mat_coffee_bean", "mat_ice"])
+check("makai 15 treasures", [len(v) for v in data.theme_treasures(mk).values()] == [4, 3, 3, 2, 2, 1])
+mats = [x[0] for x in shrine_data.MATERIAL_ITEMS]
+real = [z for z in data.zones() if not z["borrowed"]]
+check("real zones: enemies / materials exist", all(e in data.enemies() for z in real for e in z["normals"] + [z["elite"], z["boss"]])
+      and all(m in mats for z in real for m in z["materials"]))
+tids = [x[0] for z in real for lst in data.theme_treasures(z).values() for x in lst] + \
+       [x[0] for f in data.fests() for lst in data.fest_treasures(f).values() for x in lst]
+check("treasure ids unique", len(tids) == len(set(tids)))
+check("makai treasure info", data.treasure_info("ura_genesis_seed") == {"id": "ura_genesis_seed", "name": "魔界的創世之種", "emoji": "🌌", "rarity": "LR", "zone_key": "makai"})
+check("tea house text generic", "竹林" not in data.events()["tea_house"]["text"])
 check("char file b / cd match spells", all(
     lv["spent"] == data.spells()[cid]["b"] and lv["cooldown"] == data.spells()[cid]["cd"]
     for cid in chars for lv in json.load(open(next(p for p in __import__("glob").glob(f"Characters/*/{cid}.json")), encoding="utf-8"))["special_powers"]["levels"].values()))
@@ -219,6 +234,22 @@ b = battle(team=(("daiyousei", "SR"), ("marisa", "SR")))
 b["party"][1]["hp"] = 10
 R.battle_action(b, "spell", Rng(), uid="p0", target="p1")
 check("heal ally", b["party"][1]["hp"] > 10)
+# 💚 輔助放符卡 ➔ 順便淨化全隊的壞狀態 (好狀態、不能淨化的留著)
+b = battle(team=(("daiyousei", "SR"), ("marisa", "SR"), ("meiling", "SR")))
+status.apply(b["party"][1], "debuff_def", value=0.25, turns=2)
+status.apply(b["party"][1], "burn")
+status.apply(b["party"][2], "madness")
+status.apply(b["party"][2], "taunt")
+R.battle_action(b, "spell", Rng(), uid="p0", target="p1")
+check("sup spell cleanses party", not status.has(b["party"][1], "debuff_def") and not status.has(b["party"][1], "burn")
+      and not status.has(b["party"][2], "madness") and status.has(b["party"][2], "taunt"))
+check("cleanse logged", any("淨化" in x for x in b["battle"]["log"]))
+b = battle(team=(("marisa", "SR"), ("meiling", "SR")), foes=("lost_spirit", "lost_spirit"))
+status.apply(b["party"][1], "debuff_def", value=0.25, turns=2)
+R.battle_action(b, "spell", Rng(), uid="p0", target="e0")
+check("non-sup spell no cleanse", status.has(b["party"][1], "debuff_def"))
+b = battle(foes=("ura_shinki",), kind="boss", floor=10)
+check("shinki zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["genesis_light", "mother_curse", "makai_mercy", "six_wings"])
 b = battle(team=(("remilia", "SSR"),), foes=("ura_mokou",), kind="boss", floor=10)
 b["party"][0]["hp"] = 20
 R.battle_action(b, "spell", Rng(), uid="p0", target="e0")
