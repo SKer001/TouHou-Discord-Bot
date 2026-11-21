@@ -55,6 +55,8 @@ def deep_boss_skills(eid: str, zone: int) -> list[dict]:
             if k in s:
                 v = s[k] * rules.DEEP_BOSS_SKILL_SCALE
                 s[k] = int(round(v)) if k == "value" and s["do"] == "sanity" else v
+        if s.get("deep_turns"):   # 深區另外指定狀態回合數 (幽幽子的死蝶 1 回合，使用者 2026-11-21)
+            s["turns"] = s["deep_turns"]
         out.append(s)
     return out
 

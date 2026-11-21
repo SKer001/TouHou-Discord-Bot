@@ -460,6 +460,8 @@ check("zone 6 boss: 2 deep skills ×0.8", [x["id"] for x in sk6] == ["possessed_
 check("shared data untouched", next(x for x in data.enemies()["ura_mokou"]["skills"] if x["id"] == "phoenix_tail")["mult"] == 1.4)
 check("deep counts", [rules.deep_boss_skill_count(z) for z in (2, 5, 6, 10, 11, 16, 30)] == [1, 1, 2, 2, 3, 4, 6])
 check("deep skills capped at 4", len(combat.deep_boss_skills("ura_eiki", 30)) == 4)
+check("deep death butterfly 1 round", [x.get("turns") for x in combat.deep_boss_skills("ura_yuyuko", 6)] == [1, 1]
+      and next(x for x in data.enemies()["ura_yuyuko"]["skills"] if x["id"] == "death_butterflies")["turns"] == 2)
 check("sanity skill scaled to int", next(x for x in combat.deep_boss_skills("ura_yuyuko", 11) if x["do"] == "sanity")["value"] == 32)
 check("every boss has full deep_order", all(sorted(data.enemies()[z["boss"]]["deep_order"]) == sorted(x["id"] for x in data.enemies()[z["boss"]]["skills"])
                                            for z in data.zones()))

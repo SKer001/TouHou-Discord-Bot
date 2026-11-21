@@ -158,6 +158,8 @@ def skill_conditions(skill: dict) -> list[str]:
         out.append(f"HP 低於 {round(float(skill['when_hp_below']) * 100):g}% 才用")
     if skill.get("phase2"):
         out.append("第二階段才用")
+    if skill.get("deep_turns"):
+        out.append(f"深區狀態 {skill['deep_turns']} 回合")
     return out
 
 
