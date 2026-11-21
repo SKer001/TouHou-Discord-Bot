@@ -52,7 +52,7 @@ Database/
   Economy_DB_Manager.py      經濟系統（神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳），資料也在 Users.db；所有數值常數都在檔案開頭
   shrine_data.py             神社的遊戲資料：素材、料理配方、採集地點與事件、雜貨店價格、參拜客 (最愛、提示、台詞)
   Ura_DB_Manager.py          🌀 裏世界的資料存取 (進行中的一局 ura_runs、倉庫、額外背包、紀錄、怪物圖鑑領獎 ura_bestiary_claims、出征鎖 gacha_cards.expedition)
-  ura/                       🌀 裏世界探索的遊戲引擎 (純邏輯，不 import discord、亂數由呼叫端注入)：rules / status / combat / run / fest (🎪 活動關卡：活動門、環境、活動 BOSS、活動保留格、活動法具) / bestiary (📖 怪物圖鑑：分區、解鎖、全收獎勵)；資料檔在 ura/data/*.json (敵人、狀態、符卡、道具、法具、寶物、事件、區域)，活動內容寫在 Events/*.json 的 `ura` 區塊；設計用模擬 tools/ura_sim/spells.py 直接呼叫它
+  ura/                       🌀 裏世界探索的遊戲引擎 (純邏輯，不 import discord、亂數由呼叫端注入)：rules / status / combat / run / fest (🎪 活動關卡：活動門、環境、活動 BOSS、活動保留格、活動法具) / bestiary (📖 怪物圖鑑：分區、解鎖、全收獎勵) / describe (職業特性、符卡、法具效果的白話說明；🔍 查看詳情與 tools/ura_roster.py 共用)；資料檔在 ura/data/*.json (敵人、狀態、符卡、道具、法具、寶物、事件、區域)，活動內容寫在 Events/*.json 的 `ura` 區塊；設計用模擬 tools/ura_sim/spells.py 直接呼叫它
   events.py                  讀 Events/*.json，把進行中的活動跟 shrine_data 合併成當下規則 (game_rules)
 Events/                      活動資料檔，一個活動一檔 (th06_scarlet_mist.json = 紅霧異變)；README.md = 格式與所有預留位
   Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 5 節）

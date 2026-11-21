@@ -13,6 +13,9 @@
 
 ---
 
+## 0.35.110 — docs：CLAUDE.md 補上裏世界 describe 模組
+- CLAUDE.md 第 2 節 `Database/ura/` 模組清單加 `describe` (職業特性、符卡、法具效果的白話說明，🔍 查看詳情與 `tools/ura_roster.py` 共用)。統整 session 驗過 0.35.109：全部測試 9714 項過。
+
 ## 0.35.109 — 2026-11-21：🖼️ 裏世界畫面改版 (按鈕進框、背包分類頁籤、🔍 查看詳情、卸下法具) (筆電，玩法 session)
 - 統整 session 跟使用者 grill 第 1 輪 5 題都照建議 (規格寫在 `docs/ura.md`「🖼️ 畫面改版」)：
   1. **按鈕包進框裡**：/ura 每個畫面的按鈕排 / 選單都移進框 (Container) 最下面、Separator 隔開 (`ura.py` 的 `box_rows()`，每個 View 的 `build()` 最後呼叫；出發選隊伍的 `GroupPickerView` 子類別也一樣，`Utils/picker.py` 沒動)。
