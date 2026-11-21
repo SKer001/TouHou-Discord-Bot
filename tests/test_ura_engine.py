@@ -583,6 +583,21 @@ run["bag"]["relics"].append({"rid": "life_blessing", "tier": 2})
 hp0 = run["party"][1]["hp"]
 R.equip_relic(run, 1, "p1")
 check("life blessing hp up", run["party"][1]["hp"] > hp0)
+# 卸下 (0.35.109，使用者 2026-11-21 要加)：戰鬥中不行、沒裝不行、背包滿了不行；卸下後加成拿掉、血量不超過上限
+check("unequip nobody", R.unequip_relic(run, "p9") == "這位隊友沒有裝法具")
+run["phase"] = "battle"
+check("unequip in battle", R.unequip_relic(run, "p1") == "戰鬥中不能卸下法具" and run["party"][1]["relic"])
+run["phase"], cap = "doors", run["capacity"]
+run["capacity"] = R.slots_used(run["bag"])
+check("unequip bag full", R.unequip_relic(run, "p1") == "背包滿了，先丟掉一些東西" and run["party"][1]["relic"])
+run["capacity"] = cap
+check("unequip ok", R.unequip_relic(run, "p1") is None and run["party"][1]["relic"] is None
+      and run["bag"]["relics"][-1]["rid"] == "life_blessing" and run["party"][1]["hp"] <= combat.max_hp(run["party"][1])
+      and not status.has(run["party"][1], "relic_life"))
+ofuda = run["party"][0]["relic"]   # 上面換裝時 p0 拿到封魔札 (不是斥候，沒有次數加成)
+R.unequip_relic(run, "p0")
+check("unequip ofuda keeps uses", ofuda["rid"] == "seal_ofuda" and ofuda["left"] == 2 and run["party"][0]["relic"] is None
+      and R.unequip_relic(run, "p0") == "這位隊友沒有裝法具")
 
 # ---------------- 結算 ----------------
 run = new()

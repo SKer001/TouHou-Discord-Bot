@@ -18,6 +18,7 @@ from Utils.components import send_notice, notice_view
 from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 from Utils.pagination import nav_buttons, paginate
 from Utils.picker import GroupPickerView
+from Utils.thumbnails import load_thumbnails, thumbnail_url
 from .Components import ura_components as UC
 
 VIEW_TIMEOUT = 840   # 14 分鐘：互動 token 只有 15 分鐘，逾時時還來得及把畫面改成「已收起來」
@@ -25,8 +26,6 @@ DENY = "❌ 這不是你的畫面"
 STALE = "⌛ 這個畫面已經過期了，請用 `/ura resume` 接回"
 STORAGE_PER_PAGE = 10
 LIST_PER_PAGE = 25   # 會變長的選單 (背包、待撿、獻寶物、狐狸、整裝道具)：超過就翻頁
-BAG_TABS = {"items": "🗑️ 丟道具", "materials": "🗑️ 丟素材", "treasures": "🗑️ 丟寶物", "relics": "🗑️ 丟法具",
-            "equip": "🦊 裝法具", "pending": "📦 撿東西"}   # 背包「整理」的分類 (順序 = 選單順序)
 
 PRIMARY, SECONDARY = discord.ButtonStyle.primary, discord.ButtonStyle.secondary
 SUCCESS, DANGER = discord.ButtonStyle.success, discord.ButtonStyle.danger
@@ -45,6 +44,23 @@ def _select(placeholder: str, options: list[discord.SelectOption], callback, max
                   min_values=min(min_values, n))
     s.callback = callback
     return ui.ActionRow(s)
+
+
+def box_rows(view: ui.LayoutView):
+    """
+    畫好之後把直接放在畫面上的按鈕排 / 選單移進最後一個框 (Container) 最下面，中間用 Separator 隔開
+    (按鈕包在框裡；使用者 2026-11-21 grill 定，/ura 每個畫面 build() 最後都呼叫)
+    """
+    kids = list(view.children)
+    boxes = [c for c in kids if isinstance(c, ui.Container)]
+    rows = [c for c in kids if isinstance(c, ui.ActionRow)]
+    if not boxes or not rows:
+        return
+    for r in rows:
+        view.remove_item(r)
+    boxes[-1].add_item(ui.Separator())
+    for r in rows:
+        boxes[-1].add_item(r)
 
 
 def _opt(label: str, value: str, description: str | None = None, default: bool = False) -> discord.SelectOption:
@@ -72,7 +88,7 @@ class RunView(ui.LayoutView):
         self.last = None       # 最後一次互動 (逾時 / 被新畫面取代時拿來改畫面)
         self.retired = False
         # 下面三個只存在畫面上 (不寫進進度 state，重開機器人 / resume 後從頭)
-        self.bag_tab = None    # 背包「整理」選到哪一類 (BAG_TABS 的 key)
+        self.bag_tab = None    # 背包看哪一類 (UC.BAG_KINDS 的 key，或 pending = 待撿)
         self.pages = {}        # 各個會翻頁的選單現在在第幾頁 {清單: 頁數}
         self.fox = []          # 狐狸：已經選好、還沒交出去的道具
         self.build()
@@ -142,6 +158,10 @@ class RunView(ui.LayoutView):
     # ---------- 畫面 ----------
     def build(self):
         self.clear_items()
+        self._build()
+        box_rows(self)
+
+    def _build(self):
         st = self.state
         if self.mode == "settle":
             self.add_item(UC.build_settle_container(st, self.settle))
@@ -223,7 +243,17 @@ class RunView(ui.LayoutView):
             _btn("📜 御札", SECONDARY, self.on_ofuda, disabled=not ofuda),
             _btn(flee, SECONDARY, self.on_flee, disabled=b["kind"] == "boss"),
         ))
+        self._peek_row()
         self.add_item(ui.ActionRow(_btn("📖 狀態表", SECONDARY, self.on_status_table), _btn("🏳️ 放棄", DANGER, self.on_abandon)))
+
+    def _peek_row(self):
+        """🔍 查看：我方 (+ 戰鬥中的敵人) ➔ 另外一則私人訊息顯示詳情"""
+        st = self.state
+        units = list(st["party"]) + (list(st["battle"]["foes"]) if st["phase"] == "battle" and st.get("battle") else [])
+        opts = [_opt(f"{u['emoji']} {u['name']}", u["uid"], ("我方" if u["side"] == "ally" else "敵人") + "｜" +
+                     (f"❤️ {u['hp']} / {combat.max_hp(u)}" if u["alive"] else "💀 倒下")) for u in units]
+        if opts:
+            self.add_item(_select("🔍 查看角色 / 敵人的詳情…", opts, self.on_peek_unit))
 
     def _build_doors(self):
         st = self.state
@@ -234,6 +264,7 @@ class RunView(ui.LayoutView):
         if doors:
             self.add_item(ui.ActionRow(*doors))
         self._pending_row()
+        self._peek_row()
         row = [_btn("🎒 背包", SECONDARY, self.on_bag)]
         caster = next((m for m in combat.living(st["party"]) if data.spells()[m["cid"]].get("outside")), None)
         if caster:
@@ -294,58 +325,55 @@ class RunView(ui.LayoutView):
         row += [_btn("🎒 背包", SECONDARY, self.on_bag), _btn("🏳️ 放棄", DANGER, self.on_abandon)]
         self.add_item(ui.ActionRow(*row[:5]))
 
-    def _bag_lists(self) -> dict:
-        """背包「整理」的每一類 ➔ (選單提示, 選項, callback)；空的類別不列 (順序 = BAG_TABS)"""
-        bag = self.state["bag"]
-        first, count = {}, {}
-        for i, t in enumerate(bag["treasures"]):
-            key = (t["id"], t["rarity"])
-            first.setdefault(key, i)   # 同一種寶物只列一次 (丟清單裡第一個)
-            count[key] = count.get(key, 0) + 1
-        relic_desc = lambda r: data.relics().get(r["rid"], {}).get("desc", "")
-        lists = {
-            "items": ("🗑️ 丟掉：道具 (一次丟 1 個)…",
-                      [_opt(f"{UC.item_name(i)} (丟 1 個)", f"items|{i}", f"有 {n} 個") for i, n in bag["items"].items()],
-                      self.on_discard),
-            "materials": ("🗑️ 丟掉：素材 (那一種全部丟掉)…",
-                          [_opt(f"{UC.material_info(m)[1]} {UC.material_info(m)[0]} (全部丟掉)", f"materials|{m}", f"{n} 個")
-                           for m, n in bag["materials"].items()],
-                          self.on_discard),
-            "treasures": ("🗑️ 丟掉：寶物 (一次丟 1 個)…",
-                          [_opt(f"{UC.treasure_name(tid)}〔{r}〕(丟 1 個)", f"treasures|{i}", f"有 {count[(tid, r)]} 個")
-                           for (tid, r), i in sorted(first.items(), key=lambda kv: UC.RARITY_SORT.get(kv[0][1], 0))],
-                          self.on_discard),
-            "relics": ("🗑️ 丟掉：法具 (背包裡還沒裝的)…",
-                       [_opt(f"{UC.relic_name(r)} (丟掉)", f"relics|{i}", relic_desc(r)) for i, r in enumerate(bag["relics"])],
-                       self.on_discard),
-            "equip": ("🦊 把法具裝給誰…",
-                      [_opt(UC.relic_name(r), str(i), relic_desc(r)) for i, r in enumerate(bag["relics"])], self.on_relic),
-            "pending": ("📦 撿起放不下的東西…", self._pending_opts(), self.on_take),
-        }
-        return {k: v for k, v in lists.items() if v[1]}
-
     def _build_bag(self):
         """
-        背包：🧪 使用道具 (不是被動的道具 ≤ 25 種，一個選單放得下) + 戰鬥外的「🎒 整理背包」
-        整理 = 先選一類 (丟道具 / 素材 / 寶物 / 法具、裝法具、撿東西) ➔ 那一類的清單 (超過 25 項翻頁)
+        背包 (使用者 2026-11-21 grill 定)：選單切一類 (道具 / 素材 / 寶物 / 法具 + 有待撿時「📦 待撿」)，一次只看一類、一樣一行
+        使用 / 丟掉 / 裝備 / 卸下 / 撿起的選單只列這一類 (這一頁)；一類超過 25 樣就翻頁
+        戰鬥中只能用道具 (🧪 使用道具 列全部用得到的，不是被動的道具 ≤ 25 種)
         """
         st = self.state
-        self.add_item(UC.build_run_container(st, self.notice, UC.bag_text(st)))
-        usable = R.usable_items(st)
-        if usable:
-            opts = [_opt(UC.item_name(i), i, UC.item_option_desc(i, st["bag"]["items"][i])) for i in usable]
-            self.add_item(_select("🧪 使用道具…", opts, self.on_use))
-        nav = []
-        if st["phase"] != "battle":
-            lists = self._bag_lists()
-            if lists:
-                if self.bag_tab not in lists:
-                    self.bag_tab = next(iter(lists))
-                if len(lists) > 1:
-                    topts = [_opt(BAG_TABS[k], k, f"{len(opts)} 項", default=k == self.bag_tab) for k, (_, opts, _) in lists.items()]
-                    self.add_item(_select("🎒 整理背包：選一類…", topts, self.on_bag_tab))
-                ph, opts, cb = lists[self.bag_tab]
-                nav = self._paged(f"bag:{self.bag_tab}", ph, opts, cb)
+        battle = st["phase"] == "battle"
+        tabs = dict(UC.BAG_KINDS)
+        if not battle and st.get("pending"):
+            tabs["pending"] = "📦 待撿"
+        if self.bag_tab not in tabs:
+            self.bag_tab = "items"
+        tab = self.bag_tab
+        pg = paginate(UC.bag_entries(st, tab), self.pages.get(f"bag:{tab}", 1), LIST_PER_PAGE)
+        self.pages[f"bag:{tab}"] = pg.page
+        self.add_item(UC.build_run_container(st, self.notice, UC.bag_body(st, tab, pg.items, pg.page, pg.total)))
+        self.add_item(_select("🎒 看哪一類…", [_opt(name, k, UC.bag_tab_desc(st, k), default=k == tab) for k, name in tabs.items()],
+                              self.on_bag_tab))
+        sfx = f" (第 {pg.page} / {pg.total} 頁)" if pg.total > 1 else ""
+        page = pg.items
+        if tab == "items":
+            usable = R.usable_items(st)
+            if usable:
+                opts = [_opt(UC.item_name(i), i, UC.item_option_desc(i, st["bag"]["items"][i])) for i in usable]
+                self.add_item(_select("🧪 使用道具…", opts, self.on_use))
+            if not battle and page:
+                self.add_item(_select(f"🗑️ 丟掉道具 (一次丟 1 個){sfx}…",
+                                      [_opt(f"{e['label']} (丟 1 個)", f"items|{e['key']}", e["desc"]) for e in page], self.on_discard))
+        elif not battle and tab == "materials" and page:
+            self.add_item(_select(f"🗑️ 丟掉素材 (那一種全部丟掉){sfx}…",
+                                  [_opt(f"{e['label']} (全部丟掉)", f"materials|{e['key']}", e["desc"]) for e in page], self.on_discard))
+        elif not battle and tab == "treasures" and page:
+            self.add_item(_select(f"🗑️ 丟掉寶物 (一次丟 1 個){sfx}…",
+                                  [_opt(f"{e['label']} (丟 1 個)", f"treasures|{e['key']}", e["desc"]) for e in page], self.on_discard))
+        elif not battle and tab == "relics":
+            if page:
+                self.add_item(_select(f"🦊 把法具裝給誰{sfx}…", [_opt(e["label"], e["key"], e["desc"]) for e in page], self.on_relic))
+                self.add_item(_select(f"🗑️ 丟掉法具{sfx}…",
+                                      [_opt(f"{e['label']} (丟掉)", f"relics|{e['key']}", e["desc"]) for e in page], self.on_discard))
+            worn = [m for m in st["party"] if m.get("relic")]
+            if worn:
+                self.add_item(_select("🔓 卸下法具 (放回背包)…",
+                                      [_opt(f"{m['emoji']} {m['name']}：{UC.relic_name(m['relic'])}", m["uid"],
+                                            data.relics().get(m["relic"]["rid"], {}).get("desc", "")) for m in worn],
+                                      self.on_unequip))
+        elif not battle and tab == "pending" and page:
+            self.add_item(_select(f"📦 撿起放不下的東西{sfx}…", [_opt(e["label"], e["key"]) for e in page], self.on_take))
+        nav = nav_buttons(pg.page, pg.total, self._pager(f"bag:{tab}")) if pg.total > 1 else []
         self.add_item(ui.ActionRow(*nav, _btn("↩️ 返回", SECONDARY, self.on_back)))
 
     def _build_fox(self, need: int):
@@ -407,7 +435,9 @@ class RunView(ui.LayoutView):
         await self.redraw(interaction)
 
     async def on_bag(self, interaction):
-        self.mode, self.notice = "bag", None
+        """打開背包：停在道具頁、各類從第 1 頁看"""
+        self.mode, self.notice, self.bag_tab = "bag", None, "items"
+        self.pages = {k: v for k, v in self.pages.items() if not k.startswith("bag:")}
         await self.redraw(interaction)
 
     async def on_abandon(self, interaction):
@@ -484,6 +514,23 @@ class RunView(ui.LayoutView):
             key = int(key)
         n = self.state["bag"]["materials"].get(key, 1) if kind == "materials" else 1
         await self.act(interaction, lambda s, g: R.discard(s, kind, key, n), keep=True)
+
+    async def on_unequip(self, interaction):
+        uid = interaction.data["values"][0]
+        await self.act(interaction, lambda s, g: R.unequip_relic(s, uid), keep=True)
+
+    async def on_peek_unit(self, interaction):
+        """🔍 查看：畫面重畫 (選單回到沒選的樣子) + 另外一則私人訊息放詳情 (不蓋掉戰鬥畫面)"""
+        u = combat.find_unit(self.state, interaction.data["values"][0])
+        if not u:
+            await send_notice(interaction, "❌ 找不到這位")
+            return
+        kills = {} if u["side"] == "ally" else (await ura.get_bestiary(self.user.id))["kills"]
+        thumb = thumbnail_url(u["cid"], load_thumbnails(), u["rarity"]) if u["side"] == "ally" else None
+        view = ui.LayoutView(timeout=None)
+        view.add_item(UC.build_unit_detail(self.state, u, kills, thumb))
+        await self.redraw(interaction)
+        await interaction.followup.send(view=view, ephemeral=True)
 
     async def on_relic(self, interaction):
         idx = int(interaction.data["values"][0])
@@ -648,17 +695,17 @@ class PartyPickerView(GroupPickerView):
 
     def build(self):
         super().build()
-        if not self.selected:
-            return
-        last = self.children[-1]
-        self.remove_item(last)
-        mine = sorted([c for c in self.cards if c["character_key"] == self.selected],
-                      key=lambda c: (not c["ok"], -UC.RARITY_SORT.get(c["rarity"], 0), -c["completeness"]))[:25]
-        opts = [_opt(f"{'' if c['ok'] else '🚫 '}〔{c['rarity']}〕完整度 {c['completeness']:.4f}", c["instance_id"],
-                     c["why"] or "可以出征", default=c["instance_id"] == self.card_choice) for c in mine]
-        if opts:
-            self.add_item(_select("🎴 派哪一張卡？", opts, self.on_card))
-        self.add_item(last)
+        if self.selected:
+            last = self.children[-1]
+            self.remove_item(last)
+            mine = sorted([c for c in self.cards if c["character_key"] == self.selected],
+                          key=lambda c: (not c["ok"], -UC.RARITY_SORT.get(c["rarity"], 0), -c["completeness"]))[:25]
+            opts = [_opt(f"{'' if c['ok'] else '🚫 '}〔{c['rarity']}〕完整度 {c['completeness']:.4f}", c["instance_id"],
+                         c["why"] or "可以出征", default=c["instance_id"] == self.card_choice) for c in mine]
+            if opts:
+                self.add_item(_select("🎴 派哪一張卡？", opts, self.on_card))
+            self.add_item(last)
+        box_rows(self)
 
     async def on_card(self, interaction):
         c = self.card(interaction.data["values"][0])
@@ -774,6 +821,10 @@ class LoadoutView(ui.LayoutView):
 
     def build(self):
         self.clear_items()
+        self._build()
+        box_rows(self)
+
+    def _build(self):
         cap, bag_name = self.capacity()
         self.add_item(UC.build_loadout_container(self.party(), self.carry, self.storage, cap, bag_name, self.pocket,
                                                  self.money, self.notice))
@@ -913,6 +964,10 @@ class ShopView(ui.LayoutView):
 
     def build(self):
         self.clear_items()
+        self._build()
+        box_rows(self)
+
+    def _build(self):
         self.add_item(UC.build_shop_container(self.group, self.money, self.storage, self.sel, self.notice))
         gopts = [_opt(name, key, default=key == self.group) for key, name in UC.SHOP_GROUPS.items()]
         self.add_item(_select("🗂️ 分類", gopts, self.on_group))
@@ -978,6 +1033,10 @@ class StorageView(ui.LayoutView):
 
     def build(self):
         self.clear_items()
+        self._build()
+        box_rows(self)
+
+    def _build(self):
         if self.page_kind == "treasures":
             rows = self.rows()
             pg = paginate(rows, self.page, STORAGE_PER_PAGE)
@@ -1084,6 +1143,10 @@ class BestiaryView(ui.LayoutView):
 
     def build(self):
         self.clear_items()
+        self._build()
+        box_rows(self)
+
+    def _build(self):
         sec = B.section(self.key) or B.sections()[0]
         self.key = sec["key"]
         self.add_item(UC.build_bestiary_container(self.key, self.idx, self.kills, self.claimed, self.notice))

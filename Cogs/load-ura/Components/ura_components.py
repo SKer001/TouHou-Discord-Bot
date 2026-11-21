@@ -5,7 +5,7 @@
 import discord
 from discord import ui
 
-from Database.ura import combat, data, fest, rules, run as R, status
+from Database.ura import bestiary, combat, data, describe, fest, rules, run as R, status
 from Database import shrine_data
 
 DOOR_NAMES = {"battle": "⚔️ 戰鬥", "elite": "💀 精英", "chest": "💰 寶箱", "event": "❓ 事件", "trap": "🕳️ 陷阱",
@@ -131,7 +131,87 @@ def foe_lines(run: dict, f: dict) -> str:
 
 
 def party_block(run: dict, battle: dict | None = None) -> str:
+    """戰鬥畫面的我方 (一人兩行)"""
     return "\n".join(ally_lines(run, m, battle) for m in run["party"])
+
+
+def party_line(run: dict) -> str:
+    """探索畫面 (選門、房間) 的隊伍：一人一行，只寫名字、血量、狀態 emoji (詳情用 🔍 查看；使用者 2026-11-21)"""
+    out = []
+    for m in run["party"]:
+        if not m["alive"]:
+            out.append(f"{m['emoji']} ~~{m['name']}~~　💀")
+            continue
+        emo = "".join(data.statuses().get(s["id"], {}).get("emoji", "") for s in m.get("statuses", []))
+        out.append(f"{m['emoji']} **{m['name']}**　❤️ {m['hp']} / {combat.max_hp(m)}" + (f"　{emo}" if emo else ""))
+    return "\n".join(out)
+
+
+# =========================================================
+# 🔍 查看角色 / 敵人的詳情 (另外一則私人訊息；使用者 2026-11-21)
+# =========================================================
+def _status_lines(u: dict) -> list[str]:
+    return [f"{status.label(s)}：{data.statuses().get(s['id'], {}).get('desc', '')}" for s in u.get("statuses", [])]
+
+
+def _hp_line(u: dict, battle: dict | None = None) -> str:
+    def stat(now, base):
+        return num(now) + (f" (原本 {num(base)})" if abs(now - base) > 0.05 else "")
+    hp = f"❤️ HP {u['hp']} / {combat.max_hp(u)}" if u["alive"] else "💀 倒下"
+    return f"{hp}　⚔️ ATK {stat(combat.eff_atk(u, battle), u['base_atk'])}　🛡️ DEF {stat(combat.eff_def(u), u['base_def'])}"
+
+
+def build_unit_detail(run: dict, u: dict, kills: dict | None = None, thumb: str | None = None) -> ui.Container:
+    """
+    我方：卡面縮圖、階級、完整度、職業特性、HP / ATK / DEF (含狀態加成)、符卡 (B 點、冷卻)、法具、狀態
+    敵人：數值、閃避、招式 (圖鑑還沒解鎖 = 沒打倒過的話不顯示招式和攻略)、深區 BOSS 規則、狀態
+    """
+    battle = run.get("battle") if run.get("phase") == "battle" else None
+    if u["side"] == "ally":
+        c = ui.Container(accent_color=COLOR_RUN)
+        head = (f"## {u['emoji']} {u['name']}〔{u['rarity']}〕\n完整度 `{u['comp']:.4f}`　{CLASS_NAMES.get(u['cls'], '')}\n"
+                f"-# 職業特性：{describe.CLASS_NOTE.get(u['cls'], '')}")
+        c.add_item(ui.Section(ui.TextDisplay(head), accessory=ui.Thumbnail(thumb)) if thumb else ui.TextDisplay(head))
+        c.add_item(ui.Separator())
+        sp = data.spells().get(u["cid"], {})
+        cd = f"⏳ 還要 {u['cd']} 回合" if u["cd"] > 0 else "✅ 冷卻好了"
+        lines = [_hp_line(u, battle), "",
+                 f"✨ **{u.get('spell_name') or '符卡'}**　B 點 {u['b_cost']}・冷卻 {u['cd_max']} 回合（{cd}）",
+                 f"效果：{describe.spell_text(u['cid'], u['tier'])}" + ("　(選門時也能放)" if sp.get("outside") else "")]
+        if sp.get("desc"):
+            lines.append(f"-# {sp['desc']}")
+        rel = u.get("relic")
+        lines += ["", f"🦊 法具：{relic_name(rel)}\n-# {describe.relic_effect(rel, u['cls'])}" if rel else "🦊 法具：沒有裝"]
+        c.add_item(ui.TextDisplay("\n".join(lines)))
+    else:
+        e = data.enemies().get(u.get("eid"), {})
+        open_ = bestiary.unlocked(kills or {}, u.get("eid"))
+        c = ui.Container(accent_color=COLOR_BATTLE)
+        tag = "🎪 👹 活動 BOSS " if u.get("fest_boss") else {"elite": "💀 精英 ", "boss": "👹 BOSS ", "mimic": "📦 寶箱怪 "}.get(u["kind"], "")
+        dodge = float(u.get("dodge", 0))
+        dline = ""
+        if dodge > 0:
+            dline = f"　💨 閃避 {describe.pct(dodge / 2 if combat.scout_alive(run) else dodge)}" + ("（🔍 斥候在場減半）" if combat.scout_alive(run) else "")
+        lines = [f"## {u['emoji']} {tag}{u['name']}" + ("　🔥 第二階段" if u.get("phase2") else ""), _hp_line(u, battle) + dline]
+        if open_ and e.get("desc"):
+            lines.append(f"-# {e['desc']}")
+        c.add_item(ui.TextDisplay("\n".join(lines)))
+        c.add_item(ui.Separator())
+        if open_:
+            sk = [f"**{s['name']}**：{bestiary.skill_text(s)}" + (f"（{'、'.join(bestiary.skill_conditions(s))}）" if bestiary.skill_conditions(s) else "")
+                  for s in u.get("skills", [])]
+            body = ["**招式**"] + (sk or ["只會普攻"])
+            if u["kind"] == "boss" and not u.get("fest_boss") and rules.zone_of(max(1, run["floor"])) > 1:
+                body.append(f"-# 👹 {bestiary.BOSS_DEEP_NOTE}")
+            if e.get("hint"):
+                body.append(f"💡 {e['hint']}")
+        else:
+            body = ["**招式**", "❓ 還沒打倒過這種敵人：打倒一次 (`/ura bestiary` 圖鑑登錄) 後才看得到招式和攻略提示"]
+        c.add_item(ui.TextDisplay("\n".join(body)))
+    c.add_item(ui.Separator())
+    st = _status_lines(u)
+    c.add_item(ui.TextDisplay("**狀態**\n" + ("\n".join(st) if st else "-# 沒有狀態")))
+    return c
 
 
 # =========================================================
@@ -316,29 +396,107 @@ def pending_label(p: dict) -> str:
 
 
 # =========================================================
-# 🎒 背包
+# 🎒 背包 (分類頁籤：一次只看一類、一樣一行，寫數量和佔幾格；使用者 2026-11-21 grill 定)
 # =========================================================
-def bag_text(run: dict) -> str:
+BAG_KINDS = {"items": "🧪 道具", "materials": "🧺 素材", "treasures": "💎 寶物", "relics": "🦊 法具"}
+CAT_NAMES = {"heal": "回血類", "sanity": "回常識度類"}
+
+
+def kind_slots(bag: dict, kind: str) -> int:
+    """背包裡某一類佔幾格"""
+    only = {"items": {}, "materials": {}, "treasures": [], "relics": []}
+    only[kind] = bag[kind]
+    return R.slots_used(only)
+
+
+def bag_summary(run: dict) -> str:
+    """最上面一行總覽：🎒 39 / 50 格｜🧪 道具 18 格・🧺 素材 0・💎 寶物 15・🦊 法具 1"""
     bag = run["bag"]
-    lines = [f"### 🎒 背包 `{R.slots_used(bag)} / {run['capacity']}` 格" + (f"（額外背包：{run['bag_name']}）" if run.get("bag_name") else "")]
-    if bag["items"]:
-        lines.append("**道具**　" + "、".join(f"{item_name(i)} ×{n}" for i, n in bag["items"].items()))
-    if bag["materials"]:
-        lines.append("**素材**　" + "、".join(f"{material_info(m)[1]} {material_info(m)[0]} ×{n}" for m, n in bag["materials"].items()))
-    if bag["treasures"]:
-        counts = {}
-        for t in bag["treasures"]:
+    s = {k: kind_slots(bag, k) for k in BAG_KINDS}
+    line = (f"**🎒 {R.slots_used(bag)} / {run['capacity']} 格**｜🧪 道具 {s['items']} 格・🧺 素材 {s['materials']}・"
+            f"💎 寶物 {s['treasures']}・🦊 法具 {s['relics']}")
+    if run.get("bag_name"):
+        line += f"\n-# 額外背包：{run['bag_name']}"
+    return line
+
+
+def item_limit(bag_items: dict, iid: str) -> tuple[str, bool]:
+    """道具的上限說明 (上限 10 / 回血類合計上限 5) 和到上限了沒 (✅ = 撿不了更多)"""
+    it = data.items().get(iid, {})
+    n = bag_items.get(iid, 0)
+    parts, full = [], False
+    cat = it.get("cat") if it.get("cat") in data.category_max() else None
+    cap = data.category_max()[cat] if cat else None
+    if it.get("max") and (cap is None or it["max"] < cap):   # 同一類合計上限一樣的話只寫合計 (例：回血類合計上限 5)
+        parts.append(f"上限 {it['max']}")
+    if it.get("max"):
+        full = n >= it["max"]
+    if cat:
+        cur = sum(c for i, c in bag_items.items() if data.items().get(i, {}).get("cat") == cat)
+        parts.append(f"{CAT_NAMES.get(cat, cat)}合計上限 {cap}")
+        full = full or cur >= cap
+    return "・".join(parts), full
+
+
+def bag_entries(run: dict, kind: str) -> list[dict]:
+    """
+    某一類的每一樣 ➔ [{key (選單的值), line (清單那一行), label / desc (選單)}]
+    kind = items / materials / treasures (同名同階合併，key = 第一個的位置) / relics (key = 位置) / pending (待撿，key = 位置)
+    """
+    bag, out = run["bag"], []
+    if kind == "items":
+        for iid, n in bag["items"].items():
+            it = data.items().get(iid, {})
+            stack = max(1, it.get("stack", 1))
+            limit, full = item_limit(bag["items"], iid)
+            line = (f"{item_name(iid)} ×{n}" + (f"（{limit}）" if limit else "") + (" ✅" if full else "")
+                    + f"　🔲 {-(-n // stack)} 格・一格 {stack} 個")
+            out.append({"key": iid, "line": line, "label": item_name(iid), "desc": item_option_desc(iid, n)})
+    elif kind == "materials":
+        for mid, n in bag["materials"].items():
+            name, emoji = material_info(mid)
+            line = f"{emoji} {name} ×{n}　🔲 {-(-n // rules.MATERIAL_STACK)} 格・一格 {rules.MATERIAL_STACK} 個"
+            out.append({"key": mid, "line": line, "label": f"{emoji} {name}", "desc": f"有 {n} 個"})
+    elif kind == "treasures":
+        first, count = {}, {}
+        for i, t in enumerate(bag["treasures"]):
             key = (t["id"], t["rarity"])
-            counts[key] = counts.get(key, 0) + 1
-        ts = sorted(counts.items(), key=lambda kv: -RARITY_SORT.get(kv[0][1], 0))
-        lines.append("**寶物**　" + "、".join(f"{treasure_name(t)}〔{r}〕" + (f" ×{n}" if n > 1 else "") for (t, r), n in ts))
-    if bag["relics"]:
-        lines.append("**法具 (還沒裝)**　" + "、".join(relic_name(r) for r in bag["relics"]))
-    worn = [f"{m['emoji']} {m['name']}：{relic_name(m['relic'])}" for m in run["party"] if m.get("relic")]
-    if worn:
-        lines.append("**裝備中**　" + "　".join(worn))
-    if len(lines) == 1:
-        lines.append("-# 空空的。")
+            first.setdefault(key, i)
+            count[key] = count.get(key, 0) + 1
+        for (tid, r), i in sorted(first.items(), key=lambda kv: -RARITY_SORT.get(kv[0][1], 0)):
+            n = count[(tid, r)]
+            out.append({"key": str(i), "line": f"{treasure_name(tid)}〔{r}〕×{n}　🔲 {n} 格",
+                        "label": f"{treasure_name(tid)}〔{r}〕", "desc": f"有 {n} 個"})
+    elif kind == "relics":
+        for i, rel in enumerate(bag["relics"]):
+            out.append({"key": str(i), "line": f"{relic_name(rel)}　🔲 1 格", "label": relic_name(rel),
+                        "desc": data.relics().get(rel["rid"], {}).get("desc", "")})
+    elif kind == "pending":
+        for i, p in enumerate(run.get("pending") or []):
+            out.append({"key": str(i), "line": pending_label(p), "label": pending_label(p), "desc": None})
+    return out
+
+
+def bag_tab_desc(run: dict, kind: str) -> str:
+    if kind == "pending":
+        return f"{len(run.get('pending') or [])} 樣放不下的東西"
+    return f"{kind_slots(run['bag'], kind)} 格"
+
+
+def bag_body(run: dict, kind: str, entries: list[dict], page: int = 1, total: int = 1) -> str:
+    """背包畫面中間：總覽 + 這一類 (這一頁) 一樣一行；法具頁多列裝備中的 (不佔格)"""
+    lines = [bag_summary(run), ""]
+    if kind == "pending":
+        lines += [f"### 📦 放不下的東西（{len(run.get('pending') or [])} 樣）", "-# 整理背包空出位置就能撿；離開這關就沒了"]
+    else:
+        lines.append(f"### {BAG_KINDS[kind]}（{kind_slots(run['bag'], kind)} 格）")
+    lines += [e["line"] for e in entries] or ["-# 空空的。"]
+    if total > 1:
+        lines.append(f"-# 第 {page} / {total} 頁")
+    if kind == "relics":
+        worn = [f"{m['emoji']} {m['name']}：{relic_name(m['relic'])}" for m in run["party"] if m.get("relic")]
+        if worn:
+            lines += ["", "**裝備中** (不佔格)"] + worn
     return "\n".join(lines)
 
 
@@ -456,7 +614,7 @@ def build_run_container(run: dict, notice: str | None = None, body: str | None =
         parts.append(pend)
     c.add_item(ui.TextDisplay("\n\n".join(p for p in parts if p)))
     c.add_item(ui.Separator())
-    c.add_item(ui.TextDisplay("**隊伍**\n" + party_block(run)))
+    c.add_item(ui.TextDisplay("**隊伍**\n" + party_line(run)))
     log = log_text(run.get("log", []), 3)
     if log:
         c.add_item(ui.TextDisplay(log))

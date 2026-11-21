@@ -972,6 +972,21 @@ def equip_relic(run: dict, bag_idx: int, uid: str) -> str | None:
     return None
 
 
+def unequip_relic(run: dict, uid: str) -> str | None:
+    """隊友身上的法具卸下來放回背包 (使用者 2026-11-21 要加；戰鬥中不行、背包要放得下；御札的職業加成次數只加一次，卸下也不會重算)"""
+    if run["phase"] == "battle":
+        return "戰鬥中不能卸下法具"
+    u = combat.find_unit(run, uid)
+    if not u or u["side"] != "ally" or not u.get("relic"):
+        return "這位隊友沒有裝法具"
+    if can_add(run, "relics", u["relic"]):
+        return "背包滿了，先丟掉一些東西"
+    rel = u["relic"]
+    _unequip(u)
+    run["bag"]["relics"].append(rel)
+    return None
+
+
 def _equip(u: dict, rel: dict):
     rd = data.relics()[rel["rid"]]
     u["relic"] = rel

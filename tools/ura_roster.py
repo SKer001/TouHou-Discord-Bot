@@ -13,101 +13,18 @@ os.chdir(ROOT)
 
 from Database import shrine_data   # noqa: E402
 from Database.ura import bestiary, data, rules   # noqa: E402
+from Database.ura.describe import CLASS_NOTE, effect_text, num, pct   # noqa: E402
 from Utils.version import VERSION   # noqa: E402
 
 OUT = os.path.join(ROOT, "docs", "ura_roster.md")
 CLASS_ORDER = ["atk", "guard", "sup", "scout", "guide"]
-CLASS_NOTE = {
-    "atk": "普攻 / 單體符卡打中有 ⚖️ 審判的敵人 ➔ 審判破掉 (裏・四季映姬的破解)",
-    "guard": "敵人選目標時比重 × 4 (大多打守護者)；嘲諷時全部打這位 (裏・藤原妹紅的破解：嘲諷時火之鳥只打守護者)",
-    "sup": "放任何符卡都順便淨化全隊的壞狀態 (裏・神綺的破解)",
-    "scout": "看穿陷阱、門後面多看一點、隱藏寶箱；活著時所有敵人的閃避減半 (裏・射命丸文的破解)",
-    "guide": "每關少扣 30% 常識度 (逃跑也算)；敵人扣常識度的招式也少扣 30% (裏・西行寺幽幽子的破解)",
-}
-TO_TEXT = {"self": "自己", "allies": "全隊", "target": "目標", "enemies": "敵人全體", "hit": "打中的敵人"}
-
-
-def num(v) -> str:
-    v = round(float(v), 1)
-    return str(int(v)) if v == int(v) else f"{v:g}"
-
-
-def pct(v) -> str:
-    return f"{round(float(v) * 100, 1):g}%"
 
 
 def stat_line(hp, atk, df) -> str:
     return f"HP {num(hp)}／ATK {num(atk)}／DEF {num(df)}"
 
 
-# =========================================================
-# 🃏 符卡效果的白話說明 (三檔照角色最低階 / 中間 / 最高階)
-# =========================================================
-def tier_vals(sp: dict, key: str) -> list:
-    return [t.get(key[1:]) for t in sp["tiers"]]
-
-
-def show(sp: dict, v, fmt=num) -> str:
-    """$x ➔ 三檔「a / b / c」(三檔一樣就寫一個)；不是 $ 開頭就直接格式化"""
-    if isinstance(v, str) and v.startswith("$"):
-        vals = tier_vals(sp, v)
-        if any(isinstance(x, list) for x in vals):
-            vals_txt = ["～".join(str(y) for y in x) if x[0] != x[-1] else str(x[0]) for x in vals]
-            return " / ".join(vals_txt) if len(set(vals_txt)) > 1 else vals_txt[0]
-        txt = [fmt(x) for x in vals]
-        return " / ".join(txt) if len(set(txt)) > 1 else txt[0]
-    return fmt(v)
-
-
-def status_name(sid: str) -> str:
-    st = data.statuses().get(sid, {})
-    return f"{st.get('emoji', '')} {st.get('name', sid)}".strip()
-
-
-def effect_text(sp: dict, e: dict) -> str:
-    do = e["do"]
-    if do == "damage":
-        t = f"單體 ATK × {show(sp, e['mult'])}"
-        if e.get("vs_strong"):
-            t += f" (對精英 / BOSS 再 × {num(e['vs_strong'])})"
-        if e.get("ignore_def"):
-            t += f"，無視 {pct(e['ignore_def'])} DEF"
-        if e.get("drain"):
-            t += f"，回自己造成傷害的 {pct(e['drain'])}"
-        return t
-    if do == "damage_all":
-        return f"全體 ATK × {show(sp, e['mult'])}"
-    if do == "multi_hit":
-        lo, hi = e["hits"]
-        return f"打 {lo}～{hi} 下 (下數 {lo} 多、{hi} 少)，每下 ATK × {show(sp, e['mult'])}，每下隨機一隻"
-    if do == "heal":
-        return f"一位隊友回 {show(sp, e['pct'], pct)} HP"
-    if do == "heal_all":
-        return f"全隊回 {show(sp, e['pct'], pct)} HP"
-    if do == "heal_self":
-        return f"自己回 {show(sp, e['pct'], pct)} HP"
-    if do == "apply":
-        t = f"{TO_TEXT.get(e.get('to'), e.get('to', ''))} {status_name(e['status'])}"
-        if e.get("value") is not None:
-            t += f" {show(sp, e['value'], pct)}"
-        if e.get("turns_choice"):
-            t += f" {show(sp, e['turns_choice'])} 回合"
-        elif e.get("turns"):
-            t += f" {num(e['turns'])} 回合"
-        if e.get("chance") is not None:
-            t = f"{pct(e['chance'])} 機率 " + t
-        return t
-    if do == "time_stop":
-        return f"時間停止：這回合我方全員各行動一次 (我方傷害 × {show(sp, e['mult'])})"
-    if do == "sanity":
-        return f"常識度 +{show(sp, e['value'])}"
-    if do == "money_mult":
-        return f"這場戰鬥的錢 × {num(e['value'])} (不疊)"
-    if do == "reroll_doors":
-        return "重抽這一關的門 (選門時)"
-    if do == "skip_battle":
-        return "跳過一場一般戰鬥 (沒有獎勵)"
-    return do
+# 符卡效果的白話說明、職業特性：跟 /ura 的「🔍 查看」共用 Database/ura/describe.py
 
 
 def character_block(cid: str, c: dict) -> list[str]:

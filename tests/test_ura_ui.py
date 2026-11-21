@@ -39,6 +39,9 @@ def limits(view, where):
     text = sum(len(i.content) for i in items if isinstance(i, ui.TextDisplay))
     bad = []
     if n > 40: bad.append(f"元件 {n}")
+    if any(isinstance(c, ui.ActionRow) for c in view.children): bad.append("按鈕 / 選單在框外")
+    # 移進框裡的按鈕 / 選單要還掛在這個畫面上 (Discord 按下去是靠 item.view 找回呼；None = 按了沒反應)
+    if any(isinstance(i, (ui.Button, ui.Select)) and i.view is not view for i in items): bad.append("按鈕沒掛在畫面上")
     if text > 4000: bad.append(f"文字 {text}")
     for i in items:
         if isinstance(i, ui.ActionRow):
@@ -669,10 +672,17 @@ async def main():
     check(f"no select cut at 25 {_over[:3]}", not _over)
 
 
-async def page_values(view, uid, placeholder):
-    """一個會翻頁的選單：每一頁都看一次 (檢查上限)，回傳全部選項 {value: label}；看完停在最後一頁"""
+async def page_values(view, uid, placeholder, texts_out=None):
+    """一個會翻頁的選單：先翻回第 1 頁，每一頁都看一次 (檢查上限)，回傳全部選項 {value: label}；看完停在最後一頁"""
     got = {}
     for _ in range(20):
+        prev = find(view, label="◀️ 上一頁")
+        if not prev or prev.disabled:
+            break
+        await press(view, uid, label="◀️ 上一頁")
+    for _ in range(20):
+        if texts_out is not None:
+            texts_out.append(texts(view))
         sel = find(view, placeholder=placeholder)
         assert sel is not None, f"找不到 {placeholder}"
         got.update({o.value: o.label for o in sel.options})
@@ -687,7 +697,8 @@ async def page_values(view, uid, placeholder):
 async def long_lists(cog, staged, event_room, uid):
     """
     0.35.108 修：背包東西多 (超過 25 項) 時丟掉選單只列前 25 項，排在最後的法具丟不掉
-    ➔ 背包「整理」先選一類、每類超過 25 項翻頁；待撿、獻寶物、狐狸、整裝道具也一樣
+    0.35.109 背包改分類頁籤 (道具 / 素材 / 寶物 / 法具 / 待撿)，每類超過 25 項翻頁；待撿、獻寶物、狐狸、整裝道具也翻頁
+    也測：卸下法具、🔍 查看 (我方 / 敵人)、探索畫面隊伍一人一行、道具那一行寫上限和佔幾格
     """
     from Database.shrine_data import MATERIAL_ITEMS
     check("usable items fit one select", sum(1 for i in data.items().values() if i.get("use") != "passive") <= 25)
@@ -715,39 +726,49 @@ async def long_lists(cog, staged, event_room, uid):
     check("main pending -> button", find(v, label="📦 撿起放不下的東西 (30 樣") is not None and find(v, placeholder="📦") is None)
     await press(v, uid, label="🎒 背包")
     limits(v, "big bag")
-    tabsel = find(v, placeholder="🎒 整理背包")
-    check("bag tabs", tabsel and [o.value for o in tabsel.options] == list(cogmod.BAG_TABS))
+    tabsel = find(v, placeholder="🎒 看哪一類")
+    check("bag tabs", tabsel and [o.value for o in tabsel.options] == ["items", "materials", "treasures", "relics", "pending"]
+          and tabsel.options[0].default)
+    t = texts(v)
+    check("bag summary line", f"🎒 {R.slots_used(bag0)} / 300 格**｜🧪 道具 {UC.kind_slots(bag0, 'items')} 格・🧺 素材 "
+          f"{UC.kind_slots(bag0, 'materials')}・💎 寶物 31・🦊 法具 30" in t)
 
-    # ① 每一類翻完所有頁：每一樣都找得到
+    # ① 每一類翻完所有頁：每一樣都在清單 (一樣一行) 和選單裡
     want = {
-        "items": {f"items|{i}" for i in bag0["items"]},
-        "materials": {f"materials|{m}" for m in bag0["materials"]},
-        "treasures": {f"treasures|{i}" for i in range(30)},   # 同一種只列第一個 (第 31 個跟第 1 個同種)
-        "relics": {f"relics|{i}" for i in range(30)},
-        "equip": {str(i) for i in range(30)},
-        "pending": {str(i) for i in range(30)},
+        "items": ("🗑️ 丟掉道具", {f"items|{i}" for i in bag0["items"]}, [f"{UC.item_name(i)} ×2" for i in bag0["items"]]),
+        "materials": ("🗑️ 丟掉素材", {f"materials|{m}" for m in bag0["materials"]},
+                      [f"{UC.material_info(m)[1]} {UC.material_info(m)[0]} ×3　🔲 1 格・一格 20 個" for m in bag0["materials"]]),
+        "treasures": ("🗑️ 丟掉寶物", {f"treasures|{i}" for i in range(30)},   # 同名同階合併 (第 31 個跟第 1 個同種)
+                      [f"{UC.treasure_name(treasures[0]['id'])}〔N〕×2　🔲 2 格"] +
+                      [f"{UC.treasure_name(x['id'])}〔N〕×1　🔲 1 格" for x in treasures[1:]]),
+        "relics": ("🗑️ 丟掉法具", {f"relics|{i}" for i in range(30)}, [UC.relic_name(r) for r in bag0["relics"]]),
+        "pending": ("📦 撿起", {str(i) for i in range(30)}, []),
     }
-    for tab, ph in (("items", "🗑️ 丟掉"), ("materials", "🗑️ 丟掉"), ("treasures", "🗑️ 丟掉"), ("relics", "🗑️ 丟掉"),
-                    ("equip", "🦊"), ("pending", "📦")):
-        await press(v, uid, placeholder="🎒 整理背包", values=[tab])
-        got = await page_values(v, uid, ph)
-        check(f"bag tab {tab} lists all ({len(want[tab] - set(got))} missing)", want[tab] == set(got))
-        check(f"bag tab {tab} paged", len(got) > 25)
+    for tab, (ph, vals, lines) in want.items():
+        await press(v, uid, placeholder="🎒 看哪一類", values=[tab])
+        seen_text = []
+        got = await page_values(v, uid, ph, seen_text)
+        check(f"bag tab {tab} select lists all ({len(vals - set(got))} missing)", vals == set(got) and len(got) > 25)
+        joined = "\n".join(seen_text)
+        missing = [x for x in lines if x not in joined]
+        check(f"bag tab {tab} text lists all ({missing[:2]})", not missing and "第 2 / 2 頁" in joined)
+    await press(v, uid, placeholder="🎒 看哪一類", values=["relics"])
+    got = await page_values(v, uid, "🦊 把法具裝給誰")
+    check("bag relic equip lists all", set(got) == {str(i) for i in range(30)})
 
-    # ② 每一樣都丟得掉：每次選最後一類 (法具 ➔ 寶物 ➔ 素材 ➔ 道具)、翻到最後一頁丟最後一個，直到背包空了
+    # ② 每一樣都丟得掉：每次選最後一類還有東西的 (法具 ➔ 寶物 ➔ 素材 ➔ 道具)、翻到最後一頁丟最後一個，直到背包空了
     def things(bag):   # 背包裡總共幾樣 (疊在同一格的道具丟 1 個格數不會變，所以數個數)
         return sum(bag["items"].values()) + sum(bag["materials"].values()) + len(bag["treasures"]) + len(bag["relics"])
     relic_dropped = 0
     for step in range(400):
-        if things(v.state["bag"]) == 0:
+        bag = v.state["bag"]
+        if things(bag) == 0:
             break
-        tabsel = find(v, placeholder="🎒 整理背包")
-        drop = [o.value for o in tabsel.options if o.value in ("items", "materials", "treasures", "relics")] if tabsel else []
-        if drop:
-            await press(v, uid, placeholder="🎒 整理背包", values=[drop[-1]])
+        kind = [k for k in ("items", "materials", "treasures", "relics") if bag[k]][-1]
+        await press(v, uid, placeholder="🎒 看哪一類", values=[kind])
         await page_values(v, uid, "🗑️ 丟掉")
         sel = find(v, placeholder="🗑️ 丟掉")
-        before, n_rel = things(v.state["bag"]), len(v.state["bag"]["relics"])
+        before, n_rel = things(bag), len(bag["relics"])
         await press(v, uid, placeholder="🗑️ 丟掉", values=[sel.options[-1].value])
         relic_dropped += n_rel - len(v.state["bag"]["relics"])
         if things(v.state["bag"]) >= before:
@@ -755,15 +776,18 @@ async def long_lists(cog, staged, event_room, uid):
             break
     check(f"bag emptied ({R.slots_used(v.state['bag'])} left)", R.slots_used(v.state["bag"]) == 0 and relic_dropped == 30)
     check("still bag mode", v.mode == "bag")
+    await press(v, uid, placeholder="🎒 看哪一類", values=["items"])
+    check("empty tab text", "空空的" in texts(v))
 
-    # ③ 待撿 30 樣：在背包裡翻到第 2 頁撿；主畫面 25 樣以內才直接列選單
+    # ③ 待撿 30 樣：在背包的「📦 待撿」翻到第 2 頁撿；主畫面 25 樣以內才直接列選單
+    await press(v, uid, placeholder="🎒 看哪一類", values=["pending"])
     await page_values(v, uid, "📦")
     sel = find(v, placeholder="📦")
     await press(v, uid, placeholder="📦", values=[sel.options[-1].value])
     check("took from page 2", len(v.state["pending"]) == 29 and len(v.state["bag"]["treasures"]) == 1)
     await press(v, uid, label="↩️ 返回")
     await press(v, uid, label="📦 撿起放不下的東西 (29 樣")
-    check("button opens pending tab", v.mode == "bag" and find(v, placeholder="📦") is not None)
+    check("button opens pending tab", v.mode == "bag" and v.bag_tab == "pending" and find(v, placeholder="📦") is not None)
     for _ in range(4):
         await press(v, uid, placeholder="📦", values=[find(v, placeholder="📦").options[0].value])
     await press(v, uid, label="↩️ 返回")
@@ -806,6 +830,81 @@ async def long_lists(cog, staged, event_room, uid):
     left = {i: items0[i] - gave.count(i) for i in items0 if items0[i] - gave.count(i) > 0}
     check(f"fox traded", v.state["room"].get("result", {}).get("do") == "trade_items_for_relic"
           and v.state["bag"]["items"] == left and v.fox == [])
+    await ura.act(uid, v.rev, lambda s, g: R.abandon(s))
+
+    # ⑥' 卸下法具 (使用者 2026-11-21 要加)：法具頁「🔓 卸下」➔ 回背包；背包滿了不行
+    def worn(s, g):
+        s["floor"], s["phase"], s["room"] = 3, "doors", None
+        R._equip(s["party"][0], {"rid": "war_blessing", "tier": 2})
+        s["bag"]["items"] = {"bomb": 10, "eientei_salve": 5}
+    v = await staged(worn)
+    atk0 = combat.eff_atk(v.state["party"][0])
+    await press(v, uid, label="🎒 背包")
+    t = texts(v)
+    check("item line max", f"{UC.item_name('bomb')} ×10（上限 10） ✅　🔲 2 格・一格 5 個" in t)
+    check("item line cat", f"{UC.item_name('eientei_salve')} ×5（回血類合計上限 5） ✅　🔲 5 格・一格 1 個" in t)
+    await press(v, uid, placeholder="🎒 看哪一類", values=["relics"])
+    limits(v, "bag relics worn")
+    check("worn listed", "**裝備中** (不佔格)" in texts(v) and find(v, placeholder="🔓") is not None)
+    cap0 = v.state["capacity"]
+    await ura.act(uid, v.rev, lambda s, g: s.update(capacity=R.slots_used(s["bag"])))   # 背包剛好滿
+    v.rev, v.state = (await ura.get_run(uid))["rev"], (await ura.get_run(uid))["state"]
+    v.build()
+    it = await press(v, uid, placeholder="🔓", values=["p0"])
+    check("unequip full refused", "背包滿了" in texts(it.view) and v.state["party"][0]["relic"])
+    await ura.act(uid, v.rev, lambda s, g: s.update(capacity=cap0))
+    v.rev, v.state = (await ura.get_run(uid))["rev"], (await ura.get_run(uid))["state"]
+    v.build()
+    await press(v, uid, placeholder="🔓", values=["p0"])
+    m0 = v.state["party"][0]
+    check("unequipped", m0["relic"] is None and [r["rid"] for r in v.state["bag"]["relics"]] == ["war_blessing"]
+          and combat.eff_atk(m0) < atk0 and v.mode == "bag" and find(v, placeholder="🔓") is None)
+    await press(v, uid, label="↩️ 返回")
+
+    # 🔍 查看 (選門畫面：只有我方)；隊伍欄一人一行
+    party_td = next(i.content for i in v.walk_children() if isinstance(i, ui.TextDisplay) and i.content.startswith("**隊伍**"))
+    check("party one line each", len(party_td.split("\n")) == 1 + len(v.state["party"]) and "-#" not in party_td and "🛡️" not in party_td)
+    sel = find(v, placeholder="🔍")
+    check("doors peek allies only", sel and [o.value for o in sel.options] == [m["uid"] for m in v.state["party"]])
+    it = await press(v, uid, placeholder="🔍", values=["p0"])
+    sent = [view for k, view, e in it.sent if k == "followup" and e]
+    t = texts(sent[0]) if sent else ""
+    if sent:
+        limits(sent[0], "ally detail")
+    m0 = v.state["party"][0]
+    check("ally detail", sent and m0["name"] in t and "職業特性" in t and "完整度" in t and "B 點" in t and "效果：" in t
+          and "🦊 法具：沒有裝" in t and "**狀態**" in t and any(k == "edit" for k, _, _ in it.sent))
+    th = cogmod.thumbnail_url(m0["cid"], cogmod.load_thumbnails(), m0["rarity"])
+    check("ally detail thumb", not th or any(isinstance(i, ui.Thumbnail) for i in sent[0].walk_children()))
+    await ura.act(uid, v.rev, lambda s, g: R.abandon(s))
+
+    # 🔍 查看 (戰鬥：我方 + 敵人)；敵人沒打倒過不給看招式，打倒過才看得到；深區 BOSS 寫深區規則
+    def boss_fight(s, g):
+        s["floor"], s["room"] = 11, None   # 第 2 區
+        R._equip(s["party"][1], {"rid": "nine_tails", "tier": 1})
+        combat.start(s, "boss", ["ura_mokou"], g)
+        s["battle"]["foes"][0]["statuses"].append({"id": "burn", "left": 2, "stacks": 1})
+    v = await staged(boss_fight)
+    limits(v, "battle peek")
+    sel = find(v, placeholder="🔍")
+    check("battle peek lists both", sel and [o.value for o in sel.options] == [m["uid"] for m in v.state["party"]] + ["e0"])
+    async with udm.connect() as db:
+        await db.execute("DELETE FROM player_stats WHERE user_id = ? AND stat = 'ura_kill:ura_mokou'", (uid,))
+        await db.commit()
+    it = await press(v, uid, placeholder="🔍", values=["e0"])
+    t = texts([view for k, view, e in it.sent if k == "followup"][0])
+    check("foe detail locked", "裏・藤原妹紅" in t and "還沒打倒過" in t and "火之鳥" not in t and "燒傷" in t)
+    async with udm.connect() as db:
+        await udm.add_player_stat(db, uid, "ura_kill:ura_mokou", 1)
+        await db.commit()
+    it = await press(v, uid, placeholder="🔍", values=["e0"])
+    foe = v.state["battle"]["foes"][0]
+    limits([view for k, view, e in it.sent if k == "followup"][0], "foe detail")
+    t = texts([view for k, view, e in it.sent if k == "followup"][0])
+    check("foe detail open", all(s_["name"] in t for s_ in foe["skills"]) and "第 2 區起" in t and "💡" in t and "還沒打倒過" not in t)
+    it = await press(v, uid, placeholder="🔍", values=["p1"])
+    t = texts([view for k, view, e in it.sent if k == "followup"][0])
+    check("ally detail relic", "九尾式神" in t and "這一檔" in t)
     await ura.act(uid, v.rev, lambda s, g: R.abandon(s))
 
     # ⑥ 整裝：倉庫 27 種道具 (翻頁)、30 個額外背包 (同種同次數合成一個選項)
