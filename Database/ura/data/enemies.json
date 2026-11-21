@@ -62,9 +62,9 @@
     "white_wolf_tengu": {"name": "巡邏的白狼天狗", "emoji": "🐺", "hp": 1, "atk": 1, "def": 1, "dodge": 0,
                          "skills": [{"id": "patrol_blade", "name": "巡邏之刃", "do": "attack_one", "mult": 1.3}],
                          "desc": "在山腰巡邏的白狼天狗，看到外人就拔刀。千里之外都看得到你，所以別想偷偷溜過去。"},
-    "crow_tengu": {"name": "鴉天狗", "emoji": "🐦‍⬛", "hp": 0.8, "atk": 1, "def": 1, "dodge": 0.3,
+    "crow_tengu": {"name": "鴉天狗", "emoji": "🐦‍⬛", "hp": 0.8, "atk": 1, "def": 1, "dodge": 0.2,
                    "skills": [{"id": "gale_combo", "name": "疾風連擊", "do": "attack_one", "mult": 0.6, "hits": 2}],
-                   "desc": "到處找新聞的鴉天狗，飛得太快了，普攻和單體招常常打不到 (30% 閃避，全體招必中)。"},
+                   "desc": "到處找新聞的鴉天狗，飛得太快了，普攻和單體招常常打不到 (20% 閃避，全體招必中)。"},
     "kappa_engineer": {"name": "河童工兵", "emoji": "🔧", "hp": 1, "atk": 0.9, "def": 1.4, "dodge": 0,
                        "skills": [{"id": "water_cannon", "name": "高壓水槍", "do": "attack_all", "mult": 0.6}],
                        "desc": "穿著自製裝甲的河童，硬得像鐵罐。背上的水箱一打開，全隊都會被噴得濕透。"},
@@ -77,6 +77,6 @@
                            {"id": "peerless_wind", "name": "無雙風神", "do": "attack_one", "mult": 0.6, "hits": 3, "cd": 4},
                            {"id": "illusionary_dominance", "name": "幻想風靡", "do": "apply_self", "status": "gale", "turns": 3, "cd": 4},
                            {"id": "fake_scandal", "name": "捏造的醜聞", "do": "apply_party", "status": "debuff_atk", "status_value": 0.2, "turns": 2, "cd": 4, "phase2": true}],
-                "hint": "🔍 斥候活著時，所有敵人的閃避減半 (幻想風靡的 40% ➔ 20%)；全體招本來就必中",
+                "hint": "🔍 斥候活著時，所有敵人的閃避減半 (幻想風靡的 40% ➔ 20%)；全體招本來就必中；第 2 區起沒有招式也沒有閃避",
                 "desc": "幻想鄉最快的鴉天狗記者。在裏世界裡，她的報導全是捏造的醜聞，而且快到你連反駁的機會都沒有。"}
 }

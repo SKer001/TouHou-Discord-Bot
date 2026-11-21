@@ -127,6 +127,7 @@ def start(run: dict, kind: str, foe_ids: list[str], rng, fest_boss: bool = False
             foe["fest_boss"] = True
         elif fkind == "boss" and zone > 1:   # 區域 BOSS 只有第 1 區用完整招式，第 2 區以後先只普攻 (使用者 2026-11-20；各區有自己的 BOSS 再調)
             foe["skills"] = []
+            foe["dodge"] = 0                   # 本身的閃避也只留在第 1 區 (裏・射命丸文，使用者 2026-11-21)
         foes.append(foe)
     seen = {}
     for f in foes:   # 同名的加 A / B / C
