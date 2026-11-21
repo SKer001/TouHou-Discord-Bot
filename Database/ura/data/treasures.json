@@ -24,5 +24,13 @@
         "UR": [["ura_roukanken", "樓觀劍", "⚔️"], ["ura_butterfly_dust", "反魂蝶的鱗粉", "🦋"]],
         "LR": [["ura_saigyou_branch", "西行妖的櫻枝", "🌳"]]
     },
+    "mountain": {
+        "N": [["ura_mountain_maple", "妖怪之山的紅葉", "🍁"], ["ura_crow_feather", "鴉天狗的黑羽", "🪶"], ["ura_kappa_screw", "河童的螺絲", "🔩"], ["ura_summit_gravel", "山頂的碎石", "🏔️"]],
+        "R": [["ura_tengu_extra", "天狗的號外", "🗞️"], ["ura_kappa_toolbox", "河童的工具箱", "🧰"], ["ura_nagashi_bina", "流放的人偶", "🎎"]],
+        "SR": [["ura_aya_camera", "射命丸文的相機", "📷"], ["ura_tengu_fan", "天狗的羽團扇", "🍃"], ["ura_kappa_camo", "河童的光學迷彩服", "🧥"]],
+        "SSR": [["ura_suwako_hat", "諏訪子的帽子", "🐸"], ["ura_onbashira", "神奈子的御柱", "🪵"]],
+        "UR": [["ura_kanako_mirror", "神奈子的鏡子", "🪞"], ["ura_sanae_snake", "早苗的蛇髮飾", "🐍"]],
+        "LR": [["ura_moriya_shintai", "守矢神社的神體", "⛩️"]]
+    },
     "sell_price": {"N": 150, "R": 400, "SR": 1000, "SSR": 2500, "UR": 6000, "LR": 20000}
 }

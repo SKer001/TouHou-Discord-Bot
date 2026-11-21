@@ -47,6 +47,8 @@
     "death_butterfly": {"name": "死蝶", "emoji": "🦋", "good": false, "duration": "rounds", "default": 2, "max_stacks": 1,
                         "flags": ["cleanse"], "on": {"round_end": [{"do": "dot_max_hp_pct", "value": 0.05}]},
                         "desc": "回合結束扣 5% 最大 HP"},
+    "gale": {"name": "疾風", "emoji": "💨", "good": true, "duration": "rounds", "default": 2, "max_stacks": 1,
+             "mods": {"dodge_pct": 0.3}, "desc": "閃避 +30% (普攻、單體招；全體招必中)"},
     "blaze": {"name": "浴火", "emoji": "♨️", "good": true, "duration": "rounds", "default": 3, "max_stacks": 1,
               "on": {"on_hit": [{"do": "reflect_pct", "value": 0.05}]}, "desc": "被打時反彈 5% 傷害"},
     "breach": {"name": "破綻", "emoji": "💢", "good": false, "duration": "battle", "default": 1, "max_stacks": 1,

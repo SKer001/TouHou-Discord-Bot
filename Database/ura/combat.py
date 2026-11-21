@@ -79,6 +79,11 @@ def has_guide(run: dict) -> bool:
     return any(m["alive"] and m["cls"] == "guide" for m in run["party"])
 
 
+def scout_alive(run: dict) -> bool:
+    """隊伍裡有活著的 🔍 斥候 (只算職業；提燈這類「斥候效果」道具不算)"""
+    return any(m["alive"] and m["cls"] == "scout" for m in run["party"])
+
+
 def has_scout(run: dict) -> bool:
     return any(m["alive"] and m["cls"] == "scout" for m in run["party"]) or status.has_flag(run["team"], "scout")
 
@@ -165,6 +170,8 @@ def deal(run: dict, attacker: dict | None, target: dict, mult: float, rng, *, si
     if not target["alive"]:
         return 0
     dodge = (target.get("dodge") or 0) + status.mod(target, "dodge_pct")
+    if target["side"] == ENEMY and scout_alive(run):   # 🔍 斥候活著 ➔ 敵人的閃避減半 (裏・射命丸文的破解，2026-11-21 使用者定)
+        dodge /= 2
     if single and dodge > 0 and rng.random() < dodge:
         _log(run, f"💨 {target['name']} 閃開了！")
         return 0
@@ -571,11 +578,16 @@ def _foe_act(run: dict, foe: dict, rng):
         foe["cds"][skill["id"]] = skill["cd"] + 1   # +1：這回合結束就會 −1
     do = skill["do"]
     name = f"{foe['emoji']} {foe['name']}「{skill['name']}」"
-    if do == "attack_one":
+    if do == "attack_one":   # hits = 連續打幾下 (每下分開算傷害，目標倒下就停；妖怪之山，2026-11-21)
         t = _choose_target(run, rng)
         if t:
-            d = deal(run, foe, t, skill.get("mult", 1.0), rng)
-            _log(run, f"{name} ➔ {t['name']} {d}")
+            ds = []
+            for _ in range(int(skill.get("hits", 1))):
+                if not t["alive"]:
+                    break
+                ds.append(deal(run, foe, t, skill.get("mult", 1.0), rng))
+            d = sum(ds)
+            _log(run, f"{name} ➔ {t['name']} " + " / ".join(str(x) for x in ds))
             if skill.get("status") and d and t["alive"]:
                 status.apply(t, skill["status"], turns=skill.get("turns"), value=skill.get("status_value"), fresh=True)
     elif do == "attack_all":

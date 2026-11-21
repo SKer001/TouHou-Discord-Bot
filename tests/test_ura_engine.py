@@ -71,6 +71,13 @@ check("netherworld materials", nw["materials"] == ["mat_sakura", "mat_shiratama"
 check("netherworld 15 treasures", [len(v) for v in data.theme_treasures(nw).values()] == [4, 3, 3, 2, 2, 1])
 check("death butterfly status", data.statuses()["death_butterfly"]["on"]["round_end"][0] == {"do": "dot_max_hp_pct", "value": 0.05}
       and "cleanse" in data.statuses()["death_butterfly"]["flags"])
+# ⛰️ 妖怪之山 (2026-11-21)
+mt = data.zone_by_id("mountain")
+check("mountain own roster", not mt["borrowed"] and mt["boss"] == "ura_aya" and mt["elite"] == "great_tengu"
+      and mt["normals"] == ["white_wolf_tengu", "crow_tengu", "kappa_engineer"])
+check("mountain materials", mt["materials"] == ["mat_tea_leaf", "mat_cucumber", "mat_sweet_potato", "mat_spring_water", "mat_lamprey"])
+check("mountain 15 treasures", [len(v) for v in data.theme_treasures(mt).values()] == [4, 3, 3, 2, 2, 1])
+check("gale status", data.statuses()["gale"]["mods"] == {"dodge_pct": 0.3} and data.statuses()["gale"]["good"])
 check("char file b / cd match spells", all(
     lv["spent"] == data.spells()[cid]["b"] and lv["cooldown"] == data.spells()[cid]["cd"]
     for cid in chars for lv in json.load(open(next(p for p in __import__("glob").glob(f"Characters/*/{cid}.json")), encoding="utf-8"))["special_powers"]["levels"].values()))
@@ -287,6 +294,38 @@ combat._trigger(b, m0, "round_end", Rng())
 check(f"death butterfly dot {hp0 - m0['hp']}", hp0 - m0["hp"] == max(1, rules.round_half(combat.max_hp(m0) * 0.05)))
 b = battle(foes=("ura_yuyuko",), kind="boss", floor=10)
 check("yuyuko zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["bomin_village", "death_butterflies", "resurrection_butterfly", "saigyouji_nirvana"])
+# ⛰️ 連續打：hits 下分開算，目標倒下就停
+b = battle(team=(("marisa", "SR"),), foes=("great_tengu",), kind="elite")
+foe = b["battle"]["foes"][0]
+foe["skills"] = [s for s in foe["skills"] if s.get("hits")]
+hp0 = b["party"][0]["hp"]
+combat._foe_act(b, foe, Rng([0.0]))
+line = b["battle"]["log"][-1]
+check(f"multi hit 3 {line}", line.count(" / ") == 2 and b["party"][0]["hp"] < hp0)
+b = battle(team=(("marisa", "SR"),), foes=("great_tengu",), kind="elite")
+foe = b["battle"]["foes"][0]
+foe["skills"] = [s for s in foe["skills"] if s.get("hits")]
+b["party"][0]["hp"] = 1
+combat._foe_act(b, foe, Rng([0.0]))
+check("multi hit stops when down", " / " not in b["battle"]["log"][-1] and not b["party"][0]["alive"])
+# 🔍 斥候活著 ➔ 敵人閃避減半 (影兔 20% ➔ 10%；擲 0.15：沒斥候閃開、有斥候打中)
+def rabbit_hit(team, kill_scout=False):
+    b = battle(team=team, foes=("shadow_rabbit",))
+    if kill_scout:
+        b["party"][1]["alive"] = False
+    return combat.deal(b, b["party"][0], b["battle"]["foes"][0], 1.0, Rng([0.15]), single=True)
+check("no scout: dodged", rabbit_hit((("marisa", "SR"),)) == 0)
+check("scout halves dodge", rabbit_hit((("marisa", "SR"), ("rumia", "SR"))) > 0)
+check("dead scout no help", rabbit_hit((("marisa", "SR"), ("rumia", "SR")), kill_scout=True) == 0)
+b = battle(team=(("marisa", "SR"), ("rumia", "SR")), foes=("ura_aya",), kind="boss", floor=10)
+aya = b["battle"]["foes"][0]
+status.apply(aya, "gale", turns=3)
+check("aya gale 40% ➔ 20% with scout", combat.deal(b, b["party"][0], aya, 1.0, Rng([0.25]), single=True) > 0
+      and combat.deal(b, b["party"][0], aya, 1.0, Rng([0.15]), single=True) == 0)
+check("aya zone 1 full kit", [s["id"] for s in aya["skills"]] == ["wind_fan", "peerless_wind", "illusionary_dominance", "fake_scandal"])
+b = battle(team=(("marisa", "SR"), ("rumia", "SR")), foes=("lost_spirit",))
+status.apply(b["party"][0], "gale")
+check("scout halving only for enemies", combat.deal(b, b["battle"]["foes"][0], b["party"][0], 1.0, Rng([0.2]), single=True) == 0)
 b = battle(foes=("ura_shinki",), kind="boss", floor=10)
 check("shinki zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["genesis_light", "mother_curse", "makai_mercy", "six_wings"])
 b = battle(team=(("remilia", "SSR"),), foes=("ura_mokou",), kind="boss", floor=10)
