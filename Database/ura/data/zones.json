@@ -1,5 +1,5 @@
 {
-    "_說明": "🗺️ 裏世界的區域 (每 10 關一區；每區隨機抽一個主題，不跟前三區重複，難度只看第幾區)。copy_of = 名單還沒定，暫時借那一區的敵人 / 寶物 / 素材 (docs/ura.md「🗺️ 其他 4 個主題」)。",
+    "_說明": "🗺️ 裏世界的區域 (每 10 關一區；每區隨機抽一個主題，不跟前三區重複，難度只看第幾區)。5 個主題都有自己的名單 (docs/ura.md「🗺️ 其他 4 個主題」)；之後加新主題、名單還沒定時可以先寫 copy_of = 借那個主題的敵人 / 寶物 / 素材。",
     "zones": [
         {"id": "bamboo", "name": "迷途竹林", "emoji": "🎋",
          "normals": ["lost_spirit", "shadow_rabbit", "bamboo_wraith"], "elite": "mad_rabbit", "boss": "ura_mokou",
@@ -13,6 +13,8 @@
         {"id": "netherworld", "name": "冥界", "emoji": "🌸",
          "normals": ["netherworld_ghost", "sakura_youkai", "wandering_dead"], "elite": "phantom_warrior", "boss": "ura_yuyuko",
          "materials": ["mat_sakura", "mat_shiratama", "mat_matcha", "mat_rice", "mat_sugar"]},
-        {"id": "higan", "name": "彼岸", "emoji": "🌊", "copy_of": "bamboo"}
+        {"id": "higan", "name": "彼岸", "emoji": "🌊",
+         "normals": ["higan_spirit", "stone_pile", "hell_jailer"], "elite": "shinigami", "boss": "ura_eiki",
+         "materials": ["mat_onsen_egg", "mat_oni_sake", "mat_hell_pepper", "mat_nectar", "mat_sunflower_seed"]}
     ]
 }

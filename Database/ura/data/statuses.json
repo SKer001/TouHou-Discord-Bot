@@ -6,7 +6,7 @@
         "max_stacks": "最多幾層 (1 = 不能疊，再施加只刷新時間)",
         "group": "倍率屬於哪一類 (item 道具 / relic 法具 / spell 符卡 / env 環境)：同一類相加，不同類相乘",
         "mods": "數值修正；值可以是數字或 \"value\" / \"-value\" (施加時給的數字，例如 0.25)",
-        "flags": "skip_turn 跳過回合、wake_on_hit 被打就醒、taunt 嘲諷、invuln 無敵、boss_half 對 BOSS 回合數減半、boss_immune 對 BOSS 無效、scout 斥候效果、cleanse 可以被淨化、battle_only 戰鬥結束就消失",
+        "flags": "skip_turn 跳過回合、wake_on_hit 被打就醒、taunt 嘲諷、invuln 無敵、boss_half 對 BOSS 回合數減半、boss_immune 對 BOSS 無效、scout 斥候效果、cleanse 可以被淨化、battle_only 戰鬥結束就消失、atk_break 被 ⚔️ 攻擊手的普攻 / 單體招打中就破掉",
         "on": "觸發時機 round_start / round_end / on_hit / on_down / battle_start / floor_enter ➔ 動作清單"
     },
     "freeze": {"name": "凍住", "emoji": "❄️", "good": false, "duration": "rounds", "default": 1, "max_stacks": 1,
@@ -49,6 +49,8 @@
                         "desc": "回合結束扣 5% 最大 HP"},
     "gale": {"name": "疾風", "emoji": "💨", "good": true, "duration": "rounds", "default": 2, "max_stacks": 1,
              "mods": {"dodge_pct": 0.3}, "desc": "閃避 +30% (普攻、單體招；全體招必中)"},
+    "judgment": {"name": "審判", "emoji": "⚖️", "good": true, "duration": "rounds", "default": 3, "max_stacks": 1,
+                 "mods": {"dmg_taken_pct": -0.5}, "flags": ["atk_break"], "desc": "受到的傷害 −50%；被 ⚔️ 攻擊手的普攻 / 單體招打中就破掉"},
     "blaze": {"name": "浴火", "emoji": "♨️", "good": true, "duration": "rounds", "default": 3, "max_stacks": 1,
               "on": {"on_hit": [{"do": "reflect_pct", "value": 0.05}]}, "desc": "被打時反彈 5% 傷害"},
     "breach": {"name": "破綻", "emoji": "💢", "good": false, "duration": "battle", "default": 1, "max_stacks": 1,

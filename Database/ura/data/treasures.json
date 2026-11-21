@@ -32,5 +32,13 @@
         "UR": [["ura_kanako_mirror", "神奈子的鏡子", "🪞"], ["ura_sanae_snake", "早苗的蛇髮飾", "🐍"]],
         "LR": [["ura_moriya_shintai", "守矢神社的神體", "⛩️"]]
     },
+    "higan": {
+        "N": [["ura_higanbana", "彼岸花", "🌺"], ["ura_rusty_coin", "生鏽的銅錢", "🪙"], ["ura_broken_beads", "斷掉的念珠", "📿"], ["ura_sai_stones", "賽之河原的石堆", "🧱"]],
+        "R": [["ura_ferry_oar", "渡船的船槳", "🛶"], ["ura_muenzuka_sign", "無緣塚的木牌", "🪧"], ["ura_higan_sake", "彼岸的供酒", "🍶"]],
+        "SR": [["ura_six_mon", "六文錢", "💰"], ["ura_yama_verdict", "閻魔的判決書", "📃"], ["ura_komachi_kimono", "小町的和服", "👘"]],
+        "SSR": [["ura_yama_hat", "閻魔的帽子", "🎩"], ["ura_komachi_scythe", "小町的鐮刀", "🌙"]],
+        "UR": [["ura_remorse_rod", "悔悟之棒", "🪄"], ["ura_ten_kings_scale", "十王的天秤", "⚖️"]],
+        "LR": [["ura_crystal_mirror", "淨玻璃之鏡", "💠"]]
+    },
     "sell_price": {"N": 150, "R": 400, "SR": 1000, "SSR": 2500, "UR": 6000, "LR": 20000}
 }

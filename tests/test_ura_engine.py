@@ -78,6 +78,14 @@ check("mountain own roster", not mt["borrowed"] and mt["boss"] == "ura_aya" and 
 check("mountain materials", mt["materials"] == ["mat_tea_leaf", "mat_cucumber", "mat_sweet_potato", "mat_spring_water", "mat_lamprey"])
 check("mountain 15 treasures", [len(v) for v in data.theme_treasures(mt).values()] == [4, 3, 3, 2, 2, 1])
 check("gale status", data.statuses()["gale"]["mods"] == {"dodge_pct": 0.3} and data.statuses()["gale"]["good"])
+# 🌊 彼岸 (2026-11-21)：5 個主題都有自己的名單了
+hg = data.zone_by_id("higan")
+check("higan own roster", not hg["borrowed"] and hg["boss"] == "ura_eiki" and hg["elite"] == "shinigami"
+      and hg["normals"] == ["higan_spirit", "stone_pile", "hell_jailer"])
+check("higan materials", hg["materials"] == ["mat_onsen_egg", "mat_oni_sake", "mat_hell_pepper", "mat_nectar", "mat_sunflower_seed"])
+check("higan 15 treasures", [len(v) for v in data.theme_treasures(hg).values()] == [4, 3, 3, 2, 2, 1])
+check("no borrowed zones left", not any(z["borrowed"] for z in data.zones()))
+check("judgment status", data.statuses()["judgment"]["mods"] == {"dmg_taken_pct": -0.5} and "atk_break" in data.statuses()["judgment"]["flags"])
 check("char file b / cd match spells", all(
     lv["spent"] == data.spells()[cid]["b"] and lv["cooldown"] == data.spells()[cid]["cd"]
     for cid in chars for lv in json.load(open(next(p for p in __import__("glob").glob(f"Characters/*/{cid}.json")), encoding="utf-8"))["special_powers"]["levels"].values()))
@@ -331,6 +339,37 @@ check("crow tengu dodge 20% (zone 2 too)", b["battle"]["foes"][0]["dodge"] == 0.
 b = battle(team=(("marisa", "SR"), ("rumia", "SR")), foes=("lost_spirit",))
 status.apply(b["party"][0], "gale")
 check("scout halving only for enemies", combat.deal(b, b["battle"]["foes"][0], b["party"][0], 1.0, Rng([0.2]), single=True) == 0)
+# ⚖️ 審判：受到傷害 −50%；⚔️ 攻擊手的普攻 / 單體招打中就破掉 (那一下全額)
+def judged(team):
+    b = battle(team=team, foes=("ura_eiki",), kind="boss", floor=10)
+    e = b["battle"]["foes"][0]
+    status.apply(e, "judgment")
+    return b, e
+b, e = judged((("meiling", "SR"),))
+plain = battle(team=(("meiling", "SR"),), foes=("ura_eiki",), kind="boss", floor=10)
+full = combat.deal(plain, plain["party"][0], plain["battle"]["foes"][0], 1.0, Rng(), single=True)
+half = combat.deal(b, b["party"][0], e, 1.0, Rng(), single=True)
+check(f"judgment halves {half} vs {full}", half == max(1, rules.round_half(full / 2)) or abs(half - full / 2) <= 1)
+check("guard can't break judgment", status.has(e, "judgment"))
+b, e = judged((("marisa", "SR"),))
+plain = battle(team=(("marisa", "SR"),), foes=("ura_eiki",), kind="boss", floor=10)
+full = combat.deal(plain, plain["party"][0], plain["battle"]["foes"][0], 1.0, Rng(), single=True)
+d = combat.deal(b, b["party"][0], e, 1.0, Rng(), single=True)
+check(f"attacker breaks judgment, full damage {d} vs {full}", not status.has(e, "judgment") and d == full)
+check("break logged", any("打破了" in x for x in b["battle"]["log"]))
+b, e = judged((("marisa", "SR"),))
+combat.deal(b, b["party"][0], e, 1.0, Rng(), single=False)
+check("aoe doesn't break judgment", status.has(e, "judgment"))
+b = battle(foes=("ura_eiki",), kind="boss", floor=10)
+check("eiki zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["wandering_sin", "rod_of_remorse", "crystal_mirror", "ten_kings"])
+# 🌀 敵人的反擊架式 (獄卒)：被打時反擊
+b = battle(team=(("marisa", "SR"),), foes=("hell_jailer",))
+j = b["battle"]["foes"][0]
+j["skills"] = [x for x in j["skills"] if x["id"] == "jailer_stance"]
+combat._foe_act(b, j, Rng([0.0]))
+hp0 = b["party"][0]["hp"]
+combat.deal(b, b["party"][0], j, 0.1, Rng(), single=True)
+check("jailer counter hits back", status.has(j, "counter") and b["party"][0]["hp"] < hp0)
 b = battle(foes=("ura_shinki",), kind="boss", floor=10)
 check("shinki zone 1 full kit", [s["id"] for s in b["battle"]["foes"][0]["skills"]] == ["genesis_light", "mother_curse", "makai_mercy", "six_wings"])
 b = battle(team=(("remilia", "SSR"),), foes=("ura_mokou",), kind="boss", floor=10)

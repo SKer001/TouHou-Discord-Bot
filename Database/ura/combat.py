@@ -176,6 +176,11 @@ def deal(run: dict, attacker: dict | None, target: dict, mult: float, rng, *, si
     if single and dodge > 0 and rng.random() < dodge:
         _log(run, f"💨 {target['name']} 閃開了！")
         return 0
+    if (single and attacker is not None and attacker["side"] == ALLY and attacker.get("cls") == "atk"
+            and status.has_flag(target, "atk_break")):   # ⚔️ 攻擊手的普攻 / 單體招打破審判，這一下照全額算 (裏・四季映姬的破解，2026-11-21)
+        for sid in [x["id"] for x in target["statuses"] if "atk_break" in status.info(x["id"]).get("flags", [])]:
+            status.remove(target, sid)
+        _log(run, f"⚖️ {attacker['name']} 打破了 {target['name']} 的審判！")
     atk = (source_atk if source_atk is not None else eff_atk(attacker, b)) * mult
     if attacker is not None and attacker["side"] == ALLY and b and b.get("time_stop"):
         atk *= b["time_stop"]
