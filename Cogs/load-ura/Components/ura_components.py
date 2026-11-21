@@ -674,6 +674,8 @@ def build_bestiary_container(key: str, idx: int | None, kills: dict, claimed: se
         extra = []
         if role == "boss":
             extra.append(f"-# 區域 BOSS {B.BOSS_DEEP_NOTE}")
+            if e.get("deep_order"):
+                extra.append("-# 深區開招順序：" + " ➔ ".join(e["deep_order"]))
         if e["hint"]:
             extra.append(f"💡 {e['hint']}")
         c.add_item(ui.TextDisplay(f"{stat}\n-# 第 1 區時的數值 (越深的區越強)\n**招式**\n{sk}" + ("\n" + "\n".join(extra) if extra else "")))

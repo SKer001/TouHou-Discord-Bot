@@ -44,6 +44,21 @@ def make_foe(idx: int, eid: str, kind: str, zone: int, suffix: str = "") -> dict
     return u
 
 
+def deep_boss_skills(eid: str, zone: int) -> list[dict]:
+    """區域 BOSS 第 zone 區 (>= 2) 的招式：deep_order 的前 N 招 (rules.deep_boss_skill_count)，倍率 / 狀態數值 / 回血 / 扣常識度 × 0.8 (新的 dict，不改共用資料)"""
+    e = data.enemies()[eid]
+    by = {s["id"]: s for s in e.get("skills", [])}
+    out = []
+    for sid in e.get("deep_order", [])[:rules.deep_boss_skill_count(zone)]:
+        s = dict(by[sid])
+        for k in ("mult", "status_value", "value"):
+            if k in s:
+                v = s[k] * rules.DEEP_BOSS_SKILL_SCALE
+                s[k] = int(round(v)) if k == "value" and s["do"] == "sanity" else v
+        out.append(s)
+    return out
+
+
 def max_hp(u: dict) -> int:
     return max(1, rules.round_half(u["base_hp"] * (1 + status.mod(u, "max_hp_pct"))))
 
@@ -125,9 +140,10 @@ def start(run: dict, kind: str, foe_ids: list[str], rng, fest_boss: bool = False
         foe = make_foe(i, eid, "fest_boss" if fest_boss and i == 0 else fkind, zone)
         if fest_boss and i == 0:
             foe["fest_boss"] = True
-        elif fkind == "boss" and zone > 1:   # 區域 BOSS 只有第 1 區用完整招式，第 2 區以後先只普攻 (使用者 2026-11-20；各區有自己的 BOSS 再調)
-            foe["skills"] = []
-            foe["dodge"] = 0                   # 本身的閃避也只留在第 1 區 (裏・射命丸文，使用者 2026-11-21)
+        elif fkind == "boss" and zone > 1:   # 區域 BOSS 第 2 區起 (使用者 2026-11-21 選 T3)：招式照 deep_order 慢慢開放
+            foe["skills"] = deep_boss_skills(eid, zone)
+            foe["skill_every"] = rules.DEEP_BOSS_SKILL_EVERY
+            foe["dodge"] = 0                   # 本身的閃避只留在第 1 區 (裏・射命丸文，使用者 2026-11-21)
         foes.append(foe)
     seen = {}
     for f in foes:   # 同名的加 A / B / C
@@ -557,7 +573,7 @@ def _pick_skill(run: dict, foe: dict, rng) -> dict | None:
     if not avail:
         return None
     if foe["kind"] == "boss":
-        if run["battle"]["round"] % 2:
+        if run["battle"]["round"] % foe.get("skill_every", 2):   # 第 1 區每 2 回合、深區每 4 回合放一次招
             return None
         order = foe["skills"]
         for i in range(len(order)):

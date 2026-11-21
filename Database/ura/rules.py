@@ -61,6 +61,18 @@ FEST_TREASURE_SLOT = ((0, 20), (1, 70), (2, 10))   # 🎪 活動保留格：本�
 FEST_BOSS_TREASURE_SLOT = ((1, 80), (2, 20))       # 活動 BOSS 一定掉
 FEST_RELIC_CHANCE = 0.5         # 🎪 房間掉法具時換成活動法具的機率
 
+# ---- 👹 區域 BOSS 第 2 區起 (使用者 2026-11-21 選 T3；docs/ura.md「🧪 深區 BOSS 放招」) ----
+#      招式照 enemies.json 的 deep_order 開放：第 2～5 區 1 招、6～10 區 2 招…；數值 × 0.8；每 4 回合才放一次；本身沒有閃避
+DEEP_BOSS_SKILL_SCALE = 0.8
+DEEP_BOSS_SKILL_EVERY = 4
+DEEP_BOSS_UNLOCK_ZONES = 5
+
+
+def deep_boss_skill_count(zone: int) -> int:
+    """第 zone 區 (>= 2) 的區域 BOSS 開放幾招：第 2～5 區 1、6～10 區 2、11～15 區 3…"""
+    return (zone - 1) // DEEP_BOSS_UNLOCK_ZONES + 1
+
+
 # ---- 📖 怪物圖鑑的全收獎勵 (賽錢, 經驗)；使用者 2026-11-21 定 ----
 BESTIARY_REWARDS = {"zone": (200000, 500), "all": (500000, 750), "fest": (100000, 300)}
 CHESTS = {

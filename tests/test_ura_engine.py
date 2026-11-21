@@ -366,7 +366,8 @@ check("aya gale 40% ➔ 20% with scout", combat.deal(b, b["party"][0], aya, 1.0,
 check("aya zone 1 full kit", [s["id"] for s in aya["skills"]] == ["wind_fan", "peerless_wind", "illusionary_dominance", "fake_scandal"])
 check("aya zone 1 dodge 10%", aya["dodge"] == 0.1)
 b = battle(foes=("ura_aya",), kind="boss", floor=20)
-check("aya zone 2: no skills, no dodge", b["battle"]["foes"][0]["skills"] == [] and b["battle"]["foes"][0]["dodge"] == 0)
+check("aya zone 2: 1 deep skill, no dodge", [x["id"] for x in b["battle"]["foes"][0]["skills"]] == ["illusionary_dominance"]
+      and b["battle"]["foes"][0]["dodge"] == 0)
 b = battle(foes=("crow_tengu",), floor=20)
 check("crow tengu dodge 20% (zone 2 too)", b["battle"]["foes"][0]["dodge"] == 0.2)
 b = battle(team=(("marisa", "SR"), ("rumia", "SR")), foes=("lost_spirit",))
@@ -446,13 +447,31 @@ combat._foe_act(b, boss, Rng())
 combat._pick_skill = orig
 check("phoenix redirect to taunt", b["party"][0]["hp"] == hp0[0] and b["party"][2]["hp"] == hp0[2] and b["party"][1]["hp"] < hp0[1])
 
-# 2026-11-20 使用者決定：區域 BOSS 只有第 1 區用完整招式 (第 2 區以後只普攻)、持續扣血最低留 1、常識度最多 1000
-b = battle(foes=("ura_mokou",), kind="boss", floor=20)
-check("zone 2 boss no skills", b["battle"]["foes"][0]["skills"] == [])
+# 區域 BOSS：第 1 區完整招式；第 2 區起照 deep_order 開放 (2～5 區 1 招、6～10 區 2 招…)、數值 × 0.8、每 4 回合 (2026-11-21 使用者選 T3)
+#            持續扣血最低留 1、常識度最多 1000 (2026-11-20)
 b = battle(foes=("ura_mokou",), kind="boss", floor=10)
-check("zone 1 boss keeps skills", len(b["battle"]["foes"][0]["skills"]) == 4)
+check("zone 1 boss keeps skills", len(b["battle"]["foes"][0]["skills"]) == 4 and "skill_every" not in b["battle"]["foes"][0])
+b = battle(foes=("ura_mokou",), kind="boss", floor=20)
+check("zone 2 boss: first deep skill", [x["id"] for x in b["battle"]["foes"][0]["skills"]] == ["possessed_phoenix"]
+      and b["battle"]["foes"][0]["skill_every"] == 4)
 b = battle(foes=("ura_mokou",), kind="boss", floor=60)
-check("zone 6 boss no skills too", b["battle"]["foes"][0]["skills"] == [])
+sk6 = b["battle"]["foes"][0]["skills"]
+check("zone 6 boss: 2 deep skills ×0.8", [x["id"] for x in sk6] == ["possessed_phoenix", "phoenix_tail"] and abs(sk6[1]["mult"] - 1.12) < 1e-9)
+check("shared data untouched", next(x for x in data.enemies()["ura_mokou"]["skills"] if x["id"] == "phoenix_tail")["mult"] == 1.4)
+check("deep counts", [rules.deep_boss_skill_count(z) for z in (2, 5, 6, 10, 11, 16, 30)] == [1, 1, 2, 2, 3, 4, 6])
+check("deep skills capped at 4", len(combat.deep_boss_skills("ura_eiki", 30)) == 4)
+check("sanity skill scaled to int", next(x for x in combat.deep_boss_skills("ura_yuyuko", 11) if x["do"] == "sanity")["value"] == 32)
+check("every boss has full deep_order", all(sorted(data.enemies()[z["boss"]]["deep_order"]) == sorted(x["id"] for x in data.enemies()[z["boss"]]["skills"])
+                                           for z in data.zones()))
+b = battle(foes=("ura_shinki",), kind="boss", floor=20)
+sh = b["battle"]["foes"][0]
+b["battle"]["round"] = 2
+check("deep boss: no skill on round 2", combat._pick_skill(b, sh, Rng()) is None)
+b["battle"]["round"] = 4
+check("deep boss: skill on round 4", (combat._pick_skill(b, sh, Rng()) or {}).get("id") == "mother_curse")
+b2 = battle(foes=("ura_shinki",), kind="boss", floor=10)
+b2["battle"]["round"] = 2
+check("zone 1 boss: skill on round 2", combat._pick_skill(b2, b2["battle"]["foes"][0], Rng()) is not None)
 # 每區隨機主題：不跟前三區重複、照 seed 決定、第 1 區也隨機
 zone_ids = [z["id"] for z in data.zones()]
 firsts, bad = set(), []

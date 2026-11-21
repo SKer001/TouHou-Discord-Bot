@@ -642,7 +642,7 @@ async def main():
           and "🎁 可以領" in t and base[0] >= 5)
     await press(bv, UID, placeholder="📖", values=["4"]); limits(bv, "bestiary boss page")
     t = texts(bv)
-    check("boss page", "火之鳥" in t and "第 2 區起只普攻" in t and "💡" in t and "第 5 / 5 隻" in t)
+    check("boss page", "火之鳥" in t and "第 2 區起：沒有閃避" in t and "深區開招順序" in t and "💡" in t and "第 5 / 5 隻" in t)
     await press(bv, UID, label="◀️"); check("prev", "第 4 / 5 隻" in texts(bv) and "狂氣的月兔" in texts(bv))
     await press(bv, UID, label="↩️ 回清單"); check("back to list", "✅" in texts(bv))
     m0 = (await udm.get_or_create_user(UID))["money"]

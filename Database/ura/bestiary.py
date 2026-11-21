@@ -10,8 +10,9 @@ from Database.ura import data, rules
 
 ROLE_NAMES = {"normal": "一般", "elite": "💀 精英", "boss": "👹 BOSS", "fest_boss": "👹 活動 BOSS"}
 ALL_REWARD = "all"
-# 區域 BOSS 第 2 區起的規則 (combat.start)；圖鑑在招式下面註明
-BOSS_DEEP_NOTE = "第 2 區起只普攻、沒有閃避"
+# 區域 BOSS 第 2 區起的規則 (combat.start / rules.DEEP_BOSS_*；使用者 2026-11-21 選 T3)；圖鑑在招式下面註明
+BOSS_DEEP_NOTE = (f"第 2 區起：沒有閃避、招式數值 × {rules.DEEP_BOSS_SKILL_SCALE:g}、每 {rules.DEEP_BOSS_SKILL_EVERY} 回合放一次；"
+                  f"第 2～{rules.DEEP_BOSS_UNLOCK_ZONES} 區只開下面順序的第 1 招，每深 {rules.DEEP_BOSS_UNLOCK_ZONES} 區多開一招")
 
 
 def sections() -> list[dict]:
@@ -170,4 +171,7 @@ def entry(eid: str, role: str, kills: dict) -> dict:
     out.update(name=e["name"], emoji=e["emoji"], desc=e.get("desc", ""), hint=e.get("hint", ""),
                stats=zone1_stats(eid, role), dodge=float(e.get("dodge", 0)),
                skills=[{"name": s["name"], "text": skill_text(s), "conds": skill_conditions(s)} for s in e.get("skills", [])])
+    if role == "boss":   # 深區開招順序 (deep_order)
+        names = {s["id"]: s["name"] for s in e.get("skills", [])}
+        out["deep_order"] = [names.get(sid, sid) for sid in e.get("deep_order", [])]
     return out
