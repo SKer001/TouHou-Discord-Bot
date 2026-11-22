@@ -39,7 +39,7 @@
                 "type": "shield",
                 "spent": 8,
                 "cooldown": 4,
-                "desc": "吸引全部攻擊 2 回合，自己回血"
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；自己回最大 HP 的 15%"
             },
             "SR": {
                 "id": "meiling_SP_II",
@@ -47,7 +47,7 @@
                 "type": "shield",
                 "spent": 8,
                 "cooldown": 4,
-                "desc": "吸引全部攻擊 2 回合，自己回血"
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；自己回最大 HP 的 20%"
             },
             "SSR": {
                 "id": "meiling_SP_III",
@@ -55,7 +55,7 @@
                 "type": "shield",
                 "spent": 8,
                 "cooldown": 4,
-                "desc": "吸引全部攻擊 2 回合，自己回血"
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；自己回最大 HP 的 25%"
             }
         }
     }

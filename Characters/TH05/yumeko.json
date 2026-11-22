@@ -39,7 +39,7 @@
                 "type": "shield",
                 "spent": 8,
                 "cooldown": 4,
-                "desc": "全隊護盾 (擋下一次傷害的一部分)"
+                "desc": "全隊 🔰 護盾（下一次受到的傷害少 30%）"
             },
             "SR": {
                 "id": "yumeko_SP_II",
@@ -47,7 +47,7 @@
                 "type": "shield",
                 "spent": 8,
                 "cooldown": 4,
-                "desc": "全隊護盾 (擋下一次傷害的一部分)"
+                "desc": "全隊 🔰 護盾（下一次受到的傷害少 35%）"
             },
             "SSR": {
                 "id": "yumeko_SP_III",
@@ -55,7 +55,7 @@
                 "type": "shield",
                 "spent": 8,
                 "cooldown": 4,
-                "desc": "全隊護盾 (擋下一次傷害的一部分)"
+                "desc": "全隊 🔰 護盾（下一次受到的傷害少 40%）"
             }
         }
     }

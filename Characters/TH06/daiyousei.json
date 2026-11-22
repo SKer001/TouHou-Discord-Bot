@@ -39,7 +39,7 @@
                 "type": "heal",
                 "spent": 6,
                 "cooldown": 3,
-                "desc": "一位回血"
+                "desc": "一位隊友回最大 HP 的 30%"
             },
             "R": {
                 "id": "daiyousei_SP_II",
@@ -47,7 +47,7 @@
                 "type": "heal",
                 "spent": 6,
                 "cooldown": 3,
-                "desc": "一位回血"
+                "desc": "一位隊友回最大 HP 的 35%"
             },
             "SR": {
                 "id": "daiyousei_SP_III",
@@ -55,7 +55,7 @@
                 "type": "heal",
                 "spent": 6,
                 "cooldown": 3,
-                "desc": "一位回血"
+                "desc": "一位隊友回最大 HP 的 40%"
             }
         }
     }

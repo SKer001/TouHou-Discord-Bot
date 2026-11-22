@@ -39,7 +39,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "敵人全體 ATK 下降 3 回合，這場的錢 × 1.3"
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 3 回合（ATK −20%）；這場戰鬥的賽錢 × 1.3（不疊）"
             },
             "R": {
                 "id": "koakuma_SP_II",
@@ -47,7 +47,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "敵人全體 ATK 下降 3 回合，這場的錢 × 1.3"
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 3 回合（ATK −25%）；這場戰鬥的賽錢 × 1.3（不疊）"
             },
             "SR": {
                 "id": "koakuma_SP_III",
@@ -55,7 +55,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "敵人全體 ATK 下降 3 回合，這場的錢 × 1.3"
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 3 回合（ATK −30%）；這場戰鬥的賽錢 × 1.3（不疊）"
             }
         }
     }

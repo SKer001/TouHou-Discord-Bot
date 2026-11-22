@@ -10,6 +10,8 @@
 import discord
 from discord import ui
 
+from Database.ura import data as ura_data, describe as ura_describe
+
 # 角色檔案頁的色條：依該角色「最高階級」上色
 RARITY_COLORS = {
     "N": discord.Color.light_grey(),
@@ -154,17 +156,24 @@ def build_character_container(char: dict, category_name: str, thumbnails: dict |
         else:
             container.add_item(ui.TextDisplay(f"### 🏷️ 卡牌階級\n" + "\n".join(lines.values()) + f"\n-# {pool_state}"))
 
-    # 個人能力 (SP)：依階級分 I / II / III
+    # 個人能力 (SP)：依階級分 I / II / III；每一級只寫自己的效果數字 (跟裏世界同一份資料自動產生)，
+    # 一句定位 / 用法只在標題下寫一次 (使用者 2026-11-22，分支 ura-skill-desc)
     levels = sp.get("levels", {})
     if levels:
+        cid = char.get("id")
+        ura = cid in ura_data.spells()
+        note = ura_describe.spell_note(cid) if ura else ""
         lines = []
-        for rarity, lv in levels.items():
+        for i, (rarity, lv) in enumerate(levels.items()):
             numeral = lv.get("id", "").rsplit("_", 1)[-1]
-            detail = f"{SP_TYPE_NAMES.get(lv.get('type'), lv.get('type', '—'))} · 消耗 B 點 `{lv.get('spent', 0)}` · 冷卻 `{lv.get('cooldown', 0)}`"
-            desc = f"\n-# {lv['desc']}" if lv.get("desc") else ""
+            detail = f"{SP_TYPE_NAMES.get(lv.get('type'), lv.get('type', '—'))} · 消耗 B 點 `{lv.get('spent', 0)}` · 冷卻 `{lv.get('cooldown', 0)}` 回合"
+            tier = rarities.index(rarity) if rarity in rarities else i
+            effect = ura_describe.spell_text(cid, tier) if ura else lv.get("desc", "")
+            desc = f"\n-# {effect}" if effect else ""
             lines.append(f"**{numeral}** `[{rarity}]` {lv.get('name', '')}\n└ {detail}{desc}")
         container.add_item(ui.Separator())
-        container.add_item(ui.TextDisplay(f"### ✨ 特殊能力 (SP)：{sp.get('name', '')}\n" + "\n".join(lines)))
+        container.add_item(ui.TextDisplay(f"### ✨ 特殊能力 (SP)：{sp.get('name', '')}\n" + (f"-# {note}\n" if note else "")
+                                          + "\n".join(lines)))
 
     container.add_item(ui.TextDisplay("-# TouHou Project Character Profile • 東方角色圖鑑"))
     return container

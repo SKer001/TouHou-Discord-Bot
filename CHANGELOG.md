@@ -13,6 +13,16 @@
 
 ---
 
+## 0.35.??? — 2026-11-22：📝 裏世界符卡敘述重寫 (分支 ura-skill-desc，還沒合併；版本號合併進 main 時才填) (筆電，玩法 session)
+- 使用者：「有些角色的技能敘述就是符卡敘述，都是重複的，然後只有說最高等級會乘以一點二倍」。規則和每位的寫法在 `docs/ura.md`「📝 符卡敘述」。
+- `Database/ura/describe.py` 重寫效果產生器：傷害寫「對一隻敵人 / 全部敵人造成 ATK × N 的傷害」、狀態寫出作用和數字、控場寫 BOSS 怎樣、三檔標出階級〔SR 2.8・SSR 3.3・UR 3.8〕(不跟外面的括號疊在一起)；新的 `spell_note()`、`COOLDOWN_NOTE`。
+- `spells.json` 24 位的 desc 改成一句定位 / 用法 (不重複效果)；`statuses.json` 魅魔之力拿掉疊不到的「最多 3 層」(數值沒動)。
+- 顯示的地方：🔍 詳情 (效果 + 說明 + 冷卻小字)、出發選角色 (B 點・冷卻 N 回合、三檔效果；原本寫「步」)、`/character` 圖鑑 (說明只寫一次、I / II / III 各寫自己的效果數字，冷卻寫「回合」)、`docs/ura_roster.md`。
+- `tools/ura_roster.py` 多一步：把 `Characters/*.json` 特殊能力每一級的 desc 同步成那一級的效果 (只改 desc，排版照原檔)。
+- 測試：`test_ura_engine.py` 檢查前 6 位使用者定的文字、括號沒有疊、`$` 沒漏、24 位都有說明、角色檔 desc 跟產生的一樣；`test_character.py` 檢查圖鑑每一級的效果都在、說明只出現一次。全部 9749 項通過。
+
+---
+
 ## 0.35.110 — docs：CLAUDE.md 補上裏世界 describe 模組
 - CLAUDE.md 第 2 節 `Database/ura/` 模組清單加 `describe` (職業特性、符卡、法具效果的白話說明，🔍 查看詳情與 `tools/ura_roster.py` 共用)。統整 session 驗過 0.35.109：全部測試 9714 項過。
 

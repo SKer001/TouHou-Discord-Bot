@@ -78,6 +78,7 @@
 ### 角色資料（`Characters/<分類>/<id>.json`）
 - 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`base_stats{hp, atk, def}`（目前都是 0）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。
 - SP 等級名稱 = `Easy・初陣` / `Lunatic・瘋狂` / `Phantasm・幻象` + `・` + SP 名稱；`spent` 是 B 點消耗（B 點系統尚未實作）。`type`、`spent`、`cooldown`、`desc` 目前只用於圖鑑顯示。
+- 有裏世界符卡的角色，`special_powers.levels.*.desc` = 那一級的符卡效果，由 `python tools/ura_roster.py` 從 `Database/ura/data/spells.json` 同步 (不要手改；圖鑑執行時也直接從同一份資料產生，2026-11-22)。
 - 驗證：檔名必須等於 `id`、`special_powers.levels` 的鍵必須等於 `gacha.rarities`。分類顯示名稱在 `Utils/character_data.py` 的 `CATEGORY_INFO`。
 - 舊作角色、大妖精、小惡魔的介紹與 SP 名稱是 Claude 依風格自訂的，使用者尚未確認。
 

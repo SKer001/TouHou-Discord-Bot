@@ -39,7 +39,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "敵人全體 ATK 下降 3 回合"
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 3 回合（ATK −20%）"
             },
             "SR": {
                 "id": "rumia_SP_II",
@@ -47,7 +47,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "敵人全體 ATK 下降 3 回合"
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 3 回合（ATK −25%）"
             },
             "SSR": {
                 "id": "rumia_SP_III",
@@ -55,7 +55,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "敵人全體 ATK 下降 3 回合"
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 3 回合（ATK −30%）"
             }
         }
     }

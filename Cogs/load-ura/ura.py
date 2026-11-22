@@ -13,7 +13,7 @@ from discord.ext import commands
 
 from Database import Ura_DB_Manager as ura
 from Database.User_DB_Manager import get_or_create_user
-from Database.ura import bestiary as B, combat, data, rules, run as R
+from Database.ura import bestiary as B, combat, data, describe, rules, run as R
 from Utils.components import send_notice, notice_view
 from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 from Utils.pagination import nav_buttons, paginate
@@ -674,8 +674,10 @@ class PartyPickerView(GroupPickerView):
     def detail(self, cid):
         ch = self.char(cid)
         sp = data.spells().get(cid, {})
+        note = describe.spell_note(cid)
         return (f"{ch.get('emoji', '')} **{ch.get('name', cid)}**　{UC.CLASS_NAMES.get(ch.get('class'), '')}\n"
-                f"✨ {ch.get('spell_name', '符卡')}：{sp.get('desc', '')}\n-# B 點 {sp.get('b', '?')}、冷卻 {sp.get('cd', '?')} 步")
+                f"✨ {ch.get('spell_name', '符卡')}　B 點 {sp.get('b', '?')}・冷卻 {sp.get('cd', '?')} 回合\n"
+                f"效果：{describe.spell_text(cid)}" + (f"\n-# {note}" if note else "") + f"\n-# {describe.COOLDOWN_NOTE}")
 
     def accent(self):
         return UC.COLOR_RUN
