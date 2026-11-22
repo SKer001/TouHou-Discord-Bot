@@ -24,6 +24,7 @@ from Utils.stamina_modal import open_stamina_modal   # ⚡ 恢復體力彈窗 (�
 GATHER_TIMES = (1, 3, 5, 10)   # 快速採集的按鈕：總共採幾趟 (使用者 2026-11-16 指定)
 from .Components.general_components import get_inventory_view_data, build_inventory_container
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
+from Utils.guide import open_guide
 
 
 THUMBNAILS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "images", "Thumbnails.json")
@@ -708,6 +709,10 @@ class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩�
         accent_color = color if color != discord.Color.default() else discord.Color.dark_theme()
         view = InventoryView(interaction.user.id, target_user, inventory, item_templates, accent_color)
         view.message = await interaction.followup.send(view=view, ephemeral=True)
+
+    @app_commands.command(name="help", description="📖 教學書：神社經營的玩法與指令 (只有自己看得到)")
+    async def help_book(self, interaction: discord.Interaction):
+        await open_guide(interaction, "shrine")
 
 
 async def setup(bot: commands.Bot):

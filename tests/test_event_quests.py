@@ -358,7 +358,7 @@ async def main():
     bot = commands.Bot(command_prefix="!", intents=discord.Intents.none())
     await bot.load_extension("Cogs.load-general.event")
     grp = bot.tree.get_command("event")
-    check("event group", isinstance(grp, app_commands.Group) and sorted(c.name for c in grp.commands) == ["info", "quest"])
+    check("event group", isinstance(grp, app_commands.Group) and sorted(c.name for c in grp.commands) == ["help", "info", "quest"])
     cog = bot.get_cog("EventCog")
     it = FakeInteraction(B)
     await cog.quest.callback(cog, it)

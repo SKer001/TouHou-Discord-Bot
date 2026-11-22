@@ -1,7 +1,8 @@
 """
-❓ /help 的畫面 (0.35.034 重做)
-- 總覽：每個分類一行 + 「查看 ▶」按鈕、新手三步驟；管理員多一行「🛠️ 管理員指令表」
-- 分類頁：玩法說明 (📖 怎麼玩) 和指令 (📋 指令) 放在同一頁，右上角放一張代表角色的卡面
+❓ /help 的畫面 (0.35.034 重做；0.36.000 分類頁改成📚 教學書)
+- 總覽：每個分類一行 + 「📖 教學書」按鈕 (翻開那個分類的教學書，見 guide_components.py)、新手三步驟；
+  管理員多一行「🛠️ 管理員指令表」
+- 沒有教學書的分類 (「📌 其他」= 還沒分類的新指令) 照舊是一頁指令表 (「查看 ▶」)
 - 🛠️ 管理員指令表：只有管理員打 /help 才看得到；依指令群組 (admin-user、admin-item…) 分段，
   一頁放不下 (Discord 一則訊息文字上限 4000 字) 就自動分成好幾頁 (admin1、admin2…)
 指令列表都從 bot.tree 即時讀 (說明、參數)，新增指令不用改這裡；沒分到類的會出現在「📌 其他」，
@@ -15,86 +16,41 @@ from Utils.thumbnails import load_thumbnails, thumbnail_url
 HELP_COLOR = discord.Color.from_rgb(220, 70, 90)
 ADMIN_COLOR = discord.Color.from_rgb(120, 125, 135)
 
-# 分類：key ➔ 標題、一句話簡介、色條、代表卡面 (Thumbnails.json 的 角色, 階級)、怎麼玩 (一行一點)、包含的頂層指令
-# 玩法裡的數字要跟程式一致 (見 TODO.md 0.1 / 0.2)；改數值時這裡也要改
+# 分類：key ➔ 標題、一句話簡介、色條、代表卡面 (Thumbnails.json 的 角色, 階級)、包含的頂層指令
+# 玩法說明在教學書 (Components/guide/<key>.py)，數字盡量從程式常數讀
 CATEGORIES = {
     "card": {
         "title": "🎴 抽卡與卡牌", "short": "祈願抽角色卡、整理卡冊、合成與融合",
         "color": discord.Color.from_rgb(232, 170, 60), "thumb": ("marisa", "UR"),
-        "guide": [
-            "🙏 **祈願**：用賽錢抽角色卡，單抽 5,000、十連 50,000；有 📜 舊作、🔴 紅魔鄉兩個卡池",
-            "🎯 **保底**：每個卡池連續 100 抽沒出 UR，第 100 抽一定是 UR",
-            "⚗️ **合成**：兩張同角色、同階級的卡 ➔ 一張完整度更高的卡 (有機會加倍)",
-            "🔮 **融合**：三張完整度 1.0000 的同一種卡 ➔ 升一個階級",
-            "🔒 **收藏冊**：收進去的卡不會被拿去合成、融合、分解或上架",
-            "📖 **圖鑑**：看每位角色的介紹和各階級的卡面",
-        ],
         "tops": ["card", "character"],
     },
     "profile": {
         "title": "🪪 資料卡與簽到", "short": "每日簽到、運勢、稱號、名片、排行榜、通知",
         "color": discord.Color.from_rgb(88, 101, 242), "thumb": ("reimu", "SR"),
-        "guide": [
-            "📅 **每天簽到** (台灣時間 00:00 重置)：抽今日運勢，拿 50～2,000 賽錢、100～200 經驗和一顆 🍙 飯糰",
-            "✨ **經驗值**會讓 P 點 (火力) 上升，最高 100.0 P",
-            "🏷️ **稱號**：完成各種目標就會解鎖，在資料卡上選一個戴起來",
-            "🖼️ **角色名片**：收藏冊集齊某位角色每個階級的完美卡，就能拿到那位角色的名片",
-            "⚡ **恢復體力**：在資料卡上吃體力道具 (每天最多 3 個，含簽到的 🍙)",
-            "🔓 累積簽到 **7 天**開通市場與轉帳",
-        ],
         "tops": ["profile", "daily", "leaderboard", "notify"],
     },
     "shrine": {
         "title": "⛩️ 神社經營", "short": "賽錢箱、清掃、治退妖怪、採集、料理、招待參拜客",
         "color": discord.Color.from_rgb(214, 48, 49), "thumb": ("reimu", "UR"),
-        "guide": [
-            "💰 **賽錢箱**：神社每小時進帳 5,000 × 效率，最多存 20 萬，要記得回收",
-            "🧹 **清掃・治退妖怪**：神社變髒、妖怪出現都會降低效率；治退一隻妖怪拿 800～1,500 賽錢",
-            "🧺 **採集**：每趟花 20 體力，到 9 個地點採素材 (體力每 6 分鐘回 1，最多 240)",
-            "🍳 **料理**：招待料理一鍋 2 份；⚡ 體力料理一鍋 1 份",
-            "🍵 **招待參拜客**：端上客人點的菜賺賽錢 (每份 2,000 × 心情²)，再多端一份牠最愛的料理整筆 ×1.5",
-            "💡 缺菜可以一鍵跳去料理，缺素材就按「🧺 快速採集」",
-        ],
         "tops": ["shrine"],
     },
     "ura": {
         "title": "🌀 裏世界探索", "short": "派角色深入裏世界，選門、戰鬥、帶寶物回來",
         "color": discord.Color.dark_purple(), "thumb": ("shinki", "LR"),
-        "guide": [
-            "🧍 **派 1～3 位角色** (同一位角色只能一張、完整度 0.3 以上、不能在收藏冊)；出征中的卡不能合成、分解、上架",
-            "🚪 **一關一扇門**：⚔️ 戰鬥、💀 精英、💰 寶箱、❓ 事件、🕳️ 陷阱，每 10 關一隻 👹 BOSS，打完可以撤離或繼續往下",
-            "🧭 **常識度**：每走一關會扣，歸 0 就全隊迷失；用商店買的茶、新聞、緣起補回來",
-            "⚔️ **戰鬥**：每回合選一位角色普攻或放符卡 (要 B 點、有冷卻)，用道具不算行動",
-            "🏁 **成功撤離**才帶得回口袋的賽錢、寶物和素材；失敗 / 放棄全部掉光，派出的卡完整度 −0.1",
-            "🛒 `/ura shop` 買的道具先放倉庫，出發時再挑要帶的；寶物在 `/ura inventory` 賣錢",
-        ],
         "tops": ["ura"],
     },
     "event": {
         "title": "🎪 活動", "short": "限定地點、料理、客人與活動任務",
         "color": discord.Color.from_rgb(180, 30, 60), "thumb": ("remilia", "UR"),
-        "guide": [
-            "🎪 活動期間有限定的採集地點、料理和客人，用 `/event info` 看現在有哪些活動",
-            "🍽️ 端上活動料理，每份的報酬再 ×1.2",
-            "📜 **活動任務**：活動期間做的事才算，完成後領賽錢和經驗值；領到一定數量還能**永久**拿到活動稱號",
-            "⚠️ 活動結束時，活動道具和沒領的任務獎勵都會消失",
-        ],
         "tops": ["event"],
     },
     "market": {
         "title": "💹 市場與交易", "short": "卡牌市值、分解、玩家市場、轉帳",
         "color": discord.Color.from_rgb(46, 160, 110), "thumb": ("sakuya", "UR"),
-        "guide": [
-            "📈 **市值**：每張卡都有每天浮動的市值，完整度越高越值錢",
-            "♻️ **分解**：把卡直接換成賽錢 (不用開通)",
-            "🛒 **市場**：上架賣給其他玩家，買家多付 5%；7 天沒賣出會退回",
-            "💸 **轉帳**：把賽錢轉給其他玩家，手續費 5%，每天最多轉出 50 萬",
-            "🔓 市場與轉帳要累積簽到 **7 天**才能用",
-        ],
         "tops": ["market", "trade"],
     },
 }
-OTHER = {"title": "📌 其他", "short": "其他指令", "color": HELP_COLOR, "thumb": None, "guide": [], "tops": []}
+OTHER = {"title": "📌 其他", "short": "其他指令", "color": HELP_COLOR, "thumb": None, "tops": []}
 
 # 🛠️ 管理員指令群組 ➔ 段落標題 (排列順序 = 這裡的順序；沒寫到的放最後)
 ADMIN_GROUPS = {
@@ -130,8 +86,8 @@ def walk_commands(tree: app_commands.CommandTree, admin: bool = False) -> dict[s
 
 
 def categorize(tree: app_commands.CommandTree) -> dict[str, list[app_commands.Command]]:
-    """分類 key ➔ 一般指令；沒有分到類的放 other (不列 /help 自己，也不列管理員指令)"""
-    cmds = walk_commands(tree)
+    """分類 key ➔ 一般指令；沒有分到類的放 other (不列 /help 自己、各群組的 help 子指令，也不列管理員指令)"""
+    cmds = {top: [c for c in cs if c.name != "help"] for top, cs in walk_commands(tree).items()}
     result = {key: [c for top in info["tops"] for c in cmds.get(top, [])] for key, info in CATEGORIES.items()}
     known = {top for info in CATEGORIES.values() for top in info["tops"]} | {"help"}
     other = [c for top, cs in cmds.items() if top not in known for c in cs]
@@ -214,39 +170,46 @@ def page_keys(tree: app_commands.CommandTree, admin: bool) -> dict[str, str]:
 
 
 # ---------------- 畫面 ----------------
-def build_overview_container(categories: dict, admin: bool = False, admin_count: int = 0, on_open=None) -> ui.Container:
-    """總覽：每個分類一個 Section (說明 + 右側「查看 ▶」按鈕)；on_open(key) ➔ 按鈕的 callback"""
+def build_overview_container(categories: dict, admin: bool = False, admin_count: int = 0, on_open=None,
+                             books: dict | None = None) -> ui.Container:
+    """
+    總覽：每個分類一個 Section (說明 + 右側按鈕)；on_open(key) ➔ 按鈕的 callback
+    books = {分類 key: 章數}：有教學書的分類按鈕是「📖 教學書」，其他是「查看 ▶」
+    """
+    books = books or {}
     c = ui.Container(accent_color=HELP_COLOR)
-    c.add_item(ui.TextDisplay("## ⛩️ 幻想鄉指南\n歡迎來到博麗神社！每個分類都有**玩法說明**和**指令**，按「查看 ▶」打開。"))
+    c.add_item(ui.TextDisplay("## ⛩️ 幻想鄉指南\n歡迎來到博麗神社！每個模式都有一本**教學書**，玩法和指令分章節講，"
+                              "按「📖 教學書」翻開。看書不用花任何東西，可以先學會再去玩。"))
     c.add_item(ui.Separator())
 
-    def row(key: str, text: str, style=discord.ButtonStyle.secondary):
-        btn = ui.Button(label="查看 ▶", style=style)
+    def row(key: str, text: str, label: str = "查看 ▶", style=discord.ButtonStyle.secondary):
+        btn = ui.Button(label=label, style=style)
         if on_open:
             btn.callback = on_open(key)
         c.add_item(ui.Section(ui.TextDisplay(text), accessory=btn))
 
     for key, cmds in categories.items():
         info = category_info(key)
-        row(key, f"**{info['title']}**　`{len(cmds)}` 個指令\n-# {info['short']}")
+        if key in books:
+            row(key, f"**{info['title']}**　`{books[key]}` 章 · `{len(cmds)}` 個指令\n-# {info['short']}", "📖 教學書")
+        else:
+            row(key, f"**{info['title']}**　`{len(cmds)}` 個指令\n-# {info['short']}")
     if admin:
         c.add_item(ui.Separator())
-        row("admin1", f"**🛠️ 管理員指令表**　`{admin_count}` 個指令\n-# 只有管理員打 `/help` 才看得到", discord.ButtonStyle.primary)
+        row("admin1", f"**🛠️ 管理員指令表**　`{admin_count}` 個指令\n-# 只有管理員打 `/help` 才看得到",
+            style=discord.ButtonStyle.primary)
     c.add_item(ui.Separator())
     c.add_item(ui.TextDisplay(f"### 🔰 新手三步驟\n{STEPS}"))
     return c
 
 
 def build_category_container(key: str, cmds: list, thumbnails: dict | None = None) -> ui.Container:
-    """分類頁：標題 (+ 代表卡面) ➔ 📖 怎麼玩 ➔ 📋 指令"""
+    """沒有教學書的分類 (「📌 其他」)：標題 (+ 代表卡面) ➔ 📋 指令"""
     info = category_info(key)
     c = ui.Container(accent_color=info["color"])
     head = f"## {info['title']}\n{info['short']}"
     url = thumbnail_url(info["thumb"][0], thumbnails, info["thumb"][1]) if info["thumb"] else None
     c.add_item(ui.Section(ui.TextDisplay(head), accessory=ui.Thumbnail(url)) if url else ui.TextDisplay(head))
-    if info["guide"]:
-        c.add_item(ui.Separator())
-        c.add_item(ui.TextDisplay("### 📖 怎麼玩\n" + "\n".join(f"- {g}" for g in info["guide"])))
     c.add_item(ui.Separator())
     c.add_item(ui.TextDisplay("### 📋 指令\n" + "\n".join(command_line(cmd) for cmd in cmds)))
     c.add_item(ui.TextDisplay("-# `[ ]` 是可以不填的參數"))

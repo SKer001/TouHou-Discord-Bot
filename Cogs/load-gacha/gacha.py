@@ -34,6 +34,7 @@ from Utils.components import send_notice, notice_view
 from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
+from Utils.guide import open_guide
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
@@ -1188,6 +1189,11 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             return build_fusion_result_container(new_card, rarity, user_name, THUMBNAILS)
 
         return CardActionConfirmView(user_id, user_name, self, container, on_confirm, "🔮 確認融合")
+
+    @app_commands.command(name="help", description="📖 教學書：抽卡、卡冊、合成與融合的玩法與指令 (只有自己看得到)")
+    async def help_book(self, interaction: discord.Interaction):
+        await open_guide(interaction, "card")
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(GachaCardSys(bot))

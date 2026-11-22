@@ -1,4 +1,5 @@
-"""/help 幻想鄉指南 (不連 Discord)：分類、一般玩家看不到管理員指令、管理員指令表 (分頁)、沒分到類的進「其他」"""
+"""/help 幻想鄉指南 (不連 Discord)：分類、一般玩家看不到管理員指令、管理員指令表 (分頁)、沒分到類的進「其他」
+教學書本身 (格式、每章、翻頁、/xxx help) 在 test_guide.py"""
 import asyncio, glob, os, sys, tempfile, importlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 專案根目錄
 sys.path.insert(0, ROOT); os.chdir(ROOT)
@@ -42,8 +43,14 @@ async def main():
     bot.tree.add_command(newthing)
     cats = hc.categorize(bot.tree)
     check("unknown goes other", [c.name for c in cats.get("other", [])] == ["newthing"])
+    v = help_mod.HelpView(bot, "other")
+    check("other page: command list", v.page == "other" and any(
+        "`/newthing`" in it.content for it in v.walk_children() if isinstance(it, discord.ui.TextDisplay)))
+    check("other row says 查看", any(isinstance(b, discord.ui.Button) and b.label == "查看 ▶"
+                                    for b in help_mod.HelpView(bot).walk_children()))
     bot.tree.remove_command("newthing")
     cats = hc.categorize(bot.tree)
+    check("group help subcommands not listed", not any(c.name == "help" for cs in cats.values() for c in cs))
 
     # 畫面：總覽 / 分類頁，元件數不超過 40、文字不超過 4000
     def count(item):
@@ -69,8 +76,9 @@ async def main():
 
     admin_keys = [k for k in hc.page_keys(bot.tree, True) if k.startswith("admin")]
     check(f"admin pages exist {admin_keys}", admin_keys and admin_keys[0] == "admin1")
+    books = help_mod.book_chapter_counts()
     for admin in (False, True):
-        for page in ["overview", *cats, *(admin_keys if admin else [])]:
+        for page in ["overview", *[k for k in cats if k not in books], *(admin_keys if admin else [])]:
             v = help_mod.HelpView(bot, page, admin=admin)
             n = sum(count(i) for i in v.children)
             check(f"{page}/{admin} components {n}", n <= 40)
@@ -85,9 +93,11 @@ async def main():
     v = help_mod.HelpView(bot)
     check("player overview no admin", "管理員" not in texts(v) and "admin-" not in texts(v))
     for key in cats:
-        v = help_mod.HelpView(bot, key)
+        v = help_mod.GuideView(bot, key) if key in books else help_mod.HelpView(bot, key)
         check(f"player {key} no admin", "admin-" not in texts(v)
               and not any(o.value.startswith("admin") for s in selects(v) for o in s.options))
+        if key in books:
+            check(f"book key {key} -> overview in HelpView", help_mod.HelpView(bot, key).page == "overview")
     v = help_mod.HelpView(bot, "admin1")
     check("player admin page blocked", v.page == "overview" and "admin-" not in texts(v))
     check("player page_keys no admin", not any(k.startswith("admin") for k in hc.page_keys(bot.tree, False)))
@@ -101,22 +111,17 @@ async def main():
     check("every admin command listed", all(f"`/{n}`" in shown for n in admin_names))
     check("dev prefix stripped", "【開發者專用】" not in shown)
 
-    # 分類頁：玩法說明 + 指令在同一頁、右上角有卡面
-    v = help_mod.HelpView(bot, "shrine")
-    t = texts(v)
-    check("guide + commands together", "📖 怎麼玩" in t and "📋 指令" in t and "`/shrine manage`" in t)
-    check("category thumbnail", any(isinstance(it, discord.ui.Thumbnail) for it in v.walk_children()))
-
-    # 總覽的「查看 ▶」按鈕切到分類頁；管理員那顆切到管理員表
+    # 總覽的「📖 教學書」按鈕在同一則訊息翻開那本書；管理員那顆「查看 ▶」切到管理員表
     class Resp:
         async def edit_message(self, **kw): self.view = kw.get("view")
     class Inter:
         def __init__(self): self.response = Resp()
     v = help_mod.HelpView(bot, admin=True)
+    book_btns = [b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label == "📖 教學書"]
     btns = [b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label == "查看 ▶"]
-    check(f"overview buttons {len(btns)}", len(btns) == len(cats) + 1)
-    await btns[0].callback(Inter())
-    check("button opens first category", v.page == next(iter(cats)))
+    check(f"overview buttons {len(book_btns)} + {len(btns)}", len(book_btns) == len(books) and len(btns) == len(cats) - len(books) + 1)
+    it = Inter(); await book_btns[0].callback(it)
+    check("book button opens guide", isinstance(it.response.view, help_mod.GuideView) and it.response.view.key == next(iter(books)))
     v = help_mod.HelpView(bot, admin=True)
     btns = [b for b in v.walk_children() if isinstance(b, discord.ui.Button) and b.label == "查看 ▶"]
     await btns[-1].callback(Inter())

@@ -32,7 +32,7 @@
 | `/shrine explore` | 🗺️ 到幻想鄉各地採集素材（每趟 20 體力，可連續 5 次） |
 | `/shrine cook` | 🍳 用素材做招待料理（一鍋 2 份） |
 | `/shrine shop` | 🏪 人間之里雜貨店：買基本食材 |
-| `/help` | ❓ 指令說明：依分類介紹所有玩法與指令 |
+| `/help` | ❓ 幻想鄉指南：每個模式一本📚 教學書 (玩法與指令分章節講)；`/card help`、`/shrine help`、`/ura help`、`/market help`、`/event help` 直接打開那本 |
 | `/event info` | 🎪 查看活動：限定地點、限定料理、限定客人 |
 | `/event quest` | 📜 活動任務：看進度、領取賽錢與經驗值；領取一定數量永久獲得活動稱號 |
 | `/shrine storage [target]` | 📦 神社倉庫（道具），有分類與分頁，道具旁邊顯示效果 |

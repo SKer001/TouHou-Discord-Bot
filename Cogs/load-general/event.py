@@ -15,6 +15,7 @@ from Database.Item_DB_Manager import get_all_items
 from Database.events import game_rules, load_events
 from Utils.components import send_notice
 from Utils.pagination import nav_buttons   # 📄 共用分頁
+from Utils.guide import open_guide
 from .Components.shrine_components import build_event_container
 from .Components.quest_components import (
     QUESTS_PER_PAGE, build_quest_container, build_no_quest_container, quest_button,
@@ -126,6 +127,10 @@ class EventCog(commands.GroupCog, group_name="event", group_description="🎪 �
         board = await qdm.get_quest_board(interaction.user.id)
         view = QuestView(interaction.user.id, board, await get_all_items())
         await interaction.response.send_message(view=view, ephemeral=True)
+
+    @app_commands.command(name="help", description="📖 教學書：活動的玩法與指令 (只有自己看得到)")
+    async def help_book(self, interaction: discord.Interaction):
+        await open_guide(interaction, "event")
 
 
 async def setup(bot: commands.Bot):

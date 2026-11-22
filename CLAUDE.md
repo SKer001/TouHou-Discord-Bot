@@ -61,12 +61,13 @@ Cogs/
   load-character/  character.py, Components/character_components.py   # 圖鑑
   load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理
   load-market/     market.py, Admin-market.py, Components/market_components.py   # 市值 / 分解 / 市場
-  load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py, help_components.py
+  load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py, help_components.py, guide_components.py + guide/<分類>.py (📚 教學書，一個分類一本)
   load-ura/        ura.py, Components/ura_components.py   # 🌀 裏世界探索 /ura (explore / resume / abandon / shop / inventory / status / bestiary)
   load-system/     Admin-sys.py
 Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
 Utils/picker.py              共用控制台 GroupPickerView：分組選單 ➔ 選項選單 (翻頁) ➔ 按鈕 (+ 預覽)；管理員稱號 / 名片、玩家修改稱號 / 名片都用（0.35.039）
 Utils/numbers.py             金額顯示 fmt_money() (一萬以上縮寫 1.5M / 12.35M，以下 5,000；2026-11-14 使用者定)：持有 / 餘額 / 累計 / 排行榜都用它；價格、花費、獎勵要看確切數字的照舊 f"{n:,}"。不要另寫縮寫
+Utils/guide.py               📚 教學書入口 open_guide()：各指令群組的 help 子指令 (/card help、/ura help…) 呼叫它
 Utils/thumbnails.py          Thumbnails.json 共用讀取 load_thumbnails() / thumbnail_url()（0.35.034 起 /help 用；其他 Cog 還有各自的舊寫法）
 Utils/stamina_modal.py       ⚡ 恢復體力彈窗（/profile 與神社採集畫面共用；每天最多吃 3 個體力道具）
 Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過

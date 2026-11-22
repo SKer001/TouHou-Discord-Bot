@@ -208,6 +208,6 @@ tools/card_art/               卡面產生工具 (不會被機器人載入)
 4. 通知用 `send_notice`，開頭放 emoji。
 5. 管理員指令用 `_deny()`；會消耗 / 刪除東西的操作先給確認畫面。
 6. 指令內再驗證一次使用者輸入。
-6.5 新的**頂層**玩家指令要在 `Cogs/load-general/Components/help_components.py` 的 `CATEGORIES` 分類 (沒分到會出現在 `/help` 的「其他」)；子指令會自動列出。
+6.5 新的**頂層**玩家指令要在 `Cogs/load-general/Components/help_components.py` 的 `CATEGORIES` 分類 (沒分到會出現在 `/help` 的「其他」)。**📚 教學書** (0.36.000)：新指令要寫進那個分類教學書 (`Components/guide/<分類>.py`) 某一章的 `commands`，玩法有變就改那章的說明 (`tests/test_guide.py` 會抓沒有章節講到的指令)；書裡的數字盡量在開畫面時從程式常數讀。新的指令群組要加 `help` 子指令 (寫法見 `Utils/guide.py`)。
 7. 補 `tests/test_*.py`，`run_all.py` 全過，再用 botcli 點一次。
 8. 更新 `CLAUDE.md`（進度、決策）與這份文件（如果改了規則），然後 commit + push。

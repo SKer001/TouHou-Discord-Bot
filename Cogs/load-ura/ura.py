@@ -19,6 +19,7 @@ from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 from Utils.pagination import nav_buttons, paginate
 from Utils.picker import GroupPickerView
 from Utils.thumbnails import load_thumbnails, thumbnail_url
+from Utils.guide import open_guide
 from .Components import ura_components as UC
 
 VIEW_TIMEOUT = 840   # 14 分鐘：互動 token 只有 15 分鐘，逾時時還來得及把畫面改成「已收起來」
@@ -1302,6 +1303,10 @@ class UraCog(commands.GroupCog, group_name="ura", group_description="🌀 裏世
     async def bestiary(self, interaction: discord.Interaction):
         book = await ura.get_bestiary(interaction.user.id)
         await interaction.response.send_message(view=BestiaryView(interaction.user, book), ephemeral=True)
+
+    @app_commands.command(name="help", description="📖 教學書：裏世界探索的玩法與指令 (只有自己看得到)")
+    async def help_book(self, interaction: discord.Interaction):
+        await open_guide(interaction, "ura")
 
 
 async def setup(bot: commands.Bot):

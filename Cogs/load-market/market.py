@@ -16,6 +16,7 @@ from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Utils.components import send_notice
 from Utils.pagination import nav_buttons   # 📄 共用分頁
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
+from Utils.guide import open_guide
 from .Components.market_components import (
     build_price_container, build_listing_lines, card_label, short_id, simple_container,
     build_listing_announce,
@@ -524,6 +525,10 @@ class MarketCog(commands.GroupCog, group_name="market", group_description="💹 
         await prepare_market()
         listings = await econ.get_listings(seller_id=interaction.user.id)
         await interaction.response.send_message(view=ListingsView(interaction.user.id, listings, "mine", "📋 我上架中的卡"), ephemeral=True)
+
+    @app_commands.command(name="help", description="📖 教學書：市值、分解、市場與轉帳的玩法與指令 (只有自己看得到)")
+    async def help_book(self, interaction: discord.Interaction):
+        await open_guide(interaction, "market")
 
 
 async def setup(bot: commands.Bot):
