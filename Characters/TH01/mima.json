@@ -39,7 +39,7 @@
                 "type": "damage",
                 "spent": 12,
                 "cooldown": 4,
-                "desc": "全體傷害，打完自己 ATK +10% (2 回合，最多 3 層)"
+                "desc": "對全部敵人造成 ATK × 1.2 的傷害；之後自己 😈 魅魔之力 2 回合（ATK +10%）"
             },
             "SSR": {
                 "id": "mima_SP_II",
@@ -47,7 +47,7 @@
                 "type": "damage",
                 "spent": 12,
                 "cooldown": 4,
-                "desc": "全體傷害，打完自己 ATK +10% (2 回合，最多 3 層)"
+                "desc": "對全部敵人造成 ATK × 1.5 的傷害；之後自己 😈 魅魔之力 2 回合（ATK +10%）"
             },
             "UR": {
                 "id": "mima_SP_III",
@@ -55,7 +55,7 @@
                 "type": "damage",
                 "spent": 12,
                 "cooldown": 4,
-                "desc": "全體傷害，打完自己 ATK +10% (2 回合，最多 3 層)"
+                "desc": "對全部敵人造成 ATK × 1.8 的傷害；之後自己 😈 魅魔之力 2 回合（ATK +10%）"
             }
         }
     }

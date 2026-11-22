@@ -1,9 +1,12 @@
 """
-🌀 裏世界：角色與敵人一覽 (自動產生 docs/ura_roster.md)
+🌀 裏世界：角色與敵人一覽 (自動產生 docs/ura_roster.md) + 同步角色檔的特殊能力說明
 
 用法：python tools/ura_roster.py
 資料全部從 Characters/、Database/ura/data/*.json、Events/*.json 的 ura 區塊讀；改了數值重跑一次就好。
+也會把 Characters/*.json 特殊能力每一級的 desc 改成那一級的符卡效果 (tests/test_ura_engine.py 會檢查有沒有同步)
 """
+import glob
+import json
 import os
 import sys
 
@@ -13,7 +16,7 @@ os.chdir(ROOT)
 
 from Database import shrine_data   # noqa: E402
 from Database.ura import bestiary, data, rules   # noqa: E402
-from Database.ura.describe import CLASS_NOTE, effect_text, num, pct   # noqa: E402
+from Database.ura.describe import CLASS_NOTE, num, pct, spell_note, spell_text   # noqa: E402
 from Utils.version import VERSION   # noqa: E402
 
 OUT = os.path.join(ROOT, "docs", "ura_roster.md")
@@ -33,18 +36,40 @@ def character_block(cid: str, c: dict) -> list[str]:
     comp = rules.comp_mult(0.65)
     per = "、".join(f"{r} {stat_line(b['hp'] * rules.RARITY_MULT[r] * comp, b['atk'] * rules.RARITY_MULT[r] * comp, b['def'] * rules.RARITY_MULT[r] * comp)}"
                    for r in c["rarities"])
-    tiers = " / ".join(c["rarities"][:1] + ([c["rarities"][len(c["rarities"]) // 2]] if len(c["rarities"]) > 2 else []) + c["rarities"][-1:])
-    effects = "；".join(effect_text(sp, e) for e in sp["effects"])
-    where = "選門時也能放" if sp.get("outside") else ""
+    effects = spell_text(cid)   # 三檔都寫、標出階級〔SR 2.8・SSR 3.3・UR 3.8〕
+    note = spell_note(cid)
     return [
         f"#### {c['emoji']} {c['name']}",
         f"- 卡牌階級：{' / '.join(c['rarities'])}　基礎 (N、完整度 0.65)：{stat_line(b['hp'], b['atk'], b['def'])}",
         f"- 各階級 (完整度 0.65)：{per}",
-        f"- ✨ 符卡 {c.get('spell_name') or ''}：B 點 {sp['b']}、冷卻 {sp['cd']} 回合{('、' + where) if where else ''}",
-        f"  - 效果 (三檔 = {tiers})：{effects}",
-        f"  - 說明：{sp.get('desc', '')}",
-        "",
-    ]
+        f"- ✨ 符卡 {c.get('spell_name') or ''}：B 點 {sp['b']}、冷卻 {sp['cd']} 回合",
+        f"  - 效果：{effects}",
+    ] + ([f"  - 說明：{note}"] if note else []) + [""]
+
+
+def sync_character_desc() -> list[str]:
+    """
+    Characters/*.json 特殊能力每一級的 desc = 那一級的符卡效果 (跟 /character 圖鑑、🔍 查看同一份文字)
+    (使用者 2026-11-22：三級不要寫一樣的句子)；只改 desc，其他排版照原檔 (json 縮排 4 或 2)
+    回傳改到的檔案
+    """
+    changed = []
+    for p in sorted(glob.glob(os.path.join(ROOT, "Characters", "*", "*.json"))):
+        raw = open(p, encoding="utf-8").read()
+        ch = json.loads(raw)
+        cid = ch.get("id")
+        if cid not in data.spells() or not ch.get("special_powers", {}).get("levels"):
+            continue
+        rarities = ch.get("gacha", {}).get("rarities", [])
+        for i, (r, lv) in enumerate(ch["special_powers"]["levels"].items()):
+            lv["desc"] = spell_text(cid, rarities.index(r) if r in rarities else i)
+        indent = 4 if raw.startswith("{\n    \"") else 2
+        out = json.dumps(ch, ensure_ascii=False, indent=indent) + ("\n" if raw.endswith("\n") else "")
+        if out != raw:
+            with open(p, "w", encoding="utf-8", newline="\n") as f:
+                f.write(out)
+            changed.append(os.path.relpath(p, ROOT))
+    return changed
 
 
 # =========================================================
@@ -85,7 +110,7 @@ def main():
         "",
         "## 📐 數值怎麼算",
         f"- **角色**：基礎數值 (N 階、完整度 0.65) × 階級倍率 ({'、'.join(f'{r} ×{num(m)}' for r, m in rules.RARITY_MULT.items())}) × 完整度倍率 (0.3 = ×0.8、0.65 = ×1.0、1.0 = ×1.2，線性)。完整度 > 0.8 符卡冷卻 × 0.9 (無條件捨去，最少 1)。",
-        "- **符卡三檔**：角色的最低階 = 第一檔、中間 = 第二檔、最高階 = 第三檔 (兩個階級的角色只有兩檔，取第一和第三)。",
+        "- **符卡三檔**：角色的最低階 = 第一檔、中間 = 第二檔、最高階 = 第三檔；效果裡的〔SR 2.8・SSR 3.3・UR 3.8〕= 各階級的數字。冷卻：戰鬥中每回合減 1，戰鬥外每過一關也減 1。",
         f"- **一般怪**：基本值 HP {rules.ENEMY_BASE[0]}／ATK {rules.ENEMY_BASE[1]}／DEF {rules.ENEMY_BASE[2]} × 區域倍率 (DEF 只長一半) × 那隻怪自己的倍率。",
         f"- **精英** 再 × {'／'.join(num(x) for x in rules.ELITE_MULT)} (HP／ATK／DEF)；**區域 BOSS** 再 × {'／'.join(num(x) for x in rules.BOSS_MULT)}，血剩一半 ATK +{pct(rules.BOSS_PHASE2_ATK)} 並多用第二階段的招；**🎪 活動 BOSS** × {'／'.join(num(x) for x in rules.FEST_BOSS_MULT)}。",
         "- **區域倍率**：" + "、".join(f"第 {z} 區 ×{num(rules.zone_mult(z))}" for z in range(1, 11)) + "。",
@@ -125,6 +150,8 @@ def main():
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(out))
     print(f"寫好了：{OUT} (角色 {len(chars)} 位、敵人 {sum(len(s['enemies']) for s in bestiary.sections())} 隻)")
+    changed = sync_character_desc()
+    print(f"角色檔特殊能力說明：改了 {len(changed)} 個" + (f" ({'、'.join(changed)})" if changed else ""))
 
 
 if __name__ == "__main__":

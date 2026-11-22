@@ -39,7 +39,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "一隻敵人 DEF 大幅下降 3 回合"
+                "desc": "讓一隻敵人 👁️ 邪眼 3 回合（DEF −40%）"
             },
             "R": {
                 "id": "rika_SP_II",
@@ -47,7 +47,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "一隻敵人 DEF 大幅下降 3 回合"
+                "desc": "讓一隻敵人 👁️ 邪眼 3 回合（DEF −50%）"
             },
             "SR": {
                 "id": "rika_SP_III",
@@ -55,7 +55,7 @@
                 "type": "debuff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "一隻敵人 DEF 大幅下降 3 回合"
+                "desc": "讓一隻敵人 👁️ 邪眼 3 回合（DEF −60%）"
             }
         }
     }

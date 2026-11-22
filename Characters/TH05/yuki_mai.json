@@ -39,7 +39,7 @@
                 "type": "heal",
                 "spent": 10,
                 "cooldown": 5,
-                "desc": "全隊回血 (兩人合奏)"
+                "desc": "全隊回最大 HP 的 15%"
             },
             "R": {
                 "id": "yuki_mai_SP_II",
@@ -47,7 +47,7 @@
                 "type": "heal",
                 "spent": 10,
                 "cooldown": 5,
-                "desc": "全隊回血 (兩人合奏)"
+                "desc": "全隊回最大 HP 的 20%"
             },
             "SR": {
                 "id": "yuki_mai_SP_III",
@@ -55,7 +55,7 @@
                 "type": "heal",
                 "spent": 10,
                 "cooldown": 5,
-                "desc": "全隊回血 (兩人合奏)"
+                "desc": "全隊回最大 HP 的 25%"
             }
         }
     }

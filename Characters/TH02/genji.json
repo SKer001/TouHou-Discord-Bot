@@ -39,7 +39,7 @@
                 "type": "buff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "全隊 DEF 提升 3 回合"
+                "desc": "全隊 🛡️ 強化・DEF 3 回合（DEF +20%）"
             },
             "R": {
                 "id": "genji_SP_II",
@@ -47,7 +47,7 @@
                 "type": "buff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "全隊 DEF 提升 3 回合"
+                "desc": "全隊 🛡️ 強化・DEF 3 回合（DEF +25%）"
             },
             "SR": {
                 "id": "genji_SP_III",
@@ -55,7 +55,7 @@
                 "type": "buff",
                 "spent": 6,
                 "cooldown": 4,
-                "desc": "全隊 DEF 提升 3 回合"
+                "desc": "全隊 🛡️ 強化・DEF 3 回合（DEF +30%）"
             }
         }
     }

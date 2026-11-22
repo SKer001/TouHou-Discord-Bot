@@ -77,6 +77,13 @@ async def main():
                                and lv["name"].endswith("・" + ch["special_powers"]["name"])
                                for lv in ch["special_powers"]["levels"].values()))
             check(f"page {ch['id']}", ok_page)
+            # 特殊能力 (使用者 2026-11-22)：每一級寫自己的效果數字，一句定位 / 用法只寫一次
+            from Database.ura import describe as DS, data as UD
+            if ch["id"] in UD.spells():
+                rs = ch["gacha"]["rarities"]
+                note = DS.spell_note(ch["id"])
+                check(f"page sp text {ch['id']}", all(DS.spell_text(ch["id"], rs.index(r)) in t for r in ch["special_powers"]["levels"])
+                      and (not note or t.count(note) == 1) and "回合" in t)
             max_count = max(max_count, count(i3.view))
     check(f"component count {max_count}", max_count <= 40)
     await view.on_category(Interaction(data={"values": ["Main"]}))

@@ -39,7 +39,7 @@
                 "type": "explore",
                 "spent": 8,
                 "cooldown": 5,
-                "desc": "常識度回復 + 全體小傷害"
+                "desc": "常識度 +50；對全部敵人造成 ATK × 0.5 的傷害"
             },
             "R": {
                 "id": "luize_SP_II",
@@ -47,7 +47,7 @@
                 "type": "explore",
                 "spent": 8,
                 "cooldown": 5,
-                "desc": "常識度回復 + 全體小傷害"
+                "desc": "常識度 +75；對全部敵人造成 ATK × 0.6 的傷害"
             },
             "SR": {
                 "id": "luize_SP_III",
@@ -55,7 +55,7 @@
                 "type": "explore",
                 "spent": 8,
                 "cooldown": 5,
-                "desc": "常識度回復 + 全體小傷害"
+                "desc": "常識度 +100；對全部敵人造成 ATK × 0.7 的傷害"
             }
         }
     }

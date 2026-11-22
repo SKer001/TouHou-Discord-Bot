@@ -119,6 +119,29 @@ check("higan materials", hg["materials"] == ["mat_onsen_egg", "mat_oni_sake", "m
 check("higan 15 treasures", [len(v) for v in data.theme_treasures(hg).values()] == [4, 3, 3, 2, 2, 1])
 check("no borrowed zones left", not any(z["borrowed"] for z in data.zones()))
 check("judgment status", data.statuses()["judgment"]["mods"] == {"dmg_taken_pct": -0.5} and "atk_break" in data.statuses()["judgment"]["flags"])
+# 📝 符卡敘述 (使用者 2026-11-22，分支 ura-skill-desc)：效果從數值產生、三檔標出階級；前 6 位是使用者一位一位定的文字
+from Database.ura import describe as DS
+check("desc marisa", DS.spell_text("marisa", 1) == "對一隻敵人造成 ATK × 3.3 的傷害"
+      and DS.spell_text("marisa") == "對一隻敵人造成 ATK ×〔SR 2.8・SSR 3.3・UR 3.8〕的傷害"
+      and DS.spell_note("marisa") == "倍率最高的單體招，沒有附加效果")
+check("desc mima", DS.spell_text("mima", 0) == "對全部敵人造成 ATK × 1.2 的傷害；之後自己 😈 魅魔之力 2 回合（ATK +10%）"
+      and "最多" not in data.statuses()["mima_power"]["desc"])
+check("desc yumemi", DS.spell_text("yumemi", 2) == "對一隻敵人造成 ATK × 3.5 的傷害，無視敵人 50% 的 DEF")
+check("desc gengetsu", DS.spell_text("gengetsu", 1) == "連打 2～4 下（2 下 50%、3 下 33%、4 下 17%），每下對隨機一隻敵人造成 ATK × 1 的傷害")
+check("desc shinki", DS.spell_text("shinki", 2) == "對全部敵人造成 ATK × 2 的傷害")
+check("desc cirno", DS.spell_text("cirno", 0) == "對全部敵人造成 ATK × 1.2 的傷害；打中的每一隻各有 30% 機率 ❄️ 凍住 1 回合（跳過行動，被打也不會醒；BOSS 無效）")
+check("desc sakuya tiers", "傷害再 × 1.2" in DS.spell_text("sakuya", 2) and "傷害" not in DS.spell_text("sakuya", 0)
+      and "UR 時這回合我方的傷害再 × 1.2" in DS.spell_text("sakuya"))
+check("desc mugetsu coin", "1、2 回合各一半機率" in DS.spell_text("mugetsu", 1) and "BOSS 無效" not in DS.spell_text("mugetsu", 2))
+_all_desc = [DS.spell_text(c, t) for c in chars for t in (None, 0, 1, 2)]
+check("desc no nested brackets", not any("（" in x.split("）")[0][x.find("（") + 1:] for x in _all_desc if "（" in x)
+      and not any(" 〔" in x or "〕 " in x or "$" in x for x in _all_desc))
+check("desc notes set", all(DS.spell_note(c) for c in chars))
+check("char file desc synced (python tools/ura_roster.py)", all(
+    lv["desc"] == DS.spell_text(cid, ch["gacha"]["rarities"].index(r))
+    for cid in chars
+    for ch in [json.load(open(next(p for p in __import__("glob").glob(f"Characters/*/{cid}.json")), encoding="utf-8"))]
+    for r, lv in ch["special_powers"]["levels"].items()))
 check("char file b / cd match spells", all(
     lv["spent"] == data.spells()[cid]["b"] and lv["cooldown"] == data.spells()[cid]["cd"]
     for cid in chars for lv in json.load(open(next(p for p in __import__("glob").glob(f"Characters/*/{cid}.json")), encoding="utf-8"))["special_powers"]["levels"].values()))

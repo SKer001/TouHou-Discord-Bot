@@ -32,7 +32,7 @@
                     "on": {"round_end": [{"do": "auto_attack", "mult": 0.3, "use": "source_atk"}]},
                     "desc": "ATK 提升，人形每回合幫忙打一隻"},
     "mima_power": {"name": "魅魔之力", "emoji": "😈", "good": true, "duration": "rounds", "default": 2, "max_stacks": 3,
-                   "group": "spell", "mods": {"atk_pct": 0.1}, "desc": "ATK +10% (最多 3 層)"},
+                   "group": "spell", "mods": {"atk_pct": 0.1}, "desc": "ATK +10%"},
     "debuff_atk": {"name": "弱化・ATK", "emoji": "⬇️", "good": false, "duration": "rounds", "default": 3, "max_stacks": 1,
                    "group": "spell", "mods": {"atk_pct": "-value"}, "flags": ["cleanse"], "desc": "ATK 下降"},
     "debuff_def": {"name": "弱化・DEF", "emoji": "💔", "good": false, "duration": "rounds", "default": 3, "max_stacks": 1,

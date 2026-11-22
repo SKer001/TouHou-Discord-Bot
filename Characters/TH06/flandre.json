@@ -39,7 +39,7 @@
                 "type": "damage",
                 "spent": 8,
                 "cooldown": 3,
-                "desc": "單體傷害，對精英 / BOSS × 1.2"
+                "desc": "對一隻敵人造成 ATK × 2.5 的傷害（打精英 / 寶箱怪 / BOSS 再 × 1.2）"
             },
             "UR": {
                 "id": "flandre_SP_II",
@@ -47,7 +47,7 @@
                 "type": "damage",
                 "spent": 8,
                 "cooldown": 3,
-                "desc": "單體傷害，對精英 / BOSS × 1.2"
+                "desc": "對一隻敵人造成 ATK × 3 的傷害（打精英 / 寶箱怪 / BOSS 再 × 1.2）"
             },
             "LR": {
                 "id": "flandre_SP_III",
@@ -55,7 +55,7 @@
                 "type": "damage",
                 "spent": 8,
                 "cooldown": 3,
-                "desc": "單體傷害，對精英 / BOSS × 1.2"
+                "desc": "對一隻敵人造成 ATK × 3.5 的傷害（打精英 / 寶箱怪 / BOSS 再 × 1.2）"
             }
         }
     }

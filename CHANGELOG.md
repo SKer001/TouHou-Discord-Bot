@@ -13,6 +13,14 @@
 
 ---
 
+## 0.36.004 — 2026-11-22：📝 裏世界符卡敘述重寫 (分支 ura-skill-desc，統整 session 合併) (筆電，玩法 session)
+- 使用者：「有些角色的技能敘述就是符卡敘述，都是重複的，然後只有說最高等級會乘以一點二倍」。規則和每位的寫法在 `docs/ura.md`「📝 符卡敘述」。
+- `Database/ura/describe.py` 重寫效果產生器：傷害寫「對一隻敵人 / 全部敵人造成 ATK × N 的傷害」、狀態寫出作用和數字、控場寫 BOSS 怎樣、三檔標出階級〔SR 2.8・SSR 3.3・UR 3.8〕(不跟外面的括號疊在一起)；新的 `spell_note()`、`COOLDOWN_NOTE`。
+- `spells.json` 24 位的 desc 改成一句定位 / 用法 (不重複效果)；`statuses.json` 魅魔之力拿掉疊不到的「最多 3 層」(數值沒動)。
+- 顯示的地方：🔍 詳情 (效果 + 說明 + 冷卻小字)、出發選角色 (B 點・冷卻 N 回合、三檔效果；原本寫「步」)、`/character` 圖鑑 (說明只寫一次、I / II / III 各寫自己的效果數字，冷卻寫「回合」)、`docs/ura_roster.md`。
+- `tools/ura_roster.py` 多一步：把 `Characters/*.json` 特殊能力每一級的 desc 同步成那一級的效果 (只改 desc，排版照原檔)。
+- 測試：`test_ura_engine.py` 檢查前 6 位使用者定的文字、括號沒有疊、`$` 沒漏、24 位都有說明、角色檔 desc 跟產生的一樣；`test_character.py` 檢查圖鑑每一級的效果都在、說明只出現一次。全部 9749 項通過。
+
 ## 0.36.003 — 2026-11-22：Item.db 補上 0.35.000 之後新增的 27 個道具 (筆電，統整 session)
 - git 裡的 `Database/Item.db` 一直停在 42 個道具，程式 (`Item_DB_Manager.managed_items()`) 開機時會自動補，玩家不受影響；遊戲設計 session 0.36.001 回報後，使用者同意把主資料夾已經補齊的 69 個推上來 (溫泉蛋雜炊、櫻花茶等 27 種素材與料理)。
 - 只推 `Item.db` (只有 `item_templates` 道具定義，沒有玩家資料)；`Users.db` 沒動。推之前 `pragma integrity_check` = ok。

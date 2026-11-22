@@ -175,11 +175,14 @@ def build_unit_detail(run: dict, u: dict, kills: dict | None = None, thumb: str 
         c.add_item(ui.Separator())
         sp = data.spells().get(u["cid"], {})
         cd = f"⏳ 還要 {u['cd']} 回合" if u["cd"] > 0 else "✅ 冷卻好了"
+        effect = describe.spell_text(u["cid"], u["tier"])
         lines = [_hp_line(u, battle), "",
                  f"✨ **{u.get('spell_name') or '符卡'}**　B 點 {u['b_cost']}・冷卻 {u['cd_max']} 回合（{cd}）",
-                 f"效果：{describe.spell_text(u['cid'], u['tier'])}" + ("　(選門時也能放)" if sp.get("outside") else "")]
-        if sp.get("desc"):
-            lines.append(f"-# {sp['desc']}")
+                 f"效果：{effect}" + ("　(選門時也能放)" if sp.get("outside") and "選門時" not in effect else "")]
+        note = describe.spell_note(u["cid"])
+        if note:   # 一句定位 / 用法 (使用者 2026-11-22：不重複效果)
+            lines.append(f"-# {note}")
+        lines.append(f"-# {describe.COOLDOWN_NOTE}")
         rel = u.get("relic")
         lines += ["", f"🦊 法具：{relic_name(rel)}\n-# {describe.relic_effect(rel, u['cls'])}" if rel else "🦊 法具：沒有裝"]
         c.add_item(ui.TextDisplay("\n".join(lines)))

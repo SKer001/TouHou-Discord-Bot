@@ -39,7 +39,7 @@
                 "type": "damage",
                 "spent": 8,
                 "cooldown": 3,
-                "desc": "單體傷害，回自己造成傷害的 20%"
+                "desc": "對一隻敵人造成 ATK × 2.5 的傷害，回自己造成傷害的 20% HP"
             },
             "UR": {
                 "id": "remilia_SP_II",
@@ -47,7 +47,7 @@
                 "type": "damage",
                 "spent": 8,
                 "cooldown": 3,
-                "desc": "單體傷害，回自己造成傷害的 20%"
+                "desc": "對一隻敵人造成 ATK × 3 的傷害，回自己造成傷害的 20% HP"
             },
             "LR": {
                 "id": "remilia_SP_III",
@@ -55,7 +55,7 @@
                 "type": "damage",
                 "spent": 8,
                 "cooldown": 3,
-                "desc": "單體傷害，回自己造成傷害的 20%"
+                "desc": "對一隻敵人造成 ATK × 3.5 的傷害，回自己造成傷害的 20% HP"
             }
         }
     }
