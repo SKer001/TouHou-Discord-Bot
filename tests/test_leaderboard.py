@@ -82,7 +82,9 @@ async def main():
     check("others cannot press", not await v.interaction_check(it) and "不是你的排行榜" in texts(it.view))
 
     it = Interaction(12, guild); await cmd.callback(cog, it, cat("money"))
-    check("private self sees own name", "玩家12" in texts(it.view))
+    t = texts(it.view)   # 私人玩家自己打開也照私人規則 (0.36.002，使用者定：排行榜是公開訊息)，名次寫在最下面
+    check("private self hidden", "玩家12" not in t and "🥇 **🔒 私人玩家**\n" in t and "⬅️ 你" not in t
+          and "📍 你目前是第 1 名 (13K 兩)・你的資料卡是私人的" in t and it.ephemeral is False)
     it = Interaction(1, guild); await cmd.callback(cog, it)
     check("default category money", "排行榜：💰 賽錢" in texts(it.view))
 
@@ -97,7 +99,7 @@ async def main():
     check("private title hidden", "比賽錢箱還有錢" not in t)
     check("invalid title hidden", "初次祈願者" not in t)
     it = Interaction(12, guild); await cmd.callback(cog, it, cat("money"))
-    check("private self sees own title", "比賽錢箱還有錢" in texts(it.view))
+    check("private self title hidden", "比賽錢箱還有錢" not in texts(it.view))
 
     from importlib import import_module
     mc = import_module("Cogs.load-market.Components.market_components")
@@ -156,6 +158,10 @@ async def main():
     t = texts(it.view)
     check("ura depth order", t.index("🔒 私人玩家") < t.index("玩家2") < t.index("玩家1") < t.index("玩家3"))
     check("ura depth block", "**玩家2**\n角色：[SR] 琪露諾 💀 / [N] 大妖精\n法具：🦊 九尾式神\n探索深度：第 20 關\n賽錢：80K 兩" in t)
+    it12 = Interaction(12, guild); await cmd.callback(cog, it12, cat("ura_money"))
+    t = texts(it12.view)
+    check("ura private self hidden", "玩家12" not in t and "⬅️ 你" not in t and "📍 你目前是第 1 名" in t
+          and t.split("🔒 私人玩家")[1].split("\n\n")[0].count("角色：") == 0)
     it = Interaction(7, guild); await cmd.callback(cog, it, cat("ura_depth"))
     check("ura no record", "還沒有成功撤離過" in texts(it.view) and comp(it.view, "📍").disabled)
     check("ura limits", sum(1 for _ in it.view.walk_children()) <= 40 and len(texts(it.view)) <= 4000)

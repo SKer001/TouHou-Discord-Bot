@@ -19,13 +19,13 @@ def check(name, cond):
 class Resp:
     def __init__(s, it): s.it = it; s.done = False
     def is_done(s): return s.done
-    async def defer(s, **kw): s.done = True
+    async def defer(s, **kw): s.done = True; s.it.defer_ephemeral = kw.get("ephemeral", False)
     async def send_message(s, content=None, **kw): assert content is None; s.done = True; s.it.view = kw.get("view")
     async def edit_message(s, content=None, **kw): assert content is None; s.done = True; s.it.view = kw.get("view")
 class Followup:
     def __init__(s, it): s.it = it
     async def send(s, content=None, **kw):
-        assert content is None; s.it.views.append(kw.get("view"))
+        assert content is None; s.it.views.append(kw.get("view")); s.it.ephemerals.append(kw.get("ephemeral", False))
         if s.it.view is None: s.it.view = kw.get("view")
         return None
 avatar = types.SimpleNamespace(with_size=lambda n: types.SimpleNamespace(url="https://x/a.png", read=None))
@@ -33,6 +33,7 @@ class Interaction:
     def __init__(s, uid=1, data=None):
         s.user = types.SimpleNamespace(id=uid, display_name="t", display_avatar=avatar, mention="@t")
         s.response = Resp(s); s.followup = Followup(s); s.view = None; s.views = []; s.data = data or {}
+        s.ephemerals, s.defer_ephemeral = [], None
         s.type = discord.InteractionType.application_command
     async def original_response(s): return None
 def texts(v): return "\n".join(i.content for i in v.walk_children() if isinstance(i, discord.ui.TextDisplay))
@@ -99,6 +100,23 @@ async def main():
     cmds = {c.name: c for c in cog.walk_app_commands()}
     it = Interaction(uid=10); await cmds["daily"].callback(cog, it)
     check("daily gives onigiri", (await udm.get_or_create_user(10))["inventory"].get("reimu_onigiri") == 1 and any("陰陽梅干飯糰" in texts(v) for v in it.views))
+    # 🔒 私人資料卡：/daily 的簽到結果和 💥 POWER UP! 都只有自己看得到 (0.36.002，使用者定)；公開的照舊公開
+    for uid, public in ((40, True), (41, False)):   # 40～43 號別的測試沒用
+        await udm.get_or_create_user(uid); await udm.update_visibility(uid, public)
+        await udm.add_exp(uid, udm.get_required_exp_for_level(0) - 1)   # 差 1 EXP 就升級
+        it = Interaction(uid=uid); await cmds["daily"].callback(cog, it)
+        power = [e for v, e in zip(it.views, it.ephemerals) if "POWER UP" in texts(v)]
+        check(f"daily visibility public={public} {it.defer_ephemeral} {it.ephemerals}",
+              it.defer_ephemeral is (not public) and len(it.views) == 2 and power == [not public]
+              and all(e is (not public) for e in it.ephemerals))
+    # 私人資料卡在 /profile 按「⛩️ 投賽錢簽到」升級：POWER UP 也只有自己看得到
+    for uid, public in ((42, True), (43, False)):
+        await udm.get_or_create_user(uid); await udm.update_visibility(uid, public)
+        await udm.add_exp(uid, udm.get_required_exp_for_level(0) - 1)
+        it = Interaction(uid=uid); await cmds["profile"].callback(cog, it, None, None)
+        it2 = Interaction(uid=uid); await it.view.on_daily(it2)
+        check(f"profile daily power up public={public} {it2.ephemerals}",
+              [e for v, e in zip(it2.views, it2.ephemerals) if "POWER UP" in texts(v)] == [not public])
     await udm.add_stamina(10, -100)
     it = Interaction(uid=10); await cmds["profile"].callback(cog, it, None, None)
     pv = it.view

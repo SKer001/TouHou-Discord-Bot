@@ -363,15 +363,15 @@ def leaderboard_entry(type_key: str, rank: int, row: dict, viewer_id: int) -> st
       🥇 名字 · [SR] 稱號
       (裏世界兩項) 角色：[SR] 琪露諾 💀 / [N] 大妖精　法具：🦊 九尾式神
       項目：數字
-    私人資料卡的玩家計入名次，但名字、稱號、角色、法具都不顯示 (本人除外)
+    私人資料卡的玩家計入名次，但名字、稱號、角色、法具都不顯示；
+    本人也一樣 (0.36.002，使用者定：排行榜是公開訊息)，不標「⬅️ 你」，名次寫在最下面那行
     """
     title, field, fmt = LEADERBOARD_TYPES[type_key]
-    is_viewer = row["user_id"] == viewer_id
-    shown = row["is_public"] or is_viewer
+    shown = bool(row["is_public"])
     head = f"{MEDALS.get(rank, f'`#{rank}`')} **{row['member'].display_name if shown else '🔒 私人玩家'}**"
     if shown and row.get("title") in title_data.TITLES:
         head += f" · {title_data.title_label(row['title'])}"
-    if is_viewer:
+    if shown and row["user_id"] == viewer_id:
         head += "　⬅️ 你"
     lines = [head]
     if type_key in URA_TYPES:
@@ -418,6 +418,9 @@ def build_leaderboard_container(guild: discord.Guild, type_key: str, rows: list[
     if my_rank is None:
         container.add_item(ui.TextDisplay("-# 你還沒有成功撤離過，用 `/ura explore` 出發吧！" if ura
                                           else "-# 你還沒有遊玩紀錄，快去 `/daily` 或 `/card gacha` 吧！"))
+    elif not rows[my_rank - 1]["is_public"]:   # 私人資料卡：榜上看不出是你，一律寫在這裡
+        container.add_item(ui.TextDisplay(f"-# 📍 你目前是第 {my_rank} 名 ({fmt(rows[my_rank - 1][field])})"
+                                          "・你的資料卡是私人的，榜上顯示成「🔒 私人玩家」"))
     elif not page.start < my_rank <= page.start + len(page.items):
         container.add_item(ui.TextDisplay(f"-# 📍 你目前是第 {my_rank} 名 ({fmt(rows[my_rank - 1][field])})"))
     return container

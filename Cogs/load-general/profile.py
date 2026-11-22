@@ -64,6 +64,11 @@ async def get_daily_status(user_id: int) -> dict:
     return await db_get_daily_status(user_id, today_str())
 
 
+def is_public(user_data: dict) -> bool:
+    """資料卡是不是公開的 (users.is_public，預設公開)"""
+    return bool(user_data.get("is_public", 1))
+
+
 async def perform_daily(user_id: int) -> dict | None:
     """
     執行每日簽到。已簽到過則回傳 None (呼叫端負責顯示「重複簽到」提示)；
@@ -238,9 +243,10 @@ class ProfileView(ui.LayoutView):
         self.build(user_data, daily_status)
         await interaction.response.edit_message(view=self)
 
-        # 💥 若觸發升級，追投 POWER UP 卡片
+        # 💥 若觸發升級，追投 POWER UP 卡片 (私人資料卡只有自己看得到，0.36.002)
         if result["exp_result"].get("leveled_up"):
-            await interaction.followup.send(view=make_view(build_power_up_container(interaction.user, result["exp_result"])))
+            await interaction.followup.send(view=make_view(build_power_up_container(interaction.user, result["exp_result"])),
+                                            ephemeral=not is_public(user_data))
 
     async def on_timeout(self):
         """逾時後把簽到按鈕反灰"""
@@ -537,7 +543,7 @@ class Profile(commands.Cog):
         target_data = await get_or_create_user(target_user.id)
 
         # 4. 隱私權限檢查
-        target_is_public = bool(target_data.get("is_public", 1))
+        target_is_public = is_public(target_data)
 
         if not is_self and not target_is_public:
             container = build_notice_container(
@@ -571,7 +577,9 @@ class Profile(commands.Cog):
             )
             return
 
-        await interaction.response.defer()
+        # 🔒 私人資料卡：簽到結果和 POWER UP 都只有自己看得到 (0.36.002，使用者定；原本一律公開)
+        private = not is_public(await get_or_create_user(user.id))
+        await interaction.response.defer(ephemeral=private)
         result = await perform_daily(user.id)
         if result is None:  # 極少數情況：幾乎同時從別處簽到完了
             status = await get_daily_status(user.id)
@@ -585,10 +593,11 @@ class Profile(commands.Cog):
         title_state = await get_title_state(user.id)
         view = ProfileView(user, True, title_state, user_data, status, reward=result,
                            namecard_state=await get_namecard_state(user.id))
-        view.message = await interaction.followup.send(view=view)
+        view.message = await interaction.followup.send(view=view, ephemeral=private)
 
         if result["exp_result"].get("leveled_up"):
-            await interaction.followup.send(view=make_view(build_power_up_container(user, result["exp_result"])))
+            await interaction.followup.send(view=make_view(build_power_up_container(user, result["exp_result"])),
+                                            ephemeral=private)
 
 
 async def setup(bot: commands.Bot):
