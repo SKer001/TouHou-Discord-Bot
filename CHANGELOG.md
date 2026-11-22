@@ -13,6 +13,36 @@
 
 ---
 
+## 0.XX.??? — 2026-11-22：🔴 紅魔鄉卡池改成紅霧異變期間限定 (筆電，抽卡 session，分支 `claude/gacha-rates-a49710`)
+- 統整 session 轉達使用者定案 (6 題都照建議)，使用者原話：「所以能把TH06卡池轉到活動池上嗎(因為我預設一般池只有給舊作)」，補充「但還是照現在的不限時做哦」。
+- **只改抽的地方，不改分類**：`Utils/gacha_pools.py` 的 `th06` 標 `event_only`，`/card gacha` 的卡池選項只剩「📜 舊作卡池」和「🎪 活動限定卡池」。紅霧異變活動檔加 `gacha.pool {"from": "th06"}`，活動進行中選 🎪 就抽紅魔鄉卡池。`GACHA_POOL` 的 `pool` 還是 `th06`，所以卡冊篩選、合成 / 融合、市場、卡池收集稱號、🍀 運氣・紅魔鄉、推角、裏世界分組都沒變。
+- **保底照舊記在 `th06`**：大家現在的進度直接接著算，活動下次再開也接著算。抽數 (`daily_draws`)、活動任務「紅霧中的祈願」(`gacha_pool:th06`) 也照舊；不另外記活動卡池的預期張數 (紅魔鄉本來就有卡池抽數 × 機率)。
+- **顯示**：
+  - 活動期間選 🎪 ➔ 結果畫面標題「🎪 🔴 紅魔鄉卡池・紅霧異變限定」；沒活動 ➔ 照舊提示「目前沒有進行中的活動卡池」(繞過選項直接送 `th06` 也一樣擋)。
+  - `/card history` 紅魔鄉那行加註「🎪 紅霧異變期間開放」；📊 機率表選單只列現在抽得到的卡池，機率表也加同一句註記。
+  - `/event info` 紅霧異變多一行「🎴 活動卡池：🔴 紅魔鄉卡池」(`characters` 型的活動卡池也會顯示)；`rarity_weights` 那行順便改成新格式的顯示。
+- **活動結束後**：紅魔鄉抽不到，手上的卡照常能合成、融合、上架、出征；市值照現有規則，不另外處理。紅霧異變照舊 `auto_start`、不限時，活動檔的 `auto_start` / `duration_days` 沒動。
+- 程式：
+  - `Database/events.game_rules` 認新欄位 `gacha.pool.from`：`gacha_event_pool` 的 key = 那個卡池、`characters = None`；找不到卡池就印警告略過。
+  - 新的 `events.pool_open_events()` 從活動檔找「哪些活動開放這個卡池」。
+  - `gacha.py`：
+    - `resolve_pool()` 統一處理 🎪 / `event_<id>` / event_only 卡池，抽卡、繼續祈願、機率表都用它。
+    - `pool_characters()` 遇到 `characters = None` 就用卡池本來的角色。
+    - `is_event_only()`、`open_note()`。
+- 文件：`Events/README.md` 加新欄位，`docs/cogs.md`、README、`/help`、`TODO.md` 的卡池說明一起改。
+- 測試：
+  - `test_pools.py`：
+    - 選項只剩舊作和 🎪。
+    - 紅霧異變進行中從 🎪 抽到的都是紅魔鄉角色，保底記在 `th06` 沒有 `event_*`，繼續祈願沿用。
+    - 不多記預期張數。
+    - history 加註而且紅魔鄉只列一次，機率表選單是舊作 + 紅魔鄉。
+    - `/event info` 那一行。
+    - 活動沒在進行時 🎪 和 `th06` 都擋、錢沒扣，history 照樣列紅魔鄉 (加註)，選單只剩舊作。
+  - `test_event_slots.py`：`from` 欄位 (key、名稱、角色、`resolve_pool`、預期張數跟一般卡池一樣、找不到的卡池略過)、`is_event_only`、`pool_open_events`。
+  - `test_pity.py`：機率表標題與註記、活動沒在進行時看不到紅魔鄉 / 🎪 的機率表但舊作看得到。
+  - `test_botcli.py`：流程裡的 `/card gacha pool:th06` 改成 `pool:event` (紅魔鄉不在選項裡了，botcli 會照 Discord 一樣擋掉)；`docs/testing.md` 的範例也改掉。
+  - 全部測試 9792 項過 (`python tests/run_all.py`)。
+
 ## 0.XX.??? — 2026-11-22：🎲 抽卡機率改版 (先抽階級、UR 動態機率、📊 機率表、清空全部玩家卡冊) (筆電，抽卡 session，分支 `claude/gacha-rates-a49710`)
 - **原因**：使用者回報「昨天太多人出 UR」。查主資料夾 DB (唯讀) 對照理論值：昨天紅魔鄉 560 抽出 34 張 UR 以上 (理論 36.7)、舊作 6 張 (理論 7.4)，不是 bug 也不是運氣。舊制是「先平均抽角色，再用 `[75, 22, 3]` 抽那位角色自己的三個階級」，SSR/UR/LR 角色 (芙蘭、蕾米、神綺) 的 UR 落在 22% 那一檔：紅魔鄉 UR 以上 6.56%、平均 15 抽一張，30 張 UR 裡 27 張是蕾米 / 芙蘭。
 - 跟使用者 grill 6 輪定案 (數字都是使用者給的或同意的)：

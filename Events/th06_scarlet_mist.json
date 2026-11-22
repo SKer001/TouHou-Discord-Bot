@@ -74,6 +74,7 @@
             }
         }
     },
+    "gacha": {"pool": {"from": "th06"}},
     "quests": [
         {"id": "kitchen_explore", "name": "初探紅魔館廚房", "type": "explore_location", "target": "scarlet_kitchen", "count": 10,
          "desc": "趁著紅霧，紅魔館的廚房對外開放了。去看看那些西洋食材長什麼樣子吧——記得別被門番發現。",

@@ -166,6 +166,18 @@ check("expected follows rate up", abs(sum(n for (k, _), n in exp5.items() if k =
 check("expected long-run UR", abs(sum(n for (_, r), n in exp.items() if r == "UR") - 10 / gacha.ur_cycle_stats("event_b", g3)["avg"]) < 1e-9)
 check("normal pool unaffected", set(gacha.pool_characters("th06", g3)) == set(keys))
 check("empty pool ignored", game_rules([{"id": "c", "gacha": {"pool": {"characters": []}}}])["gacha_event_pool"] is None)
+# 🔴 gacha.pool.from (2026-11-22)：一般卡池 (event_only) 只在活動期間開放，key 照舊是那個卡池
+g6 = game_rules([{"id": "m", "name": "紅霧異變", "gacha": {"pool": {"from": "th06"}}}])
+ep6 = g6["gacha_event_pool"]
+check(f"from pool {ep6}", ep6["key"] == "th06" and ep6["from"] == "th06" and ep6["characters"] is None and ep6["event"] == "m"
+      and ep6["name"] == "🎪 🔴 紅魔鄉卡池・紅霧異變限定")
+check("from pool members", set(gacha.pool_characters("th06", g6)) == set(keys) and gacha.resolve_pool("event", g6) == ("th06", ep6["name"]))
+check("from pool expected = normal", gacha.expected_cards("th06", 10, g6) == gacha.expected_cards("th06", 10))
+check("from unknown pool ignored", game_rules([{"id": "u", "gacha": {"pool": {"from": "nope"}}}])["gacha_event_pool"] is None)
+check("th06 event only", gacha.is_event_only("th06") and not gacha.is_event_only("classic")
+      and gacha.resolve_pool("th06", base) is None and gacha.resolve_pool("classic", base)[0] == "classic")
+from Database.events import pool_open_events
+check("open events", pool_open_events("th06") == ["紅霧異變"] and pool_open_events("classic") == [])
 
 # 💰 祈願價格、市場 / 轉帳手續費倍率 (沒活動 = 原價)
 check("draw cost base", gacha.draw_cost(10) == gacha.DRAW_COST * 10)

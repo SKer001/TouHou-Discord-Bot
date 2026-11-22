@@ -119,13 +119,15 @@ def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: i
 
 
 def build_gacha_history_container(user_name: str, pools: dict, pity: dict, stats: dict,
-                                  threshold: int, pity_rarity: str, next_rates: dict | None = None) -> ui.Container:
+                                  threshold: int, pity_rarity: str, next_rates: dict | None = None,
+                                  notes: dict | None = None) -> ui.Container:
     """
     祈願紀錄：各卡池的累計抽數與保底進度
     pools = GACHA_POOLS；pity = {"卡池": {"total_draws", "since_ur", "last_ur_at"}}；stats = get_gacha_stats()
     next_rates = {"卡池": 下一抽 UR 的機率文字 (例 "1.54%")}；值是 None = 這個卡池沒有 UR (沒有保底)
+    notes = {"卡池": 加在卡池名稱後面的說明 (例 紅魔鄉「🎪 紅霧異變期間開放」)}
     """
-    next_rates = next_rates or {}
+    next_rates, notes = next_rates or {}, notes or {}
     container = ui.Container(accent_color=discord.Color.gold())
     container.add_item(ui.TextDisplay(
         f"## 📜 {user_name} 的祈願紀錄\n"
@@ -139,14 +141,15 @@ def build_gacha_history_container(user_name: str, pools: dict, pity: dict, stats
         row = pity.get(key, {"total_draws": 0, "since_ur": 0, "last_ur_at": None})
         since = row["since_ur"]
         last = row["last_ur_at"] or "尚未獲得"
+        title = f"### {p['name']}" + (f"\n-# {notes[key]}" if notes.get(key) else "")
         if key in next_rates and next_rates[key] is None:
-            lines.append(f"### {p['name']}\n累計 `{row['total_draws']:,}` 抽 · 這個卡池沒有 {pity_rarity}，沒有保底")
+            lines.append(f"{title}\n累計 `{row['total_draws']:,}` 抽 · 這個卡池沒有 {pity_rarity}，沒有保底")
             continue
         filled = min(10, since * 10 // threshold)
         bar = "🟨" * filled + "⬛" * (10 - filled)
         rate = f" · 下一抽 {pity_rarity} `{next_rates[key]}`" if next_rates.get(key) else ""
         lines.append(
-            f"### {p['name']}\n"
+            f"{title}\n"
             f"累計 `{row['total_draws']:,}` 抽 · 保底 `{since} / {threshold}`{rate}（最晚再 `{threshold - since}` 抽必出 {pity_rarity}）\n"
             f"{bar}\n"
             f"-# 上次獲得 {pity_rarity}：{last}"
@@ -170,6 +173,8 @@ def build_rate_sheet_container(data: dict, threshold: int, pity_rarity: str) -> 
             "-# 每一抽先抽階級，再從這個卡池裡有這個階級的角色平均抽一位"]
     if data["event_pool"]:
         head.append("-# 🎪 活動限定卡池：保底跟一般卡池分開算")
+    if data.get("open_note"):
+        head.append(f"-# {data['open_note']}；保底照樣記在這個卡池，活動下次再開也接著算")
     if data["event_rates"]:
         head.append("🎪 **活動期間調整了起始機率**（下面的數字已經是活動中的機率）")
     if data["rate_up"]:

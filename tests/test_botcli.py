@@ -31,7 +31,7 @@ code, out = run(
     "select s1 1",
     "select s1 1",
     "click 確認合成",
-    "/card gacha pool:th06 pull_type:10",
+    "/card gacha pool:event pull_type:10",   # 紅魔鄉只在紅霧異變期間從 🎪 抽 (auto_start，沙盒裡也是進行中)
     "click 繼續十連",
     "/card history",
     extra=("--fresh",),

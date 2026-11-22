@@ -180,14 +180,22 @@ async def main():
     check("others blocked elsewhere", await view.interaction_check(other) is False)
     sheet = Interaction(uid=3, component=True); await view.view_rates(sheet)
     t = texts(sheet.view)
-    check("rate sheet", "機率表：🔴 紅魔鄉卡池" in t and "43.9%" in t and "第 81～90 抽：慢慢升到 2.5%" in t
+    check("rate sheet", "機率表：🎪 🔴 紅魔鄉卡池・紅霧異變限定" in t and "🎪 紅霧異變期間開放" in t and "43.9%" in t and "第 81～90 抽：慢慢升到 2.5%" in t
           and "吃到保底：**59.9%**" in t and "`85 / 100` · 下一抽 UR `1.54%`" in t and "芙蘭朵露" in t)
     check("rate sheet ephemeral", sheet.kw.get("ephemeral") is True)
     sheet = Interaction(uid=4, component=True); await view.view_rates(sheet)
     check("rate sheet own progress", "`0 / 100` · 下一抽 UR `0.1%`" in texts(sheet.view))
     check("rate sheet within 40", sum(1 for _ in sheet.view.walk_children()) <= 40)
-    sheet = Interaction(uid=3); await gacha.send_rate_sheet(sheet, "event")
-    check("rate sheet no event", "沒有開放" in texts(sheet.view))
+    orig_rules = gacha.econ.get_rules
+    async def no_event(now=None):
+        r = await orig_rules(now); r["gacha_event_pool"] = None; return r
+    gacha.econ.get_rules = no_event   # 紅霧異變沒在進行 ➔ 紅魔鄉 / 🎪 都看不到機率表
+    for choice in ("event", "th06"):
+        sheet = Interaction(uid=3); await gacha.send_rate_sheet(sheet, choice)
+        check(f"rate sheet no event {choice}", "沒有開放" in texts(sheet.view))
+    sheet = Interaction(uid=3); await gacha.send_rate_sheet(sheet, "classic")
+    check("rate sheet classic always", "機率表：📜 舊作卡池" in texts(sheet.view) and "期間開放" not in texts(sheet.view))
+    gacha.econ.get_rules = orig_rules
 
 asyncio.run(main())
 print(f"passed {ok}, failed {fail}")

@@ -6,6 +6,7 @@ from discord import ui
 
 from Database import shrine_data
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
+from Utils.gacha_pools import GACHA_POOLS   # /event info 的「🎴 活動卡池」名稱
 
 
 def ts(dt, style: str = "R") -> str:
@@ -316,6 +317,13 @@ def build_event_container(overview: list[dict], items: dict, recipes: dict) -> u
         guests = ev.get("guests", {})
         if guests:
             lines.append("\n🙏 **限定客人**：" + "、".join(f"{g['emoji']} {g['name']}" for g in guests.values()))
+        pool = (ev.get("gacha") or {}).get("pool") or {}   # 🎴 活動卡池 (Events/README.md)
+        if pool.get("from") in GACHA_POOLS:   # 一般卡池只在活動期間開放 (紅霧異變 ➔ 紅魔鄉卡池)
+            lines.append(f"\n🎴 **活動卡池**：{GACHA_POOLS[pool['from']]['name']}\n"
+                         "-# `/card gacha` 選「🎪 活動限定卡池」，活動期間才抽得到；保底照樣記在這個卡池")
+        elif pool.get("characters"):
+            name = pool.get("name") or f"{ev.get('emoji', '🎪')} {ev.get('name', '')}卡池"
+            lines.append(f"\n🎴 **活動卡池**：{name}\n-# `/card gacha` 選「🎪 活動限定卡池」")
         # 加在一般機制上的活動內容 (預留位，見 Database/events.py 的 game_rules)
         extra = []
         for loc_id, drops in ev.get("extra_drops", {}).items():
@@ -327,8 +335,8 @@ def build_event_container(overview: list[dict], items: dict, recipes: dict) -> u
         gacha = ev.get("gacha", {})
         if gacha.get("rate_up"):
             extra.append("🎴 祈願機率提升：" + "、".join(f"{k} ×{v:g}" for k, v in gacha["rate_up"].items()))
-        if gacha.get("rarity_weights"):
-            extra.append("🎴 祈願階級機率調整：" + " / ".join(str(w) for w in gacha["rarity_weights"]))
+        if isinstance(gacha.get("rarity_weights"), dict) and gacha["rarity_weights"]:   # {階級: %} (2026-11-22 起)
+            extra.append("🎴 祈願起始機率調整：" + " / ".join(f"{r} {v:g}%" for r, v in gacha["rarity_weights"].items()))
         if ev.get("daily_items"):
             extra.append("📅 簽到額外送：" + "、".join(f"{item_label(items, i)} ×{n}" for i, n in ev["daily_items"]))
         if ev.get("guest_overrides"):
