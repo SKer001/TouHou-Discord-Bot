@@ -71,7 +71,7 @@ def build_quest_container(board: dict, quests: list[dict], buttons: dict, items:
     else:
         lines.append("⏳ 活動測試中，沒有結束時間")
     if board.get("titles"):
-        lines.append("-# 活動稱號是永久的，活動結束也會保留；可以到 `/profile` 的「🏷️ 更換稱號」戴上")
+        lines.append("-# 活動稱號是永久的，活動結束也會保留；可以到 `/profile` 的「🏷️ 修改稱號」戴上")
     container.add_item(ui.TextDisplay("\n".join(lines)))
     return container
 

@@ -258,8 +258,8 @@ def _serve() -> str:
         "-# 心情是平方算的，掉一點報酬就少很多：客人來了早點招待最划算",
         "",
         "### 🎁 額外招待",
-        "- 用「🎁 要不要額外招待？（可以不選）」再多端 **1 份**任何招待料理，多一份就多一份報酬",
-        "- 選單只會列出端完點的菜之後，倉庫還有剩的料理",
+        "- 用「🎁 要不要額外招待？（可以不選）」先選分類（食物 / 茶水 / 點心），再從下面的選單挑 **1 份**招待料理，多一份就多一份報酬",
+        "- 只會列出端完點的菜之後，倉庫還有剩的料理；改選「➖ 不額外招待」就取消",
         f"- 額外招待的那份如果剛好是客人的**最愛**，整筆報酬再 **×{e.FAVORITE_BONUS:g}**（上面的例子就變成 {example_fav:,}）",
         "- 只有**額外招待**端上最愛才算；客人自己點到最愛的菜不會加成",
         "- 最愛不會直接告訴你：看招待畫面灰字的 💡 提示猜猜看",
@@ -333,7 +333,6 @@ def _storage() -> str:
     serve_types = " / ".join(gen.SERVE_LABELS.values())
     first_serve = next(iter(gen.SERVE_LABELS.values()))
     names = {value: f"{emoji} {label}" for value, label, emoji, _desc in shrine_cog.CATEGORY_OPTIONS}
-    all_label = names.get("all", "全部道具")
     consumable_label = names.get("consumable", "消耗品")
     cuisine_label = names.get("cuisine", "招待料理")
     # 遊戲資料裡還沒有道具的分類 (管理員另外加進 Item.db 的道具看不到，所以只寫「目前」)
@@ -350,7 +349,6 @@ def _storage() -> str:
         "### 🗂️ 分類",
         "用「🌸 選擇道具分類...」切換，選單上會寫每個分類有幾種道具：",
         *[f"- {emoji} {label}：{desc}" for _value, label, emoji, desc in shrine_cog.CATEGORY_OPTIONS],
-        f"- 🧺 **素材沒有自己的分類**，選「{all_label}」才看得到（排在最後面）",
         f"-# 🍙 飯糰和⚡ 體力料理在「{consumable_label}」，招待料理在「{cuisine_label}」"
         + ("；" + "、".join(f"「{n}」" for n in empty) + "目前還沒有道具" if empty else ""),
         "",

@@ -40,9 +40,9 @@ def notice_text(notice: dict) -> str:
         body = f"{d['emoji']} **{d['name']}** 結束了，活動道具已經清除。\n感謝參與！"
     elif kind == "title_unlocked":
         body = (f"恭喜獲得稱號 **[{d['rarity']}] {d['name']}**！（{d['condition']}）\n"
-                f"-# *{d['desc']}*\n用 `/profile` 的「🏷️ 更換稱號」戴上。")
+                f"-# *{d['desc']}*\n用 `/profile` 的「🏷️ 修改稱號」戴上。")
         if d.get("namecard"):   # 💕 推角稱號：同時永久拿到那位角色的名片
-            body += f"\n🖼️ 還獲得了 **{d['namecard']}** 的角色名片！用 `/profile` 的「🖼️ 更換名片」換上。"
+            body += f"\n🖼️ 還獲得了 **{d['namecard']}** 的角色名片！用 `/profile` 的「🖼️ 修改名片」換上。"
     elif kind == "event_quest_reminder":
         body = (f"{d['emoji']} **{d['name']}** {_ts(d['ends_at'])} 就要結束了，你還有 `{d['count']}` 項完成的任務沒有領獎勵。\n"
                 f"用 `/event quest` 領取，活動結束後沒領的就沒了。")

@@ -256,6 +256,73 @@ async def main():
           and {o.value for o in selects[1].options} == stamina_ids)
     check("all selects <= 25", all(len(s.options) <= 25 for s in selects))
 
+    # 🎁 額外招待 (0.36.001)：先選分類再選料理；原本全放一個選單，超過 24 道後面的選不到
+    shrine_mod = sys.modules["Cogs.load-general.shrine"]
+    shrine = await econ.admin_set_shrine(8, guests=1, guest_mood=100, rng=Rng(last=0.99))
+    g = shrine["summary"]["guests"][0]
+    view = await ShrineView.create(user8, shrine, mode="serve")
+    sql("UPDATE users SET inventory = ? WHERE user_id = 8", (json.dumps({d: 3 for d in view.rules["dish_types"]}),))
+    await view.on_pick_guest(It(data={"values": [g["id"]]}))
+    def sels(v): return [s for s in v.walk_children() if isinstance(s, discord.ui.Select)]
+    def by_type(t): return {d for d, x in view.rules["dish_types"].items() if x == t}
+    check(f"extra all dishes > 24 {len(view.rules['dish_types'])}", len(view.rules["dish_types"]) > 24)
+    s = sels(view)
+    check(f"extra category select {[o.value for o in s[0].options]}", len(s) == 1
+          and [o.value for o in s[0].options] == ["__none__", "food", "drink", "dessert"] and s[0].options[0].default)
+    await view.on_pick_extra_cat(It(data={"values": ["drink"]}))
+    s = sels(view)
+    check("extra dish select", len(s) == 2 and {o.value for o in s[1].options} == by_type("drink")
+          and view.extra is None and next(o for o in s[0].options if o.value == "drink").default)
+    pick = sorted(by_type("drink"))[-1]   # 原本排在第 24 道之後選不到的那種
+    await view.on_pick_extra(It(data={"values": [pick]}))
+    s = sels(view)
+    check("extra picked", view.extra == pick and next(o for o in s[1].options if o.value == pick).default
+          and f"🎁 **額外招待**：{items[pick]['emoji']}{items[pick]['name']} 1 份" in vtext(view))
+    await view.on_pick_extra_cat(It(data={"values": ["food"]}))
+    check("extra switch category clears dish", view.extra is None and view.extra_cat == "food"
+          and {o.value for o in sels(view)[1].options} == by_type("food"))
+    await view.on_pick_extra_cat(It(data={"values": ["__none__"]}))
+    check("extra none", view.extra is None and view.extra_cat is None and len(sels(view)) == 1)
+    # 一個分類超過一頁 ➔ 翻頁 (現在一類最多 11 道，把一頁改小來測)
+    old_per = shrine_mod.EXTRA_PER_PAGE; shrine_mod.EXTRA_PER_PAGE = 4
+    await view.on_pick_extra_cat(It(data={"values": ["dessert"]}))
+    pages = -(-len(by_type("dessert")) // 4)
+    check("extra paged", len(sels(view)[1].options) == 4 and btn(view, "📄 1 / ") is not None)
+    await view.set_extra_page(It(), pages)
+    seen = {o.value for o in sels(view)[1].options}
+    check("extra last page", view.extra_page == pages and seen and seen <= by_type("dessert")
+          and len(seen) == len(by_type("dessert")) - 4 * (pages - 1))
+    shrine_mod.EXTRA_PER_PAGE = old_per
+    check(f"serve components {sum(1 for _ in view.walk_children())}", sum(1 for _ in view.walk_children()) <= 40
+          and all(len(x.options) <= 25 for x in sels(view)))
+    await btns(view)["🍵 端上桌"].callback(It())
+    check("served without extra", view.mode == "main" and view.extra is None and view.extra_cat is None)
+
+    # 🧺 神社倉庫的素材分類 (0.36.001：原本只在「全部道具」裡、分類數量也不算)
+    gen = importlib.import_module("Cogs.load-general.Components.general_components")
+    data = gen.get_inventory_view_data({"mat_rice": 2, "mat_flour": 1, "reimu_onigiri": 1}, items, "material", 1)
+    check("storage material category", "material" in [v for v, *_ in shrine_mod.CATEGORY_OPTIONS]
+          and data["kinds"] == 2 and data["category_counts"]["material"] == 2 and data["category_counts"]["all"] == 3
+          and all(v in data["category_counts"] for v, *_ in shrine_mod.CATEGORY_OPTIONS))
+
+    # 畫面上的數字照常數寫 (0.36.001：原本寫死)
+    sc = importlib.import_module("Cogs.load-general.Components.shrine_components")
+    s0 = shrine["summary"]
+    lo, hi = econ.YOUKAI_REWARD
+    check("youkai reward text", s0["youkai_reward"] == econ.YOUKAI_REWARD
+          and f"+{lo:,}～{hi:,} 賽錢" in sc.build_shrine_container("t", dict(s0, youkai=1)).children[0].content)
+    t = "\n".join(i.content for i in sc.build_shrine_container("t", dict(s0, guests=[])).walk_children()
+                  if isinstance(i, discord.ui.TextDisplay))
+    check("guest hours text", f"每 {econ.GUEST_EVERY_HOURS} 小時有機會來一位" in t)
+    t = sc.build_explore_container(rules["locations"], {"stamina": 100, "max": 240}, 20, None, items).children[0].content
+    check("explore drops text", f"帶回 {sd.EXPLORE_DROPS[0]}～{sd.EXPLORE_DROPS[1]} 個" in t)
+    cook = shrine_mod.ShrineCog.cook   # GroupCog 的子指令 (app_commands.Command)
+    check(f"cook description {cook.description}", f"一鍋 {sd.COOK_YIELD} 份" in cook.description
+          and f"體力料理一鍋 {sd.STAMINA_COOK_YIELD} 份" in cook.description and len(cook.description) <= 100)
+    mc = importlib.import_module("Cogs.load-market.Components.market_components")
+    t = mc.build_price_container({"emoji": "❄️", "name": "琪露諾", "key": "cirno"}, [], None).children[0].content
+    check("market price header", f"最多漲 {econ.PRICE_IDLE_RISE:.0%}、最多跌 {econ.PRICE_DAILY_LIMIT:.0%}" in t and "±" not in t)
+
     # ---------------- 活動結束：清空活動道具、活動客人離開 ----------------
     sql("UPDATE users SET inventory = ? WHERE user_id = 3", (json.dumps({"evt_egg": 3, "evt_napolitan": 2, "mat_rice": 1}),))
     ov = await econ.get_events_overview(now=T0)

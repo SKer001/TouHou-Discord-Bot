@@ -956,7 +956,9 @@ def cast_outside(run: dict, uid: str, rng) -> str | None:
 # 🦊 法具
 # =========================================================
 def equip_relic(run: dict, bag_idx: int, uid: str) -> str | None:
-    """背包裡的法具給一位隊友 (換下來的放回背包)"""
+    """背包裡的法具給一位隊友 (換下來的放回背包)；戰鬥中不行 (0.36.001 起資料層也擋，原本只靠畫面不顯示)"""
+    if run["phase"] == "battle":
+        return "戰鬥中不能裝備法具"
     relics = run["bag"]["relics"]
     if not 0 <= bag_idx < len(relics):
         return "沒有這個法具"

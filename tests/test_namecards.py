@@ -326,7 +326,7 @@ async def main():
     other = next(x for x in n if x["key"] == "draw_10")
     check("notice data namecard", oshi["data"]["namecard"] == "琪露諾" and other["data"]["namecard"] is None)
     t = comps.notice_text(oshi)
-    check("oshi dm text", "還獲得了 **琪露諾** 的角色名片" in t and "🖼️ 更換名片" in t and "收藏冊裡有琪露諾" in t)
+    check("oshi dm text", "還獲得了 **琪露諾** 的角色名片" in t and "🖼️ 修改名片" in t and "收藏冊裡有琪露諾" in t)
     check("other dm text no namecard", "名片" not in comps.notice_text(other))
 
     await ndm.init_notify_db()

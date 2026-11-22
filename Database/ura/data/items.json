@@ -55,7 +55,7 @@
         "lucky_cat": {"name": "招財貓", "emoji": "🐱", "price": 5000, "max": 5, "stack": 5, "use": "any",
                       "effect": {"do": "team_status", "status": "lucky_cat"}, "desc": "下一場戰鬥的錢 × 1.5"},
         "return_talisman": {"name": "歸還符", "emoji": "🔙", "price": 100000, "max": 1, "stack": 1, "use": "doors", "merchant": false,
-                            "effect": {"do": "evacuate"}, "desc": "現在就成功撤離 (BOSS 戰中不能用)"}
+                            "effect": {"do": "evacuate"}, "desc": "選門時用：現在就成功撤離 (戰鬥中不能用)"}
     },
     "bags": {
         "_說明": "額外背包 (用 3 次就壞)",

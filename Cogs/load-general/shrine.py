@@ -14,7 +14,7 @@ from Database.User_DB_Manager import get_or_create_user, get_stamina
 from Database import shrine_data
 from Database.Item_DB_Manager import get_all_items
 from Utils.components import send_notice
-from Utils.pagination import nav_buttons   # 📄 共用分頁
+from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 from .Components.shrine_components import (
     build_shrine_container, build_serve_container, build_explore_container, build_cook_container, build_shop_container,
     build_gather_container, COOK_CATEGORIES, dish_category,
@@ -22,6 +22,7 @@ from .Components.shrine_components import (
 from Utils.stamina_modal import open_stamina_modal   # ⚡ 恢復體力彈窗 (跟 /profile 共用)
 
 GATHER_TIMES = (1, 3, 5, 10)   # 快速採集的按鈕：總共採幾趟 (使用者 2026-11-16 指定)
+EXTRA_PER_PAGE = 25            # 額外招待的料理選單一頁幾道 (一個分類超過就翻頁)
 from .Components.general_components import get_inventory_view_data, build_inventory_container
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 from Utils.guide import open_guide
@@ -49,6 +50,7 @@ CATEGORY_OPTIONS = [
     ("collectible", "符卡 / 收藏品", "🎴", "具有特殊意義的收藏"),
     ("special", "特殊 / 裝備", "🛠️", "關鍵道具或強化裝備"),
     ("cuisine", "招待料理", "🍱", "招待參拜客用的食物 / 茶水 / 點心"),
+    ("material", "素材", "🧺", "採集或雜貨店買來的料理素材"),   # 0.36.001：原本素材只在「全部道具」裡
 ]
 
 
@@ -152,6 +154,7 @@ class ShrineView(ui.LayoutView):
         self.mode = "main"
         self.items, self.inventory, self.rules = {}, {}, None
         self.guest_id, self.extra = None, None
+        self.extra_cat, self.extra_page = None, 1   # 額外招待選單：選的分類 (food / drink / dessert)、頁數
         self.explore_loc, self.explore_result, self.stamina = None, None, None
         self.cook_sel, self.shop_sel, self.money = None, None, 0
         self.cook_cat = None          # 料理畫面選的分類 (food / drink / dessert / stamina)
@@ -238,22 +241,40 @@ class ShrineView(ui.LayoutView):
                                           guest_image_url(g["kind"]), self.rules["event_dish_bonus"])
         if self.notice:
             container.add_item(ui.TextDisplay(self.notice))
-        # 額外招待只列「端完點的菜之後還有剩」的料理，避免選了才發現不夠
-        type_label = {"food": "食物", "drink": "茶水", "dessert": "點心"}
-        left = {d: n - g["order"].count(d) for d, n in self.inventory.items() if d in self.rules["dish_types"]}
-        dishes = sorted((d for d, n in left.items() if n > 0),
-                        key=lambda d: (("food", "drink", "dessert").index(self.rules["dish_types"][d]), d))
-        options = [discord.SelectOption(label="不額外招待", value="__none__", emoji="➖", default=self.extra is None,
-                                        description="只端客人點的菜")]
-        options += [discord.SelectOption(
-            label=f"額外招待：{self.items.get(d, {}).get('name', d)}"[:100], value=d,
-            emoji=self.items.get(d, {}).get("emoji"), default=d == self.extra,
-            description=(f"{type_label[self.rules['dish_types'][d]]} · 倉庫 {self.inventory[d]} 份，端完點餐後剩 {left[d]} 份"
-                         + (" · 🎪 活動料理" if d in self.rules["event_dishes"] else ""))[:100])
-            for d in dishes[:24]]
-        select = ui.Select(placeholder="🎁 要不要額外招待？（可以不選）", options=options)
-        select.callback = self.on_pick_extra
-        container.add_item(ui.ActionRow(select))
+        # 🎁 額外招待：先選分類 (食物 / 茶水 / 點心) 再選料理 (0.36.001：原本全放一個選單，超過 24 道後面的選不到)
+        # 只列「端完點的菜之後還有剩」的料理，避免選了才發現不夠
+        types = self.rules["dish_types"]
+        left = {d: n - g["order"].count(d) for d, n in self.inventory.items() if d in types}
+        by_type = {}
+        for d in sorted(d for d, n in left.items() if n > 0):
+            by_type.setdefault(types[d], []).append(d)
+        if self.extra in types:
+            self.extra_cat = types[self.extra]
+        if self.extra_cat not in by_type:
+            self.extra_cat = None
+        cat_options = [discord.SelectOption(label="不額外招待", value="__none__", emoji="➖",
+                                            default=self.extra is None and self.extra_cat is None,
+                                            description="只端客人點的菜")]
+        cat_options += [discord.SelectOption(label=COOK_CATEGORIES[t], value=t, default=t == self.extra_cat,
+                                             description=f"{len(by_type[t])} 道端完點餐後還有剩")
+                        for t in econ.SERVE_TYPES_ORDER if t in by_type]
+        cat_select = ui.Select(placeholder="🎁 要不要額外招待？（可以不選）", options=cat_options)
+        cat_select.callback = self.on_pick_extra_cat
+        container.add_item(ui.ActionRow(cat_select))
+        if self.extra_cat:
+            page = paginate(by_type[self.extra_cat], self.extra_page, EXTRA_PER_PAGE)
+            self.extra_page = page.page
+            select = ui.Select(placeholder=f"選要額外招待的{COOK_CATEGORIES[self.extra_cat]}…", options=[
+                discord.SelectOption(
+                    label=self.items.get(d, {}).get("name", d)[:100], value=d,
+                    emoji=self.items.get(d, {}).get("emoji"), default=d == self.extra,
+                    description=(f"倉庫 {self.inventory[d]} 份，端完點餐後剩 {left[d]} 份"
+                                 + (" · 🎪 活動料理" if d in self.rules["event_dishes"] else ""))[:100])
+                for d in page.items])
+            select.callback = self.on_pick_extra
+            container.add_item(ui.ActionRow(select))
+            if page.total > 1:
+                container.add_item(ui.ActionRow(*nav_buttons(page.page, page.total, self.set_extra_page)))
         missing = self._serve_missing(g)
         buttons = [self._btn("🍵 端上桌", discord.ButtonStyle.success, self.on_serve, bool(missing))]
         cookable = [d for d in missing if d in self.rules["recipes"]]
@@ -441,9 +462,12 @@ class ShrineView(ui.LayoutView):
         await self._show(interaction, "main", notice, r)
 
     # ---------------- 招待 ----------------
+    def _reset_extra(self):
+        self.extra, self.extra_cat, self.extra_page = None, None, 1
+
     async def on_serve_open(self, interaction):
         r = await econ.get_shrine(self.user.id)
-        self.extra = None
+        self._reset_extra()
         guests = r["summary"]["guests"]
         if len(guests) == 1:
             self.guest_id = guests[0]["id"]
@@ -454,12 +478,25 @@ class ShrineView(ui.LayoutView):
             await self._show(interaction, "main", "⚠️ 現在沒有客人。", r)
 
     async def on_pick_guest(self, interaction):
-        self.guest_id, self.extra = interaction.data["values"][0], None
+        self.guest_id = interaction.data["values"][0]
+        self._reset_extra()
         await self._show(interaction, "serve", result=await econ.get_shrine(self.user.id))
 
-    async def on_pick_extra(self, interaction):
+    async def on_pick_extra_cat(self, interaction):
+        """額外招待的分類：「不額外招待」= 清掉；換分類 ➔ 原本選的料理也清掉 (不然畫面會跳回原本的分類)"""
         value = interaction.data["values"][0]
-        self.extra = None if value == "__none__" else value
+        if value == "__none__":
+            self._reset_extra()
+        elif value != self.extra_cat:
+            self.extra, self.extra_cat, self.extra_page = None, value, 1
+        await self._show(interaction, "serve")
+
+    async def on_pick_extra(self, interaction):
+        self.extra = interaction.data["values"][0]
+        await self._show(interaction, "serve")
+
+    async def set_extra_page(self, interaction, page: int):
+        self.extra_page = page
         await self._show(interaction, "serve")
 
     async def on_serve(self, interaction):
@@ -474,12 +511,13 @@ class ShrineView(ui.LayoutView):
         name = shrine_data.GUESTS.get(g["kind"], {}).get("name") or self.rules["guests"].get(g["kind"], {}).get("name", "客人")
         extras = []
         if rw["favorite_hit"]:
-            extras.append("✨ 正中最愛 ×1.5")
+            extras.append(f"✨ 正中最愛 ×{econ.FAVORITE_BONUS:g}")
         if rw["event_count"]:
             extras.append(f"🎪 活動料理 ×{self.rules['event_dish_bonus']:g}^{rw['event_count']}")
         notice = (f"🍵 **{name}** 吃得心滿意足地離開了！獲得 `{rw['total']:,}` 賽錢"
                   + (f"（{'、'.join(extras)}）" if extras else "") + f"\n-# 目前持有 `{fmt_money(r['money'])}` 賽錢")
-        self.guest_id, self.extra = None, None
+        self.guest_id = None
+        self._reset_extra()
         self.serve_return, self.serve_queue = None, []
         await self._show(interaction, "main", notice, r)
 
@@ -671,7 +709,8 @@ class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩�
     async def explore(self, interaction: discord.Interaction):
         await self._open(interaction, "explore")
 
-    @app_commands.command(name="cook", description="🍳 用素材做招待料理 (一鍋 2 份)")
+    @app_commands.command(name="cook", description=f"🍳 用素材做招待料理 (一鍋 {shrine_data.COOK_YIELD} 份，"
+                                                   f"體力料理一鍋 {shrine_data.STAMINA_COOK_YIELD} 份)")
     async def cook(self, interaction: discord.Interaction):
         await self._open(interaction, "cook")
 

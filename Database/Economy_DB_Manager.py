@@ -234,7 +234,8 @@ def shrine_summary(state: dict, now: datetime, rules: dict | None = None) -> dic
         "box": box, "box_max": SHRINE_BOX_MAX, "income_per_hour": int(income), "box_full_at": full_in,
         "dirt": dirt, "dirt_max": DIRT_MAX, "dirt_penalty": DIRT_PENALTY * dirt, "next_dirt_at": next_dirt_at,
         "youkai": state["youkai"], "youkai_max": YOUKAI_MAX, "youkai_penalty": YOUKAI_PENALTY * state["youkai"],
-        "efficiency": eff, "guests": guests, "guest_max": GUEST_MAX,
+        "youkai_reward": tuple(int(round(v * modifier(rules, "youkai_reward"))) for v in YOUKAI_REWARD),   # 打退一隻的賽錢範圍 (含活動倍率)
+        "efficiency": eff, "guests": guests, "guest_max": GUEST_MAX, "guest_every_hours": GUEST_EVERY_HOURS,
         "next_event_at": _dt(state["created_at"]) + (state["tick"] + 1) * HOUR,
     }
 
@@ -864,7 +865,7 @@ async def get_inventory(user_id: int) -> dict:
 # 💹 2. 浮動市值 (每天台灣時間 00:00 結算)
 # =========================================================
 OFFICIAL_PRICES = {"N": 50, "R": 100, "SR": 500, "SSR": 1000, "UR": 10000, "LR": 50000}   # 官方回收價 = 市值的保底
-PRICE_DAILY_LIMIT = 0.10       # 每天漲跌最多 ±10%
+PRICE_DAILY_LIMIT = 0.10       # 每天最多跌 10% (漲最多是 PRICE_IDLE_RISE)
 PRICE_IDLE_RISE = 0.02         # 當天沒人賣 ➔ +2% (也是一天最多漲多少)
 NEUTRAL_RATIO = 0.5            # 賣出 = 當天新抽到張數的 50% 時持平
 SATURATE_RATIO = 3             # 賣出是持平的 3 倍 ➔ −10% (中間照比例)

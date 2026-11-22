@@ -575,6 +575,10 @@ check("return talisman", run["phase"] == "ended" and run["result"] == "evacuated
 run = new(team=(("marisa", "SR"), ("meiling", "SR")))
 run["bag"]["relics"] = [{"rid": "war_blessing", "tier": 0}, {"rid": "seal_ofuda", "tier": 0, "left": 2}]
 atk0 = combat.eff_atk(run["party"][0])
+run["phase"], phase0 = "battle", run["phase"]   # 戰鬥中不能裝 (0.36.001 起資料層也擋)
+check("equip in battle", R.equip_relic(run, 0, "p0") == "戰鬥中不能裝備法具" and not run["party"][0].get("relic")
+      and len(run["bag"]["relics"]) == 2)
+run["phase"] = phase0
 R.equip_relic(run, 0, "p0")
 check("war blessing + attacker bonus", abs(combat.eff_atk(run["party"][0]) - atk0 * 1.15) < 1e-9)
 R.equip_relic(run, 0, "p0")

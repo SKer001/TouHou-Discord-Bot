@@ -122,7 +122,9 @@ def battle_turn(run, rng):
 
 
 def equip_relics(run):
-    """背包裡的法具給還沒有法具的隊友 (職業對得上的優先)"""
+    """背包裡的法具給還沒有法具的隊友 (職業對得上的優先)；戰鬥中不能裝，等戰鬥打完"""
+    if run["phase"] == "battle":
+        return
     while run["bag"]["relics"]:
         free = [m for m in combat.living(run["party"]) if not m.get("relic")]
         if not free:
@@ -130,7 +132,8 @@ def equip_relics(run):
         rel = run["bag"]["relics"][0]
         cls = data.relics()[rel["rid"]].get("class")
         m = next((x for x in free if x["cls"] == cls), free[0])
-        R.equip_relic(run, 0, m["uid"])
+        if R.equip_relic(run, 0, m["uid"]):
+            return
 
 
 def play(team, bag, rng, max_zone):

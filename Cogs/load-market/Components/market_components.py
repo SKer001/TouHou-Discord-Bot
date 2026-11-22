@@ -5,6 +5,7 @@ import discord
 from discord import ui
 
 from Database import title_data   # 公告裡賣家名字後面的稱號 (純資料)
+from Database.Economy_DB_Manager import PRICE_DAILY_LIMIT, PRICE_IDLE_RISE   # 市值一天最多跌 / 最多漲
 
 
 
@@ -31,7 +32,8 @@ def build_price_container(char: dict, rows: list[dict], thumbnails: dict | None)
     container = ui.Container(accent_color=discord.Color.gold())
     container.add_item(ui.TextDisplay(
         f"## 💹 {char['emoji']} {char['name']} 的市值\n"
-        "-# 市值 = 完整度 0.5 的價格；每天台灣時間 00:00 結算（±10%），不會低於官方回收價"
+        f"-# 市值 = 完整度 0.5 的價格；每天台灣時間 00:00 結算（最多漲 {PRICE_IDLE_RISE:.0%}、最多跌 {PRICE_DAILY_LIMIT:.0%}），"
+        "不會低於官方回收價"
     ))
     for row in rows:
         values = "｜".join(f"`{c:.4f}` ➔ `{v:,}`" for c, v in row["values"].items())

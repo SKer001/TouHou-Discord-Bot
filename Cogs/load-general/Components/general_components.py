@@ -234,7 +234,7 @@ def build_power_up_container(user: discord.User | discord.Member, result: dict) 
 ITEMS_PER_PAGE = 10
 
 # 「全部道具」時的排序：依分類分組，同分類內再依道具 ID A-Z
-CATEGORY_ORDER = {"consumable": 0, "cuisine": 1, "collectible": 2, "special": 3}
+CATEGORY_ORDER = {"consumable": 0, "cuisine": 1, "collectible": 2, "special": 3, "material": 4}
 SERVE_LABELS = {"food": "🍚 食物", "drink": "🍵 茶水", "dessert": "🍮 點心"}
 
 
@@ -255,7 +255,7 @@ def get_inventory_view_data(inventory: dict, item_templates: dict, category: str
     避免 View 為了取得總頁數而重複計算兩次。
     """
     entries = []                                   # [(item_id, amount, info), ...]
-    category_counts = {"all": 0, "consumable": 0, "cuisine": 0, "collectible": 0, "special": 0}
+    category_counts = {"all": 0, "consumable": 0, "cuisine": 0, "collectible": 0, "special": 0, "material": 0}
 
     for item_id, amount in inventory.items():
         if not isinstance(amount, int) or amount <= 0:

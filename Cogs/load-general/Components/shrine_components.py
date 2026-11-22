@@ -5,6 +5,7 @@ import discord
 from discord import ui
 
 from Database import shrine_data
+from Database.Economy_DB_Manager import SERVING_REWARD, FAVORITE_BONUS   # 招待報酬公式 (畫面上的說明照常數寫)
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 
 
@@ -67,7 +68,8 @@ def build_shrine_container(user_name: str, s: dict, notice: str | None = None, i
 
     youkai_line = f"👹 **作亂的妖怪**　`{s['youkai']} / {s['youkai_max']}` 隻"
     if s["youkai"]:
-        youkai_line += "\n-# 打退一隻 +800～1,500 賽錢，但會留下晦氣（清潔度 −1 階）"
+        lo, hi = s["youkai_reward"]
+        youkai_line += f"\n-# 打退一隻 +{lo:,}～{hi:,} 賽錢，但會留下晦氣（清潔度 −1 階）"
 
     container.add_item(ui.TextDisplay(f"## ⛩️ {user_name} 的神社\n{box_line}\n\n{eff_line}\n{dirt_line}\n{youkai_line}"))
     container.add_item(ui.Separator())
@@ -85,7 +87,7 @@ def build_shrine_container(user_name: str, s: dict, notice: str | None = None, i
             )
         lines.append("-# 🍵 按「招待」選一位客人端上料理；料理用「🍳 料理」做，素材靠「🗺️ 採集」或「🏪 雜貨店」")
     else:
-        lines = ["🙏 **參拜的妖怪**　目前沒有客人", "-# 每 2 小時有機會來一位"]
+        lines = ["🙏 **參拜的妖怪**　目前沒有客人", f"-# 每 {s['guest_every_hours']} 小時有機會來一位"]
     lines.append(f"-# 下一次妖怪 / 參拜客判定：{ts(s['next_event_at'])}")
     container.add_item(ui.TextDisplay("\n".join(lines)))
     return container
@@ -117,7 +119,7 @@ def build_serve_container(g: dict, items: dict, inventory: dict, extra: str | No
     for d in g["order"]:
         have = inventory.get(d, 0)
         mark = "✅" if have >= need[d] else "❌"
-        evt = "　🎪×1.2" if items.get(d, {}).get("effect", {}).get("event") else ""
+        evt = f"　🎪×{event_bonus:g}" if items.get(d, {}).get("effect", {}).get("event") else ""
         rows.append(f"{mark} {item_label(items, d)}　倉庫 `{have}` 份{evt}")
     rows.append("")
     if extra:
@@ -125,10 +127,11 @@ def build_serve_container(g: dict, items: dict, inventory: dict, extra: str | No
         rows.append(f"🎁 **額外招待**：{item_label(items, extra)} 1 份" + ("" if have >= need[extra] else "　❌ 不夠"))
     else:
         rows.append("🎁 **額外招待**：不招待")
-    rows.append("-# 用下面的選單挑一份額外招待（可以不選）；點的菜會全部端上，不用選")
+    rows.append("-# 用下面的選單先選分類、再挑一份額外招待（可以不選）；點的菜會全部端上，不用選")
     rows.append(f"-# 💡 {g['hint']}")
     bonus = f"（含活動料理 ×{event_bonus:g}^{preview['event_count']}）" if preview["event_count"] else ""
-    rows.append(f"\n💰 預估報酬 `{preview['total']:,}` 賽錢{bonus}\n-# 份數 × 2,000 × 心情²；額外招待正中客人的最愛時，整筆再 ×1.5")
+    rows.append(f"\n💰 預估報酬 `{preview['total']:,}` 賽錢{bonus}\n-# 份數 × {SERVING_REWARD:,} × 心情²；"
+                f"額外招待正中客人的最愛時，整筆再 ×{FAVORITE_BONUS:g}")
     container.add_item(ui.TextDisplay("\n".join(rows)))
     return container
 
@@ -138,7 +141,8 @@ def build_serve_container(g: dict, items: dict, inventory: dict, extra: str | No
 # =========================================================
 def build_explore_container(locations: dict, stamina: dict, cost: int, result: dict | None, items: dict) -> ui.Container:
     container = ui.Container(accent_color=discord.Color.dark_green())
-    text = (f"## 🗺️ 採集素材\n每趟消耗 `{cost}` 體力，帶回 3～5 個素材（偶爾會遇到好事或倒楣事）\n"
+    lo, hi = shrine_data.EXPLORE_DROPS
+    text = (f"## 🗺️ 採集素材\n每趟消耗 `{cost}` 體力，帶回 {lo}～{hi} 個素材（偶爾會遇到好事或倒楣事）\n"
             f"⚡ 體力 `{stamina['stamina']} / {stamina['max']}`")
     if stamina.get("next_in"):
         text += f"\n-# 下一點 {stamina['next_in'] // 60} 分 {stamina['next_in'] % 60} 秒後回復"
@@ -255,7 +259,8 @@ def build_gather_container(dish_id: str, missing: dict, plan: dict, rules: dict,
         return container
     lines = [("⚠️ **還沒採齊，還差**：" if result else "🧾 **做 1 鍋還差**：") + mats(missing)]
     if plan["stops"]:
-        lines.append("\n📐 **預估**（一趟平均 = 3～5 個 ÷ 那個地點的素材種類）")
+        lo, hi = shrine_data.EXPLORE_DROPS
+        lines.append(f"\n📐 **預估**（一趟平均 = {lo}～{hi} 個 ÷ 那個地點的素材種類）")
         for i, s in enumerate(plan["stops"], 1):
             loc = locs.get(s["location"], {})
             parts = [f"{item_label(items, m)}×{n}（一趟約 {s['per_trip'][m]:.1f} 個）" for m, n in s["materials"].items()]
