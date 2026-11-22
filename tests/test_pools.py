@@ -19,6 +19,7 @@ class Resp:
     def __init__(s, it): s.it = it; s.done = False
     def is_done(s): return s.done
     async def defer(s, **kw): s.done = True
+    async def send_message(s, content=None, **kw): assert content is None; s.done = True; s.it.view = kw.get("view")
 class Followup:
     def __init__(s, it): s.it = it
     async def send(s, content=None, **kw): assert content is None; s.it.view = kw.get("view")
@@ -45,7 +46,7 @@ async def main():
     cmd = next(c for c in cog.walk_app_commands() if c.name == "gacha")
     d = bot.tree.get_command("card").to_dict(bot.tree)
     g = next(o for o in d["options"] if o["name"] == "gacha")
-    check("pool choices", [c["value"] for c in g["options"][0]["choices"]] == ["classic", "th06", "event"])   # 最後一個是活動限定卡池
+    check("pool choices", [c["value"] for c in g["options"][0]["choices"]] == ["classic", "event"])   # 紅魔鄉只在活動期間從 🎪 抽
 
     await udm.add_money(1, 10_000_000)
     for pk, members in (("classic", classic), ("th06", th06)):
@@ -66,10 +67,52 @@ async def main():
     check("unknown pool rejected", "沒有任何角色" in texts(it.view))
     check("money not taken on bad pool", True)
 
-    # 🎪 活動限定卡池：沒有活動 ➔ 提示；有活動 ➔ 只抽活動列的角色，保底記在 event_<id>，繼續祈願沿用
-    it = Interaction(); await gacha.GachaCardSys.execute_gacha(cog, it, 1, "event")
-    check("no event pool notice", "沒有進行中的活動卡池" in texts(it.view))
+    # 🔴 紅魔鄉卡池只在紅霧異變期間開放 (2026-11-22)：從「🎪 活動限定卡池」抽，保底照舊記在 th06
     from Database import Economy_DB_Manager as econ
+    rules = await econ.get_rules()
+    ep = rules["gacha_event_pool"] or {}
+    check(f"scarlet mist opens th06 {ep}", ep.get("key") == "th06" and ep.get("from") == "th06" and ep.get("characters") is None
+          and ep.get("name") == "🎪 🔴 紅魔鄉卡池・紅霧異變限定")
+    check("th06 members via event", set(gacha.pool_characters("th06", rules)) == th06)
+    pity_before = (await udm.get_gacha_pity(1))["th06"]["total_draws"]
+    before = len(await udm.get_user_cards(1))
+    it = Interaction(); await gacha.GachaCardSys.execute_gacha(cog, it, 10, "event")
+    new = (await udm.get_user_cards(1))[before:]
+    check("event draws th06", len(new) == 10 and {c["character_key"] for c in new} <= th06)
+    check("event title", "🎪 🔴 紅魔鄉卡池・紅霧異變限定" in texts(it.view))
+    pt = await udm.get_gacha_pity(1)
+    check(f"event pity in th06 {list(pt)}", pt["th06"]["total_draws"] == pity_before + 10 and not any(k.startswith("event_") for k in pt))
+    it2 = Interaction(component=True); await it.view.draw_single_again(it2)
+    check("event redraw th06", (await udm.get_gacha_pity(1))["th06"]["total_draws"] == pity_before + 11
+          and "紅霧異變限定" in texts(it2.view))
+    import sqlite3
+    con = sqlite3.connect(udm.DB_PATH)
+    card_rows = con.execute("SELECT COUNT(*) FROM daily_draws WHERE pool LIKE 'card:%'").fetchone()[0]; con.close()
+    check("th06 via event no extra expected rows", card_rows == 0)   # th06 本來就有卡池抽數 × 機率
+    hcmd = next(c for c in cog.walk_app_commands() if c.name == "history")
+    it = Interaction(); await hcmd.callback(cog, it)
+    check("history open note", "🎪 紅霧異變期間開放" in texts(it.view) and texts(it.view).count("紅魔鄉卡池") == 1
+          and [o.value for o in it.view.select.options] == ["classic", "th06"])
+    # /event info：紅霧異變多一行「🎴 活動卡池：🔴 紅魔鄉卡池」
+    from Database.events import load_events
+    sc = importlib.import_module("Cogs.load-general.Components.shrine_components")
+    info = sc.build_event_container([{"event": load_events()["th06_scarlet_mist"], "status": "active"}], {}, {})
+    check("event info pool line", "🎴 **活動卡池**：🔴 紅魔鄉卡池" in texts(info))
+    # 活動沒在進行 ➔ 🎪 跟 th06 都抽不到，history 照樣列紅魔鄉 (加註)，機率表選單只剩舊作
+    orig = econ.get_rules
+    async def no_event(now=None):
+        r = await orig(now); r["gacha_event_pool"] = None; return r
+    econ.get_rules = no_event
+    money = (await udm.get_or_create_user(1))["money"]
+    for choice in ("event", "th06"):
+        it = Interaction(); await gacha.GachaCardSys.execute_gacha(cog, it, 1, choice)
+        check(f"no event {choice}", "沒有進行中的活動卡池" in texts(it.view))
+    check("no event money kept", (await udm.get_or_create_user(1))["money"] == money)
+    it = Interaction(); await hcmd.callback(cog, it)
+    check("history no event", [o.value for o in it.view.select.options] == ["classic"] and "🎪 紅霧異變期間開放" in texts(it.view))
+    econ.get_rules = orig
+
+    # 🎪 活動限定卡池 (event_<id>)：只抽活動列的角色，保底記在 event_<id>，繼續祈願沿用
     orig_rules = econ.get_rules
     async def fake_rules(now=None):
         r = await orig_rules(now)
@@ -85,7 +128,6 @@ async def main():
     check("event pool name shown", "測試卡池" in texts(it.view))
     check("event price applied", (await udm.get_or_create_user(1))["money"] == money - gacha.DRAW_COST * 5)
     check("event pity separate", "event_test" in await udm.get_gacha_pity(1))
-    import sqlite3
     con = sqlite3.connect(udm.DB_PATH)
     rows = dict(con.execute("SELECT pool, draws FROM daily_draws WHERE pool LIKE 'card:%'").fetchall()); con.close()
     check("event expected recorded", abs(sum(rows.values()) - 10) < 1e-6

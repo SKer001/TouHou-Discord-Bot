@@ -1,5 +1,5 @@
 """
-📚 🎴 抽卡與卡牌・教學書 (0.36.000)
+📚 🎴 抽卡與卡牌・教學書 (0.36.000；0.37.003 改成新機率與紅魔鄉活動限定)
 格式見 Components/guide_components.py；數字從抽卡 Cog (Cogs/load-gacha/gacha.py) 的常數讀，開畫面時才算
 (Cog 模組用 importlib 在函式裡取，/admin-sys reload 之後拿得到新版)
 """
@@ -55,20 +55,27 @@ def _rarity_names(g) -> list[str]:
 
 def _pull() -> str:
     g = _gacha()
-    w = g.RARITY_WEIGHTS
-    tier_pct = " / ".join(f"{x * 100 / sum(w):g}%" for x in w)
-    top = set(g.PITY_RESET_RARITIES)
-    top_text = " 或 ".join(r for r in _rarity_names(g) if r in top)
+    ur, rar = g.PITY_RARITY, g.RARITIES
+    rates = g.base_rates()
+    rate_line = "、".join(f"{r} {g.rate_text(rates[r] / 100)}" for r in rar)
     combos = sorted({tuple(v["rarities"]) for v in g.GACHA_POOL.values()}, key=lambda t: g.RARITY_ORDER.get(t[0], 0))
+    (n0, p0), (n1, p1), (n2, p2) = g.UR_CURVE[:3]
+    others = [r for r in rar if r != ur]
+    top = others[-1]   # 最高階 (LR)：固定機率，不影響保底
 
-    pool_lines = []
-    no_pity = []
+    pool_lines, no_pity, stats = [], [], None
     for key, p in g.GACHA_POOLS.items():
         chars = g.pool_characters(key)
-        exp = g.expected_cards(key, 1)
-        top_chance = sum(n for (_, r), n in exp.items() if r in top)
-        pool_lines.append(f"- **{p['name']}**：{p['desc']}，共 **{len(chars)}** 位角色 · 單抽出 {top_text} 約 {_pct(top_chance)} (不算保底)")
-        if not any(g.PITY_RARITY in g.GACHA_POOL[k]["rarities"] for k in chars):
+        st = g.ur_cycle_stats(key)
+        stats = stats or (st if st["avg"] else None)
+        avg = f" · 平均約 **{st['avg']:.0f}** 抽一張 {ur}" if st["avg"] else ""
+        if p.get("event_only"):
+            note = g.open_note(key).replace("🎪 ", "")
+            pool_lines.append(f"- **{p['name']}**：{p['desc']}，共 **{len(chars)}** 位角色{avg}；"
+                              f"🎪 平常不能抽，只有**{note}**從「🎪 活動限定卡池」抽得到")
+        else:
+            pool_lines.append(f"- **{p['name']}**：{p['desc']}，共 **{len(chars)}** 位角色{avg}")
+        if not st["avg"]:
             no_pity.append(p["name"])
 
     one, ten = g.draw_cost(1), g.draw_cost(10)
@@ -78,22 +85,35 @@ def _pull() -> str:
         "",
         "### 🎰 卡池",
         *pool_lines,
-        "- **🎪 活動限定卡池**：只在有活動卡池的活動期間開放，角色由活動決定；"
+        "- **🎪 活動限定卡池**：活動期間開放的卡池 (例如紅霧異變期間就是🔴 紅魔鄉卡池，結果畫面標「・紅霧異變限定」)；"
         "沒有的時候選它會提示「🎪 目前沒有進行中的活動卡池。」",
-        "-# 同一個卡池裡，抽到每位角色的機會都一樣 (活動的機率提升除外)",
         "",
         "### 💰 價格",
         f"- 單抽 **{one:,}** 賽錢、十連 **{ten:,}** 賽錢" + (" (十連就是 10 抽的錢，沒有折扣)" if ten == one * 10 else ""),
         "- 賽錢不夠時不會扣錢，也不會抽",
-        "-# 賽錢可以靠 `/daily` 簽到和⛩️ 神社經營賺 (詳見各自的教學書)",
-        "-# 活動期間角色或階級的機率可能會調整 (用 `/event info` 看)；祈願價格也可能變動，"
-        "指令選項上寫的是原價，實際扣多少以結果畫面上寫的為準",
+        "-# 賽錢可以靠 `/daily` 簽到和⛩️ 神社經營賺 (詳見各自的教學書)；活動期間價格可能變動，以結果畫面上寫的為準",
         "",
-        "### 🏷️ 階級與機率",
-        f"- 階級由低到高：{'、'.join(_rarity_names(g))}",
-        f"- 每位角色只有**連續的 {len(w)} 個階級**：{'、'.join(' / '.join(c) for c in combos)}",
-        f"- 抽到一位角色時，她的低 / 中 / 高階級機率是 **{tier_pct}**",
-        f"- 所以只有階級裡有 {g.PITY_RARITY} 的角色抽得到 {g.PITY_RARITY}；每位角色的階級可以在 `/character` 圖鑑看到",
+        "### 🎲 機率",
+        "- 每一抽**先抽階級，再從卡池裡有這個階級的角色平均抽一位**",
+        f"- 起始機率：{rate_line}",
+        f"- 每位角色只有**連續的 3 個階級** ({'、'.join(' / '.join(c) for c in combos)})，"
+        f"所以只有階級裡有 {ur} 的角色抽得到 {ur}；每位角色的階級可以在 `/character` 看到",
+        f"- {top} 固定 {g.rate_text(rates[top] / 100)}，跟保底無關",
+        "-# 活動期間機率可能調整 (用 `/event info` 看)，按「📊 機率表」看到的就是現在的機率",
+        "",
+        f"### 🎯 {ur} 越抽越容易出 (保底)",
+        f"- **每個卡池各自計算**「距離上次 {ur} 第幾抽」",
+        f"- 第 1～{n0} 抽 {ur} 是 {p0:g}%，第 {n0 + 1} 抽起慢慢升高 (第 {n1} 抽 {p1:g}%、第 {n2} 抽 {p2:g}%)，"
+        f"**第 {g.PITY_THRESHOLD} 抽必定出 {ur}**；多出來的 {ur} 機率是從 {' / '.join(g.CURVE_SOURCES)} 扣的",
+        f"- 抽到 {ur} 就從 0 重新算；抽到 {top} **不會**重置；十連也是一抽一抽算",
+    ]
+    if stats:
+        cum = stats["cum"]
+        lines.append(f"-# 算起來：{n0} 抽內出 {ur} 約 {_pct(cum[n0])}、{n1} 抽內約 {_pct(cum[n1])}、"
+                     f"吃到保底約 {_pct(stats['pity'])}，平均約 {stats['avg']:.0f} 抽一張")
+    if no_pity:
+        lines.append(f"-# ⚠️ {'、'.join(no_pity)}目前沒有階級裡有 {ur} 的角色，沒有保底")
+    lines += [
         "",
         "### 📏 完整度",
         f"- 每張卡都有一個 **{COMP_MIN:.4f} ~ {COMP_MAX:.4f}** 的完整度，抽到時隨機決定，跟階級無關",
@@ -104,26 +124,17 @@ def _pull() -> str:
         "- 完整度會影響合成、融合 (第 3 章)、分解能換多少賽錢 (💹 市場與交易教學書)，"
         f"以及能不能派去裏世界 (至少 {ura_min:g})、派去有多強 (🌀 裏世界探索教學書)",
         "",
-        "### 🎯 保底",
-        f"- **每個卡池各自計算**：從上次抽到 {top_text} 算起，前 {g.PITY_THRESHOLD - 1} 抽都沒出的話，"
-        f"第 {g.PITY_THRESHOLD} 抽**必定出 {g.PITY_RARITY} 以上** (沒自然抽到就直接給 {g.PITY_RARITY}，"
-        f"從這個卡池階級裡有 {g.PITY_RARITY} 的角色隨機挑)",
-        f"- 抽到 {top_text} 就從 0 重新算；十連也是一抽一抽算，保底可能出在十連中間",
-        "- 活動限定卡池的保底跟一般卡池分開算",
-    ]
-    if no_pity:
-        lines.append(f"-# ⚠️ {'、'.join(no_pity)}目前沒有階級裡有 {g.PITY_RARITY} 的角色，保底不會觸發")
-    lines += [
-        "",
         "### 🖼️ 結果畫面",
         "- 單抽顯示角色、階級與稱號、完整度品相；十連一次列出 10 張，觸發保底的那張標「🎯 保底」",
-        f"- 畫面上也寫著這個卡池的保底進度 (已經累積幾抽 / {g.PITY_THRESHOLD}) 和本池累計抽數；"
-        f"這次有觸發保底會多一行「🎯 觸發保底！必定獲得 {g.PITY_RARITY}！」",
+        f"- 畫面上寫著保底進度 (`幾抽 / {g.PITY_THRESHOLD}`)、**下一抽 {ur} 的機率**和本池累計抽數；"
+        f"這次有觸發保底會多一行「🎯 觸發保底！必定獲得 {ur}！」",
         f"- 「🌸 繼續單抽 ({one:,})」「⛩️ 繼續十連 ({ten:,})」用同一個卡池再抽，「🎒 查看卡庫」打開卡冊",
+        "- 「📊 機率表」：這個卡池每個階級的機率、有哪些角色、" + ur + " 怎麼升高，還有**你自己的保底進度**"
+        " (只有按的人看得到，誰都可以按)",
         "",
         "### 📜 祈願紀錄",
-        "`/card history` 看總祈願次數、融合次數，還有每個卡池的累計抽數、保底進度條 (再幾抽必出) "
-        f"和上次抽到 {top_text} 的時間。",
+        f"`/card history` 看總祈願次數、融合次數，還有每個卡池的累計抽數、保底進度條、下一抽 {ur} 的機率"
+        f"和上次抽到 {ur} 的時間；下面的「📊 選一個卡池查看機率表」可以直接看機率表 (只列現在抽得到的卡池)。",
     ]
     return "\n".join(lines)
 

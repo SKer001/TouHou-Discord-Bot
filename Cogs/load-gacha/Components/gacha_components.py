@@ -119,16 +119,20 @@ def build_gacha_ten_container(results: list[dict], user_name: str, total_cost: i
 
 
 def build_gacha_history_container(user_name: str, pools: dict, pity: dict, stats: dict,
-                                  threshold: int, pity_rarity: str) -> ui.Container:
+                                  threshold: int, pity_rarity: str, next_rates: dict | None = None,
+                                  notes: dict | None = None) -> ui.Container:
     """
     祈願紀錄：各卡池的累計抽數與保底進度
     pools = GACHA_POOLS；pity = {"卡池": {"total_draws", "since_ur", "last_ur_at"}}；stats = get_gacha_stats()
+    next_rates = {"卡池": 下一抽 UR 的機率文字 (例 "1.54%")}；值是 None = 這個卡池沒有 UR (沒有保底)
+    notes = {"卡池": 加在卡池名稱後面的說明 (例 紅魔鄉「🎪 紅霧異變期間開放」)}
     """
+    next_rates, notes = next_rates or {}, notes or {}
     container = ui.Container(accent_color=discord.Color.gold())
     container.add_item(ui.TextDisplay(
         f"## 📜 {user_name} 的祈願紀錄\n"
         f"🎰 **總祈願次數**：`{stats.get('total_draws', 0):,}` 抽 · 🔮 **融合次數**：`{stats.get('total_fusions', 0):,}` 次\n"
-        f"-# 每個卡池連續 {threshold} 抽沒有出 {pity_rarity} 以上，第 {threshold} 抽必定獲得 {pity_rarity}"
+        f"-# 每個卡池分開算：{pity_rarity} 前 80 抽 0.1%，第 81 抽起慢慢升高，第 {threshold} 抽必定獲得 {pity_rarity}；LR 不影響保底"
     ))
     container.add_item(ui.Separator())
 
@@ -136,16 +140,92 @@ def build_gacha_history_container(user_name: str, pools: dict, pity: dict, stats
     for key, p in pools.items():
         row = pity.get(key, {"total_draws": 0, "since_ur": 0, "last_ur_at": None})
         since = row["since_ur"]
+        last = row["last_ur_at"] or "尚未獲得"
+        title = f"### {p['name']}" + (f"\n-# {notes[key]}" if notes.get(key) else "")
+        if key in next_rates and next_rates[key] is None:
+            lines.append(f"{title}\n累計 `{row['total_draws']:,}` 抽 · 這個卡池沒有 {pity_rarity}，沒有保底")
+            continue
         filled = min(10, since * 10 // threshold)
         bar = "🟨" * filled + "⬛" * (10 - filled)
-        last = row["last_ur_at"] or "尚未獲得"
+        rate = f" · 下一抽 {pity_rarity} `{next_rates[key]}`" if next_rates.get(key) else ""
         lines.append(
-            f"### {p['name']}\n"
-            f"累計 `{row['total_draws']:,}` 抽 · 保底 `{since} / {threshold}`（再 `{threshold - since}` 抽必出 {pity_rarity}）\n"
+            f"{title}\n"
+            f"累計 `{row['total_draws']:,}` 抽 · 保底 `{since} / {threshold}`{rate}（最晚再 `{threshold - since}` 抽必出 {pity_rarity}）\n"
             f"{bar}\n"
-            f"-# 上次獲得 {pity_rarity} 以上：{last}"
+            f"-# 上次獲得 {pity_rarity}：{last}"
         )
     container.add_item(ui.TextDisplay("\n".join(lines)))
+    return container
+
+
+def _pct(p: float, digits: int = 2) -> str:
+    """0.43452 ➔ 43.45%；尾數的 0 去掉 (0.001 ➔ 0.1%)"""
+    return f"{p * 100:.{digits}f}".rstrip("0").rstrip(".") + "%"
+
+
+def build_rate_sheet_container(data: dict, threshold: int, pity_rarity: str) -> ui.Container:
+    """
+    📊 機率表 (gacha.rate_sheet_data 算好的數字)：起始機率與各階級角色、UR 曲線與累積機率、長期平均、自己的保底進度
+    """
+    order = ["N", "R", "SR", "SSR", "UR", "LR"]
+    start, holders = data["start"], data["holders"]
+    head = [f"## 📊 機率表：{data['pool_name']}",
+            "-# 每一抽先抽階級，再從這個卡池裡有這個階級的角色平均抽一位"]
+    if data["event_pool"]:
+        head.append("-# 🎪 活動限定卡池：保底跟一般卡池分開算")
+    if data.get("open_note"):
+        head.append(f"-# {data['open_note']}；保底照樣記在這個卡池，活動下次再開也接著算")
+    if data["event_rates"]:
+        head.append("🎪 **活動期間調整了起始機率**（下面的數字已經是活動中的機率）")
+    if data["rate_up"]:
+        ups = "、".join(f"{name} ×{m:g}" for name, m in data["rate_up"].items())
+        head.append(f"🎪 **活動機率提升**：{ups}（抽到那個階級時，比同階級的其他角色容易出現）")
+
+    rows = []
+    for r in order:
+        names = holders.get(r)
+        if not names:
+            rows.append(f"`{r}` —（這個卡池沒有）")
+            continue
+        rate = _pct(start[r])
+        if r == pity_rarity:
+            rate += " 起，依保底進度往上升"
+        each = "" if r == pity_rarity else f"，每位 {_pct(start[r] / len(names))}"
+        rows.append(f"`{r}` **{rate}** · {len(names)} 位{each}\n-# {'、'.join(names)}")
+    rarity_text = "### 🎴 起始機率與角色\n" + "\n".join(rows)
+
+    if data["has_ur"]:
+        (n1, p1), (n2, p2), (n3, p3) = data["curve"].items()
+        c1, c2, c3 = (data["cum"][n] for n in (n1, n2, n3))
+        ur_text = (
+            f"### 🎯 {pity_rarity} 機率與保底（距離上次 {pity_rarity} 的第幾抽）\n"
+            f"- 第 1～{n1} 抽：每抽 {_pct(p1)}\n"
+            f"- 第 {n1 + 1}～{n2} 抽：慢慢升到 {_pct(p2)}\n"
+            f"- 第 {n2 + 1}～{n3} 抽：慢慢升到 {_pct(p3)}\n"
+            f"- 第 {threshold} 抽：**必出 {pity_rarity}**（保底，從有 {pity_rarity} 的角色平均抽一位）\n"
+            f"-# {pity_rarity} 多出來的機率從 N / R / SR 照比例扣；抽到 {pity_rarity} 才重新計算\n"
+            f"📈 {n1} 抽內出 {pity_rarity}：**{_pct(c1, 1)}** · {n2} 抽內：**{_pct(c2, 1)}** · "
+            f"{n3} 抽內：**{_pct(c3, 1)}** · 吃到保底：**{_pct(data['pity'], 1)}**\n"
+            f"📈 長期平均每抽 {pity_rarity} {_pct(data['long_run'][pity_rarity])}，平均 **{data['avg']:.1f}** 抽一張"
+        )
+        since = data["since_ur"]
+        nxt = "必出" if data["next"] >= 1 else _pct(data["next"])
+        mine = f"### 🧾 你的保底進度\n保底 `{since} / {threshold}` · 下一抽 {pity_rarity} `{nxt}`"
+    else:
+        ur_text = f"### 🎯 保底\n這個卡池沒有 {pity_rarity} 角色，所以抽不到 {pity_rarity}，也沒有保底。"
+        mine = ""
+    lr_text = (f"💎 **LR 固定 {_pct(start['LR'])}**，跟保底無關：抽到 LR 不會重置 {pity_rarity} 的保底進度"
+               if holders.get("LR") else "")
+
+    container = ui.Container(accent_color=discord.Color.blurple())
+    container.add_item(ui.TextDisplay("\n".join(head)))
+    container.add_item(ui.Separator())
+    container.add_item(ui.TextDisplay(rarity_text))
+    container.add_item(ui.Separator())
+    container.add_item(ui.TextDisplay("\n".join(t for t in (ur_text, lr_text) if t)))
+    if mine:
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay(mine))
     return container
 
 

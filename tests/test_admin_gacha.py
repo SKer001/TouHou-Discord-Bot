@@ -50,13 +50,13 @@ async def main():
             await bot.load_extension(f"Cogs.load-gacha.{f[:-3]}")
     cog = bot.get_cog("GachaAdmin")
     cmds = {c.name: c for c in cog.walk_app_commands()}
-    check("commands", set(cmds) == {"view", "give", "remove", "set_completeness", "clear"})
+    check("commands", set(cmds) == {"view", "give", "remove", "set_completeness", "clear", "clear_all"})
     gmod = sys.modules["Cogs.load-gacha.gacha"]
     amod = sys.modules["Cogs.load-gacha.Admin-gacha"]
     check("uses extension module", amod.gacha_mod() is gmod)
 
     # 無權限
-    for name, args in [("view", (T,)), ("give", (T, "classic", "reimu", "SR")), ("remove", (T, "classic", "reimu")), ("set_completeness", (T, "th06", "cirno", 0.5)), ("clear", (T,))]:
+    for name, args in [("view", (T,)), ("give", (T, "classic", "reimu", "SR")), ("remove", (T, "classic", "reimu")), ("set_completeness", (T, "th06", "cirno", 0.5)), ("clear", (T,)), ("clear_all", ())]:
         it = Interaction(uid=1); await cmds[name].callback(cog, it, *args)
         check(f"{name} denied", "無權限" in texts(it.view))
 
@@ -169,11 +169,105 @@ async def main():
     cv = it.view
     i1, i2 = Interaction(), Interaction()
     await asyncio.gather(cv.confirm_callback(i1), cv.confirm_callback(i2))
-    check("cleared", len(await udm.get_user_cards(555)) == 0 and "共刪除 `3` 張" in texts(cv))
+    check("cleared", len(await udm.get_user_cards(555)) == 0 and "刪除卡冊 + 收藏冊 `3` 張" in texts(cv))
     check("other user kept", len(await udm.get_user_cards(777)) == 1)
     check("clear non-admin blocked", await cv.interaction_check(Interaction(uid=1)) is False)
     it = Interaction(); await cmds["clear"].callback(cog, it, T)
     check("clear empty", "本來就是空的" in texts(it.view))
+
+    # 🧹 clear / clear_all (2026-11-22)：卡冊 + 收藏冊 + 上架中的卡都清、保底歸零；出征中的卡留著；統計保留
+    from Database import Economy_DB_Manager as econ
+    from Database import Notify_DB_Manager as ndm
+    await ndm.init_notify_db()
+    tpl = {"character_key": "cirno", "name": "琪露諾", "emoji": "🧊", "rarity": "SR", "title": "t", "completeness": 0.5,
+           "obtained_at": "2026-11-22 12:00:00"}
+    rounds = {}
+    async def setup_player(uid, n):
+        k = rounds[uid] = rounds.get(uid, 0) + 1
+        ids = [f"c_clr_{uid}_{k}_{i}" for i in range(n)]
+        await udm.add_gacha_cards(uid, [dict(tpl, instance_id=cid) for cid in ids])
+        await udm.set_cards_locked(uid, [ids[0]], True)        # 收藏冊
+        async with udm.connect() as db:
+            await db.execute("DELETE FROM gacha_cards WHERE instance_id = ?", (ids[1],))   # 上架中 (跟 econ.list_card 一樣移到市場)
+            cursor = await db.execute(
+                "INSERT INTO market_listings (seller_id, instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at, price, listed_at) "
+                "VALUES (?, ?, 'cirno', '琪露諾', '🧊', 'SR', 't', 0.5, '2026-11-22 12:00:00', 777, '2026-11-22T00:00:00+00:00')", (uid, ids[1]))
+            r = {"listing": {"listing_id": cursor.lastrowid}}
+            await db.execute("UPDATE gacha_cards SET expedition = 1 WHERE instance_id = ?", (ids[2],))   # 🌀 出征中
+            await db.execute("INSERT INTO gacha_pity (user_id, pool, total_draws, since_ur, last_ur_at) VALUES (?, 'th06', 120, 42, NULL) "
+                             "ON CONFLICT(user_id, pool) DO UPDATE SET total_draws = 120, since_ur = 42", (uid,))
+            await db.execute("INSERT INTO notify_listings (listing_id, seller_id, instance_id, name, emoji, rarity, price, listed_at) "
+                             "VALUES (?, ?, ?, 'x', 'x', 'SR', 777, '2026-11-22T00:00:00+00:00')", (r["listing"]["listing_id"], uid, ids[1]))
+            await db.execute("INSERT INTO player_stats (user_id, stat, value) VALUES (?, 'tenpull_2ur:th06', 5) "
+                             "ON CONFLICT(user_id, stat) DO UPDATE SET value = 5", (uid,))
+            await db.commit()
+    async def snapshot_rows():
+        async with udm.connect() as db:
+            async with db.execute("SELECT seller_id FROM notify_listings") as cursor:
+                return [r[0] for r in await cursor.fetchall()]
+    await setup_player(555, 5)   # 5 張：收藏 1、上架 1、出征 1、卡冊 2
+    await setup_player(888, 4)
+    it = Interaction(); await cmds["clear"].callback(cog, it, T)
+    t = texts(it.view)
+    check(f"clear counts {t}", "卡冊 + 收藏冊 `3` 張、市場上架中 `1` 張" in t and "保底進度歸零" in t)
+    await it.view.confirm_callback(Interaction())
+    t = texts(it.view)
+    check(f"clear result {t}", "刪除卡冊 + 收藏冊 `3` 張、上架中 `1` 張" in t and "有 `1` 張正在裏世界出征" in t)
+    left = await udm.get_user_cards(555, include_locked=True)
+    check("clear keeps expedition", [c["instance_id"] for c in left] == ["c_clr_555_1_2"])
+    check("clear listings gone", not [l for l in await econ.get_listings() if l["seller_id"] == 555])
+    check("clear snapshot gone", 555 not in await snapshot_rows() and 888 in await snapshot_rows())
+    p = (await udm.get_gacha_pity(555))["th06"]
+    check(f"clear pity reset {p}", p["since_ur"] == 0 and p["total_draws"] == 120)
+    check("clear keeps stats", (await udm.get_player_stats(555)).get("tenpull_2ur:th06") == 5)
+    check("clear other player untouched", len(await udm.get_user_cards(888, include_locked=True)) == 3
+          and (await udm.get_gacha_pity(888))["th06"]["since_ur"] == 42)
+    it = Interaction(); await cmds["clear"].callback(cog, it, T)
+    check("clear only expedition left", "本來就是空的" in texts(it.view) and "只有 `1` 張正在裏世界出征" in texts(it.view))
+
+    # clear_all：確認畫面 ➔ 按鈕開彈窗 ➔ 打錯字不清 ➔ 打「全部清空」才清
+    it = Interaction(uid=1); await cmds["clear_all"].callback(cog, it)
+    check("clear_all denied", "無權限" in texts(it.view))
+    await setup_player(555, 5)
+    it = Interaction(); await cmds["clear_all"].callback(cog, it)
+    av = it.view
+    t = texts(av)
+    check(f"clear_all confirm {t}", "清空全部玩家的卡冊" in t and "**3** 位玩家" in t and "`6` 張" in t
+          and "上架中 `2` 張" in t and "全部清空" in t and it.kw.get("ephemeral"))
+    check("clear_all non-admin blocked", await av.interaction_check(Interaction(uid=1)) is False)
+    holder = {}
+    bi = Interaction()
+    async def send_modal(m): holder["m"] = m; bi.response.done = True
+    bi.response.send_modal = send_modal
+    await av.confirm_callback(bi)
+    modal = holder["m"]
+    check("clear_all modal", isinstance(modal, amod.ClearAllModal))
+    mi = Interaction(); mi.message = object(); modal.phrase._value = "清空"
+    await modal.on_submit(mi)
+    check("clear_all wrong phrase", "沒有清空" in texts(mi.view) and len(await udm.get_user_cards(888, include_locked=True)) == 3)
+    mi = Interaction(uid=1); mi.message = object(); modal.phrase._value = "全部清空"
+    await modal.on_submit(mi)
+    check("clear_all modal non-admin", "無權限" in texts(mi.view) and len(await udm.get_user_cards(888, include_locked=True)) == 3)
+    mi = Interaction(); mi.message = object(); modal.phrase._value = " 全部清空 "
+    await modal.on_submit(mi)
+    t = texts(mi.view)
+    check(f"clear_all result {t}", "已清空全部玩家的卡冊" in t and "`6` 張" in t and "上架中 `2` 張" in t and "`3` 張正在裏世界出征" in t)
+    left = await udm.get_user_cards(555, include_locked=True) + await udm.get_user_cards(888, include_locked=True) + await udm.get_user_cards(777, include_locked=True)
+    check(f"clear_all keeps expedition {len(left)}", len(left) == 3 and all(c["expedition"] for c in left))
+    check("clear_all listings gone", await econ.get_listings() == [] and await snapshot_rows() == [])
+    pities = list((await udm.get_gacha_pity(555)).values()) + list((await udm.get_gacha_pity(888)).values())
+    check(f"clear_all pity reset {pities}", pities and all(p["since_ur"] == 0 and p["total_draws"] == 120 for p in pities))
+    check("clear_all keeps stats", (await udm.get_player_stats(888)).get("tenpull_2ur:th06") == 5)
+    mi = Interaction(); mi.message = object(); modal.phrase._value = "全部清空"
+    await modal.on_submit(mi)
+    check("clear_all only once", "已經處理過了" in texts(mi.view))
+    it = Interaction(); await cmds["clear_all"].callback(cog, it)
+    check("clear_all nothing left", "不用清" in texts(it.view))
+    # 取消
+    await setup_player(888, 4)
+    it = Interaction(); await cmds["clear_all"].callback(cog, it)
+    await it.view.cancel_callback(Interaction())
+    check("clear_all cancel", len(await udm.get_user_cards(888, include_locked=True)) == 4 and len(await econ.get_listings()) == 1)
 
     # reload 抽卡模組後拿到新模組
     await bot.reload_extension("Cogs.load-gacha.gacha")

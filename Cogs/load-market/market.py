@@ -33,17 +33,12 @@ def gacha_mod():
 
 
 def card_probabilities() -> dict:
-    """{(角色, 階級): (卡池, 單抽抽中機率)}：卡池內角色平均抽，階級照 RARITY_WEIGHTS"""
+    """{(角色, 階級): (卡池, 單抽抽中機率)}：照抽卡的長期平均機率 (gacha.card_rates，含 UR 曲線與保底；不看活動)"""
     g = gacha_mod()
-    pools = {}
-    for key, data in g.GACHA_POOL.items():
-        pools.setdefault(data["pool"], []).append(key)
-    total = sum(g.RARITY_WEIGHTS)
     probs = {}
-    for pool, keys in pools.items():
-        for key in keys:
-            for i, rarity in enumerate(g.GACHA_POOL[key]["rarities"]):
-                probs[(key, rarity)] = (pool, g.RARITY_WEIGHTS[i] / total / len(keys))
+    for pool in {data["pool"] for data in g.GACHA_POOL.values()}:
+        for (key, rarity), p in g.card_rates(pool).items():
+            probs[(key, rarity)] = (pool, p)
     return probs
 
 

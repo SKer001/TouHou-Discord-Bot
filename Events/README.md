@@ -8,8 +8,8 @@
 | 欄位 | 說明 |
 |---|---|
 | `id` / `name` / `emoji` / `series` / `description` | 活動 ID (要跟檔名一樣)、名稱、圖示、出自哪一作、介紹 |
-| `duration_days` | 表定天數 (`/admin-event start` 沒給天數時用這個) |
-| `auto_start` | `true` = 沒有紀錄時自動當成進行中 (測試用，沒有結束時間) |
+| `duration_days` | 表定天數 (只用來在 `/event info` 顯示；`/admin-event start` 的天數要自己填，留空 = 一直持續) |
+| `auto_start` | `true` = 沒有紀錄時自動當成進行中 (沒有結束時間；`/admin-event start` 改過之後就照那次的設定) |
 | `items` | 活動道具 (素材 / 料理)，開機時自動寫進 Item.db；活動結束時從所有玩家倉庫清除 |
 
 ## 預留位
@@ -30,12 +30,13 @@
 | 💬 一般客人的活動版 | `shrine_data.GUESTS` | `guest_overrides {客人: {favorite, hint, name, emoji, lines: {high/mid/low: [台詞]}}}` | `lines` 加進台詞池，其他欄位取代 |
 | 🏪 雜貨店 | 人里 5 種素材 | `shop {素材: 價格}` | 加進去 (同名取代價格) |
 | 📈 數值倍率 | 全部 ×1 | `modifiers {...}` (見下面) | 乘上去 (多個活動相乘) |
-| 🎴 祈願機率提升 | 卡池角色平均抽 | `gacha.rate_up {角色: 倍率}` | 抽到該角色的權重 ×倍率 (多個活動相乘) |
-| 🎴 祈願階級機率 | `RARITY_WEIGHTS` [75, 22, 3] | `gacha.rarity_weights [低, 中, 高]` | 取代 (後面的活動蓋前面)；保底不受影響 |
-| 🎪 活動限定卡池 | 舊作 / 紅魔鄉兩個卡池 | `gacha.pool {name, desc, characters: [角色 id]}` | `/card gacha` 選「🎪 活動限定卡池」就抽這裡 (角色可以跨卡池)；保底獨立記在 `event_<活動 id>`；同時有多個活動時後面的蓋前面；`name` 沒寫 = 「<emoji> <活動名>卡池」 |
+| 🎴 祈願機率提升 | 同階級的角色平均抽 | `gacha.rate_up {角色: 倍率}` | 抽到那個階級時，該角色的權重 ×倍率 (多個活動相乘)；階級機率不變 |
+| 🎴 祈願階級機率 | `BASE_RATES` N 43.9 / R 27 / SR 18 / SSR 10.9 / UR 0.1 / LR 0.1 (%) | `gacha.rarity_weights {階級: %}` (例 `{"UR": 0.5, "LR": 0.3}`) | 有寫的階級取代起始機率，沒寫的照舊，再換算成總和 100% (後面的活動蓋前面)；UR 81 抽起升高的曲線與 100 抽保底照舊 (升高的部分加在活動的 UR 上)；舊格式 `[低, 中, 高]` 不再適用，會被略過 |
+| 🔴 開放一般卡池 | 標 `event_only` 的一般卡池 (`Utils/gacha_pools.py`，目前是紅魔鄉 `th06`) 平常抽不到 | `gacha.pool {"from": "th06"}` (可加 `name`、`desc`) | 活動期間 `/card gacha` 選「🎪 活動限定卡池」就抽那個卡池；保底、抽數、活動任務 `gacha_pool` 都照舊記在那個卡池 (活動下次再開也接著算)；名稱沒寫 = 「🎪 <卡池名>・<活動名>限定」；`/card history` 那個卡池加註「🎪 <活動名>期間開放」、`/event info` 多一行「🎴 活動卡池」。跟下面的 `characters` 二選一 (紅霧異變用這個) |
+| 🎪 活動限定卡池 | 舊作卡池 (紅魔鄉只在紅霧異變期間開放) | `gacha.pool {name, desc, characters: [角色 id]}` | `/card gacha` 選「🎪 活動限定卡池」就抽這裡 (角色可以跨卡池)；保底獨立記在 `event_<活動 id>`；同時有多個活動時後面的蓋前面；`name` 沒寫 = 「<emoji> <活動名>卡池」 |
 | 🍳 活動食譜稱號 | 沒有 | `recipe_title {desc}` (照那個活動的料理特色寫) | 有 `recipes` / `stamina_recipes` 的活動自動有「<活動名> • 食譜全收」SSR (活動料理全部做過，永久保留)，一組「🍳 美食家・<活動名>」；沒寫 desc = 「<活動名>的活動料理你全部做過了。」 |
 | 📖 活動怪物圖鑑稱號 | 沒有 | `bestiary_title {desc}` | 有 `ura` 區塊 (活動怪) 的活動自動在 📖 怪物圖鑑多一區 (🎪)，並有「<活動名> • 怪物全收」SSR (那個活動的活動怪全部打倒或勸走過，永久保留；放在「🌀 裏世界」組)，全收獎勵 100,000 賽錢 + 300 經驗；沒寫 desc = 「<活動名>期間出現的怪物你全都打倒過了。」 |
-| 🍀 卡池歐氣稱號 | 舊作 (普池) / 紅魔鄉各 3 個 (`title_data.LUCK_POOL_TEXT`) | `gacha.pool.luck_titles {ssr / ur / lr: {name, desc}}` | 有活動限定卡池的活動自動一組「🍀 運氣・<活動名>」：一次十連出 2 張以上 UR 1 / 5 / 10 次 = SSR / UR / LR；沒寫 = 「〇〇的幸運兒 / 寵兒 / 歐皇」 |
+| 🍀 卡池歐氣稱號 | 舊作 (普池) / 紅魔鄉各 3 個 (`title_data.LUCK_POOL_TEXT`) | `gacha.pool.luck_titles {ssr / ur / lr: {name, desc}}` | 有活動限定卡池的活動自動一組「🍀 運氣・<活動名>」：距離上次 UR 90 抽內就出 UR 1 / 5 / 10 次 = SSR / UR / LR；沒寫 = 「〇〇的幸運兒 / 寵兒 / 歐皇」 |
 | 📅 簽到額外道具 | 🍙 飯糰 ×1 | `daily_items [[道具, 數量]]` | 加送 |
 | 📜 活動任務 | 沒有 | `quests [{id, name, desc, type, target, count, reward: {money, exp}}]` | `/event quest` 看進度、按「🎁 領取」拿賽錢 + 經驗值 (見下面「活動任務」) |
 | 🏷️ 活動稱號 | 沒有 | `quest_titles [{id, name, rarity, desc, min_quests}]` | 領取的任務數 ≥ `min_quests` 就**永久**獲得 (活動結束也保留) |
@@ -81,10 +82,10 @@
 | `ura_evacuate` | — | 🌀 活動期間從裏世界**成功撤離**的次數 |
 
 - `count` = 目標數字 (`cook_each` 除外)；`reward.money` / `reward.exp` = 領取的賽錢與經驗值。
-- **只在活動進行中計數**。一輪 = 「活動 id + 這次開始時間」：`/admin-event start` 重開同一個活動 ➔ 新的一輪，進度與領取都從 0 開始 (auto_start 沒有紀錄時那一輪叫 `<id>:auto`)。
+- **只在活動進行中計數**。一輪 = 「活動 id + 這次開始時間」：活動結束後再用 `/admin-event start` 開一次 ➔ 新的一輪，進度與領取都從 0 開始 (勾到本來就在進行中的活動只會改結束時間，那一輪不變) (auto_start 沒有紀錄時那一輪叫 `<id>:auto`)。
 - 領取：完成 + 這一輪沒領過 + 活動進行中才能領；**活動結束後沒領的就沒了**。結束前 24 小時內還有完成沒領的任務會私訊提醒一次 (`/notify` 的「⏰ 活動任務快結束」)。
 - 活動稱號的 id = `event_<活動 id>_<稱號 id>` (放在 `/profile` 稱號分組「🎪 活動」)；`min_quests` 算的是**這個活動所有輪加總領過幾種不同的任務** (同一個任務在不同輪各領一次只算一種)。
 - 格式檢查：`Database/events.validate_quests(活動)` (測試會檢查所有活動檔)。
 
 ## 注意
-- 活動卡池的保底與抽數記在 `event_<id>`；另外每次抽都把「每張卡 (角色 × 階級) 的預期張數」記進 `daily_draws` 的 `card:<角色>:<階級>` (照活動的 `rate_up` 與 `rarity_weights` 算)，浮動市值結算時加進該卡的預期抽到量，活動期間熱門角色的市值不會因為賣出變多而被誤判下跌。
+- 活動卡池的保底與抽數記在 `event_<id>`；另外每次抽都把「每張卡 (角色 × 階級) 的預期張數」記進 `daily_draws` 的 `card:<角色>:<階級>` (照活動的 `rate_up` 與 `rarity_weights` 算長期平均，含 UR 曲線與保底)，浮動市值結算時加進該卡的預期抽到量，活動期間熱門角色的市值不會因為賣出變多而被誤判下跌。

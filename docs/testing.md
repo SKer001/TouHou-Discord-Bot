@@ -10,7 +10,7 @@
   - 載入全部 Cog（不登入 Discord、不載入 Logger），用假的 Interaction 執行斜線指令，把 V2 畫面印成文字（按鈕編號 `b1`、選單編號 `s1`、元件數 / 40）。
   - 資料庫一律用沙盒 `.botcli/`（第一次從 `Database/` **唯讀**複製，已加進 `.gitignore`），資料會保留到下次；`--reset` 重新複製、`--fresh` 從空白開始、`--sandbox 路徑` 指定資料夾。
   - 畫面只存在於同一次執行中：指令和之後的點擊要寫在同一次執行的步驟裡，例如：
-    `python tools/botcli.py "/card gacha pool:th06 pull_type:10" "click 繼續十連" "/card inventory" "select 卡池 th06"`
+    `python tools/botcli.py "/card gacha pool:classic pull_type:10" "click 繼續十連" "/card inventory" "select 卡池 th06"`
   - 步驟：`/指令 參數:值`（成員參數用 `me`、`@名稱` 或 ID；`@名稱` 會產生固定的假玩家）、`? /指令 參數 [已填:值] [current:文字]`（看 autocomplete）、`click b2|按鈕文字`、`select s1|選單文字 值…`、`modal 標籤:值`、`as me|@名稱`、`msg 編號`、`show`、`users`、`sql SELECT…`、`commands`、`help`。
   - 會自動抓的問題：回覆帶 content / embed、同一互動回應兩次、指令或元件沒有回應、元件超過 40 個、autocomplete 超過 25 個或選項超過 100 字、Discord 會擋下的參數（choices、Range）、程式例外（印出 traceback）。有任何錯誤時結束碼為 1。
   - 在 Git Bash 執行時 `/card` 可能被改寫成路徑，CLI 會自動還原；也可以省略開頭的 `/`（`card gacha …`）。

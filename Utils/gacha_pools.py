@@ -8,9 +8,11 @@ from Utils.character_data import load_categories
 # 🎰 卡池依代數劃分：每個卡池包含哪些 Characters/ 分類資料夾
 #    新增卡池 ➔ 在這裡加一筆，並把角色檔放進對應資料夾即可
 #    (卡池收集稱號是一個卡池兩個，新卡池要在 Database/title_data.py 補稱號)
+#    event_only = 平常不能抽，只有活動檔寫了 gacha.pool {"from": 這個卡池} 的活動進行中才能從「🎪 活動限定卡池」抽
+#      (2026-11-22 使用者定案：一般池只給舊作；卡池分類、保底、收集稱號、卡冊篩選都照這個卡池，不變)
 GACHA_POOLS = {
     "classic": {"name": "📜 舊作卡池", "desc": "主要主角 + TH01 ~ TH05", "folders": ["Main", "TH01", "TH02", "TH03", "TH04", "TH05"]},
-    "th06":    {"name": "🔴 紅魔鄉卡池", "desc": "TH06 東方紅魔鄉", "folders": ["TH06"]},
+    "th06":    {"name": "🔴 紅魔鄉卡池", "desc": "TH06 東方紅魔鄉", "folders": ["TH06"], "event_only": True},   # 紅霧異變期間開放
 }
 
 
