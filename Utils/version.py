@@ -6,4 +6,4 @@
 
 每次 commit 都要更新這裡和 CHANGELOG.md。
 """
-VERSION = "0.35.110"
+VERSION = "0.XX.???"   # 分支 claude/gacha-rates-a49710：合併進 main 時才編號

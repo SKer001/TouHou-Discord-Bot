@@ -13,10 +13,11 @@
 | `/card album` | 🔒 收藏冊：收進來的卡不會出現在卡冊、合成、融合、分解、上架 (含 autocomplete)，可以隨時取出；稱號、排行榜、圖鑑照樣算 |
 | `/card synthesis pool character` | 合成：兩張同角色、同階級的卡合成一張完整度更高的卡（分頁選卡） |
 | `/card fusion pool character rarity` | 融合：三張完整度 1.0000 的卡融合成高一階的卡 |
-| `/card history` | 祈願紀錄：各卡池的累計抽數與保底進度 |
+| `/card history` | 祈願紀錄：各卡池的累計抽數、保底進度與下一抽 UR 的機率，可以選卡池看「📊 機率表」 |
 
 - **卡池依代數劃分**：📜 舊作卡池（主要主角 + TH01～TH05）、🔴 紅魔鄉卡池（TH06）。
-- **保底**：每個卡池各自計算，連續 100 抽沒出 UR 以上，第 100 抽必定獲得 UR。
+- **機率**：每一抽先抽階級（N 43.9%、R 27%、SR 18%、SSR 10.9%、UR 0.1%、LR 0.1%，所有卡池一樣），再從卡池裡有那個階級的角色平均抽一位。抽卡結果畫面和 `/card history` 都有「📊 機率表」。
+- **保底**：每個卡池各自計算。UR 前 80 抽每抽 0.1%，第 81～90 抽慢慢升到 2.5%、第 91～99 抽升到 3.7%（多出來的從 N / R / SR 照比例扣），第 100 抽必定獲得 UR；大約 60% 的人會吃到保底，平均 93 抽一張。LR 固定 0.1%，抽到也不影響保底。
 - **完整度**：每張卡有 0.001～1.0000 的完整度，越高越稀有。
 - **合成規則**：
   - 新完整度 = 較高的那張 + 增幅；兩張越接近，增幅越大。
@@ -76,7 +77,7 @@
 ### 🛠️ 管理員指令（只有設定的管理員可以使用）
 | 群組 | 指令 |
 |---|---|
-| `/admin-gacha` | `view` 檢視卡冊、`give` 發放卡牌、`remove` 刪除卡牌、`set_completeness` 修改完整度、`clear` 清空卡冊 |
+| `/admin-gacha` | `view` 檢視卡冊、`give` 發放卡牌、`remove` 刪除卡牌、`set_completeness` 修改完整度、`clear` 清空卡冊、`clear_all` 清空全部玩家的卡冊 (兩段確認) |
 | `/admin-item` | `add_item`、`add_items_batch`、`edit_item`（編輯控制台）、`manage`（給予 / 扣除道具：分類 + 分頁列表，選道具後輸入數量，正數給予、負數扣除）、`give_items` |
 | `/admin-user` | `reset_daily`、`add_money`、`add_exp`、`clear_inventory`、`add_stamina`、`title`（給 / 收回 / 戴上稱號）、`namecard`（給 / 收回 / 戴上角色名片） |
 | `/admin-sys` | `reload`（重載模組控制台）、`sync`、`shutdown` |

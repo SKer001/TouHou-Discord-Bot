@@ -8,7 +8,7 @@ from datetime import datetime
 
 from Database.User_DB_Manager import (
     get_user_cards, add_gacha_cards, delete_gacha_cards,
-    clear_gacha_cards, update_cards_completeness,
+    clear_gacha_cards, clear_all_gacha_cards, count_gacha_clear, update_cards_completeness,
 )
 from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
@@ -33,9 +33,26 @@ def _target_id(interaction: discord.Interaction) -> int | None:
 
 # ---------------------------------------------------------
 # 🧹 清空卡冊確認 View (Components V2)
+#   單人 /clear 與全部玩家 /clear_all 規則一樣 (udm._clear_cards)：卡冊 + 收藏冊 + 上架中的卡都刪、保底進度歸零；
+#   🌀 出征中的卡不刪；累計抽數、融合 / 合成次數、稱號統計保留；不退賽錢
 # ---------------------------------------------------------
+CLEAR_ALL_PHRASE = "全部清空"   # /clear_all 第二段確認要打的字
+
+
+def _clear_rules_text() -> str:
+    return ("-# 所有卡池的保底進度歸零；累計抽數、融合 / 合成次數、稱號統計都保留，不退賽錢\n"
+            "-# 🌀 正在裏世界出征的卡不會刪 (那一局結束後才清得掉)；看持有卡牌的稱號 (UR / LR 收集、推角、卡池收集) 會跟著失去")
+
+
+def _clear_result_text(head: str, result: dict) -> str:
+    text = f"{head}刪除卡冊 + 收藏冊 `{result['cards']:,}` 張、上架中 `{result['listings']:,}` 張，保底進度已歸零。"
+    if result["skipped"]:
+        text += f"\n-# 🌀 有 `{result['skipped']:,}` 張正在裏世界出征，沒有刪 (那一局結束後才清得掉)。"
+    return text
+
+
 class ClearConfirmView(ui.LayoutView):
-    def __init__(self, target: discord.abc.User, card_count: int):
+    def __init__(self, target: discord.abc.User, counts: dict):
         super().__init__(timeout=60)
         self.target = target
         self.done = False
@@ -49,7 +66,8 @@ class ClearConfirmView(ui.LayoutView):
         container.add_item(ui.TextDisplay(
             f"## ⚠️ 清空卡冊確認\n"
             f"確定要清空 **{target.display_name}** 的整本卡冊嗎？\n"
-            f"共 `{card_count}` 張卡牌將被永久刪除 *(抽卡與融合統計會保留)*"
+            f"卡冊 + 收藏冊 `{counts['cards']:,}` 張、市場上架中 `{counts['listings']:,}` 張將被永久刪除\n"
+            f"{_clear_rules_text()}"
         ))
         container.add_item(ui.Separator())
         container.add_item(ui.ActionRow(confirm_btn, cancel_btn))
@@ -72,16 +90,89 @@ class ClearConfirmView(ui.LayoutView):
             await interaction.response.defer()
             return
         self.done = True
-        deleted = await clear_gacha_cards(self.target.id)
-        text = f"🗑️ 已清空 **{self.target.display_name}** 的卡冊，共刪除 `{deleted}` 張卡牌。"
-        left = len(await get_user_cards(self.target.id, include_locked=True))   # 留下來的只會是 🌀 出征中的卡
-        if left:
-            text += f"\n-# 🌀 有 `{left}` 張正在裏世界出征，沒有刪 (那一局結束後才清得掉)。"
-        await self._finish(interaction, text)
+        result = await clear_gacha_cards(self.target.id)
+        await self._finish(interaction, _clear_result_text(f"🗑️ 已清空 **{self.target.display_name}** 的卡冊：", result))
 
     async def cancel_callback(self, interaction: discord.Interaction):
         self.done = True
         await self._finish(interaction, "↩️ 已取消，卡冊沒有任何變動。")
+
+
+class ClearAllModal(ui.Modal, title="⚠️ 清空全部玩家的卡冊"):
+    """第二段確認：要打「全部清空」才會執行"""
+    def __init__(self, view: "ClearAllConfirmView"):
+        super().__init__(timeout=120)
+        self.view = view
+        self.phrase = ui.TextInput(label=f"確定的話請輸入「{CLEAR_ALL_PHRASE}」", placeholder=CLEAR_ALL_PHRASE,
+                                   max_length=20)
+        self.add_item(self.phrase)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if not is_admin(interaction.user):
+            await send_notice(interaction, "❌ 無權限")
+            return
+        if self.phrase.value.strip() != CLEAR_ALL_PHRASE:
+            await send_notice(interaction, f"✖️ 輸入的不是「{CLEAR_ALL_PHRASE}」，沒有清空任何東西。")
+            return
+        await self.view.execute(interaction)
+
+
+class ClearAllConfirmView(ui.LayoutView):
+    """/clear_all 第一段確認：顯示人數與張數 ➔ 按「確定清空」➔ 彈窗輸入「全部清空」才執行"""
+    def __init__(self, counts: dict):
+        super().__init__(timeout=120)
+        self.done = False
+
+        confirm_btn = ui.Button(label="🗑️ 確定清空", style=discord.ButtonStyle.danger)
+        confirm_btn.callback = self.confirm_callback
+        cancel_btn = ui.Button(label="❌ 取消", style=discord.ButtonStyle.secondary)
+        cancel_btn.callback = self.cancel_callback
+
+        container = ui.Container(accent_color=discord.Color.red())
+        container.add_item(ui.TextDisplay(
+            f"## ⚠️ 清空全部玩家的卡冊\n"
+            f"會清到 **{counts['players']:,}** 位玩家：卡冊 + 收藏冊 `{counts['cards']:,}` 張、"
+            f"市場上架中 `{counts['listings']:,}` 張，全部永久刪除，**沒辦法復原**\n"
+            f"{_clear_rules_text()}\n"
+            f"-# 🌀 目前出征中、不會刪的卡：`{counts['skipped']:,}` 張\n"
+            f"-# 按「確定清空」後還要輸入「{CLEAR_ALL_PHRASE}」才會執行"
+        ))
+        container.add_item(ui.Separator())
+        container.add_item(ui.ActionRow(confirm_btn, cancel_btn))
+        self.add_item(container)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not is_admin(interaction.user):
+            await send_notice(interaction, "❌ 無權限")
+            return False
+        return True
+
+    async def confirm_callback(self, interaction: discord.Interaction):
+        if self.done:
+            await interaction.response.defer()
+            return
+        await interaction.response.send_modal(ClearAllModal(self))
+
+    async def execute(self, interaction: discord.Interaction):
+        if self.done:   # 兩個彈窗同時送出：第二個直接忽略
+            await send_notice(interaction, "↩️ 已經處理過了。")
+            return
+        self.done = True
+        result = await clear_all_gacha_cards()
+        await self._finish(interaction, _clear_result_text("🗑️ 已清空全部玩家的卡冊：", result))
+
+    async def _finish(self, interaction: discord.Interaction, text: str):
+        self.clear_items()
+        self.add_item(notice_container(text))
+        if getattr(interaction, "message", None) is not None:   # 按鈕 / 從按鈕開的彈窗 ➔ 改原本的確認畫面
+            await interaction.response.edit_message(view=self)
+        else:
+            await interaction.response.send_message(view=self, ephemeral=True)
+        self.stop()
+
+    async def cancel_callback(self, interaction: discord.Interaction):
+        self.done = True
+        await self._finish(interaction, "↩️ 已取消，沒有清空任何卡冊。")
 
 
 # ---------------------------------------------------------
@@ -469,18 +560,33 @@ class GachaAdmin(commands.GroupCog, group_name="admin-gacha", group_description=
             return
         await self._open_picker(interaction, target, pool, character, "set", round(value, 4))
 
-    # 5. 🧹 /clear 清空整本卡冊 (需確認)
-    @app_commands.command(name="clear", description="【開發者專用】清空成員的整本卡冊 (會先要求確認)")
+    # 5. 🧹 /clear 清空整本卡冊 (需確認；卡冊 + 收藏冊 + 上架中的卡，保底歸零)
+    @app_commands.command(name="clear", description="【開發者專用】清空成員的卡冊、收藏冊與上架中的卡，保底歸零 (會先要求確認)")
     @app_commands.describe(target="目標成員")
     @app_commands.default_permissions(administrator=True)
     async def clear_cmd(self, interaction: discord.Interaction, target: discord.User | discord.Member):
         if await self._deny(interaction):
             return
-        cards = await get_user_cards(target.id, include_locked=True)
-        if not cards:
-            await send_notice(interaction, f"🎒 **{target.display_name}** 的卡冊本來就是空的。")
+        counts = await count_gacha_clear(target.id)
+        if not (counts["cards"] or counts["listings"] or counts["pity"]):
+            text = f"🎒 **{target.display_name}** 的卡冊本來就是空的。"
+            if counts["skipped"]:
+                text += f"\n-# 🌀 只有 `{counts['skipped']}` 張正在裏世界出征 (那一局結束後才清得掉)。"
+            await send_notice(interaction, text)
             return
-        await interaction.response.send_message(view=ClearConfirmView(target, len(cards)), ephemeral=True)
+        await interaction.response.send_message(view=ClearConfirmView(target, counts), ephemeral=True)
+
+    # 6. 🧨 /clear_all 清空全部玩家的卡冊 (兩段確認：按鈕 ➔ 輸入「全部清空」)
+    @app_commands.command(name="clear_all", description="【開發者專用】清空全部玩家的卡冊、收藏冊與上架中的卡，保底歸零 (兩段確認)")
+    @app_commands.default_permissions(administrator=True)
+    async def clear_all_cmd(self, interaction: discord.Interaction):
+        if await self._deny(interaction):
+            return
+        counts = await count_gacha_clear()
+        if not (counts["cards"] or counts["listings"] or counts["pity"]):
+            await send_notice(interaction, "🎒 沒有任何玩家有卡牌或保底進度，不用清。")
+            return
+        await interaction.response.send_message(view=ClearAllConfirmView(counts), ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

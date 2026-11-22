@@ -20,6 +20,7 @@ from .Components.gacha_components import (
     build_gacha_single_container,
     build_gacha_ten_container,
     build_gacha_history_container,
+    build_rate_sheet_container,
     build_stack_list_container,
     build_stack_cards_container,
     build_card_detail_container,
@@ -74,10 +75,41 @@ EVENT_POOL = "event"             # /card gacha 的「活動限定卡池」選項
 def draw_cost(draw_count: int, mult: float = 1.0) -> int:
     """祈願價格 (活動可以用 modifiers.gacha_cost 調整)"""
     return round(draw_count * DRAW_COST * mult)
-RARITY_WEIGHTS = [75, 22, 3]     # 角色三個階級 (低 ➔ 高) 的權重
-PITY_THRESHOLD = 100             # 每個卡池連續 100 抽沒出 UR ➔ 第 100 抽必出 UR
+
+
+# 🎲 抽卡機率 (2026-11-22 使用者定案)：每一抽「先抽階級、再從卡池裡有這個階級的角色平均抽一位」，所有卡池同一張表
+RARITIES = ["N", "R", "SR", "SSR", "UR", "LR"]
+BASE_RATES = {"N": 43.9, "R": 27, "SR": 18, "SSR": 10.9, "UR": 0.1, "LR": 0.1}   # 起始機率 (%)
+# 🎯 UR 動態機率：第 n 抽 = 距離上次 UR 的第幾抽 (since_ur + 1)
+#    1～80 抽 0.1% ➔ 81～90 抽從 0.1% 線性升到 2.5% ➔ 91～99 抽從 2.5% 升到 3.7% ➔ 第 100 抽必出 UR
+#    累積：80 抽 7.7%、90 抽 20%、99 抽 40%，約 60% 的人吃到保底；UR 多出來的機率從 N / R / SR 照比例扣
+UR_CURVE = ((80, 0.1), (90, 2.5), (99, 3.7))   # (第幾抽, 那一抽的 UR %)，中間線性
+PITY_THRESHOLD = 100             # 第 100 抽必出 UR
 PITY_RARITY = "UR"
-PITY_RESET_RARITIES = {"UR", "LR"}   # 抽到這些階級就重置保底計數
+CURVE_SOURCES = ("N", "R", "SR")   # UR 升高時從這幾個階級照比例扣
+LUCKY_WITHIN = 90                # 🍀 卡池運氣稱號：距離上次 UR 90 抽內就出 UR (ps:tenpull_2ur:<卡池>，沿用舊的計數)
+
+
+def ur_curve(n: int) -> float:
+    """第 n 抽 (距離上次 UR) 的 UR 機率 (%)，沒有活動、卡池階級齊全時；第 100 抽 = 100"""
+    if n >= PITY_THRESHOLD:
+        return 100.0
+    if n <= UR_CURVE[0][0]:
+        return UR_CURVE[0][1]
+    for (n0, p0), (n1, p1) in zip(UR_CURVE, UR_CURVE[1:]):
+        if n <= n1:
+            return p0 + (p1 - p0) * (n - n0) / (n1 - n0)
+    return UR_CURVE[-1][1]
+
+
+def base_rates(rules: dict | None = None) -> dict:
+    """起始機率 (%)：活動的 gacha.rarity_weights {階級: %} 有寫的階級取代 (沒寫的照舊)，再換算成總和 100"""
+    rates = dict(BASE_RATES)
+    override = (rules or {}).get("gacha_rarity_weights")
+    if isinstance(override, dict):   # 舊格式 [低, 中, 高] 已經不適用，直接忽略
+        rates.update({r: max(0.0, float(v)) for r, v in override.items() if r in rates})
+    total = sum(rates.values())
+    return {r: v * 100 / total for r, v in rates.items()} if total else dict(BASE_RATES)
 
 
 def pool_characters(pool_key: str, rules: dict | None = None) -> list[str]:
@@ -88,47 +120,130 @@ def pool_characters(pool_key: str, rules: dict | None = None) -> list[str]:
     return [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
 
 
-def expected_cards(pool_key: str, count: int, rules: dict | None = None) -> dict:
-    """count 抽預期抽到的張數 {(角色, 階級): 張數}，照實際的角色權重 (rate_up) 與階級權重 (不算保底)。
-    活動卡池用：浮動市值的「預期新抽到張數」本來只看一般卡池，活動卡池的抽數要靠這個記進去"""
-    rules = rules or {}
-    rate_up = rules.get("gacha_rate_up") or {}
-    rarity_weights = rules.get("gacha_rarity_weights") or RARITY_WEIGHTS
-    keys = pool_characters(pool_key, rules)
-    weights = {k: rate_up.get(k, 1.0) for k in keys}
-    total_w, total_r = sum(weights.values()), sum(rarity_weights)
+def pool_holders(pool_key: str, rules: dict | None = None) -> dict:
+    """{階級: [卡池裡有這個階級的角色]} (沒有角色的階級不會出現)"""
+    holders = {}
+    for k in pool_characters(pool_key, rules):
+        for r in GACHA_POOL[k]["rarities"]:
+            holders.setdefault(r, []).append(k)
+    return {r: holders[r] for r in RARITIES if r in holders}
+
+
+def rarity_table(pool_key: str, n: int, rules: dict | None = None, holders: dict | None = None) -> dict:
+    """
+    第 n 抽 (距離上次 UR 的第幾抽) 各階級的機率 {階級: 0～1}，總和 1 (抽卡、下一抽顯示、機率表、市值都用這個)
+    - 起始機率 = base_rates (活動可以改)；UR 照 ur_curve 升高，多出來的從 N / R / SR 照比例扣
+    - 第 100 抽：UR 100% (保底)
+    - 卡池裡沒有角色的階級：那一份照比例分給其他階級 (UR 照曲線不變)；卡池沒有 UR ➔ 沒有 UR 也沒有保底
+    """
+    holders = pool_holders(pool_key, rules) if holders is None else holders
+    table = {r: 0.0 for r in RARITIES}
+    if not holders:
+        return table
+    has_ur = PITY_RARITY in holders
+    if has_ur and n >= PITY_THRESHOLD:
+        table[PITY_RARITY] = 1.0
+        return table
+    rates = base_rates(rules)
+    if has_ur:   # UR 升高的部分從 N / R / SR 照比例扣 (扣到 0 為止)
+        source = sum(rates[r] for r in CURVE_SOURCES)
+        bonus = min(ur_curve(n) - ur_curve(1), source)
+        if source > 0:
+            for r in CURVE_SOURCES:
+                rates[r] -= bonus * rates[r] / source
+            rates[PITY_RARITY] += bonus
+    ur = min(rates[PITY_RARITY], 100.0) if has_ur else 0.0
+    others = {r: rates[r] for r in RARITIES if r != PITY_RARITY and r in holders}
+    rest = sum(others.values())
+    if not rest:   # 只剩 UR 抽得到
+        table[PITY_RARITY] = 1.0
+        return table
+    table[PITY_RARITY] = ur / 100
+    for r, v in others.items():
+        table[r] = (100 - ur) / 100 * v / rest
+    return table
+
+
+def next_ur_rate(pool_key: str, since_ur: int, rules: dict | None = None) -> float:
+    """下一抽出 UR 的機率 (0～1)"""
+    return rarity_table(pool_key, since_ur + 1, rules)[PITY_RARITY]
+
+
+def rate_text(p: float) -> str:
+    """機率顯示：0.001 ➔ 0.1%、0.01544 ➔ 1.54%、1 ➔ 必出"""
+    if p >= 1:
+        return "必出"
+    return f"{p * 100:.2f}".rstrip("0").rstrip(".") + "%"
+
+
+def ur_cycle_stats(pool_key: str, rules: dict | None = None) -> dict:
+    """
+    UR 週期 (從上次 UR 算起) 的統計，照 rarity_table 逐抽算：
+    {"cum": {第 n 抽: n 抽內出 UR 的累積機率}, "pity": 吃到保底的比例, "avg": 平均幾抽一張 UR,
+     "rates": {階級: 長期平均每抽機率 (含 UR 曲線與保底)}}；卡池沒有 UR ➔ avg None、pity 0
+    """
+    holders = pool_holders(pool_key, rules)
+    has_ur = PITY_RARITY in holders
+    reach, draws, acc, cum = 1.0, 0.0, {r: 0.0 for r in RARITIES}, {}
+    for n in range(1, PITY_THRESHOLD + 1):
+        table = rarity_table(pool_key, n, rules, holders)
+        draws += reach
+        for r in RARITIES:
+            acc[r] += reach * table[r]
+        reach *= 1 - table[PITY_RARITY]
+        cum[n] = 1 - reach
+    return {"cum": cum, "pity": (1 - cum[PITY_THRESHOLD - 1]) if has_ur else 0.0, "avg": draws if has_ur else None,
+            "rates": {r: acc[r] / draws for r in RARITIES}}
+
+
+def card_rates(pool_key: str, rules: dict | None = None) -> dict:
+    """{(角色, 階級): 長期平均每抽抽中的機率 (含 UR 曲線與保底)}；同階級的角色平分 (活動 rate_up 照權重分)"""
+    rate_up = (rules or {}).get("gacha_rate_up") or {}
+    rates = ur_cycle_stats(pool_key, rules)["rates"]
     result = {}
-    for k in keys:
-        for rarity, rw in zip(GACHA_POOL[k]["rarities"], rarity_weights):
-            if total_w and total_r:
-                result[(k, rarity)] = count * weights[k] / total_w * rw / total_r
+    for r, keys in pool_holders(pool_key, rules).items():
+        weights = {k: rate_up.get(k, 1.0) for k in keys}
+        total = sum(weights.values())
+        for k in keys:
+            if total and rates[r] > 0:
+                result[(k, r)] = rates[r] * weights[k] / total
     return result
+
+
+def expected_cards(pool_key: str, count: int, rules: dict | None = None) -> dict:
+    """count 抽預期抽到的張數 {(角色, 階級): 張數}，照長期平均機率 (card_rates，含 UR 曲線與保底)。
+    活動卡池用：浮動市值的「預期新抽到張數」本來只看一般卡池，活動卡池的抽數要靠這個記進去"""
+    return {key: count * p for key, p in card_rates(pool_key, rules).items()}
 
 
 def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness, rules: dict | None = None) -> tuple[list, int, bool]:
     """
-    依保底計數擲出 count 張卡：(cards, 新的 since_ur, 是否出了 UR 以上)
-    觸發保底的卡會帶 "pity": True (只用於顯示，不寫入資料庫)
-    rules = 活動規則 (econ.get_rules)：gacha_rate_up {角色: 權重倍率}、gacha_rarity_weights 取代 RARITY_WEIGHTS、
+    依保底計數擲出 count 張卡：(cards, 新的 since_ur, 是否出了 UR)
+    每一抽先照 rarity_table 抽階級，再從卡池裡有這個階級的角色抽一位 (活動 rate_up = 角色權重倍率)
+    只有 UR 會重置保底計數 (LR 固定 0.1%，不影響保底)
+    卡牌多帶兩個只用於顯示 / 統計、不寫入資料庫的欄位："pity" (保底送的)、"lucky" (90 抽內出的 UR，🍀 運氣稱號)
+    rules = 活動規則 (econ.get_rules)：gacha_rate_up {角色: 權重倍率}、gacha_rarity_weights {階級: %} 取代起始機率、
             gacha_event_pool (pool_key 是活動卡池時用它的角色清單)
     """
     rules = rules or {}
     rate_up = rules.get("gacha_rate_up") or {}
-    rarity_weights = rules.get("gacha_rarity_weights") or RARITY_WEIGHTS
-    char_keys = pool_characters(pool_key, rules)
-    char_weights = [rate_up.get(k, 1.0) for k in char_keys]
-    pity_keys = [k for k in char_keys if PITY_RARITY in GACHA_POOL[k]["rarities"]]
+    holders = pool_holders(pool_key, rules)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cards, got_ur = [], False
 
     for _ in range(count):
         since_ur += 1
-        char_key = random.choice(char_keys) if not rate_up else random.choices(char_keys, weights=char_weights, k=1)[0]
-        rarity = random.choices(GACHA_POOL[char_key]["rarities"], weights=rarity_weights, k=1)[0]
-        pity = False
-        if rarity not in PITY_RESET_RARITIES and since_ur >= PITY_THRESHOLD and pity_keys:
-            char_key, rarity, pity = random.choice(pity_keys), PITY_RARITY, True
-        if rarity in PITY_RESET_RARITIES:
+        table = rarity_table(pool_key, since_ur, rules, holders)
+        population = [r for r in RARITIES if table[r] > 0]
+        rarity = random.choices(population, weights=[table[r] for r in population], k=1)[0]
+        keys = holders[rarity]
+        if any(k in rate_up for k in keys):
+            char_key = random.choices(keys, weights=[rate_up.get(k, 1.0) for k in keys], k=1)[0]
+        else:
+            char_key = random.choice(keys)
+        pity = rarity == PITY_RARITY and since_ur >= PITY_THRESHOLD
+        lucky = rarity == PITY_RARITY and since_ur <= LUCKY_WITHIN
+        if rarity == PITY_RARITY:
             since_ur, got_ur = 0, True
 
         char_data = GACHA_POOL[char_key]
@@ -142,6 +257,7 @@ def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness,
             "completeness": make_completeness(),
             "obtained_at": now,
             "pity": pity,
+            "lucky": lucky,
         })
     return cards, since_ur, got_ur
 
@@ -250,12 +366,17 @@ class GachaResultView(ui.LayoutView):
         ten_btn.callback = self.draw_ten_again
         inv_btn = ui.Button(label="🎒 查看卡庫", style=discord.ButtonStyle.secondary)
         inv_btn.callback = self.view_inventory
+        # 📊 機率表：誰都可以按 (只有按的人看得到，顯示的是按的人自己的保底進度)
+        self.rates_btn = ui.Button(label="📊 機率表", style=discord.ButtonStyle.secondary)
+        self.rates_btn.callback = self.view_rates
 
         container.add_item(ui.Separator())
-        container.add_item(ui.ActionRow(single_btn, ten_btn, inv_btn))
+        container.add_item(ui.ActionRow(single_btn, ten_btn, inv_btn, self.rates_btn))
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if (getattr(interaction, "data", None) or {}).get("custom_id") == self.rates_btn.custom_id:
+            return True
         if interaction.user.id != self.user_id:
             await send_notice(interaction, "❌ 這不是你的祈願畫面！請輸入 `/card gacha` 開啟你自己的祈願。")
             return False
@@ -267,6 +388,9 @@ class GachaResultView(ui.LayoutView):
     async def draw_ten_again(self, interaction: discord.Interaction):
         await self.gacha_cog.execute_gacha(interaction, draw_count=10, pool_key=self.pool_key)
 
+    async def view_rates(self, interaction: discord.Interaction):
+        await send_rate_sheet(interaction, self.pool_key)
+
     async def view_inventory(self, interaction: discord.Interaction):
         await interaction.response.defer()
         cards = await get_user_cards(self.user_id)
@@ -276,6 +400,77 @@ class GachaResultView(ui.LayoutView):
 
         inv_view = InventoryView(self.user_id, sort_cards(cards), self.user_name, self.gacha_cog)
         await interaction.edit_original_response(view=inv_view)
+
+
+# ================= 📊 機率表 (只有按的人看得到) =================
+def resolve_pool(choice_key: str, rules: dict) -> tuple[str, str] | None:
+    """/card gacha 的卡池選項 ➔ (實際卡池 key, 名稱)；活動卡池 ("event" 或 event_<id>) 沒在進行中 ➔ None"""
+    event_pool = rules.get("gacha_event_pool")
+    if choice_key == EVENT_POOL or choice_key.startswith(f"{EVENT_POOL}_"):
+        if not event_pool or choice_key not in (EVENT_POOL, event_pool["key"]):
+            return None
+        return event_pool["key"], event_pool["name"]
+    return choice_key, GACHA_POOLS.get(choice_key, {}).get("name", "📦 其他")
+
+
+def rate_sheet_data(pool_key: str, pool_name: str, rules: dict, since_ur: int) -> dict:
+    """機率表要顯示的數字 (全部照 rarity_table 算，活動改了機率也會跟著變)"""
+    holders = pool_holders(pool_key, rules)
+    table = lambda n: rarity_table(pool_key, n, rules, holders)
+    stats = ur_cycle_stats(pool_key, rules)
+    marks = [n for n, _ in UR_CURVE]   # 80 / 90 / 99
+    members = pool_characters(pool_key, rules)
+    rate_up = {k: m for k, m in (rules.get("gacha_rate_up") or {}).items() if k in members and m != 1}
+    return {
+        "pool_name": pool_name,
+        "start": table(1),
+        "holders": {r: [GACHA_POOL[k]["name"] for k in keys] for r, keys in holders.items()},
+        "has_ur": PITY_RARITY in holders,
+        "curve": {n: table(n)[PITY_RARITY] for n in marks},
+        "cum": {n: stats["cum"][n] for n in marks},
+        "pity": stats["pity"],
+        "avg": stats["avg"],
+        "long_run": stats["rates"],
+        "since_ur": since_ur,
+        "next": table(since_ur + 1)[PITY_RARITY],
+        "event_pool": pool_key.startswith(f"{EVENT_POOL}_"),
+        "event_rates": isinstance(rules.get("gacha_rarity_weights"), dict),
+        "rate_up": {GACHA_POOL[k]["name"]: m for k, m in rate_up.items()},
+    }
+
+
+async def send_rate_sheet(interaction: discord.Interaction, choice_key: str):
+    """📊 機率表：按的時候才讀活動規則與按的人自己的保底進度"""
+    rules = await econ.get_rules()
+    resolved = resolve_pool(choice_key, rules)
+    if not resolved or not pool_characters(resolved[0], rules):
+        await send_notice(interaction, "🎪 這個卡池目前沒有開放，看不到機率表。")
+        return
+    pool_key, pool_name = resolved
+    since_ur = (await get_gacha_pity(interaction.user.id)).get(pool_key, {}).get("since_ur", 0)
+    view = ui.LayoutView()
+    view.add_item(build_rate_sheet_container(rate_sheet_data(pool_key, pool_name, rules, since_ur), PITY_THRESHOLD, PITY_RARITY))
+    if interaction.response.is_done():
+        await interaction.followup.send(view=view, ephemeral=True)
+    else:
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+
+class GachaHistoryView(ui.LayoutView):
+    """📜 祈願紀錄 + 「📊 選卡池看機率表」選單 (誰都可以選，機率表只有選的人看得到)"""
+    def __init__(self, container: ui.Container, pools: dict):
+        super().__init__(timeout=600)
+        self.select = ui.Select(
+            placeholder="📊 選一個卡池查看機率表",
+            options=[discord.SelectOption(label=p["name"], value=key) for key, p in list(pools.items())[:25]],
+        )
+        self.select.callback = self.view_rates
+        container.add_item(ui.Separator())
+        container.add_item(ui.ActionRow(self.select))
+        self.add_item(container)
+
+    async def view_rates(self, interaction: discord.Interaction):
+        await send_rate_sheet(interaction, self.select.values[0])
 
 
 # ================= 🎒 卡冊 View (Components V2) =================
@@ -947,7 +1142,12 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             return
 
         results = result["cards"]
-        pity_text = f"🎯 保底：`{result['since_ur']} / {PITY_THRESHOLD}` · 本池累計 `{result['pool_draws']:,}` 抽"
+        if PITY_RARITY in pool_holders(pool_key, rules):   # 卡池沒有 UR 就沒有保底
+            next_ur = rate_text(next_ur_rate(pool_key, result["since_ur"], rules))
+            pity_text = (f"🎯 保底：`{result['since_ur']} / {PITY_THRESHOLD}` · 下一抽 {PITY_RARITY} `{next_ur}`"
+                         f" · 本池累計 `{result['pool_draws']:,}` 抽")
+        else:
+            pity_text = f"🎯 這個卡池沒有 {PITY_RARITY}，沒有保底 · 本池累計 `{result['pool_draws']:,}` 抽"
         if any(c.get("pity") for c in results):
             pity_text = f"🎯 **觸發保底！必定獲得 {PITY_RARITY}！**\n" + pity_text
 
@@ -986,15 +1186,19 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         pity = await get_gacha_pity(user_id)
         stats = await get_gacha_stats(user_id)
         pools = dict(GACHA_POOLS)
-        event_pool = (await econ.get_rules()).get("gacha_event_pool")
+        rules = await econ.get_rules()
+        event_pool = rules.get("gacha_event_pool")
         if event_pool:   # 進行中的活動卡池也列出來 (保底跟一般卡池分開算)
             pools[event_pool["key"]] = {"name": event_pool["name"]}
+        next_rates = {   # 下一抽 UR 的機率；卡池沒有 UR ➔ None
+            key: rate_text(next_ur_rate(key, pity.get(key, {}).get("since_ur", 0), rules))
+                 if PITY_RARITY in pool_holders(key, rules) else None
+            for key in pools
+        }
         container = build_gacha_history_container(
-            interaction.user.display_name, pools, pity, stats, PITY_THRESHOLD, PITY_RARITY
+            interaction.user.display_name, pools, pity, stats, PITY_THRESHOLD, PITY_RARITY, next_rates
         )
-        view = ui.LayoutView()
-        view.add_item(container)
-        await interaction.response.send_message(view=view)
+        await interaction.response.send_message(view=GachaHistoryView(container, pools))
 
     @app_commands.command(name="inventory", description="🎒 查看個人的博麗神社卡冊與持有卡牌")
     async def view_inventory(self, interaction: discord.Interaction):

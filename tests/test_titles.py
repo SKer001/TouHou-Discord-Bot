@@ -534,7 +534,7 @@ async def main():
     sql("DELETE FROM player_stats WHERE user_id = ?", (D,))
     check("trek kept", {"trek_all", "trek_th06_scarlet_mist_all"} <= set((await udm.get_title_state(D))["unlocked"]))
 
-    # --- 🍀 運氣稱號 (0.35.005)：採集事件、運勢、保底、十連雙 UR (每個卡池分開) ---
+    # --- 🍀 運氣稱號 (0.35.005)：採集事件、運勢、保底、90 抽內出 UR (每個卡池分開；2026-11-22 前是十連雙 UR) ---
     luck = [t for t in td.TITLES if t.startswith("luck_")]
     check(f"luck titles {len(luck)}", len(luck) == 11 + 3 * len(__import__("Utils.gacha_pools", fromlist=["x"]).GACHA_POOLS))
     check("luck tiers", [(td.TITLES[f"luck_pity_{t}"]["rarity"], td.TITLES[f"luck_pity_{t}"]["min"]) for t in ("ssr", "ur", "lr")]
@@ -546,17 +546,17 @@ async def main():
           and [td.TITLES[luck_t]["min"] for luck_t in ("luck_th06_ssr", "luck_th06_ur", "luck_th06_lr")] == [1, 5, 10])
     check("luck names", td.TITLES["luck_classic_lr"]["name"] == "魔界神也嫉妒的手氣" and td.TITLES["luck_th06_lr"]["name"] == "命運的操縱者"
           and td.TITLES["luck_bad_sr"]["name"] == "倒楣巫女")
-    check("luck condition", td.condition_text("luck_th06_ur") == "在紅魔鄉卡池一次十連出 2 張以上 UR 5 次"
+    check("luck condition", td.condition_text("luck_th06_ur") == "在紅魔鄉卡池距離上次 UR 90 抽內就出 UR 5 次"
           and td.condition_text("luck_pity_ssr") == "祈願觸發 10 次保底 (所有卡池合計)")
     check("names unique with luck", len({td.TITLES[t]["name"] for t in td.TITLES}) == len(td.TITLES))
-    # 計數：十連雙 UR (含 LR，只算一次十連)、保底張數、簽到大吉 / 凶
+    # 計數：90 抽內出的 UR (卡上的 lucky，一抽一次；LR、保底送的不算)、保底張數、簽到大吉 / 凶
     E = 5050
-    def lc(i, r, pity=False):
+    def lc(i, r, pity=False, lucky=False):
         return {"instance_id": f"c_luck_{E}_{i}", "character_key": "cirno", "name": "琪露諾", "emoji": "🧊", "rarity": r,
-                "title": "t", "completeness": 0.5, "obtained_at": "2026-11-16 12:00:00", "pity": pity}
+                "title": "t", "completeness": 0.5, "obtained_at": "2026-11-16 12:00:00", "pity": pity, "lucky": lucky}
     await udm.get_or_create_user(E)
     await udm.draw_gacha(E, "th06", 10, 0, lambda s: ([lc(0, "UR", True), lc(1, "LR")] + [lc(i, "N") for i in range(2, 10)], 0, True))
-    await udm.draw_gacha(E, "th06", 10, 0, lambda s: ([lc(10, "UR")] + [lc(i, "N") for i in range(11, 20)], 0, True))
+    await udm.draw_gacha(E, "th06", 10, 0, lambda s: ([lc(10, "UR", lucky=True)] + [lc(i, "N") for i in range(11, 20)], 0, True))
     await udm.draw_gacha(E, "classic", 1, 0, lambda s: ([lc(20, "UR", True)], 0, True))
     ps = await udm.get_player_stats(E)
     check(f"luck gacha stats {ps}", ps.get("tenpull_2ur:th06") == 1 and not ps.get("tenpull_2ur:classic") and ps.get("gacha_pity") == 2)

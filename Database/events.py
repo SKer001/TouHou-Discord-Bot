@@ -59,8 +59,8 @@ def game_rules(active: list[dict]) -> dict:
     | shop | shrine_data.SHOP_PRICES | shop {素材: 價格} |
     | modifiers | 全部 1 | modifiers {shrine_income, youkai_reward, serve_reward, explore_stamina: 倍率} |
     | special_chance | shrine_data.SPECIAL_CHANCE | special_chance (取最大) |
-    | gacha_rate_up {角色: 倍率} | 卡池角色平均抽 | gacha.rate_up (抽到該角色的權重 ×倍率，多個活動相乘) |
-    | gacha_rarity_weights | 沒有 = 抽卡用預設 RARITY_WEIGHTS | gacha.rarity_weights [低, 中, 高] (後面的活動蓋前面) |
+    | gacha_rate_up {角色: 倍率} | 同階級的角色平均抽 | gacha.rate_up (抽到那個階級時該角色的權重 ×倍率，多個活動相乘) |
+    | gacha_rarity_weights | 沒有 = 抽卡用預設 BASE_RATES | gacha.rarity_weights {階級: %} 取代起始機率 (沒寫的階級照舊；後面的活動蓋前面；UR 曲線與保底照舊) |
     | gacha_event_pool | None | gacha.pool {name, desc, characters: [角色 id]} (活動限定卡池；後面的活動蓋前面) |
     | daily_items [[道具, 數量]] | 沒有 (🍙 由簽到本身送) | daily_items (簽到額外送) |
     | event_dish_bonus | 1 | event_dish_bonus (取最大) |
@@ -120,8 +120,10 @@ def game_rules(active: list[dict]) -> dict:
         gacha = ev.get("gacha", {})
         for key, mult in gacha.get("rate_up", {}).items():
             rate_up[key] = rate_up.get(key, 1.0) * mult
-        if gacha.get("rarity_weights"):
-            rarity_weights = list(gacha["rarity_weights"])
+        if isinstance(gacha.get("rarity_weights"), dict) and gacha["rarity_weights"]:   # {階級: %}；舊格式 [低, 中, 高] 不再適用
+            rarity_weights = dict(gacha["rarity_weights"])
+        elif gacha.get("rarity_weights"):
+            print(f"⚠️ [Events] {eid} 的 gacha.rarity_weights 要寫成 {{階級: %}} (例 {{\"UR\": 0.5}})，舊的 [低, 中, 高] 已經不適用，略過")
         if gacha.get("pool", {}).get("characters"):
             pool = gacha["pool"]
             event_pool = {"key": f"event_{eid}", "event": eid,

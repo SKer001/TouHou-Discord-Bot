@@ -731,7 +731,8 @@ PLAYER_STATS = {
     # 另外還有每種客人一個的 serve_guest:<客人> (招待次數) / serve_fav:<客人> (成功招待次數)，0.35.001 起 (客人稱號用)
     # 以及每個採集地點一個的 explore:<地點> (趟數)，0.35.003 起 (足跡稱號用)
     # 🍀 運氣稱號 (0.35.005 起)：explore_good / explore_bad (採集好 / 壞事件)、fortune_5 / fortune_0 (簽到大吉 / 凶)、
-    #    gacha_pity (觸發保底張數，所有卡池合計)、tenpull_2ur:<卡池> (一次十連出 2 張以上 UR 的次數)
+    #    gacha_pity (觸發保底張數，所有卡池合計)、tenpull_2ur:<卡池> (距離上次 UR 90 抽內就出 UR 的次數；
+#    2026-11-22 前是「一次十連出 2 張以上 UR」，名字沒改、舊次數照算)
     # 🍳 美食家稱號 (0.35.007 起)：cook:<料理> (每道料理的鍋數)、eat_stamina (吃了幾個體力道具，含飯糰)
     # 🌀 裏世界 (0.35.083 起)：ura_runs (出發次數)、ura_evacuated (成功撤離次數)、ura_kill:<敵人> (打倒 / 勸走隻數；0.35.103 起打倒當下就記，📖 怪物圖鑑用)
 }
@@ -1201,10 +1202,12 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
                 """,
                 (user_id, pool, pool_draws, since_ur, last_ur_at),
             )
-            # 🍀 運氣稱號 (0.35.005 起)：觸發保底的張數 (所有卡池合計)、一次十連出 2 張以上 UR (含 LR) 的次數 (每個卡池分開)
+            # 🍀 運氣稱號 (0.35.005 起)：觸發保底的張數 (所有卡池合計)、90 抽內就出 UR 的次數 (每個卡池分開；
+            #    roll_cards 在那張卡標 "lucky"。2026-11-22 前是「一次十連出 2 張以上 UR」，統計名稱沿用 tenpull_2ur)
             await add_player_stat(db, user_id, "gacha_pity", sum(1 for c in cards if c.get("pity")))
-            if draw_count == 10 and sum(1 for c in cards if c["rarity"] in ("UR", "LR")) >= 2:
-                await add_player_stat(db, user_id, f"tenpull_2ur:{pool}")
+            lucky = sum(1 for c in cards if c.get("lucky"))
+            if lucky:
+                await add_player_stat(db, user_id, f"tenpull_2ur:{pool}", lucky)
             if pool.startswith(EVENT_POOL_PREFIX):   # 🎪 活動卡池祈願 ➔ 那個活動的任務計數
                 await add_quest_stats(db, user_id, now, per_event={pool[len(EVENT_POOL_PREFIX):]: {"gacha_event_pool": draw_count}})
             else:   # 一般卡池 ➔ 進行中的活動都記 gacha_pool:<卡池> (任務 type gacha_pool)
@@ -1305,13 +1308,78 @@ async def delete_gacha_cards(user_id: int, instance_ids: list[str]) -> int:
     return cursor.rowcount
 
 
-async def clear_gacha_cards(user_id: int) -> int:
-    """清空玩家的整本卡冊 (抽卡統計保留)，回傳刪除的張數"""
+def _clear_scope(user_id: int | None, column: str = "user_id") -> tuple[str, tuple]:
+    """清空卡冊用的 WHERE 條件：user_id None = 全部玩家"""
+    return (f" AND {column} = ?", (user_id,)) if user_id is not None else ("", ())
+
+
+async def count_gacha_clear(user_id: int | None = None) -> dict:
+    """
+    清空卡冊前的確認畫面用 (user_id None = 全部玩家)：
+    {"players": 會被清到的玩家數, "cards": 卡冊 + 收藏冊張數, "listings": 上架中張數,
+     "skipped": 🌀 出征中 (不會刪) 張數, "pity": 保底進度不是 0 的卡池數}
+    """
+    card_where, card_args = _clear_scope(user_id)
+    list_where, list_args = _clear_scope(user_id, "seller_id")
     async with connect() as db:
-        cursor = await db.execute("DELETE FROM gacha_cards WHERE user_id = ? AND expedition = 0", (user_id,))   # 🌀 出征中的卡留著
-        await db.commit()
-    card_cache.invalidate(user_id)
-    return cursor.rowcount
+        async def one(sql, args):
+            async with db.execute(sql, args) as cursor:
+                return (await cursor.fetchone())[0] or 0
+        return {
+            "players": await one(
+                f"SELECT COUNT(*) FROM (SELECT user_id FROM gacha_cards WHERE expedition = 0{card_where} "
+                f"UNION SELECT seller_id FROM market_listings WHERE 1 = 1{list_where})", card_args + list_args),
+            "cards": await one(f"SELECT COUNT(*) FROM gacha_cards WHERE expedition = 0{card_where}", card_args),
+            "listings": await one(f"SELECT COUNT(*) FROM market_listings WHERE 1 = 1{list_where}", list_args),
+            "skipped": await one(f"SELECT COUNT(*) FROM gacha_cards WHERE expedition = 1{card_where}", card_args),
+            "pity": await one(f"SELECT COUNT(*) FROM gacha_pity WHERE since_ur > 0{card_where}", card_args),
+        }
+
+
+async def _clear_cards(user_id: int | None) -> dict:
+    """
+    清空卡冊 (user_id None = 全部玩家)，同一個交易：
+    - 刪掉卡冊 + 收藏冊的卡、市場上架中的卡 (連同通知用的上架快照，免得被當成到期退回)
+    - 所有卡池的保底進度 (since_ur) 歸零；累計抽數、融合 / 合成次數、稱號統計都保留，不退賽錢
+    - 🌀 裏世界出征中的卡不刪 (那一局結束後才清得掉)
+    回傳 {"cards", "listings", "skipped"}
+    """
+    card_where, card_args = _clear_scope(user_id)
+    list_where, list_args = _clear_scope(user_id, "seller_id")
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            async with db.execute(f"SELECT listing_id FROM market_listings WHERE 1 = 1{list_where}", list_args) as cursor:
+                listing_ids = [r["listing_id"] for r in await cursor.fetchall()]
+            cursor = await db.execute(f"DELETE FROM gacha_cards WHERE expedition = 0{card_where}", card_args)
+            cards = cursor.rowcount
+            await db.execute(f"DELETE FROM market_listings WHERE 1 = 1{list_where}", list_args)
+            async with db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'notify_listings'") as cursor:
+                has_snapshot = await cursor.fetchone() is not None
+            if has_snapshot and listing_ids:
+                await db.executemany("DELETE FROM notify_listings WHERE listing_id = ?", [(i,) for i in listing_ids])
+            await db.execute(f"UPDATE gacha_pity SET since_ur = 0 WHERE 1 = 1{card_where}", card_args)
+            async with db.execute(f"SELECT COUNT(*) FROM gacha_cards WHERE expedition = 1{card_where}", card_args) as cursor:
+                skipped = (await cursor.fetchone())[0]
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    if user_id is None:
+        card_cache.invalidate_all()
+    else:
+        card_cache.invalidate(user_id)
+    return {"cards": cards, "listings": len(listing_ids), "skipped": skipped}
+
+
+async def clear_gacha_cards(user_id: int) -> dict:
+    """清空一位玩家的卡冊 (規則見 _clear_cards)，回傳 {"cards", "listings", "skipped"}"""
+    return await _clear_cards(user_id)
+
+
+async def clear_all_gacha_cards() -> dict:
+    """清空全部玩家的卡冊 (規則見 _clear_cards；/admin-gacha clear_all，兩段確認後才呼叫)"""
+    return await _clear_cards(None)
 
 
 async def update_cards_completeness(user_id: int, instance_ids: list[str], completeness: float) -> int:

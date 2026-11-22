@@ -118,17 +118,28 @@ check(f"spawn max {a9['youkai']} {len(a9['guests'])}", a9["youkai"] == 4 and len
 # 分解倍率
 check("decompose mult", econ.card_value(1000, 0.5, 1.5) == 1500 and econ.card_value(1000, 0.5) == 1000)
 
-# 抽卡：機率提升 / 階級權重
+# 抽卡：機率提升 / 階級機率 (2026-11-22 起先抽階級再抽角色：rate_up 只在同階級的角色裡加權)
 import importlib, random as _r
 gacha = importlib.import_module("Cogs.load-gacha.gacha")
 keys = [k for k, v in gacha.GACHA_POOL.items() if v["pool"] == "th06"]
 target = keys[0]
 _r.seed(1)
-cards, _, _ = gacha.roll_pool_cards("th06", 200, 0, lambda: 0.5, {"gacha_rate_up": {target: 1000}})
-check("rate up", sum(c["character_key"] == target for c in cards) > 180)
+cards, _, _ = gacha.roll_pool_cards("th06", 400, 0, lambda: 0.5, {"gacha_rate_up": {target: 1000}})
+mine = [c for c in cards if c["rarity"] in gacha.GACHA_POOL[target]["rarities"]]
+check(f"rate up within rarity {len(mine)}", len(mine) > 50 and sum(c["character_key"] == target for c in mine) > 0.95 * len(mine))
+check("rate up keeps rarity rates", sum(c["rarity"] == "N" for c in cards) > 120)   # N 43.9% 不受影響 (target 沒有 N)
 _r.seed(2)
-cards, _, _ = gacha.roll_pool_cards("th06", 50, 0, lambda: 0.5, {"gacha_rarity_weights": [0, 0, 1]})
-check("rarity weights", all(c["rarity"] == gacha.GACHA_POOL[c["character_key"]]["rarities"][-1] for c in cards))
+only_ssr = {"gacha_rarity_weights": {"N": 0, "R": 0, "SR": 0, "SSR": 100, "UR": 0, "LR": 0}}
+cards, _, _ = gacha.roll_pool_cards("th06", 50, 0, lambda: 0.5, only_ssr)
+check("rarity weights", all(c["rarity"] == "SSR" for c in cards))
+bumped = gacha.base_rates({"gacha_rarity_weights": {"UR": 1.1, "LR": 1.1}})   # 只寫 UR / LR，其他照舊再換算成 100
+check(f"rarity weights merge {bumped}", abs(sum(bumped.values()) - 100) < 1e-9 and abs(bumped["UR"] - 1.1 * 100 / 102) < 1e-9
+      and abs(bumped["N"] / bumped["R"] - 43.9 / 27) < 1e-9)
+check("event rates keep curve", abs(gacha.rarity_table("th06", 90, {"gacha_rarity_weights": {"UR": 1.1, "LR": 1.1}})["UR"]
+                                     - (bumped["UR"] + 2.4) / 100) < 1e-9)   # 活動的 UR + 曲線升高的 2.4%
+check("old list format ignored", gacha.base_rates({"gacha_rarity_weights": [0, 0, 1]}) == gacha.BASE_RATES
+      and game_rules([{"id": "z", "gacha": {"rarity_weights": [0, 0, 1]}}])["gacha_rarity_weights"] is None)
+check("event rarity weights dict", game_rules([{"id": "z", "gacha": {"rarity_weights": {"UR": 0.5}}}])["gacha_rarity_weights"] == {"UR": 0.5})
 _r.seed(3)
 cards, _, _ = gacha.roll_pool_cards("th06", 50, 0, lambda: 0.5)
 check("no rules ok", len(cards) == 50)
@@ -150,8 +161,9 @@ check("event pool rolls only listed", {c["character_key"] for c in cards} <= {"r
 exp = gacha.expected_cards("event_b", 10, g3)
 check("expected cards sum", abs(sum(exp.values()) - 10) < 1e-9 and {k for k, _ in exp} == {"reimu", keys[0]})
 g5 = dict(g3, gacha_rate_up={"reimu": 3})
-exp5 = gacha.expected_cards("event_b", 8, g5)
+exp5 = gacha.expected_cards("event_b", 8, g5)   # reimu 跟 cirno 都是 SR / SSR / UR ➔ 每個階級 reimu 拿 3/4
 check("expected follows rate up", abs(sum(n for (k, _), n in exp5.items() if k == "reimu") - 6) < 1e-9)
+check("expected long-run UR", abs(sum(n for (_, r), n in exp.items() if r == "UR") - 10 / gacha.ur_cycle_stats("event_b", g3)["avg"]) < 1e-9)
 check("normal pool unaffected", set(gacha.pool_characters("th06", g3)) == set(keys))
 check("empty pool ignored", game_rules([{"id": "c", "gacha": {"pool": {"characters": []}}}])["gacha_event_pool"] is None)
 

@@ -30,12 +30,12 @@
 | 💬 一般客人的活動版 | `shrine_data.GUESTS` | `guest_overrides {客人: {favorite, hint, name, emoji, lines: {high/mid/low: [台詞]}}}` | `lines` 加進台詞池，其他欄位取代 |
 | 🏪 雜貨店 | 人里 5 種素材 | `shop {素材: 價格}` | 加進去 (同名取代價格) |
 | 📈 數值倍率 | 全部 ×1 | `modifiers {...}` (見下面) | 乘上去 (多個活動相乘) |
-| 🎴 祈願機率提升 | 卡池角色平均抽 | `gacha.rate_up {角色: 倍率}` | 抽到該角色的權重 ×倍率 (多個活動相乘) |
-| 🎴 祈願階級機率 | `RARITY_WEIGHTS` [75, 22, 3] | `gacha.rarity_weights [低, 中, 高]` | 取代 (後面的活動蓋前面)；保底不受影響 |
+| 🎴 祈願機率提升 | 同階級的角色平均抽 | `gacha.rate_up {角色: 倍率}` | 抽到那個階級時，該角色的權重 ×倍率 (多個活動相乘)；階級機率不變 |
+| 🎴 祈願階級機率 | `BASE_RATES` N 43.9 / R 27 / SR 18 / SSR 10.9 / UR 0.1 / LR 0.1 (%) | `gacha.rarity_weights {階級: %}` (例 `{"UR": 0.5, "LR": 0.3}`) | 有寫的階級取代起始機率，沒寫的照舊，再換算成總和 100% (後面的活動蓋前面)；UR 81 抽起升高的曲線與 100 抽保底照舊 (升高的部分加在活動的 UR 上)；舊格式 `[低, 中, 高]` 不再適用，會被略過 |
 | 🎪 活動限定卡池 | 舊作 / 紅魔鄉兩個卡池 | `gacha.pool {name, desc, characters: [角色 id]}` | `/card gacha` 選「🎪 活動限定卡池」就抽這裡 (角色可以跨卡池)；保底獨立記在 `event_<活動 id>`；同時有多個活動時後面的蓋前面；`name` 沒寫 = 「<emoji> <活動名>卡池」 |
 | 🍳 活動食譜稱號 | 沒有 | `recipe_title {desc}` (照那個活動的料理特色寫) | 有 `recipes` / `stamina_recipes` 的活動自動有「<活動名> • 食譜全收」SSR (活動料理全部做過，永久保留)，一組「🍳 美食家・<活動名>」；沒寫 desc = 「<活動名>的活動料理你全部做過了。」 |
 | 📖 活動怪物圖鑑稱號 | 沒有 | `bestiary_title {desc}` | 有 `ura` 區塊 (活動怪) 的活動自動在 📖 怪物圖鑑多一區 (🎪)，並有「<活動名> • 怪物全收」SSR (那個活動的活動怪全部打倒或勸走過，永久保留；放在「🌀 裏世界」組)，全收獎勵 100,000 賽錢 + 300 經驗；沒寫 desc = 「<活動名>期間出現的怪物你全都打倒過了。」 |
-| 🍀 卡池歐氣稱號 | 舊作 (普池) / 紅魔鄉各 3 個 (`title_data.LUCK_POOL_TEXT`) | `gacha.pool.luck_titles {ssr / ur / lr: {name, desc}}` | 有活動限定卡池的活動自動一組「🍀 運氣・<活動名>」：一次十連出 2 張以上 UR 1 / 5 / 10 次 = SSR / UR / LR；沒寫 = 「〇〇的幸運兒 / 寵兒 / 歐皇」 |
+| 🍀 卡池歐氣稱號 | 舊作 (普池) / 紅魔鄉各 3 個 (`title_data.LUCK_POOL_TEXT`) | `gacha.pool.luck_titles {ssr / ur / lr: {name, desc}}` | 有活動限定卡池的活動自動一組「🍀 運氣・<活動名>」：距離上次 UR 90 抽內就出 UR 1 / 5 / 10 次 = SSR / UR / LR；沒寫 = 「〇〇的幸運兒 / 寵兒 / 歐皇」 |
 | 📅 簽到額外道具 | 🍙 飯糰 ×1 | `daily_items [[道具, 數量]]` | 加送 |
 | 📜 活動任務 | 沒有 | `quests [{id, name, desc, type, target, count, reward: {money, exp}}]` | `/event quest` 看進度、按「🎁 領取」拿賽錢 + 經驗值 (見下面「活動任務」) |
 | 🏷️ 活動稱號 | 沒有 | `quest_titles [{id, name, rarity, desc, min_quests}]` | 領取的任務數 ≥ `min_quests` 就**永久**獲得 (活動結束也保留) |
@@ -87,4 +87,4 @@
 - 格式檢查：`Database/events.validate_quests(活動)` (測試會檢查所有活動檔)。
 
 ## 注意
-- 活動卡池的保底與抽數記在 `event_<id>`；另外每次抽都把「每張卡 (角色 × 階級) 的預期張數」記進 `daily_draws` 的 `card:<角色>:<階級>` (照活動的 `rate_up` 與 `rarity_weights` 算)，浮動市值結算時加進該卡的預期抽到量，活動期間熱門角色的市值不會因為賣出變多而被誤判下跌。
+- 活動卡池的保底與抽數記在 `event_<id>`；另外每次抽都把「每張卡 (角色 × 階級) 的預期張數」記進 `daily_draws` 的 `card:<角色>:<階級>` (照活動的 `rate_up` 與 `rarity_weights` 算長期平均，含 UR 曲線與保底)，浮動市值結算時加進該卡的預期抽到量，活動期間熱門角色的市值不會因為賣出變多而被誤判下跌。

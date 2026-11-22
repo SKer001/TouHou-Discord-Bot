@@ -500,7 +500,8 @@ _add_trek_titles()
 
 # 🍀 運氣稱號 (0.35.005，使用者 2026-11-16 定案；次數都從這版才開始記)
 #    採集好 / 壞事件 20 次 SR、100 次 UR；簽到大吉 / 凶 10 次 SR、30 次 SSR；觸發保底 (所有卡池合計) 10 / 50 / 100 次 SSR / UR / LR
-#    歐氣 = 一次十連出 2 張以上 UR (含 LR)：1 / 5 / 10 次 SSR / UR / LR，每個卡池分開
+#    歐氣 = 距離上次 UR 90 抽內就出 UR：1 / 5 / 10 次 SSR / UR / LR，每個卡池分開
+#      (2026-11-22 抽卡機率改版前是「一次十連出 2 張以上 UR」；次數沿用同一個 ps:tenpull_2ur:<卡池>，舊的次數照算)
 #      舊作 (classic) 是普池，放「🍀 運氣」；紅魔鄉 (TH06) 以後的卡池與活動限定卡池各自一組「🍀 運氣・<卡池>」
 LUCK_TITLES = [   # (id, 名稱, 等級, stat, 門檻, 說明)
     ("luck_good_sr", "福星高照", "SR", "ps:explore_good", 20, "採集時遇到了 {n} 次好事，連妖精都想跟著你走。"),
@@ -518,9 +519,9 @@ LUCK_TITLES = [   # (id, 名稱, 等級, stat, 門檻, 說明)
 LUCK_POOL_TIERS = (("ssr", "SSR", 1), ("ur", "UR", 5), ("lr", "LR", 10))
 LUCK_POOL_TEXT = {   # 卡池 ➔ {階: (名稱, 說明)}；沒寫的說明用通用句
     "classic": {"ssr": ("舊作的幸運兒", None), "ur": ("舊作的寵兒", None),
-                "lr": ("魔界神也嫉妒的手氣", "在舊作卡池一次十連出 2 張以上 UR {n} 次，神綺說她創造魔界時都沒這麼好運。")},
+                "lr": ("魔界神也嫉妒的手氣", "在舊作卡池 90 抽內就出 UR {n} 次，神綺說她創造魔界時都沒這麼好運。")},
     "th06": {"ssr": ("紅魔館的幸運兒", None), "ur": ("紅霧裡的閃光", None),
-             "lr": ("命運的操縱者", "在紅魔鄉卡池一次十連出 2 張以上 UR {n} 次，蕾米莉亞懷疑你偷學了她的能力。")},
+             "lr": ("命運的操縱者", "在紅魔鄉卡池 90 抽內就出 UR {n} 次，蕾米莉亞懷疑你偷學了她的能力。")},
 }
 LUCK_BASE_POOL = "classic"   # 普池：歐氣稱號放在「🍀 運氣」組
 
@@ -541,7 +542,7 @@ def _add_luck_titles():
     groups = {}
     for key, label, custom in pools:
         group = "luck" if key == LUCK_BASE_POOL else _sub_group("luck", key, label, groups)
-        stat, generic = f"ps:tenpull_2ur:{key}", f"在{label}卡池一次十連出 2 張以上 UR，已經 {{n}} 次了。"
+        stat, generic = f"ps:tenpull_2ur:{key}", f"在{label}卡池 90 抽內就出 UR，已經 {{n}} 次了。"
         _add_tier_titles(
             lambda tier: luck_pool_title_id(key, tier),
             [(tier, rarity, stat, n) for tier, rarity, n in LUCK_POOL_TIERS],
@@ -786,7 +787,7 @@ def _stat_text(t: dict) -> str:
     if stat in LUCK_STAT_TEXT:   # 🍀 運氣稱號
         return LUCK_STAT_TEXT[stat].format(f"{t['min']:,}")
     if stat.startswith("ps:tenpull_2ur:"):
-        return f"在{t.get('pool_name', stat.rsplit(':', 1)[-1])}卡池一次十連出 2 張以上 UR {t['min']:,} 次"
+        return f"在{t.get('pool_name', stat.rsplit(':', 1)[-1])}卡池距離上次 UR 90 抽內就出 UR {t['min']:,} 次"
     if stat.startswith("ps:explore:"):   # 🗺️ 足跡稱號
         return f"在{t.get('location_name', stat.rsplit(':', 1)[-1])}採集 {t['min']:,} 趟"
     if stat == "trek_base":
