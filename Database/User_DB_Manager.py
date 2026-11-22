@@ -790,6 +790,8 @@ async def _event_runs(db, now: datetime | None = None) -> dict:
             st = {}
         elif st.get("status") != "active" or (st.get("ends_at") and now >= datetime.fromisoformat(st["ends_at"])):
             continue
+        elif st.get("started_at") and now < datetime.fromisoformat(st["started_at"]):   # ⏳ 排好了還沒到開始時間
+            continue
         runs[eid] = {"run": event_run_id(eid, st.get("started_at")), "event": ev,
                      "started_at": st.get("started_at"), "ends_at": st.get("ends_at")}
     return runs

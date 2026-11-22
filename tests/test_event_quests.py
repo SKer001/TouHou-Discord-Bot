@@ -21,7 +21,9 @@ def check(name, cond):
     else: fail += 1; print("FAIL:", name)
 
 EV = "th06_scarlet_mist"
-NOW = datetime.now(timezone.utc).replace(microsecond=0)
+# 往前推一天：下面 T1～T3 = NOW + 幾分鐘重開活動，畫面 / 指令用的是真正的現在時間；
+# 2026-11-22 起開始時間還沒到的活動 = ⏳ 排定 (不算進行中)，所以 T1～T3 要在真正的現在之前
+NOW = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=1)
 A, B, C, D = 101, 202, 303, 404
 VISITOR, RESOLVER = td.event_title_id(EV, "visitor"), td.event_title_id(EV, "resolver")
 

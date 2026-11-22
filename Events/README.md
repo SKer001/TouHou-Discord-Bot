@@ -8,8 +8,8 @@
 | 欄位 | 說明 |
 |---|---|
 | `id` / `name` / `emoji` / `series` / `description` | 活動 ID (要跟檔名一樣)、名稱、圖示、出自哪一作、介紹 |
-| `duration_days` | 表定天數 (`/admin-event start` 沒給天數時用這個) |
-| `auto_start` | `true` = 沒有紀錄時自動當成進行中 (測試用，沒有結束時間) |
+| `duration_days` | 表定天數 (只用來在 `/event info` 顯示；`/admin-event start` 的天數要自己填，留空 = 一直持續) |
+| `auto_start` | `true` = 沒有紀錄時自動當成進行中 (沒有結束時間；`/admin-event start` 改過之後就照那次的設定) |
 | `items` | 活動道具 (素材 / 料理)，開機時自動寫進 Item.db；活動結束時從所有玩家倉庫清除 |
 
 ## 預留位
@@ -82,7 +82,7 @@
 | `ura_evacuate` | — | 🌀 活動期間從裏世界**成功撤離**的次數 |
 
 - `count` = 目標數字 (`cook_each` 除外)；`reward.money` / `reward.exp` = 領取的賽錢與經驗值。
-- **只在活動進行中計數**。一輪 = 「活動 id + 這次開始時間」：`/admin-event start` 重開同一個活動 ➔ 新的一輪，進度與領取都從 0 開始 (auto_start 沒有紀錄時那一輪叫 `<id>:auto`)。
+- **只在活動進行中計數**。一輪 = 「活動 id + 這次開始時間」：活動結束後再用 `/admin-event start` 開一次 ➔ 新的一輪，進度與領取都從 0 開始 (勾到本來就在進行中的活動只會改結束時間，那一輪不變) (auto_start 沒有紀錄時那一輪叫 `<id>:auto`)。
 - 領取：完成 + 這一輪沒領過 + 活動進行中才能領；**活動結束後沒領的就沒了**。結束前 24 小時內還有完成沒領的任務會私訊提醒一次 (`/notify` 的「⏰ 活動任務快結束」)。
 - 活動稱號的 id = `event_<活動 id>_<稱號 id>` (放在 `/profile` 稱號分組「🎪 活動」)；`min_quests` 算的是**這個活動所有輪加總領過幾種不同的任務** (同一個任務在不同輪各領一次只算一種)。
 - 格式檢查：`Database/events.validate_quests(活動)` (測試會檢查所有活動檔)。

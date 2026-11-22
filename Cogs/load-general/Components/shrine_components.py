@@ -300,7 +300,9 @@ def build_event_container(overview: list[dict], items: dict, recipes: dict) -> u
         ev = o["event"]
         when = ""
         if o["status"] == "active":
-            when = f"　{ts(_iso(o['ends_at']))}結束" if o.get("ends_at") else "　（測試中，沒有結束時間）"
+            when = f"　{ts(_iso(o['ends_at']))}結束" if o.get("ends_at") else "　（沒有結束時間）"
+        elif o.get("scheduled") and o.get("started_at"):   # ⏳ 管理員排好了開始時間 (/admin-event start)
+            when = f"　{ts(_iso(o['started_at']), 'f')}開始" + (f"，{ts(_iso(o['ends_at']), 'f')}結束" if o.get("ends_at") else "")
         lines = [f"### {ev['emoji']} {ev['name']}　{status_text[o['status']]}{when}",
                  f"-# {ev.get('series', '')} · 表定 {ev.get('duration_days', '?')} 天", ev.get("description", "")]
         loc = ev.get("location")

@@ -83,7 +83,7 @@
 | `/admin-sys` | `reload`（重載模組控制台）、`sync`、`shutdown` |
 | `/admin-shrine` | `view` 查看、`set` 調整賽錢箱 / 清潔度 / 妖怪 / 參拜客、`reset` 重置指定玩家的神社 |
 | `/admin-market` | `set_price` 設定特定角色特定階級的市值、`reset_price` 改回官方價 |
-| `/admin-event` | `start` 開始活動（可設天數）、`end` 結束活動並清除活動道具 |
+| `/admin-event` | `start [開始時間] [天數]` 勾一個或多個活動開始（可以排在之後、0 天 = 一直持續；沒勾到的進行中活動在開始時間結束）、`end` 結束活動並清除活動道具（還沒開始的 = 取消排程） |
 | `/admin-trade` | `test_dm` 讓指定玩家收到轉帳通知私訊（測試用，賽錢不變） |
 
 ## 📦 安裝與執行
