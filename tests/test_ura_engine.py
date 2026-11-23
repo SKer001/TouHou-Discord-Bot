@@ -214,7 +214,7 @@ for s in range(40):
     for f in (1, 3, 5, 7):
         ds = [d for d in doors_for(f, f"x{s}") if not d.get("hidden")]
         ts = [d["type"] for d in ds]
-        nonbattle = [t for t in ts if t != "battle"]
+        nonbattle = [t for t in ts if t != "battle" and t not in rules.REPEAT_ROOMS]   # 寶箱可以重複 (2026-11-23)
         extra = 1 if any(d.get("guaranteed") for d in ds) else 0   # 保底寶箱：原本沒有寶箱門時多一扇
         if len(nonbattle) != len(set(nonbattle)) or not 2 <= len(ts) <= 3 + extra:
             dup_ok = False
@@ -241,6 +241,30 @@ check("scout reveals", R.doors_revealed(rs))
 check("trap disguised as chest", R.door_view(r, {"type": "trap"}, False) == {"type": "chest"}
       and R.door_view(r, {"type": "trap"}, True) == {"type": "trap"} and rules.LOCKED_CHANCE == 0.5)
 check("floor revealed", R.floor_revealed(rs, 99) and not R.floor_revealed(r, r["floor"] + 2))
+# 同一關可以有兩扇真寶箱 (使用者 2026-11-23)：兩扇 💰 時可能兩扇都真、也可能一真一假；陷阱一關最多一扇 ➔ 不會兩扇都假
+# 每區寶箱上限 ROOM_CAPS["chest"] 照算 (不算保底寶物另外補的、斥候的隱藏寶箱)
+pairs, over, double_trap = set(), [], 0
+for seed in range(400):
+    rz = new(seed=f"z{seed}")
+    rz["guaranteed"] = {"0": {}}           # 不放保底寶物，只看一般抽的門
+    rz["caps"] = {}                        # new_run 已經先抽過第 1 關的門 (那次也算進上限)，從頭算
+    g = random.Random(seed)
+    chests = 0
+    for fl in range(1, 9):
+        if rules.floor_in_zone(fl) in rules.BATTLE_FLOORS:
+            continue
+        ds = R.gen_doors(rz, fl, g)
+        looks = [R.door_view(rz, d, False)["type"] for d in ds]
+        if looks.count("chest") >= 2:
+            real = sum(d["type"] == "chest" for d in ds)
+            pairs.add("both real" if real == looks.count("chest") else "one fake")
+        double_trap += sum(d["type"] == "trap" for d in ds) >= 2
+        chests += sum(d["type"] == "chest" and not d.get("hidden") for d in ds)
+    if chests > rules.ROOM_CAPS["chest"]:
+        over.append((seed, chests))
+check(f"two chests per floor {pairs}", pairs == {"both real", "one fake"})
+check(f"chest cap per zone {over[:3]}", not over and rz["caps"]["1"].get("chest", 0) <= rules.ROOM_CAPS["chest"])
+check("never two traps on one floor", double_trap == 0 and "trap" not in rules.REPEAT_ROOMS)
 rt = new(); rt["doors"] = [{"type": "trap"}]
 R.choose_door(rt, 0, Rng([0.9]))
 check("disguised trap room", rt["phase"] == "trap" and rt["room"].get("disguised") is True)

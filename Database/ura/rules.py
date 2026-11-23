@@ -21,6 +21,7 @@ FLEE_MULT = {"normal": 2.5, "elite": 4, "mimic": 4}
 DOOR_COUNT = (2, 3)             # 一般關卡 2～3 扇門
 ROOM_WEIGHTS = {"battle": 45, "event": 20, "chest": 15, "trap": 10, "elite": 10}
 ROOM_CAPS = {"elite": 2, "trap": 2, "chest": 3, "event": 4}   # 每區每種房間最多出現在門上幾次
+REPEAT_ROOMS = ("chest",)       # 同一關可以出現兩扇以上的房間 (戰鬥本來就可以；其他種類一關最多一扇)
 BATTLE_FLOORS = (2, 4, 6, 8)    # 每區第幾關固定是戰鬥
 HIDDEN_CHEST_CHANCE = 0.1       # 有斥候時多一扇隱藏寶箱門
 MIMIC_CHANCE = 0.1

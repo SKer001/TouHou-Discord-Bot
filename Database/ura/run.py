@@ -315,8 +315,10 @@ def gen_doors(run: dict, floor: int, rng) -> list[dict]:
             kinds.append("elite")
             status.consume_flag(team, "force_elite")
         while len(kinds) < n:
+            # 戰鬥可以重複；寶箱也可以 (2026-11-23 使用者：陷阱偽裝成寶箱後，兩扇 💰 不該一定有一扇是假的)，但每區上限照算
             pool = {k: w for k, w in rules.ROOM_WEIGHTS.items()
-                    if k == "battle" or (k not in kinds and caps.get(k, 0) + kinds.count(k) < rules.ROOM_CAPS[k])}
+                    if k == "battle" or ((k in rules.REPEAT_ROOMS or k not in kinds)
+                                         and caps.get(k, 0) + kinds.count(k) < rules.ROOM_CAPS[k])}
             kinds.append(rng.choices(list(pool), weights=list(pool.values()))[0])
         doors = [_make_door(run, floor, k, rng) for k in kinds]
         g = _guaranteed(run, floor)
