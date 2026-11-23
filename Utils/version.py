@@ -6,4 +6,4 @@
 
 每次 commit 都要更新這裡和 CHANGELOG.md。
 """
-VERSION = "0.39.006"
+VERSION = "0.39.007"
