@@ -52,6 +52,31 @@ def _as_list(x) -> list:
     return list(x) if isinstance(x, list) else ([x] if x else [])
 
 
+def event_pool(ev: dict, warn: bool = False) -> dict | None:
+    """
+    這個活動開的活動限定卡池 (活動檔 gacha.pool；沒寫 / 寫錯 ➔ None)：
+    {"key", "event", "events": [開這個卡池的活動], "from", "name", "desc", "characters"}
+    - gacha.pool {"from": 一般卡池}：那個 event_only 卡池只在活動期間開放，key = 那個卡池 (保底照舊記在那裡)、characters = None
+    - gacha.pool {name, desc, characters}：活動自己的卡池，key = event_<活動 id>
+    """
+    eid = ev["id"]
+    pool = (ev.get("gacha") or {}).get("pool") or {}
+    if pool.get("from"):
+        src = GACHA_POOLS.get(pool["from"])
+        if src:
+            return {"key": pool["from"], "event": eid, "events": [eid], "from": pool["from"],
+                    "name": pool.get("name") or f"🎪 {src['name']}・{ev.get('name', eid)}限定",
+                    "desc": pool.get("desc", src.get("desc", "活動限定")), "characters": None}
+        if warn:
+            print(f"⚠️ [Events] {eid} 的 gacha.pool.from 找不到卡池 {pool['from']}，略過")
+        return None
+    if pool.get("characters"):
+        return {"key": f"event_{eid}", "event": eid, "events": [eid], "from": None,
+                "name": pool.get("name") or f"{ev.get('emoji', '🎪')} {ev.get('name', eid)}卡池",
+                "desc": pool.get("desc", "活動限定"), "characters": list(pool["characters"])}
+    return None
+
+
 def game_rules(active: list[dict]) -> dict:
     """
     基本資料 + 進行中的活動 ➔ 這一刻的規則。每個機制都是「一般池 + 活動預留位」：
@@ -69,8 +94,9 @@ def game_rules(active: list[dict]) -> dict:
     | special_chance | shrine_data.SPECIAL_CHANCE | special_chance (取最大) |
     | gacha_rate_up {角色: 倍率} | 同階級的角色平均抽 | gacha.rate_up (抽到那個階級時該角色的權重 ×倍率，多個活動相乘) |
     | gacha_rarity_weights | 沒有 = 抽卡用預設 BASE_RATES | gacha.rarity_weights {階級: %} 取代起始機率 (沒寫的階級照舊；後面的活動蓋前面；UR 曲線與保底照舊) |
-    | gacha_event_pool | None | gacha.pool {name, desc, characters: [角色 id]} (活動限定卡池，key = event_<id>)；
-    |   |   | 或 gacha.pool {"from": 一般卡池} (那個 event_only 卡池只在活動期間開放，key = 那個卡池、characters = None)；後面的活動蓋前面 |
+    | gacha_event_pools {卡池 key: 卡池} | {} | gacha.pool {name, desc, characters: [角色 id]} (活動限定卡池，key = event_<id>)；
+    |   |   | 或 gacha.pool {"from": 一般卡池} (那個 event_only 卡池只在活動期間開放，key = 那個卡池、characters = None)；
+    |   |   | 每個進行中的活動各開一個，可以同時好幾個 (2026-11-24)；兩個活動 from 同一個卡池 ➔ 只開一個，events 列出兩個活動 |
     | daily_items [[道具, 數量]] | 沒有 (🍙 由簽到本身送) | daily_items (簽到額外送) |
     | event_dish_bonus | 1 | event_dish_bonus (取最大) |
     """
@@ -86,7 +112,7 @@ def game_rules(active: list[dict]) -> dict:
     mods = {k: 1.0 for k in MODIFIER_KEYS}
     event_dishes, event_guests = {}, set()
     chance, bonus, guest_chance, special = 0.0, 1.0, None, base.SPECIAL_CHANCE
-    rate_up, rarity_weights, daily_items, event_pool = {}, None, [], None
+    rate_up, rarity_weights, daily_items, event_pools = {}, None, [], {}
     for ev in active:
         eid = ev["id"]
         recipes.update(ev.get("recipes", {}))
@@ -133,19 +159,11 @@ def game_rules(active: list[dict]) -> dict:
             rarity_weights = dict(gacha["rarity_weights"])
         elif gacha.get("rarity_weights"):
             print(f"⚠️ [Events] {eid} 的 gacha.rarity_weights 要寫成 {{階級: %}} (例 {{\"UR\": 0.5}})，舊的 [低, 中, 高] 已經不適用，略過")
-        pool = gacha.get("pool") or {}
-        if pool.get("from"):   # 一般卡池 (GACHA_POOLS 的 event_only) 只在活動期間開放：保底、分類都照那個卡池
-            src = GACHA_POOLS.get(pool["from"])
-            if src:
-                event_pool = {"key": pool["from"], "event": eid, "from": pool["from"],
-                              "name": pool.get("name") or f"🎪 {src['name']}・{ev.get('name', eid)}限定",
-                              "desc": pool.get("desc", src.get("desc", "活動限定")), "characters": None}
-            else:
-                print(f"⚠️ [Events] {eid} 的 gacha.pool.from 找不到卡池 {pool['from']}，略過")
-        elif pool.get("characters"):
-            event_pool = {"key": f"event_{eid}", "event": eid,
-                          "name": pool.get("name") or f"{ev.get('emoji', '🎪')} {ev.get('name', eid)}卡池",
-                          "desc": pool.get("desc", "活動限定"), "characters": list(pool["characters"])}
+        ep = event_pool(ev, warn=True)
+        if ep and ep["key"] in event_pools:   # 兩個活動開同一個一般卡池：只開一個，兩個活動的任務都算
+            event_pools[ep["key"]]["events"].append(eid)
+        elif ep:
+            event_pools[ep["key"]] = ep
         daily_items += [list(x) for x in ev.get("daily_items", [])]
         if "event_guest_chance" in ev:
             guest_chance = max(guest_chance or 0.0, ev["event_guest_chance"])
@@ -159,7 +177,7 @@ def game_rules(active: list[dict]) -> dict:
         "order_pool": order_pool, "order_event_chance": chance, "event_dish_bonus": bonus,
         "guest_pool": {"base": sorted(k for k in guests if k not in event_guests), "event": sorted(event_guests)},
         "event_guest_chance": guest_chance, "shop": shop, "modifiers": mods, "special_chance": special,
-        "gacha_rate_up": rate_up, "gacha_rarity_weights": rarity_weights, "gacha_event_pool": event_pool,
+        "gacha_rate_up": rate_up, "gacha_rarity_weights": rarity_weights, "gacha_event_pools": event_pools,
         "daily_items": daily_items,
     }
 
@@ -182,7 +200,7 @@ QUEST_TYPES = {
     "serve_guest": "客人種類 id",           # 招待那種客人的位數
     "serve_event_dish": None,               # 招待時端出這個活動的活動料理份數
     "serve_favorite": None,                 # 成功招待 (額外端上客人最愛的料理) 的次數
-    "gacha_event_pool": None,               # 這個活動的活動限定卡池祈願抽數
+    "gacha_event_pool": None,               # 這個活動的活動限定卡池祈願抽數 (gacha.pool.from 開的一般卡池也算；別的活動的卡池不算)
     "gacha_pool": "卡池 id (classic / th06)",  # 活動期間在那個一般卡池祈願的抽數 (2026-11-14：紅霧異變算紅魔鄉卡池)
     "daily": None,                          # 活動期間簽到天數
     # 🌀 裏世界 (0.35.090)：打倒 / 活動 BOSS 當下就算 (那一局後來失敗也算)；帶出活動寶物 / 撤離在成功撤離結算時才算
@@ -290,10 +308,10 @@ def quest_goal(quest: dict, event: dict, items: dict | None = None) -> str:
     if t == "serve_favorite":
         return "成功招待 (額外端上客人最愛的料理) {p} 次"
     if t == "gacha_event_pool":
-        text = "在活動限定卡池祈願 {p} 抽"
-        if not event.get("gacha", {}).get("pool", {}).get("characters"):
-            text += "\n-# ⚠️ 這個活動目前還沒有活動限定卡池"
-        return text
+        ep = event_pool(event) if event.get("id") else None
+        if not ep:
+            return "在活動限定卡池祈願 {p} 抽\n-# ⚠️ 這個活動目前還沒有活動限定卡池"
+        return f"在「{ep['name']}」祈願 {{p}} 抽"
     if t == "gacha_pool":
         from Utils.gacha_pools import GACHA_POOLS
         return f"在「{GACHA_POOLS.get(target, {}).get('name', target)}」祈願 {{p}} 抽"

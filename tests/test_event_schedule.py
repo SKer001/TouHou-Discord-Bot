@@ -84,7 +84,7 @@ async def main():
     sb = state("b")
     check(f"b started {sb}", sb["status"] == "active" and sb["started_at"] == T0.isoformat() and sb["ends_at"] == (T0 + 7 * DAY).isoformat())
     check("only b active", [e["id"] for e in await active(T0)] == ["b"])
-    check("th06 closed with a", (await econ.get_rules(T0))["gacha_event_pool"] is None)
+    check("th06 closed with a", "th06" not in (await econ.get_rules(T0))["gacha_event_pools"])
 
     # 2. 排 a 在兩天後開始、3 天：b 沒勾到 ➔ 跑到 a 開始那一刻才結束
     start = T0 + 2 * DAY
@@ -103,7 +103,7 @@ async def main():
     # 時間到：b 結束、a 開始 (紅魔鄉卡池跟著開)
     t = start + timedelta(minutes=1)
     check("switch over", [e["id"] for e in await active(t)] == ["a"] and state("b")["status"] == "ended")
-    check("th06 open again", (await econ.get_rules(t))["gacha_event_pool"]["key"] == "th06")
+    check("th06 open again", "th06" in (await econ.get_rules(t))["gacha_event_pools"])
     check("a new run", (await runs(t))["a"]["run"] == f"a:{start.isoformat()}")
 
     # 3. 勾到本來就在進行中的 a ➔ 不重開，只改結束時間 (0 = 一直持續)；任務那一輪不變

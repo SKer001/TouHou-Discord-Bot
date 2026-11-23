@@ -70,7 +70,7 @@ async def main():
     # 🔴 紅魔鄉卡池只在紅霧異變期間開放 (2026-11-22)：從「🎪 活動限定卡池」抽，保底照舊記在 th06
     from Database import Economy_DB_Manager as econ
     rules = await econ.get_rules()
-    ep = rules["gacha_event_pool"] or {}
+    ep = rules["gacha_event_pools"].get("th06") or {}
     check(f"scarlet mist opens th06 {ep}", ep.get("key") == "th06" and ep.get("from") == "th06" and ep.get("characters") is None
           and ep.get("name") == "🎪 🔴 紅魔鄉卡池・紅霧異變限定")
     check("th06 members via event", set(gacha.pool_characters("th06", rules)) == th06)
@@ -101,7 +101,7 @@ async def main():
     # 活動沒在進行 ➔ 🎪 跟 th06 都抽不到，history 照樣列紅魔鄉 (加註)，機率表選單只剩舊作
     orig = econ.get_rules
     async def no_event(now=None):
-        r = await orig(now); r["gacha_event_pool"] = None; return r
+        r = await orig(now); r["gacha_event_pools"] = {}; return r
     econ.get_rules = no_event
     money = (await udm.get_or_create_user(1))["money"]
     for choice in ("event", "th06"):
@@ -116,7 +116,8 @@ async def main():
     orig_rules = econ.get_rules
     async def fake_rules(now=None):
         r = await orig_rules(now)
-        r["gacha_event_pool"] = {"key": "event_test", "event": "test", "name": "🎪 測試卡池", "desc": "", "characters": ["reimu", "marisa"]}
+        r["gacha_event_pools"] = {"event_test": {"key": "event_test", "event": "test", "events": ["test"], "from": None,
+                                                 "name": "🎪 測試卡池", "desc": "", "characters": ["reimu", "marisa"]}}
         r["modifiers"]["gacha_cost"] = 0.5
         return r
     econ.get_rules = fake_rules

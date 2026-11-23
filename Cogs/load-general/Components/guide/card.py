@@ -56,7 +56,8 @@ def _rarity_names(g) -> list[str]:
 def _pull(ctx: dict | None = None) -> str:
     """ctx = 開書時讀的進行中活動 (guide_components.current_context)；不要把某個活動寫死成例子"""
     g = _gacha()
-    event_pool = ((ctx or {}).get("rules") or {}).get("gacha_event_pool")
+    open_pools = list(g.event_pools((ctx or {}).get("rules")).values())   # 進行中的活動限定卡池 (可以同時好幾個)
+    open_keys = {p["key"] for p in open_pools}
     ur, rar = g.PITY_RARITY, g.RARITIES
     rates = g.base_rates()
     rate_line = "、".join(f"{r} {g.rate_text(rates[r] / 100)}" for r in rar)
@@ -73,7 +74,7 @@ def _pull(ctx: dict | None = None) -> str:
         avg = f" · 平均約 **{st['avg']:.0f}** 抽一張 {ur}" if st["avg"] else ""
         if p.get("event_only"):
             note = g.open_note(key).replace("🎪 ", "")
-            now = "　🟢 **現在開放中**" if event_pool and event_pool.get("key") == key else ""
+            now = "　🟢 **現在開放中**" if key in open_keys else ""
             pool_lines.append(f"- **{p['name']}**：{p['desc']}，共 **{len(chars)}** 位角色{avg}；"
                               f"🎪 平常不能抽，只有**{note}**從「🎪 活動限定卡池」抽得到{now}")
         else:
@@ -90,7 +91,8 @@ def _pull(ctx: dict | None = None) -> str:
         *pool_lines,
         "- **🎪 活動限定卡池**：只在活動期間開放，抽哪個卡池由那個活動決定 (可能是上面標 🎪 的卡池，"
         "也可能是活動自己的限定卡池)，結果畫面的卡池名稱會標「・〇〇限定」；沒有的時候選它會提示「🎪 目前沒有進行中的活動卡池。」",
-        *([f"-# 🟢 現在的活動限定卡池：{event_pool['name']}" if event_pool else "-# 現在沒有開放活動限定卡池"]
+        "-# 好幾個活動同時進行時，每個活動各開一個卡池：選「🎪 活動限定卡池」會先跳選單問要抽哪一個，保底和活動任務都各算各的",
+        *([f"-# 🟢 現在的活動限定卡池：{'、'.join(p['name'] for p in open_pools)}" if open_pools else "-# 現在沒有開放活動限定卡池"]
           if ctx is not None else []),
         "",
         "### 💰 價格",

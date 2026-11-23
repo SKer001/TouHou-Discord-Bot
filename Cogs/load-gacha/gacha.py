@@ -34,7 +34,7 @@ from .Components.gacha_components import (
     build_fusion_preview_container,
     build_fusion_result_container,
 )
-from Utils.components import send_notice, notice_view
+from Utils.components import send_notice, notice_view, notice_container
 from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 from Utils.gacha_pools import GACHA_POOLS, load_gacha_pool
 from Database.events import pool_open_events   # 🎪 event_only 卡池 (紅魔鄉) 是哪個活動開放的
@@ -75,6 +75,12 @@ def sort_cards(cards: list) -> list:
 # ================= ⛩️ 祈願規則 =================
 DRAW_COST = 5000                 # 每抽賽錢 (十連 = 10 倍，沒有折扣；2026-11-05 使用者指定)
 EVENT_POOL = "event"             # /card gacha 的「活動限定卡池」選項；實際卡池 = 進行中活動的 gacha.pool (Events/README.md)
+
+
+def event_pools(rules: dict | None) -> dict:
+    """進行中的活動限定卡池 {卡池 key: {"key", "event", "events", "from", "name", "desc", "characters"}}
+    (Database/events.game_rules；每個活動各一個，可以同時好幾個，2026-11-24)"""
+    return (rules or {}).get("gacha_event_pools") or {}
 
 
 def draw_cost(draw_count: int, mult: float = 1.0) -> int:
@@ -120,8 +126,8 @@ def base_rates(rules: dict | None = None) -> dict:
 def pool_characters(pool_key: str, rules: dict | None = None) -> list[str]:
     """卡池裡的角色；活動卡池 (event_xxx) 用活動檔列的角色 (一般卡池的角色都可以放)；
     活動開放的一般卡池 (gacha.pool.from，characters = None) 就是那個卡池本來的角色"""
-    event_pool = (rules or {}).get("gacha_event_pool")
-    if event_pool and pool_key == event_pool["key"] and event_pool.get("characters") is not None:
+    event_pool = event_pools(rules).get(pool_key)
+    if event_pool and event_pool.get("characters") is not None:
         return [k for k in event_pool["characters"] if k in GACHA_POOL]
     return [k for k, v in GACHA_POOL.items() if v["pool"] == pool_key]
 
@@ -229,7 +235,7 @@ def roll_pool_cards(pool_key: str, count: int, since_ur: int, make_completeness,
     只有 UR 會重置保底計數 (LR 固定 0.1%，不影響保底)
     卡牌多帶兩個只用於顯示 / 統計、不寫入資料庫的欄位："pity" (保底送的)、"lucky" (90 抽內出的 UR，🍀 運氣稱號)
     rules = 活動規則 (econ.get_rules)：gacha_rate_up {角色: 權重倍率}、gacha_rarity_weights {階級: %} 取代起始機率、
-            gacha_event_pool (pool_key 是活動卡池時用它的角色清單)
+            gacha_event_pools (pool_key 是活動卡池時用它的角色清單)
     """
     rules = rules or {}
     rate_up = rules.get("gacha_rate_up") or {}
@@ -437,7 +443,7 @@ class GachaResultView(ui.LayoutView):
         self.user_id = user_id
         self.user_name = user_name
         self.gacha_cog = gacha_cog
-        self.pool_key = pool_key   # 「繼續祈願」沿用同一個卡池 (活動卡池是 "event"，每次重新找進行中的活動)
+        self.pool_key = pool_key   # 「繼續祈願」沿用同一個卡池 (實際的卡池 key；活動結束了就抽不到，不會換成別的活動卡池)
 
         single_btn = ui.Button(label=f"🌸 繼續單抽 ({draw_cost(1, cost_mult):,})", style=discord.ButtonStyle.primary)
         single_btn.callback = self.draw_single_again
@@ -491,14 +497,19 @@ def is_event_only(pool_key: str) -> bool:
 def resolve_pool(choice_key: str, rules: dict) -> tuple[str, str] | None:
     """
     卡池選項 ➔ (實際卡池 key, 名稱)；抽卡、繼續祈願、機率表都用這個
-    - "event" / event_<id> / event_only 的一般卡池 (th06)：要是進行中活動的卡池才行，不然 ➔ None
+    - "event"：進行中的活動卡池剛好一個 ➔ 那個；一個都沒有或好幾個 ➔ None (好幾個時 execute_gacha 先跳選單)
+    - event_<id> / event_only 的一般卡池 (th06)：要是進行中活動的卡池才行，不然 ➔ None
     - 活動開放的一般卡池 (gacha.pool.from)：key 就是那個卡池 (保底照舊記在那裡)，名稱 = 「🎪 🔴 紅魔鄉卡池・紅霧異變限定」
     """
-    event_pool = rules.get("gacha_event_pool")
-    if choice_key == EVENT_POOL or choice_key.startswith(f"{EVENT_POOL}_") or is_event_only(choice_key):
-        if not event_pool or choice_key not in (EVENT_POOL, event_pool["key"]):
+    pools = event_pools(rules)
+    if choice_key == EVENT_POOL:
+        if len(pools) != 1:
             return None
-        return event_pool["key"], event_pool["name"]
+        choice_key = next(iter(pools))
+    if choice_key in pools:
+        return choice_key, pools[choice_key]["name"]
+    if choice_key.startswith(f"{EVENT_POOL}_") or is_event_only(choice_key):
+        return None
     return choice_key, GACHA_POOLS.get(choice_key, {}).get("name", "📦 其他")
 
 
@@ -533,6 +544,9 @@ async def send_rate_sheet(interaction: discord.Interaction, choice_key: str):
     """📊 機率表：按的時候才讀活動規則與按的人自己的保底進度"""
     rules = await econ.get_rules()
     resolved = resolve_pool(choice_key, rules)
+    if choice_key == EVENT_POOL and len(event_pools(rules)) > 1:
+        await send_notice(interaction, "🎪 現在有好幾個活動限定卡池，請用 `/card history` 的選單選要看哪一個的機率表。")
+        return
     if not resolved or not pool_characters(resolved[0], rules):
         await send_notice(interaction, "🎪 這個卡池目前沒有開放，看不到機率表。")
         return
@@ -552,6 +566,55 @@ def open_note(pool_key: str) -> str:
         return ""
     names = pool_open_events(pool_key)
     return f"🎪 {'、'.join(names)}期間開放" if names else "🎪 活動期間開放"
+
+
+class EventPoolPickerView(ui.LayoutView):
+    """🎪 同時有好幾個活動限定卡池時 (2026-11-24)：先選要抽哪一個；只有祈願的人能選，選了才扣錢、抽卡 (用選的當下的活動規則)"""
+    def __init__(self, user_id: int, gacha_cog, draw_count: int, pools: dict, cost: int, source: discord.Interaction):
+        super().__init__(timeout=180)
+        self.user_id, self.gacha_cog, self.draw_count = user_id, gacha_cog, draw_count
+        self.source = source   # 逾時要改的訊息 = 打指令 / 按繼續祈願的那個互動的原始回應
+        self.busy = False
+        kind = "十連" if draw_count == 10 else ("單抽" if draw_count == 1 else f"{draw_count} 抽")
+        container = ui.Container(accent_color=discord.Color.gold())
+        container.add_item(ui.TextDisplay(
+            f"## 🎪 選擇活動限定卡池\n"
+            f"現在有 **{len(pools)}** 個活動限定卡池同時開放，選一個開始{kind}祈願 (`{cost:,}` 賽錢)\n"
+            f"-# 每個卡池的保底各自計算 (用 `/card history` 看)"
+        ))
+        self.select = ui.Select(
+            placeholder="🎪 選要祈願的卡池",
+            options=[discord.SelectOption(label=p["name"][:100], value=key, description=(p.get("desc") or "")[:100] or None)
+                     for key, p in list(pools.items())[:25]],
+        )
+        self.select.callback = self.on_pick
+        container.add_item(ui.ActionRow(self.select))
+        self.add_item(container)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await send_notice(interaction, "❌ 這不是你的祈願畫面！請輸入 `/card gacha` 開啟你自己的祈願。")
+            return False
+        return True
+
+    async def on_pick(self, interaction: discord.Interaction):
+        if self.busy:   # 連點：第二下直接忽略 (不會抽兩次)
+            await interaction.response.defer()
+            return
+        self.busy = True
+        try:
+            if await self.gacha_cog.execute_gacha(interaction, self.draw_count, self.select.values[0]):
+                self.stop()   # 畫面已經換成抽卡結果，逾時不用再改
+        finally:
+            self.busy = False
+
+    async def on_timeout(self):
+        self.clear_items()
+        self.add_item(notice_container("⏳ 選單放太久已經停用了；要祈願請再打一次 `/card gacha`。"))
+        try:
+            await self.source.edit_original_response(view=self)
+        except discord.HTTPException:
+            pass
 
 
 class GachaHistoryView(ui.LayoutView):
@@ -1341,26 +1404,33 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         val = (random.gauss(0, 0.35)) ** 2
         return round(max(0.001, min(1.000, val)), 4)
 
-    async def execute_gacha(self, interaction: discord.Interaction, draw_count: int, pool_key: str):
+    async def execute_gacha(self, interaction: discord.Interaction, draw_count: int, pool_key: str) -> bool:
+        """祈願；畫面換成抽卡結果 ➔ True (選卡池的畫面用來判斷要不要停掉)，沒抽 (沒開放、賽錢不足、跳選單) ➔ False"""
         await interaction.response.defer()
 
         # 活動的機率提升、祈願價格倍率、活動限定卡池都在 rules
         rules = await econ.get_rules()
-        choice_key = pool_key   # 「繼續祈願」用：活動卡池記 "event"，下次重新找進行中的活動
+        user_id = interaction.user.id
+        cost_mult = rules["modifiers"].get("gacha_cost", 1.0)
+        total_cost = draw_cost(draw_count, cost_mult)
+        pools = event_pools(rules)
+        if pool_key == EVENT_POOL and len(pools) > 1:   # 🎪 同時有好幾個活動卡池 ➔ 先選要抽哪個
+            picker = EventPoolPickerView(user_id, self, draw_count, pools, total_cost, interaction)
+            if interaction.type == discord.InteractionType.component:
+                await interaction.edit_original_response(view=picker)
+            else:
+                await interaction.followup.send(view=picker)
+            return False
         resolved = resolve_pool(pool_key, rules)   # event_only 的卡池 (th06) 也只有活動期間抽得到
         if not resolved:
             await send_notice(interaction, "🎪 目前沒有進行中的活動卡池。")
-            return
+            return False
         pool_key, pool_name = resolved
 
         # 卡池沒有角色時直接中止
         if not pool_characters(pool_key, rules):
             await send_notice(interaction, "❌ 這個卡池目前沒有任何角色，暫時無法祈願，請聯絡管理員。")
-            return
-
-        user_id = interaction.user.id
-        cost_mult = rules["modifiers"].get("gacha_cost", 1.0)
-        total_cost = draw_cost(draw_count, cost_mult)
+            return False
 
         # 扣款、擲卡 (含保底)、寫入卡牌與統計全部在同一個交易 (活動卡池的保底跟一般卡池分開算)
         try:
@@ -1370,11 +1440,13 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
                 # 活動卡池：每張卡的預期抽數另外記，浮動市值才算得到 (一般卡池照舊用卡池抽數 × 機率)
                 #  (活動開放的一般卡池 th06 不用：它本來就有卡池抽數 × 機率)
                 expected=expected_cards(pool_key, draw_count, rules) if pool_key.startswith(f"{EVENT_POOL}_") else None,
+                # 🎪 活動任務 gacha_event_pool 只算開這個卡池的活動 (別的活動的卡池不算)
+                quest_events=list(pools[pool_key]["events"]) if pool_key in pools else None,
             )
         except InsufficientFunds as e:
             msg = f"❌ **賽錢不足！**\n祈願需要 `{total_cost:,}` 賽錢，但你的口袋裡只有 `{fmt_money(e.money)}` 賽錢...\n*靈夢看了看空蕩蕩的賽錢箱，無奈地把你請出了神社。*"
             await send_notice(interaction, msg)
-            return
+            return False
 
         results = result["cards"]
         if PITY_RARITY in pool_holders(pool_key, rules):   # 卡池沒有 UR 就沒有保底
@@ -1395,12 +1467,13 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
                 results, interaction.user.display_name, total_cost, THUMBNAILS, pool_name, pity_text
             )
 
-        view = GachaResultView(user_id, interaction.user.display_name, self, container, choice_key, cost_mult)
+        view = GachaResultView(user_id, interaction.user.display_name, self, container, pool_key, cost_mult)
 
         if interaction.type == discord.InteractionType.component:
             await interaction.edit_original_response(view=view)
         else:
             await interaction.followup.send(view=view)
+        return True
 
     @app_commands.command(name="gacha", description="⛩️ 博麗神社祈願：消耗賽錢抽取角色卡牌")
     @app_commands.describe(pool="要祈願的卡池 (依作品代數劃分)", pull_type="單抽或十連")
@@ -1423,9 +1496,9 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
         stats = await get_gacha_stats(user_id)
         pools = dict(GACHA_POOLS)
         rules = await econ.get_rules()
-        event_pool = rules.get("gacha_event_pool")
-        if event_pool and event_pool["key"] not in pools:   # 進行中的活動卡池也列出來 (保底跟一般卡池分開算)
-            pools[event_pool["key"]] = {"name": event_pool["name"]}
+        for key, ep in event_pools(rules).items():   # 進行中的活動卡池全部列出來 (保底跟一般卡池分開算)
+            if key not in pools:
+                pools[key] = {"name": ep["name"]}
         notes = {key: open_note(key) for key in pools if open_note(key)}   # 紅魔鄉：🎪 紅霧異變期間開放
         drawable = {key: p for key, p in pools.items() if resolve_pool(key, rules)}   # 📊 機率表選單只列現在抽得到的
         next_rates = {   # 下一抽 UR 的機率；卡池沒有 UR ➔ None

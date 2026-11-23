@@ -159,7 +159,10 @@ async def main():
         {"quests": [{"id": "u", "name": "u", "desc": "u", "type": "ura_kill", "target": [1], "count": 1}]})))
     check("goal cook", "草莓鮮奶油蛋糕" in events.quest_goal(ev["quests"][1], ev, items))
     check("goal gacha pool", events.quest_goal(ev["quests"][6], ev, items) == "在「🔴 紅魔鄉卡池」祈願 {p} 抽")
-    check("goal event pool warns", "還沒有活動限定卡池" in events.quest_goal({"type": "gacha_event_pool", "count": 5}, ev, items))
+    check("goal event pool (from)", events.quest_goal({"type": "gacha_event_pool", "count": 5}, ev, items)
+          == "在「🎪 🔴 紅魔鄉卡池・紅霧異變限定」祈願 {p} 抽")   # 2026-11-24 起 from 開的一般卡池也算這個活動的卡池
+    check("goal event pool warns", "還沒有活動限定卡池" in events.quest_goal({"type": "gacha_event_pool", "count": 5},
+                                                                     {**ev, "gacha": {}}, items))
 
     # 稱號資料
     check("event titles in TITLES", td.TITLES[VISITOR]["name"] == "紅霧中的參拜者" and td.TITLES[RESOLVER]["rarity"] == "SSR")

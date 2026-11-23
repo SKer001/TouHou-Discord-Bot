@@ -1159,13 +1159,15 @@ class InsufficientFunds(Exception):
 
 
 async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_cards, expected: dict | None = None,
-                     now: datetime | None = None) -> dict:
+                     now: datetime | None = None, quest_events: list[str] | None = None) -> dict:
     """
     祈願：扣款 ➔ 依保底計數擲卡 ➔ 寫入卡牌 ➔ 累加統計與該卡池的保底，全部同一個交易
     - roll_cards(since_ur) 回傳 (cards, new_since_ur, got_ur)；since_ur = 該卡池距離上次 UR 的抽數
     - expected {(角色, 階級): 預期張數}：活動卡池用，記進 daily_draws 的 `card:<角色>:<階級>` (浮動市值的預期抽到量)
     - 賽錢不足丟出 InsufficientFunds (什麼都不會寫入)
-    - 🎪 活動卡池 (event_<活動 id>) 的抽數記進那個活動這一輪的任務計數 gacha_event_pool
+    - 🎪 活動卡池的抽數記進「開這個卡池的活動」這一輪的任務計數 gacha_event_pool (別的活動不算)：
+      quest_events = 那些活動 id (rules["gacha_event_pools"][卡池]["events"])；沒給 ➔ event_<活動 id> 就是那個活動
+    - 一般卡池 (含活動開放的 th06) 另外記 gacha_pool:<卡池> 給所有進行中的活動 (任務 type gacha_pool)
     回傳 {"cards", "money", "pool_draws", "since_ur"}
     """
     async with connect() as db:
@@ -1221,10 +1223,13 @@ async def draw_gacha(user_id: int, pool: str, draw_count: int, cost: int, roll_c
             lucky = sum(1 for c in cards if c.get("lucky"))
             if lucky:
                 await add_player_stat(db, user_id, f"tenpull_2ur:{pool}", lucky)
-            if pool.startswith(EVENT_POOL_PREFIX):   # 🎪 活動卡池祈願 ➔ 那個活動的任務計數
-                await add_quest_stats(db, user_id, now, per_event={pool[len(EVENT_POOL_PREFIX):]: {"gacha_event_pool": draw_count}})
+            if quest_events is None:
+                quest_events = [pool[len(EVENT_POOL_PREFIX):]] if pool.startswith(EVENT_POOL_PREFIX) else []
+            per_event = {eid: {"gacha_event_pool": draw_count} for eid in quest_events}   # 🎪 開這個卡池的活動
+            if pool.startswith(EVENT_POOL_PREFIX):
+                await add_quest_stats(db, user_id, now, per_event=per_event)
             else:   # 一般卡池 ➔ 進行中的活動都記 gacha_pool:<卡池> (任務 type gacha_pool)
-                await add_quest_stats(db, user_id, now, stats={f"gacha_pool:{pool}": draw_count})
+                await add_quest_stats(db, user_id, now, stats={f"gacha_pool:{pool}": draw_count}, per_event=per_event)
             await db.commit()
         except BaseException:
             await db.rollback()

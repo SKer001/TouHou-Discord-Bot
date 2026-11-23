@@ -122,12 +122,12 @@ async def main():
     check("card rates sum", close(sum(cr.values()), 1) and close(cr[("flandre", "LR")], st["rates"]["LR"] / 2)
           and close(cr[("cirno", "UR")], st["rates"]["UR"] / 5) and close(cr[("daiyousei", "N")], st["rates"]["N"] / 2))
     # 卡池少了某些階級：那一份照比例分給其他階級，UR 照曲線；沒有 UR ➔ 沒有 UR 也沒有保底
-    ev = {"gacha_event_pool": {"key": "event_x", "characters": ["reimu", "cirno"]}}   # 都是 SR / SSR / UR
+    ev = {"gacha_event_pools": {"event_x": {"key": "event_x", "characters": ["reimu", "cirno"]}}}   # 都是 SR / SSR / UR
     te = gacha.rarity_table("event_x", 1, ev)
     check(f"missing rarities {te}", te["N"] == te["R"] == te["LR"] == 0 and close(te["UR"], 0.001)
           and close(te["SR"] / te["SSR"], 18 / 10.9) and close(sum(te.values()), 1))
     check("missing keeps curve", close(gacha.rarity_table("event_x", 90, ev)["UR"], 0.025))
-    no_ur = {"gacha_event_pool": {"key": "event_y", "characters": ["daiyousei", "meiling"]}}   # N/R/SR + R/SR/SSR
+    no_ur = {"gacha_event_pools": {"event_y": {"key": "event_y", "characters": ["daiyousei", "meiling"]}}}   # N/R/SR + R/SR/SSR
     ty = gacha.rarity_table("event_y", 100, no_ur)
     check(f"no UR pool {ty}", ty["UR"] == 0 and close(sum(ty.values()), 1) and gacha.ur_cycle_stats("event_y", no_ur)["avg"] is None)
     # 實際擲 20000 抽 (真的亂數)：UR 約 1.08%、LR 約 0.1%
@@ -189,7 +189,7 @@ async def main():
     check("rate sheet within 40", sum(1 for _ in sheet.view.walk_children()) <= 40)
     orig_rules = gacha.econ.get_rules
     async def no_event(now=None):
-        r = await orig_rules(now); r["gacha_event_pool"] = None; return r
+        r = await orig_rules(now); r["gacha_event_pools"] = {}; return r
     gacha.econ.get_rules = no_event   # 紅霧異變沒在進行 ➔ 紅魔鄉 / 🎪 都看不到機率表
     for choice in ("event", "th06"):
         sheet = Interaction(uid=3); await gacha.send_rate_sheet(sheet, choice)

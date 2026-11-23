@@ -147,13 +147,15 @@ g2 = game_rules([{"id": "a", "gacha": {"rate_up": {target: 2}}}, {"id": "b", "ga
 check("rate up multiply", g2["gacha_rate_up"][target] == 6 and g2["gacha_rarity_weights"] is None)
 check("daily items", g2["daily_items"] == [["reimu_onigiri", 2]])
 
-# 🎴 活動限定卡池 (2026-11-13 補的預留位)：角色可以跨一般卡池；後面的活動蓋前面
-check("no event pool", base["gacha_event_pool"] is None)
+# 🎴 活動限定卡池 (2026-11-13 補的預留位)：角色可以跨一般卡池；每個活動各開一個 (2026-11-24 起可以同時好幾個)
+check("no event pool", base["gacha_event_pools"] == {})
 mixed = ["reimu", keys[0], "no_such_char"]
 g3 = game_rules([{"id": "a", "name": "測試", "gacha": {"pool": {"characters": ["marisa"]}}},
                  {"id": "b", "name": "測試二", "emoji": "🎉", "gacha": {"pool": {"characters": mixed}}}])
-ep = g3["gacha_event_pool"]
-check("event pool later wins", ep["key"] == "event_b" and ep["event"] == "b" and ep["characters"] == mixed)
+check("both event pools open", list(g3["gacha_event_pools"]) == ["event_a", "event_b"]
+      and gacha.pool_characters("event_a", g3) == ["marisa"])
+ep = g3["gacha_event_pools"]["event_b"]
+check("event pool fields", ep["key"] == "event_b" and ep["event"] == "b" and ep["events"] == ["b"] and ep["characters"] == mixed)
 check("event pool default name", ep["name"] == "🎉 測試二卡池" and ep["desc"] == "活動限定")
 check("event pool chars filtered", gacha.pool_characters("event_b", g3) == ["reimu", keys[0]])
 cards, _, _ = gacha.roll_pool_cards("event_b", 60, 0, lambda: 0.5, g3)
@@ -165,15 +167,18 @@ exp5 = gacha.expected_cards("event_b", 8, g5)   # reimu 跟 cirno 都是 SR / SS
 check("expected follows rate up", abs(sum(n for (k, _), n in exp5.items() if k == "reimu") - 6) < 1e-9)
 check("expected long-run UR", abs(sum(n for (_, r), n in exp.items() if r == "UR") - 10 / gacha.ur_cycle_stats("event_b", g3)["avg"]) < 1e-9)
 check("normal pool unaffected", set(gacha.pool_characters("th06", g3)) == set(keys))
-check("empty pool ignored", game_rules([{"id": "c", "gacha": {"pool": {"characters": []}}}])["gacha_event_pool"] is None)
+check("empty pool ignored", game_rules([{"id": "c", "gacha": {"pool": {"characters": []}}}])["gacha_event_pools"] == {})
 # 🔴 gacha.pool.from (2026-11-22)：一般卡池 (event_only) 只在活動期間開放，key 照舊是那個卡池
 g6 = game_rules([{"id": "m", "name": "紅霧異變", "gacha": {"pool": {"from": "th06"}}}])
-ep6 = g6["gacha_event_pool"]
+ep6 = g6["gacha_event_pools"]["th06"]
 check(f"from pool {ep6}", ep6["key"] == "th06" and ep6["from"] == "th06" and ep6["characters"] is None and ep6["event"] == "m"
       and ep6["name"] == "🎪 🔴 紅魔鄉卡池・紅霧異變限定")
 check("from pool members", set(gacha.pool_characters("th06", g6)) == set(keys) and gacha.resolve_pool("event", g6) == ("th06", ep6["name"]))
 check("from pool expected = normal", gacha.expected_cards("th06", 10, g6) == gacha.expected_cards("th06", 10))
-check("from unknown pool ignored", game_rules([{"id": "u", "gacha": {"pool": {"from": "nope"}}}])["gacha_event_pool"] is None)
+check("from unknown pool ignored", game_rules([{"id": "u", "gacha": {"pool": {"from": "nope"}}}])["gacha_event_pools"] == {})
+g7 = game_rules([{"id": "m", "name": "紅霧異變", "gacha": {"pool": {"from": "th06"}}}, {"id": "n", "name": "再一次", "gacha": {"pool": {"from": "th06"}}}])
+check(f"same from pool once {g7['gacha_event_pools']}", list(g7["gacha_event_pools"]) == ["th06"]
+      and g7["gacha_event_pools"]["th06"]["events"] == ["m", "n"] and g7["gacha_event_pools"]["th06"]["name"] == ep6["name"])
 check("th06 event only", gacha.is_event_only("th06") and not gacha.is_event_only("classic")
       and gacha.resolve_pool("th06", base) is None and gacha.resolve_pool("classic", base)[0] == "classic")
 from Database.events import pool_open_events

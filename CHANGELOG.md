@@ -13,6 +13,18 @@
 
 ---
 
+## 0.39.005 — 2026-11-24：🎪 活動限定卡池可以同時開好幾個 (筆電，玩法 session)
+- TH07 派工第一件 (統整 session 轉達，使用者「都好」)：之後的春雪異變會開妖妖夢卡池，但紅霧異變不限時一直開著；原本 `game_rules` 只有一個 `gacha_event_pool`，後面的活動會蓋掉前面的 ➔ 兩個活動一起開時紅魔鄉卡池抽不到。
+- `events.game_rules` 的 `gacha_event_pool` (單一) ➔ **`gacha_event_pools` `{卡池 key: 卡池}`**，每個進行中、有寫 `gacha.pool` 的活動各一個。卡池內容抽成 `events.event_pool(ev)` (game_rules、任務文字、`/admin-event` 共用)，多一個 `events` 欄位 = 開這個卡池的活動；兩個活動 `from` 同一個卡池 ➔ 只開一個，兩個活動都列進去。舊欄位整個拿掉 (不留相容)，讀它的地方全部改。
+- 抽卡 (`gacha.py`)：`event_pools(rules)` 讀卡池；`resolve_pool("event")` 剛好一個 ➔ 那個，一個都沒有或好幾個 ➔ None。`execute_gacha` 選「🎪 活動限定卡池」時：一個 ➔ 直接抽 (跟以前一樣)；**好幾個 ➔ 先跳 `EventPoolPickerView` 選單** (卡池名稱 + 說明、價格，只有祈願的人能選，選了才扣錢；連點擋掉、賽錢不足選單留著可以再選、180 秒逾時換成提示)；`execute_gacha` 改成回傳有沒有抽 (選單用來判斷要不要停)。
+- 結果畫面的「繼續祈願」改記**實際的卡池 key** (`th06` / `event_<id>`，原本記 `"event"`)：好幾個卡池時不用每次重選，活動結束了就抽不到 (不會跳到別的活動卡池、不扣錢)。舊畫面記著 `"event"` 的按鈕遇到好幾個卡池會跳選單。📊 機率表收到 `"event"` 又有好幾個卡池 ➔ 提示用 `/card history` 選。
+- `/card history` 列出全部進行中的活動卡池 (機率表選單也是)；教學書抽卡章「🟢 現在的活動限定卡池」列全部，多一行說明「好幾個活動同時進行時先跳選單問要抽哪個，保底和任務各算各的」。
+- 活動任務：`draw_gacha(quest_events=…)`，`gacha_event_pool` 只記給**開這個卡池的活動**；`from` 開的一般卡池 (紅魔鄉) 現在也算那個活動的 `gacha_event_pool` (原本只算 `event_<id>`，任務文字還會提示「還沒有活動限定卡池」)。任務文字改成「在「<卡池名>」祈願 N 抽」。`gacha_pool:<卡池>` 照舊記給全部進行中的活動。
+- `/admin-event`：`pool_close_text()` 統一「卡池也會跟著關」的提示，`characters` 卡池也會提 (原本只提 `from`)；別的還在進行 (而且不會結束) 的活動也開同一個卡池時不提。`/admin-event end` 讀當下規則算出這種卡池。
+- 文件：`events.game_rules` 說明表、`Events/README.md` (卡池兩行、任務 `gacha_event_pool`)、`docs/cogs.md` 補一條。
+- 測試：新的 `tests/test_event_pools_multi.py` (34 項：兩個假活動同時進行 (一個 `from: th06`、一個 `characters`，只在測試裡換掉 `load_events`，不放進 `Events/`) ➔ 跳選單不扣錢、別人選不了、連點只抽一次、兩個卡池都抽得到、保底各記各的、任務各算各的、賽錢不足、逾時、舊按鈕、機率表、history、教學書、`/admin-event` 提示；只剩一個活動 ➔ 直接抽、結束的卡池按繼續祈願抽不到也不扣錢)。改 `test_event_slots` (兩個活動都開、同一個 `from` 只開一個)、`test_pools`、`test_pity`、`test_event_schedule`、`test_event_quests` (紅霧異變的 `gacha_event_pool` 任務文字) 跟著新欄位。
+- 還沒處理 (回報統整)：`gacha.rate_up` / `rarity_weights` 還是所有進行中的活動合在一起套用到每個卡池 (春雪異變的機率調整也會影響紅魔鄉卡池)。
+
 ## 0.39.004 — 2026-11-24：TODO.md 記下 TH07 妖妖夢第一輪定案 (統整)
 - `TODO.md` 第 3 節：妖妖夢卡池只在活動期間開放、活動卡池要能同時開好幾個 (派給遊戲設計 session)、做的順序 (角色檔 ➔ 卡面 / 名片 ➔ 春雪異變)、11 位名單 (騷靈三姊妹 3 張、愛麗絲另開 `alice_th07`)、33 張卡的階級範圍、還沒定的項目，以及加一代角色要動的地方。
 - **怎麼查到要動哪裡**：在統整 worktree 放一位假角色 + 妖妖夢卡池跑全部測試，壞掉的是裏世界符卡 (單卡詳情、裏世界引擎直接 KeyError)、卡池稱號、寫死的 24 位角色；查完已還原。另外發現**空卡池**會讓「幻想鄉緣起」(所有卡池全收集) 永遠拿不到，所以卡池要跟角色檔一起加。

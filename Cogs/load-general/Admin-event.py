@@ -15,7 +15,7 @@ from discord import app_commands, ui
 from discord.ext import commands
 
 from Database import Economy_DB_Manager as econ
-from Database.events import load_events
+from Database.events import load_events, event_pool
 from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
 from Utils.gacha_pools import GACHA_POOLS
@@ -59,9 +59,22 @@ def _when(t: datetime | None, now: datetime) -> str:
     return "現在" if t is None or t <= now else ts(t, "f")
 
 
+def pool_close_text(ev: dict, still_open: set | None = None) -> str:
+    """活動結束時會跟著關的活動卡池 (紅霧異變 ➔「🔴 紅魔鄉卡池也會跟著關 (平常抽不到)」)；
+    沒有卡池、或別的還在進行的活動也開同一個卡池 (still_open = 那些卡池 key) ➔ 空字串"""
+    ep = event_pool(ev)
+    if not ep or ep["key"] in (still_open or set()):
+        return ""
+    if ep["from"]:
+        return f"{GACHA_POOLS[ep['from']]['name']}也會跟著關 (平常抽不到)"
+    return f"{ep['name']}也會跟著關"
+
+
 def plan_lines(plan: list[dict], now: datetime) -> list[str]:
     """確認畫面 / 結果畫面：每個活動會怎樣 + 會關掉的活動卡池"""
     lines, closing = [], []
+    staying = {ep["key"] for p in plan if p["action"] in ("start", "extend") and not p.get("ends_at")
+               for ep in [event_pool(p["event"])] if ep}   # 一直持續的活動開的卡池：別的活動結束也不會關
     for p in plan:
         ev, a = p["event"], p["action"]
         name = f"{ev.get('emoji', '🎪')} **{ev.get('name', ev['id'])}**"
@@ -78,13 +91,12 @@ def plan_lines(plan: list[dict], now: datetime) -> list[str]:
             lines.append(f"⚫ 結束：{name} — {ts(p['ends_at'], 'f')} 結束 (到時候清掉所有玩家的活動素材與活動料理)")
         elif a == "cancel":
             lines.append(f"✖️ 取消排程：{name} (還沒開始，沒有活動道具要清)")
-        src = ((ev.get("gacha") or {}).get("pool") or {}).get("from")
-        if src in GACHA_POOLS:   # 這個活動開放的一般卡池 (紅霧異變 ➔ 紅魔鄉卡池)
+        close = pool_close_text(ev, staying)   # 這個活動開的卡池 (紅霧異變 ➔ 紅魔鄉卡池、活動自己的限定卡池)
+        if close:
             if a in ("end_now", "end_at", "cancel"):
-                closing.append(f"⚠️ {ev.get('name', ev['id'])}結束後，{GACHA_POOLS[src]['name']}也會跟著關 (平常抽不到)")
+                closing.append(f"⚠️ {ev.get('name', ev['id'])}結束後，{close}")
             elif p.get("ends_at"):   # 開始 / 延長但有結束時間 ➔ 到時候一樣會關
-                closing.append(f"⚠️ {ev.get('name', ev['id'])} {ts(p['ends_at'], 'f')} 結束後，"
-                               f"{GACHA_POOLS[src]['name']}也會跟著關 (平常抽不到)")
+                closing.append(f"⚠️ {ev.get('name', ev['id'])} {ts(p['ends_at'], 'f')} 結束後，{close}")
     return lines + closing
 
 
@@ -164,7 +176,7 @@ class EventStartView(ui.LayoutView):
 
 
 class EndEventConfirm(ui.LayoutView):
-    def __init__(self, admin_id: int, event: dict, phase: str = "running"):
+    def __init__(self, admin_id: int, event: dict, phase: str = "running", still_open: set | None = None):
         super().__init__(timeout=60)
         self.admin_id, self.event, self.phase = admin_id, event, phase
         self.done = False
@@ -174,9 +186,9 @@ class EndEventConfirm(ui.LayoutView):
         else:
             text = (f"⚠️ 確定要結束 **{event['emoji']} {event['name']}** 嗎？\n"
                     "所有玩家神社倉庫裡的活動素材與活動料理都會被清除，活動客人也會離開。")
-        src = ((event.get("gacha") or {}).get("pool") or {}).get("from")
-        if src in GACHA_POOLS:
-            text += f"\n{GACHA_POOLS[src]['name']}也會跟著關 (平常抽不到)。"
+        close = pool_close_text(event, still_open)   # still_open = 別的進行中活動也開的卡池 (不會關)
+        if close:
+            text += f"\n{close}。"
         container = notice_container(text)
         ok = ui.Button(label="🗑️ 確定取消排程" if phase == "scheduled" else "🗑️ 確定結束", style=discord.ButtonStyle.danger)
         ok.callback = self.on_ok
@@ -260,7 +272,9 @@ class EventAdmin(commands.GroupCog, group_name="admin-event", group_description=
         if phase == "off":
             await send_notice(interaction, f"↩️ **{ev['emoji']} {ev['name']}** 本來就沒在進行，也沒有排程。")
             return
-        await interaction.response.send_message(view=EndEventConfirm(interaction.user.id, ev, phase), ephemeral=True)
+        rules = await econ.get_rules()   # 別的進行中活動也開同一個卡池 ➔ 那個卡池不會跟著關
+        still_open = {k for k, p in rules["gacha_event_pools"].items() if any(e != event for e in p["events"])}
+        await interaction.response.send_message(view=EndEventConfirm(interaction.user.id, ev, phase, still_open), ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
