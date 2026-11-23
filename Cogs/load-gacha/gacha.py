@@ -2,6 +2,7 @@ import discord
 from discord import ui
 from discord.ext import commands
 from discord import app_commands
+import importlib
 import json
 import os
 import random
@@ -570,6 +571,83 @@ class GachaHistoryView(ui.LayoutView):
         await send_rate_sheet(interaction, self.select.values[0])
 
 
+# ================= 🔍 單卡詳情的資料 (2026-11-23 使用者定案) =================
+async def card_detail_info(card: dict, owner_id: int) -> dict:
+    """
+    單卡詳情 (卡冊 / 收藏冊 / 管理員看別人卡冊) 要多顯示的東西，build_card_detail_container 用：
+    - "profile"：角色稱號、種族、能力、簡介 (Characters/ 的 profile)
+    - "ura"：這張卡的 HP / ATK / DEF、職業、能不能出征 (跟裏世界出征一樣用 combat.make_member 算)
+    - "spell"：這張卡階級那一檔的特殊能力 (效果 = ura describe.spell_text；B 點 / 冷卻 = 出征時的值)
+    - "value"：分解能拿多少 (市值 × 完整度倍率 × 活動的分解倍率，跟 /market decompose 一樣)
+    - "synth" / "fuse"：卡冊裡同角色同階級還有幾張能一起合成 / 湊滿幾張完美卡能融合 (收藏中、出征中的卡不算)
+    """
+    from Utils.character_data import load_characters
+    from Database.ura import combat as ura_combat, data as ura_data, describe as ura_describe, rules as ura_rules
+    cid, rarity, comp = card["character_key"], card["rarity"], float(card["completeness"])
+    info = {}
+    char = load_characters().get(cid) or {}
+    profile = char.get("profile") or {}
+    if profile:
+        info["profile"] = {k: profile.get(k, "") for k in ("title", "species", "ability", "description")}
+    sp = char.get("special_powers") or {}
+    level = (sp.get("levels") or {}).get(rarity) or {}
+    uchar = ura_data.characters().get(cid)
+    if uchar and cid in ura_data.spells() and rarity in ura_rules.RARITY_MULT:
+        u = ura_combat.make_member(0, card, uchar)
+        info["ura"] = {"hp": ura_combat.max_hp(u), "atk": ura_describe.num(ura_combat.eff_atk(u)),
+                       "def": ura_describe.num(ura_combat.eff_def(u)), "cls": ura_rules.CLASS_NAMES.get(u["cls"], u["cls"]),
+                       "rarity_mult": ura_rules.RARITY_MULT[rarity], "comp_mult": ura_rules.comp_mult(comp),
+                       "min": ura_rules.MIN_COMPLETENESS, "ok": comp >= ura_rules.MIN_COMPLETENESS}
+        info["spell"] = {"sp_name": sp.get("name") or uchar.get("spell_name", ""), "name": level.get("name", ""),
+                         "numeral": (level.get("id") or "").rsplit("_", 1)[-1], "type": level.get("type"),
+                         "effect": ura_describe.spell_text(cid, u["tier"]), "b": u["b_cost"], "cd": u["cd_max"],
+                         "cd_base": ura_data.spells()[cid]["cd"]}
+    elif level:   # 不在裏世界資料裡的角色：照角色檔寫
+        info["spell"] = {"sp_name": sp.get("name", ""), "name": level.get("name", ""),
+                         "numeral": (level.get("id") or "").rsplit("_", 1)[-1], "type": level.get("type"),
+                         "effect": level.get("desc", ""), "b": level.get("spent", 0), "cd": level.get("cooldown", 0),
+                         "cd_base": level.get("cooldown", 0)}
+    if info.get("spell"):   # ⚔️ 傷害 / 💚 治療…：跟 /character 角色頁同一份名稱 (呼叫時才取，Cog 之間不互相 import)
+        names = getattr(importlib.import_module("Cogs.load-character.Components.character_components"), "SP_TYPE_NAMES", {})
+        t = info["spell"]["type"]
+        info["spell"]["type_name"] = names.get(t, t or "")
+    rules = await econ.get_rules()
+    price = econ.price_of(await econ.get_market_prices(), cid, rarity)
+    mult = econ.modifier(rules, "decompose")
+    info["value"] = {"price": price, "value": econ.card_value(price, comp, mult), "mult": mult}
+    if not card.get("locked") and not card.get("expedition"):
+        same = [c for c in await get_user_cards(owner_id)
+                if c["character_key"] == cid and c["rarity"] == rarity and c["instance_id"] != card["instance_id"]]
+        if is_perfect(card):
+            nxt = get_next_rarity(card)
+            if nxt:
+                info["fuse"] = {"have": 1 + sum(1 for c in same if is_perfect(c)), "need": FUSION_COUNT, "next": nxt}
+        else:
+            info["synth"] = sum(1 for c in same if not is_perfect(c))
+    return info
+
+
+async def send_character_page(interaction: discord.Interaction, character_key: str):
+    """📖 角色圖鑑：另開一則只有自己看得到的 /character 角色頁 (Cog 之間不互相 import，呼叫時才取)"""
+    from Utils.character_data import load_categories
+    cc = importlib.import_module("Cogs.load-character.Components.character_components")
+    found = next(((ch, cat) for cat in load_categories().values() for ch in cat["characters"] if ch["id"] == character_key), None)
+    if found is None:
+        await send_notice(interaction, "❌ 圖鑑裡找不到這位角色。")
+        return
+    char, cat = found
+    owned = {}   # 看的人自己的收藏 (收藏冊的卡也算)
+    for c in await get_user_cards(interaction.user.id, include_locked=True):
+        per = owned.setdefault(c["character_key"], {})
+        per[c["rarity"]] = per.get(c["rarity"], 0) + 1
+    view = ui.LayoutView()
+    view.add_item(cc.build_character_container(char, cat["category_name"], THUMBNAILS, owned))
+    if interaction.response.is_done():
+        await interaction.followup.send(view=view, ephemeral=True)
+    else:
+        await interaction.response.send_message(view=view, ephemeral=True)
+
+
 # ================= 🎒 卡冊 View (Components V2) =================
 # 疊卡排序方式：(key, 顯示名稱)；排序按鈕依序切換
 INVENTORY_SORTS = [("rarity", "階級"), ("best", "完整度"), ("latest", "最新"), ("count", "數量")]
@@ -801,7 +879,8 @@ class InventoryView(ui.LayoutView):
         self.add_item(container)
 
     def _build_card_detail(self):
-        container = build_card_detail_container(self.selected_card, self.user_name, THUMBNAILS)
+        container = build_card_detail_container(self.selected_card, self.user_name, THUMBNAILS,
+                                                getattr(self, "detail_info", None))
         container.add_item(ui.Separator())
         buttons = [
             self._button("🔙 返回這一疊", self.back_to_stack_callback, discord.ButtonStyle.secondary),
@@ -810,8 +889,13 @@ class InventoryView(ui.LayoutView):
         # 🔒 放進收藏冊：只有卡冊主人本人 (管理員檢視別人卡冊時不顯示)
         if self.user_id == self.owner_id and not self.selected_card.get("locked"):
             buttons.append(self._button("🔒 放進收藏冊", self.lock_callback, discord.ButtonStyle.primary))
+        buttons.append(self._button("📖 角色圖鑑", self.character_page_callback, discord.ButtonStyle.secondary))
         container.add_item(ui.ActionRow(*buttons))
         self.add_item(container)
+
+    async def character_page_callback(self, interaction: discord.Interaction):
+        """📖 角色圖鑑：另開一則只有自己看得到的角色頁 (這個畫面不動)"""
+        await send_character_page(interaction, self.selected_card["character_key"])
 
     async def lock_callback(self, interaction: discord.Interaction):
         """放進收藏冊：之後卡冊、合成、融合、分解、上架都看不到這張卡"""
@@ -883,6 +967,7 @@ class InventoryView(ui.LayoutView):
             await send_notice(interaction, "❌ 找不到這張卡牌，請重新開啟 `/card inventory`。")
             return
         self.selected_card = card
+        self.detail_info = await card_detail_info(card, self.owner_id)   # 🔍 角色資料、實力、特殊能力、價值、狀態
         await self.refresh(interaction)
 
     async def back_to_stack_callback(self, interaction: discord.Interaction):
@@ -941,11 +1026,13 @@ class AlbumView(ui.LayoutView):
     def build(self):
         self.clear_items()
         if self.selected:
-            container = build_card_detail_container(self.selected, self.user_name, THUMBNAILS)
+            container = build_card_detail_container({**self.selected, "locked": 1}, self.user_name, THUMBNAILS,
+                                                    getattr(self, "detail_info", None))
             container.add_item(ui.Separator())
             container.add_item(ui.ActionRow(
                 self._button("🔙 返回收藏冊", self.back_callback, discord.ButtonStyle.secondary),
                 self._button("📤 取出 (回到卡冊)", self.unlock_callback, discord.ButtonStyle.danger),
+                self._button("📖 角色圖鑑", self.character_page_callback, discord.ButtonStyle.secondary),
             ))
             self.add_item(container)
             return
@@ -984,7 +1071,12 @@ class AlbumView(ui.LayoutView):
             await send_notice(interaction, "❌ 找不到這張卡，請重新開啟 `/card album`。")
             return
         self.result = None
+        self.detail_info = await card_detail_info({**self.selected, "locked": 1}, self.user_id)
         await self.refresh(interaction)
+
+    async def character_page_callback(self, interaction: discord.Interaction):
+        """📖 角色圖鑑：另開一則只有自己看得到的角色頁"""
+        await send_character_page(interaction, self.selected["character_key"])
 
     async def back_callback(self, interaction: discord.Interaction):
         self.selected = None

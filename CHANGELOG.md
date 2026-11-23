@@ -13,6 +13,26 @@
 
 ---
 
+## 0.39.000 — 2026-11-23：🔍 單卡詳情改版 (角色資料、這張卡的實力、特殊能力、價值、狀態、📖 角色圖鑑) (筆電，抽卡 session)
+- 統整 session 轉來，grill 5 題都照建議 (使用者回「都好」)。使用者原話：「看卡冊的詳細資料也要使用類似characters那樣的詳細資料 目前能看的只有這些」；舊版只有角色名稱、稀有度、專屬稱號、完整度品相、ID、獲得時間。
+- **單卡詳情分段** (`gacha_components.build_card_detail_container(card, user_name, thumbnails, info)`)：
+  - 卡片：角色、階級、這張卡的稱號、完整度品相。
+  - 📜 角色資料：角色稱號、種族、能力、簡介 (讀 `Characters/`)。簡介超過 `DETAIL_DESC_MAX = 300` 字截斷，結尾寫「…完整介紹看📖 角色圖鑑」。
+  - ⚔️ 這張卡的實力：HP / ATK / DEF、職業，用 `Database/ura/combat.make_member` 算，跟裏世界出征一模一樣；能不能出征看 `rules.MIN_COMPLETENESS`。
+  - ✨ 這張卡的特殊能力：只寫這個階級那一檔 (I / II / III)。效果用 `describe.spell_text`，B 點和冷卻用出征時的值 (完整度 > 0.8 冷卻比平常短，會寫出來)。
+  - 💹 價值：分解能拿多少 (`econ.card_value(市值, 完整度, 活動分解倍率)`，跟 `/market decompose` 一樣)。
+  - 🗂️ 卡牌資訊：ID、取得時間、狀態。狀態是 🔒 收藏中 / 🌀 出征中 / ⚗️ 同角色同階級還有幾張能一起合成 / 🔮 完美卡幾張、能不能融合 其中一種。
+- **📖 角色圖鑑按鈕**：另開一則 ephemeral 的 `/character` 角色頁 (`send_character_page()`)。用 `importlib` 在按的時候取 `character_components.build_character_container`，Cog 之間不互相 import；收集進度是按的人自己的。
+- **三個地方一起換新版**：卡冊單卡、收藏冊單卡、管理員看別人卡冊。管理員那個本來就是同一個 `InventoryView`，看得到出征中的卡。
+- 程式：`gacha.card_detail_info(card, owner_id)` 在選卡的 callback 裡先算好 (要讀市值和卡冊)，畫面 `build()` 照舊是同步的。SP 類型名稱 (⚔️ 傷害…) 跟角色頁同一份 `SP_TYPE_NAMES`。
+- 文件：教學書抽卡那本第 2 章 (`guide/card.py` 的 `_album`) 的「🔍 單卡詳情」；`docs/cogs.md` 卡冊那段。
+- 測試：新的 `tests/test_card_detail.py`。
+  - 24 位角色 × 每個階級 × 5 種完整度全部畫一次 (含按鈕列 ≤ 40 元件、≤ 4000 字)；HP / ATK / DEF、能不能出征、B 點、冷卻、效果都跟 `make_member` 算的一樣。
+  - 角色資料、只寫這一檔的特殊能力、價值、不能出征、簡介截斷。
+  - 四種狀態 (出征中那張不算在可以一起合成的張數裡)。
+  - 卡冊本人 / 管理員 / 收藏冊三個畫面的按鈕；📖 開出 ephemeral 角色頁、原本的畫面不變；找不到角色時的提示。
+  - 標題保留「🎴 卡牌鑑定詳情：」、狀態保留「🔒 收藏中」的寫法 (`test_inventory.py` / `test_album.py` 照舊過)。全部測試 10,885 項過 (`python tests/run_all.py`)。
+
 ## 0.38.000 — 2026-11-23：⚡ 自動合成全部、⚗️ 繼續合成 (筆電，抽卡 session)
 - 統整 session 轉來，8 題 grill 都照建議 (使用者回「都好」)。使用者原話：「優化卡牌合成 合成介面可以直接自動合成全部(由最小跟第二小合 循環) 如果是手動選擇合成 合完除了回去卡牌庫 還有繼續合成的選項可以用」
 - **⚡ 自動合成全部**：

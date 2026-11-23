@@ -317,24 +317,92 @@ def build_stack_cards_container(
     return container
 
 
-def build_card_detail_container(card_data: dict, user_name: str, thumbnails: dict = None) -> ui.Container:
-    """單張卡牌詳細鑑定頁面"""
+DETAIL_DESC_MAX = 300   # 單卡詳情的角色簡介最多幾個字 (超過截斷，完整的看 📖 角色圖鑑)
+
+
+def build_card_detail_container(card_data: dict, user_name: str, thumbnails: dict = None, info: dict | None = None) -> ui.Container:
+    """
+    單張卡牌詳細鑑定頁面 (卡冊 / 收藏冊 / 管理員看別人卡冊共用；2026-11-23 改版)
+    info = gacha.card_detail_info() 算好的：profile / ura / spell / value / synth / fuse (沒有的段落就不顯示)
+    段落：卡片 ➔ 📜 角色資料 ➔ ⚔️ 這張卡的實力 ➔ ✨ 這張卡的特殊能力 ➔ 💹 價值 ➔ 🗂️ 卡牌資訊
+    """
+    info = info or {}
     eval_str, color = get_completeness_eval(card_data["completeness"])
-
-    text = (
-        f"## 🎴 卡牌鑑定詳情：{card_data['name']}\n"
-        f"**角色名稱**：{card_data.get('emoji', '🎴')} **{card_data['name']}**\n"
-        f"**稀有度階級**：`[{card_data['rarity']}]`\n"
-        f"**專屬稱號**：{card_data['title']}\n"
-        f"**完整度 (Float) 品相**：{eval_str}\n"
-        f"**卡牌識別號 (Instance ID)**：`{card_data['instance_id']}`\n"
-        f"**獲得時間**：`{card_data.get('obtained_at', '未知')}`\n"
-        + ("**🔒 收藏中**：放在收藏冊，不能合成、融合、分解、上架\n" if card_data.get("locked") else "")
-        + f"\n-# 擁有者: {user_name}"
-    )
-
+    rarity = card_data["rarity"]
     container = ui.Container(accent_color=color)
-    container.add_item(_card_block(text, card_data.get("character_key"), thumbnails, card_data.get("rarity")))
+    container.add_item(_card_block(
+        f"## 🎴 卡牌鑑定詳情：{card_data.get('emoji', '🎴')} {card_data['name']}　`[{rarity}]`\n"
+        f"*{card_data['title']}*\n"
+        f"**完整度品相**：{eval_str}",
+        card_data.get("character_key"), thumbnails, rarity))
+
+    p = info.get("profile")
+    if p:
+        desc = p.get("description", "")
+        if len(desc) > DETAIL_DESC_MAX:
+            desc = desc[:DETAIL_DESC_MAX].rstrip() + "…完整介紹看📖 角色圖鑑"
+        lines = ["### 📜 角色資料"]
+        head = (f"**【{p['title']}】**" if p.get("title") else "") + (f" · 種族：{p['species']}" if p.get("species") else "")
+        if head:
+            lines.append(head.lstrip(" ·"))
+        if p.get("ability"):
+            lines.append(f"**能力**：`{p['ability']}`")
+        if desc:
+            lines.append(desc)
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay("\n".join(lines)))
+
+    u = info.get("ura")
+    if u:
+        go = (f"✅ 可以派去裏世界 (完整度 ≥ {u['min']:g})" if u["ok"]
+              else f"⚠️ 完整度不到 {u['min']:g}，不能派去裏世界")
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay(
+            f"### ⚔️ 這張卡的實力\n"
+            f"❤️ HP `{u['hp']:,}` · ⚔️ ATK `{u['atk']}` · 🛡️ DEF `{u['def']}`　{u['cls']}\n"
+            f"{go}\n"
+            f"-# 跟裏世界出征時一樣：角色基礎數值 × 階級 `[{rarity}]` ×{u['rarity_mult']:g} × 完整度倍率 ×{u['comp_mult']:.2f}"))
+
+    s = info.get("spell")
+    if s:
+        cd = f"`{s['cd']}` 回合" + (f" (完整度超過 0.8，比平常的 {s['cd_base']} 回合短)" if s["cd"] < s["cd_base"] else "")
+        detail = " · ".join(x for x in (s.get("type_name"), f"消耗 B 點 `{s['b']}`", f"冷卻 {cd}") if x)
+        numeral = f"**{s['numeral']}** " if s.get("numeral") else ""
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay(
+            f"### ✨ 這張卡的特殊能力：{s['sp_name']}\n"
+            f"{numeral}`[{rarity}]` {s['name']}\n└ {detail}"
+            + (f"\n-# {s['effect']}" if s.get("effect") else "")))
+
+    v = info.get("value")
+    if v:
+        mult = f" × 活動分解倍率 ×{v['mult']:g}" if v["mult"] != 1 else ""
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay(
+            f"### 💹 價值\n分解能拿 `{v['value']:,}` 賽錢\n"
+            f"-# 這張卡的市值 `{round(v['price']):,}` × 完整度倍率{mult} (跟 `/market decompose` 一樣)"))
+
+    if card_data.get("locked"):
+        state = "🔒 收藏中：放在收藏冊，不能合成、融合、分解、上架"
+    elif card_data.get("expedition"):
+        state = "🌀 出征中：正在裏世界，那一局結束前不能合成、融合、分解、上架"
+    elif info.get("fuse"):
+        f = info["fuse"]
+        state = (f"🔮 可以融合 ➔ `[{f['next']}]`：完美卡 `{f['have']} / {f['need']}` 張" if f["have"] >= f["need"]
+                 else f"💠 完美卡：同角色同階級 `{f['have']} / {f['need']}` 張，湊滿就能融合 ➔ `[{f['next']}]`")
+    elif info.get("synth"):
+        state = f"⚗️ 同角色同階級還有 `{info['synth']}` 張可以一起合成"
+    elif "synth" in info:
+        state = "🎴 在卡冊裡 (同角色同階級沒有其他可以一起合成的卡)"
+    else:
+        state = "🎴 在卡冊裡"
+    container.add_item(ui.Separator())
+    container.add_item(ui.TextDisplay(
+        f"### 🗂️ 卡牌資訊\n"
+        f"**卡牌 ID**：`{card_data['instance_id']}`\n"
+        f"**取得時間**：`{card_data.get('obtained_at') or '未知'}`\n"
+        f"**狀態**：{state}\n"
+        f"-# 擁有者: {user_name}"))
     return container
 
 
