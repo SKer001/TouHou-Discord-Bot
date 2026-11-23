@@ -1,0 +1,62 @@
+{
+    "id": "youmu",
+    "name": "魂魄妖夢",
+    "emoji": "✂️",
+    "category": "th07",
+    "profile": {
+        "title": "半分虛幻的庭師",
+        "species": "半人半靈",
+        "ability": "使用劍術程度的能力",
+        "description": "白玉樓的庭師，同時是幽幽子的護衛，身邊總飄著自己的半靈。帶著長刀樓觀劍與能斬斷迷惘的短刀白樓劍。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-7dc663d3-e586-52bc",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "半分虛幻的庭師",
+            "SSR": "生命的二刀流",
+            "UR": "斬斷迷惘的半靈劍士"
+        }
+    },
+    "ura_class": "atk",
+    "base_stats": {
+        "hp": 78,
+        "atk": 32,
+        "def": 8.4
+    },
+    "special_powers": {
+        "id": "youmu_SP",
+        "name": "人符「現世斬」",
+        "levels": {
+            "SR": {
+                "id": "youmu_SP_I",
+                "name": "Easy・初陣・人符「現世斬」",
+                "type": "damage",
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "對一隻敵人造成 ATK × 2.5 的傷害；打倒的話 👻 半靈追擊另一隻敵人 ATK × 1（沒有別隻就不打）"
+            },
+            "SSR": {
+                "id": "youmu_SP_II",
+                "name": "Lunatic・瘋狂・人符「現世斬」",
+                "type": "damage",
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "對一隻敵人造成 ATK × 3 的傷害；打倒的話 👻 半靈追擊另一隻敵人 ATK × 1（沒有別隻就不打）"
+            },
+            "UR": {
+                "id": "youmu_SP_III",
+                "name": "Phantasm・幻象・人符「現世斬」",
+                "type": "damage",
+                "spent": 8,
+                "cooldown": 3,
+                "desc": "對一隻敵人造成 ATK × 3.5 的傷害；打倒的話 👻 半靈追擊另一隻敵人 ATK × 1（沒有別隻就不打）"
+            }
+        }
+    }
+}

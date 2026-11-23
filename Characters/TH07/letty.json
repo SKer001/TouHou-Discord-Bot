@@ -1,0 +1,62 @@
+{
+    "id": "letty",
+    "name": "蕾蒂·霍瓦特洛克",
+    "emoji": "☃️",
+    "category": "th07",
+    "profile": {
+        "title": "冬天的遺忘之物",
+        "species": "妖怪 (雪女)",
+        "ability": "操縱寒氣程度的能力",
+        "description": "只在冬天出現的雪女妖怪。春雪異變讓冬天遲遲不走，她也格外有精神，還自稱是這次異變的黑幕。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-c20d1531-60b9-5884",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "冬天的遺忘之物",
+            "SR": "自稱黑幕的冬之妖怪",
+            "SSR": "白銀之春的大寒潮"
+        }
+    },
+    "ura_class": "guard",
+    "base_stats": {
+        "hp": 150,
+        "atk": 14,
+        "def": 19
+    },
+    "special_powers": {
+        "id": "letty_SP",
+        "name": "寒符「Lingering Cold」",
+        "levels": {
+            "R": {
+                "id": "letty_SP_I",
+                "name": "Easy・初陣・寒符「Lingering Cold」",
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；讓敵人全體 ⬇️ 弱化・ATK 2 回合（ATK −10%）"
+            },
+            "SR": {
+                "id": "letty_SP_II",
+                "name": "Lunatic・瘋狂・寒符「Lingering Cold」",
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；讓敵人全體 ⬇️ 弱化・ATK 2 回合（ATK −15%）"
+            },
+            "SSR": {
+                "id": "letty_SP_III",
+                "name": "Phantasm・幻象・寒符「Lingering Cold」",
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；讓敵人全體 ⬇️ 弱化・ATK 2 回合（ATK −20%）"
+            }
+        }
+    }
+}

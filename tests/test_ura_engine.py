@@ -23,7 +23,15 @@ def new(team=(("marisa", "SR"), ("meiling", "SR"), ("daiyousei", "SR")), bag=Non
     return R.new_run(seed, [card(c, r, i=i) for i, (c, r) in enumerate(team)], bag or {}, 0, rng or random.Random(5))
 
 # ---------------- 資料 ----------------
-check("24 characters", len(chars) == 24 and all(c["class"] in rules.CLASS_NAMES for c in chars.values()))
+check("35 characters", len(chars) == 35 and all(c["class"] in rules.CLASS_NAMES for c in chars.values()))
+# 🌸 TH07 妖妖夢 (2026-11-24)：11 位，職業 攻擊 3 / 守護 2 / 輔助 2 / 斥候 2 / 嚮導 2；base_stats 在職業數值 ±10% 內
+CLASS_BASE = {"atk": (80, 30, 8), "guard": (140, 15, 20), "sup": (100, 18, 12), "scout": (90, 22, 10), "guide": (100, 18, 12)}
+th07 = {c: chars[c] for c in {"lily_white", "letty", "chen", "alice_th07", "lunasa", "merlin", "lyrica", "youmu", "yuyuko", "ran", "yukari"}}
+check("th07 classes", sorted(c["class"] for c in th07.values()) == sorted(["atk"] * 3 + ["guard"] * 2 + ["sup"] * 2 + ["scout"] * 2 + ["guide"] * 2))
+check("th07 base ±10%", all(abs(c["base"][k] / CLASS_BASE[c["class"]][i] - 1) <= 0.1 + 1e-9
+                            for c in th07.values() for i, k in enumerate(("hp", "atk", "def"))))
+check("all base ±10%", all(abs(c["base"][k] / CLASS_BASE[c["class"]][i] - 1) <= 0.1 + 1e-9
+                           for c in chars.values() for i, k in enumerate(("hp", "atk", "def"))))
 check("every character has a spell", set(data.spells()) == set(chars))
 check("spell statuses exist", all(e.get("status") is None or e["status"] in data.statuses()
                                   for s in data.spells().values() for e in s["effects"]))
@@ -102,7 +110,7 @@ check("netherworld own roster", not nw["borrowed"] and nw["boss"] == "ura_yuyuko
       and nw["normals"] == ["netherworld_ghost", "sakura_youkai", "wandering_dead"])
 check("netherworld materials", nw["materials"] == ["mat_sakura", "mat_shiratama", "mat_matcha", "mat_rice", "mat_sugar"])
 check("netherworld 15 treasures", [len(v) for v in data.theme_treasures(nw).values()] == [4, 3, 3, 2, 2, 1])
-check("death butterfly status", data.statuses()["death_butterfly"]["on"]["round_end"][0] == {"do": "dot_max_hp_pct", "value": 0.05}
+check("death butterfly status", data.statuses()["death_butterfly"]["on"]["round_end"][0] == {"do": "dot_max_hp_pct", "value": 0.05, "boss_mult": 0.5}
       and "cleanse" in data.statuses()["death_butterfly"]["flags"])
 # ⛰️ 妖怪之山 (2026-11-21)
 mt = data.zone_by_id("mountain")
@@ -890,6 +898,124 @@ check("heal 1 alive", R.target_kind(run, "item", item="eientei_salve") is None)
 run = new(bag={"telescope": 1, "dango": 1, "return_talisman": 1, "substitute_doll": 1})
 u = R.usable_items(run)
 check(f"usable at doors {u}", "telescope" in u and "return_talisman" in u and "dango" not in u and "substitute_doll" not in u)
+
+# ---------------- 🌸 TH07 妖妖夢的新機制 (2026-11-24) ----------------
+# 👻 妖夢半靈追擊：打倒目標 ➔ 再打另一隻 ATK × 1.0；沒有別隻就不打；沒打倒也不追
+_deal_calls, _orig_deal = [], combat.deal
+def _spy_deal(run, a, t, m, rng, **kw):
+    _deal_calls.append((t["uid"], m)); return _orig_deal(run, a, t, m, rng, **kw)
+combat.deal = _spy_deal   # cast 裡用的是模組的 deal，記下打了誰、倍率多少 (戰鬥打完 battle 會清掉，看不到 log)
+b = battle(team=(("youmu", "SR"),), foes=("lost_spirit",) * 3)
+e0 = b["battle"]["foes"][0]
+R.battle_action(b, "spell", Rng(), uid="p0", target="e0")
+check(f"youmu kills + pursuit {_deal_calls[:2]}", not e0["alive"] and _deal_calls[0] == ("e0", 2.5)
+      and _deal_calls[1][0] in ("e1", "e2") and _deal_calls[1][1] == 1.0)
+_deal_calls.clear()
+b = battle(team=(("youmu", "SR"),), foes=("lost_spirit",))
+R.battle_action(b, "spell", Rng(), uid="p0", target="e0")
+check(f"youmu pursuit needs another foe {_deal_calls}", [c for c in _deal_calls if c[1] == 1.0] == [] and _deal_calls[0] == ("e0", 2.5))
+combat.deal = _orig_deal
+b = battle(team=(("youmu", "SR"),), foes=("ura_mokou", "lost_spirit"), kind="boss", floor=10)
+R.battle_action(b, "spell", Rng(), uid="p0", target="e0")
+check("youmu no kill no pursuit", b["battle"]["foes"][0]["alive"] and b["battle"]["foes"][1]["hp"] == b["battle"]["foes"][1]["base_hp"]
+      and not any("半靈追擊" in x for x in b["battle"]["log"]))
+# 🦋 死蝶給敵人用：每回合扣 5% 最大 HP、BOSS 扣一半 (2.5%)、扣到剩 1 不會打死
+b = battle(team=(("yuyuko", "SSR"),), foes=("ura_mokou",), kind="boss", floor=10)
+boss = b["battle"]["foes"][0]
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("yuyuko butterflies on boss", status.has(boss, "death_butterfly"))
+hp_after_dmg = boss["hp"]
+b2 = json.loads(json.dumps(b))
+boss2 = b2["battle"]["foes"][0]
+combat._trigger(b2, boss2, "round_end", Rng())
+check(f"boss half dot {hp_after_dmg - boss2['hp']}", hp_after_dmg - boss2["hp"] == max(1, rules.round_half(combat.max_hp(boss2) * 0.025)))
+f = {"uid": "x", "side": "enemy", "kind": "normal", "name": "t", "emoji": "", "alive": True, "base_hp": 100, "hp": 100,
+     "statuses": [{"id": "death_butterfly", "left": 2, "stacks": 1}]}
+combat._trigger(b2, f, "round_end", Rng())
+check("normal foe full dot", f["hp"] == 95)
+f["hp"] = 3; combat._trigger(b2, f, "round_end", Rng())
+check("dot leaves 1", f["hp"] == 1 and f["alive"])
+check("party dot unchanged (not boss)", data.statuses()["death_butterfly"]["on"]["round_end"][0]["value"] == 0.05)
+# 🎻 騷靈合奏：三位都在隊上 (活著) ➔ 數字 × 1.2；固定的賽錢 × 1.2 不變；少一位 / 倒下就沒有
+PR = (("lunasa", "SR"), ("merlin", "SR"), ("lyrica", "SR"))
+b = battle(team=PR, foes=("lost_spirit", "lost_spirit"))
+R.battle_action(b, "spell", Rng(), uid="p1")   # 梅露蘭：ATK +25% × 1.2 = 30%
+v = status.find(b["party"][0], "buff_atk")["value"]
+check(f"ensemble merlin {v}", abs(v - 0.3) < 1e-9 and any("騷靈合奏" in x for x in b["battle"]["log"]))
+b = battle(team=PR, foes=("lost_spirit", "lost_spirit"))
+R.battle_action(b, "spell", Rng(), uid="p0")   # 露娜薩：ATK −20% / DEF −15% × 1.2
+e = b["battle"]["foes"][0]
+check("ensemble lunasa", abs(status.find(e, "debuff_atk")["value"] - 0.24) < 1e-9 and abs(status.find(e, "debuff_def")["value"] - 0.18) < 1e-9)
+b = battle(team=PR, foes=("lost_spirit", "lost_spirit"))
+b["sanity"] = 500
+R.battle_action(b, "spell", Rng(), uid="p2")   # 莉莉卡：常識度 +60 × 1.2 = 72，賽錢 × 1.2 (不放大)
+check(f"ensemble lyrica {b['sanity']}", b["sanity"] == 572 and b["battle"]["spell_money"] == 1.2)
+b = battle(team=PR, foes=("lost_spirit", "lost_spirit"))
+b["party"][2]["alive"] = False
+R.battle_action(b, "spell", Rng(), uid="p1")
+check("ensemble needs all alive", abs(status.find(b["party"][0], "buff_atk")["value"] - 0.25) < 1e-9)
+b = battle(team=(("merlin", "SR"), ("lunasa", "SR"), ("marisa", "SR")), foes=("lost_spirit", "lost_spirit"))
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("ensemble needs all three", abs(status.find(b["party"][0], "buff_atk")["value"] - 0.25) < 1e-9
+      and not any("騷靈合奏" in x for x in b["battle"]["log"]))
+# 💰 莉莉卡的 × 1.2 跟小惡魔的 × 1.3 不疊，同一場取高的
+b = battle(team=(("lyrica", "SR"), ("koakuma", "SR")), foes=("lost_spirit", "lost_spirit"))
+R.battle_action(b, "spell", Rng(), uid="p0"); b["battle"]["acted"], b["battle"]["actions_left"] = [], 1
+R.battle_action(b, "spell", Rng(), uid="p1")
+check(f"money no stack {b['battle']['spell_money']}", b["battle"]["spell_money"] == 1.3)
+# 🎎 人偶替身：受到的傷害 −40% (愛麗絲 SSR)
+b = battle(team=(("alice_th07", "SSR"),), foes=("lost_spirit",))
+al = b["party"][0]
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("alice taunt + doll", status.has(al, "taunt") and abs(status.find(al, "doll_guard")["value"] - 0.4) < 1e-9)
+hp0 = al["hp"]; foe = b["battle"]["foes"][0]
+d = combat.deal(b, foe, al, 10, Rng())
+exp = max(1, rules.round_half(combat.eff_atk(foe) * 10 * (1 - rules.dmg_reduction(combat.eff_def(al))) * 0.6))
+check(f"doll guard cuts {d} vs {exp}", d == exp)
+# 🌸 莉莉霍瓦特：全隊回血 + 春之祝福 ATK +10% (跟梅露蘭的強化・ATK 是不同狀態，會相加)
+b = battle(team=(("lily_white", "R"), ("merlin", "R"), ("marisa", "SR")), foes=("lost_spirit", "lost_spirit"))
+ma = b["party"][2]
+R.battle_action(b, "spell", Rng(), uid="p1"); b["battle"]["acted"], b["battle"]["actions_left"] = [], 1
+ma["hp"], ma["alive"] = 10, True   # 敵人回合可能打過她，放莉莉前才設成 10
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("lily heal", ma["hp"] > 10)
+check(f"lily + merlin stack {status.stat_mult(ma, 'atk_pct')}", abs(status.stat_mult(ma, "atk_pct") - 1.3) < 1e-9)
+# ❄️ 蕾蒂：嘲諷 + 敵人全體 ATK −10%；🐈 橙：連打 3 下 + 疾風；🦊 藍：連打 4～6 下；☂️ 紫：全體 + 常識度
+b = battle(team=(("letty", "R"),), foes=("lost_spirit", "lost_spirit"))
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("letty", status.has(b["party"][0], "taunt") and all(abs(status.find(f, "debuff_atk")["value"] - 0.1) < 1e-9 for f in b["battle"]["foes"]))
+b = battle(team=(("chen", "R"),), foes=("ura_mokou",), kind="boss", floor=10)
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("chen 3 hits + gale", any("打了 3 下" in x for x in b["battle"]["log"]) and status.has(b["party"][0], "gale"))
+b = battle(team=(("ran", "SSR"),), foes=("ura_mokou",), kind="boss", floor=10)
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("ran 4-6 hits", any(f"打了 {n} 下" in x for n in (4, 5, 6) for x in b["battle"]["log"]))
+b = battle(team=(("yukari", "SSR"),), foes=("lost_spirit", "lost_spirit"))
+b["sanity"] = 500
+R.battle_action(b, "spell", Rng(), uid="p0")
+check("yukari all + sanity", b["sanity"] == 540 and all(f["hp"] < 30 or not f["alive"] for f in b["battle"]["foes"]))
+# 📝 敘述
+check("desc youmu", DS.spell_text("youmu", 0) == "對一隻敵人造成 ATK × 2.5 的傷害；打倒的話 👻 半靈追擊另一隻敵人 ATK × 1（沒有別隻就不打）")
+check("desc chen fixed hits", DS.spell_text("chen", 0).startswith("連打 3 下，每下對隨機一隻敵人造成 ATK × 0.6 的傷害"))
+check("desc ensemble", DS.spell_text("lyrica", 1) == "常識度 +60；這場戰鬥的賽錢 × 1.2（不疊）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，常識度的數字 × 1.2"
+      and "弱化・ATK、弱化・DEF的數字 × 1.2" in DS.spell_text("lunasa") and "騷靈合奏" not in DS.spell_text("yuyuko"))
+check("desc yuyuko boss half", "BOSS 扣一半" in DS.spell_text("yuyuko", 2))
+# ✅ 使用者 2026-11-24 確認數值表：莉莉回血 15 / 20 / 25%；「攻擊類」增益 / 弱化 2 ➔ 3 回合 (一回合只有一人能動，2 回合只蓋到 1 次我方行動)
+lw, lu = data.spells()["lily_white"], data.spells()["lunasa"]
+check("lily heal 15/20/25", [t["h"] for t in lw["tiers"]] == [0.15, 0.2, 0.25])
+check("3 turns: spring / lunasa DEF; 2 turns: lunasa ATK", [e.get("turns") for e in lw["effects"]] == [None, 3]
+      and {e["status"]: e["turns"] for e in lu["effects"]} == {"debuff_atk": 2, "debuff_def": 3})
+for caster, sid, on_foe in (("lily_white", "spring_blessing", False), ("lunasa", "debuff_def", True)):
+    b = battle(team=((caster, "R"), ("marisa", "SR")), foes=("ura_mokou",), kind="boss", floor=10)
+    R.battle_action(b, "spell", Rng(), uid="p0")
+    got = 0
+    for _ in range(5):
+        if b["phase"] != "battle":
+            break
+        holder = b["battle"]["foes"][0] if on_foe else b["party"][1]
+        got += status.has(holder, sid)
+        R.battle_action(b, "attack", Rng(), uid="p1", target="e0")
+    check(f"{sid} 3 turns ➔ 2 ally actions ({got})", got == 2)
 
 # ---------------- 決定性：同一個進度 + 同一個動作 = 同一個結果 ----------------
 a = new(seed="det"); b2 = json.loads(json.dumps(a))

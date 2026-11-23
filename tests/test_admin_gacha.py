@@ -62,7 +62,7 @@ async def main():
 
     # autocomplete
     ch = await cmds["give"]._params["pool"].autocomplete(cog, Interaction(), "")
-    check("pool ac", [c.value for c in ch] == ["classic", "th06"])
+    check("pool ac", [c.value for c in ch] == ["classic", "th06", "th07"])
     ch = await cmds["give"]._params["character"].autocomplete(cog, Interaction(ns={"pool": "th06"}), "cir")
     check("char ac", [c.value for c in ch] == ["cirno"] and all(len(c.name) <= 100 for c in ch))
     ch = await cmds["give"]._params["character"].autocomplete(cog, Interaction(ns={"pool": "th06"}), "")

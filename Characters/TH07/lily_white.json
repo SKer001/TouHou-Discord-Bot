@@ -1,0 +1,62 @@
+{
+    "id": "lily_white",
+    "name": "莉莉霍瓦特",
+    "emoji": "🌷",
+    "category": "th07",
+    "profile": {
+        "title": "運送春天的妖精",
+        "species": "妖精",
+        "ability": "告知春天到來程度的能力",
+        "description": "告知春天到來的妖精。春天一到就興奮地四處飛來飛去、到處撒彈幕，宣告「春天來了」。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-fea4c17d-4d5a-513b",
+        "rarities": [
+            "N",
+            "R",
+            "SR"
+        ],
+        "titles": {
+            "N": "運送春天的妖精",
+            "R": "雲上櫻花的報春者",
+            "SR": "百花爛漫的春告精"
+        }
+    },
+    "ura_class": "sup",
+    "base_stats": {
+        "hp": 96,
+        "atk": 17,
+        "def": 11
+    },
+    "special_powers": {
+        "id": "lily_white_SP",
+        "name": "春符「春告精的祝福」",
+        "levels": {
+            "N": {
+                "id": "lily_white_SP_I",
+                "name": "Easy・初陣・春符「春告精的祝福」",
+                "type": "heal",
+                "spent": 10,
+                "cooldown": 5,
+                "desc": "全隊回最大 HP 的 15%；全隊 🌸 春之祝福 3 回合（ATK +10%）"
+            },
+            "R": {
+                "id": "lily_white_SP_II",
+                "name": "Lunatic・瘋狂・春符「春告精的祝福」",
+                "type": "heal",
+                "spent": 10,
+                "cooldown": 5,
+                "desc": "全隊回最大 HP 的 20%；全隊 🌸 春之祝福 3 回合（ATK +10%）"
+            },
+            "SR": {
+                "id": "lily_white_SP_III",
+                "name": "Phantasm・幻象・春符「春告精的祝福」",
+                "type": "heal",
+                "spent": 10,
+                "cooldown": 5,
+                "desc": "全隊回最大 HP 的 25%；全隊 🌸 春之祝福 3 回合（ATK +10%）"
+            }
+        }
+    }
+}

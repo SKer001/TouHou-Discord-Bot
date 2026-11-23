@@ -206,11 +206,18 @@ async def main():
     add("th06", True, "b")
     add("classic", True, "c")
     unlocked = (await udm.get_title_state(C))["unlocked"]
-    check("all pools LR", {"pool_th06_cards", "pool_classic_chars", "pool_classic_cards", "pool_all"} <= set(unlocked))
+    check("all_cards needs th07 too", "pool_all" not in unlocked and "pool_th07_chars" not in unlocked)   # 🌸 2026-11-24 加妖妖夢
+    add("th07", True, "d")
+    unlocked = (await udm.get_title_state(C))["unlocked"]
+    check("all pools LR", {"pool_th06_cards", "pool_classic_chars", "pool_classic_cards", "pool_th07_chars", "pool_th07_cards",
+                           "pool_all"} <= set(unlocked))
     sql("DELETE FROM gacha_cards WHERE user_id = ? AND character_key = 'remilia' AND rarity = 'LR'", (C,))
     unlocked = (await udm.get_title_state(C))["unlocked"]
     check("sold one ➔ lose cards titles", "pool_all" not in unlocked and "pool_th06_cards" not in unlocked
           and "pool_th06_chars" in unlocked and "pool_classic_cards" in unlocked)
+    check("th07 pool titles", td.TITLES["pool_th07_chars"]["name"] == "幽明結界的越境者" and td.TITLES["pool_th07_cards"]["rarity"] == "UR"
+          and td.TITLES["luck_th07_lr"]["name"] == "機率境界的操縱者" and "八雲紫" in td.TITLES["luck_th07_lr"]["desc"]
+          and td.condition_text("pool_th07_cards") == "妖妖夢卡池的卡全部收集 (每個階級)")
     check("pool condition text", td.condition_text("pool_th06_chars") == "紅魔鄉卡池的角色全部到齊"
           and td.condition_text("pool_classic_cards") == "舊作卡池的卡全部收集 (每個階級)")
     # 💕 推角：收藏冊裡有那位角色每個階級各一張完美卡 (完整度 1.0000)，名稱「我是XXX的狗!!!」，每位角色自動一個
@@ -318,7 +325,8 @@ async def main():
     tv = io.view
     check("panel is separate", tv is not pv and type(tv).__name__ == "TitlePickerView" and len(selects(tv)) == 2)
     sel = selects(tv)
-    check("all groups listed", {o.value for o in sel[0].options} == set(td.group_titles(list(td.TITLES))))
+    all_groups = list(td.group_titles(list(td.TITLES)))   # 2026-11-24 加 TH07 後 27 組 ➔ 分組選單翻頁 (一頁 25)
+    check("all groups listed (page 1)", [o.value for o in sel[0].options] == all_groups[:25] and len(all_groups) > 25)
     check("opens on highest unlocked group", next(o for o in sel[0].options if o.default).value == "draw")
     st = {o.value: o.description for o in sel[1].options}
     check("status unlocked / locked", st["draw_100"] == "✅ 已解鎖" and st["draw_5000"].startswith("🔒 ")
@@ -408,7 +416,8 @@ async def main():
     tv = it.view
     check("panel opens", "稱號控制台：g" in texts(tv) and len(selects(tv)) == 2)
     gsel = selects(tv)[0]
-    check("group select ≤ 25 and every group", len(gsel.options) <= 25 and {o.value for o in gsel.options} == set(td.group_titles(list(td.TITLES))))
+    groups_all = list(td.group_titles(list(td.TITLES)))
+    check("group select ≤ 25, first page", len(gsel.options) <= 25 and [o.value for o in gsel.options] == groups_all[:25])
     check("buttons disabled before pick", btn(tv, "戴上").disabled and btn(tv, "🎁 給").disabled and btn(tv, "收回").disabled)
 
     # 選 🎰 祈願 ➔ LR 幻想鄉第一信仰 ➔ 戴上 (順便給)

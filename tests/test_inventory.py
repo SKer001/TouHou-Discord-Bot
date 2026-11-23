@@ -66,7 +66,7 @@ async def main():
     cmd = next(c for c in cog.walk_app_commands() if c.name == "inventory")
     it = Interaction(); await cmd.callback(cog, it)
     v = it.view
-    total_stacks = 24 * 3 + 1
+    total_stacks = 35 * 3 + 1
     check("stacks", len(v.all_stacks) == total_stacks)
     check("header", f"`{len(cards)}` 張" in texts(v) and f"`{total_stacks}` 疊" in texts(v))
     reimu_sr = v.get_stack("reimu|SR")

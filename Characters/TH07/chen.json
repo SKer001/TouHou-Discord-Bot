@@ -1,0 +1,62 @@
+{
+    "id": "chen",
+    "name": "橙",
+    "emoji": "🐈",
+    "category": "th07",
+    "profile": {
+        "title": "凶兆的黑貓",
+        "species": "妖獸 (妖怪貓)",
+        "ability": "嚇唬人類程度的能力、使用妖術程度的能力 (附上式神時)",
+        "description": "八雲藍的式神，是一隻化貓。平時住在迷途之家；附在身上的式神一碰到水就會脫落，所以很怕水。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-ab014314-9783-51b0",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "凶兆的黑貓",
+            "SR": "迷途之家的化貓",
+            "SSR": "隙間妖怪的式之式"
+        }
+    },
+    "ura_class": "scout",
+    "base_stats": {
+        "hp": 84,
+        "atk": 24,
+        "def": 9.4
+    },
+    "special_powers": {
+        "id": "chen_SP",
+        "name": "翔符「飛翔韋駄天」",
+        "levels": {
+            "R": {
+                "id": "chen_SP_I",
+                "name": "Easy・初陣・翔符「飛翔韋駄天」",
+                "type": "damage",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "連打 3 下，每下對隨機一隻敵人造成 ATK × 0.6 的傷害；之後自己 💨 疾風 2 回合（閃避 +30% (普攻、單體招；全體招必中)）"
+            },
+            "SR": {
+                "id": "chen_SP_II",
+                "name": "Lunatic・瘋狂・翔符「飛翔韋駄天」",
+                "type": "damage",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "連打 3 下，每下對隨機一隻敵人造成 ATK × 0.7 的傷害；之後自己 💨 疾風 2 回合（閃避 +30% (普攻、單體招；全體招必中)）"
+            },
+            "SSR": {
+                "id": "chen_SP_III",
+                "name": "Phantasm・幻象・翔符「飛翔韋駄天」",
+                "type": "damage",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "連打 3 下，每下對隨機一隻敵人造成 ATK × 0.8 的傷害；之後自己 💨 疾風 2 回合（閃避 +30% (普攻、單體招；全體招必中)）"
+            }
+        }
+    }
+}

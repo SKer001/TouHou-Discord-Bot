@@ -1,0 +1,62 @@
+{
+    "id": "merlin",
+    "name": "梅露蘭·普莉茲姆利巴",
+    "emoji": "🎺",
+    "category": "th07",
+    "profile": {
+        "title": "騷靈小號手",
+        "species": "騷靈",
+        "ability": "不用手就能演奏樂器程度的能力、演奏狂躁之音程度的能力",
+        "description": "騷靈三姊妹的次女，負責小號。個性開朗、魔力在三姊妹裡最強，樂聲會讓聽眾的情緒一下子高漲起來。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-0451b74d-79ef-5fce",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "騷靈小號手",
+            "SR": "狂躁之音的次女",
+            "SSR": "大合葬的狂躁號手"
+        }
+    },
+    "ura_class": "sup",
+    "base_stats": {
+        "hp": 102,
+        "atk": 19,
+        "def": 12
+    },
+    "special_powers": {
+        "id": "merlin_SP",
+        "name": "冥管「Ghost Clifford」",
+        "levels": {
+            "R": {
+                "id": "merlin_SP_I",
+                "name": "Easy・初陣・冥管「Ghost Clifford」",
+                "type": "buff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全隊 ⬆️ 強化・ATK 3 回合（ATK +20%）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，強化・ATK的數字 × 1.2"
+            },
+            "SR": {
+                "id": "merlin_SP_II",
+                "name": "Lunatic・瘋狂・冥管「Ghost Clifford」",
+                "type": "buff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全隊 ⬆️ 強化・ATK 3 回合（ATK +25%）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，強化・ATK的數字 × 1.2"
+            },
+            "SSR": {
+                "id": "merlin_SP_III",
+                "name": "Phantasm・幻象・冥管「Ghost Clifford」",
+                "type": "buff",
+                "spent": 6,
+                "cooldown": 4,
+                "desc": "全隊 ⬆️ 強化・ATK 3 回合（ATK +30%）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，強化・ATK的數字 × 1.2"
+            }
+        }
+    }
+}

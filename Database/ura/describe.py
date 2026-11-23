@@ -31,6 +31,9 @@ STATUS_PHRASE = {
     "evil_eye": "DEF −{v}",
     "sleep": "跳過行動，被打就醒",
     "freeze": "跳過行動，被打也不會醒",
+    "doll_guard": "受到的傷害 −{v}",
+    "spring_blessing": "ATK +{v}",
+    "death_butterfly": "回合結束扣 5% 最大 HP，BOSS 扣一半",
 }
 WHO = {"self": "自己", "allies": "全隊", "enemies": "讓敵人全體", "target": "讓一隻敵人"}
 DAMAGE_DOS = ("damage", "damage_all", "multi_hit")
@@ -172,11 +175,15 @@ def _effect_text(sp, e, tier, rarities, caster, after_damage) -> str:
             t += f"，回自己造成傷害的 {pct(e['drain'])} HP"
         if e.get("vs_strong"):
             t += f"（打精英 / 寶箱怪 / BOSS 再 × {num(e['vs_strong'])}）"
+        if e.get("pursuit"):
+            t += f"；打倒的話 👻 半靈追擊另一隻敵人 ATK × {num(e['pursuit'])}（沒有別隻就不打）"
         return t
     if do == "damage_all":
         return f"對全部敵人造成 ATK × {s(e['mult'])} 的傷害"
     if do == "multi_hit":
         lo, hi = e["hits"]
+        if lo == hi:
+            return f"連打 {lo} 下，每下對隨機一隻敵人造成 ATK × {s(e['mult'])} 的傷害"
         ks = list(range(lo, hi + 1))
         ws = list(range(len(ks), 0, -1))   # 跟 rules.weighted_count 一樣：下數越多機率越低
         dist = "、".join(f"{k} 下 {round(w * 100 / sum(ws))}%" for k, w in zip(ks, ws))
@@ -225,7 +232,26 @@ def spell_text(cid: str, tier: int | None = None) -> str:
     for e in sp["effects"]:
         out.append(effect_text(sp, e, tier, ch.get("rarities"), ch.get("name"), after))
         after = after or e["do"] in DAMAGE_DOS
-    return "；".join(out)
+    ens = ensemble_text(sp)
+    return "；".join(out) + (f"；{ens}" if ens else "")
+
+
+def ensemble_text(sp: dict) -> str:
+    """🎻 合奏 (rules.ENSEMBLES)：「🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上時，上面的數字 × 1.2」"""
+    from Database.ura import rules
+    ens = rules.ENSEMBLES.get(sp.get("ensemble") or "")
+    if not ens:
+        return ""
+    chars = data.characters()
+    names = "、".join(chars.get(c, {}).get("name", c).split("·")[0] for c in ens["members"])
+    scaled = []   # 會放大的：有 $ 參數的效果 (固定的數字像賽錢 × 1.2 不變)
+    for e in sp["effects"]:
+        if any(isinstance(v, str) and v.startswith("$") for k, v in e.items() if k != "do"):
+            what = (data.statuses().get(e["status"], {}).get("name", e["status"]) if e["do"] == "apply"
+                    else {"sanity": "常識度", "heal": "回血量", "heal_all": "回血量"}.get(e["do"], "傷害倍率"))
+            if what not in scaled:
+                scaled.append(what)
+    return f"{ens['name']}：{names}都在隊上 (活著) 時，{'、'.join(scaled)}的數字 × {num(ens['mult'])}"
 
 
 def spell_note(cid: str) -> str:

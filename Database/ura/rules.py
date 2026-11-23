@@ -7,6 +7,9 @@ RARITIES = ["N", "R", "SR", "SSR", "UR", "LR"]
 RARITY_MULT = {"N": 1.0, "R": 1.1, "SR": 1.2, "SSR": 1.3, "UR": 1.4, "LR": 1.5}
 CLASS_NAMES = {"atk": "⚔️ 攻擊手", "guard": "🛡️ 守護者", "sup": "💚 輔助", "scout": "🔍 斥候", "guide": "🧭 嚮導"}
 CLASS_EMOJI = {"atk": "⚔️", "guard": "🛡️", "sup": "💚", "scout": "🔍", "guide": "🧭"}
+# 🎻 合奏 (TH07 騷靈三姊妹，使用者 2026-11-24)：spells.json 寫 "ensemble": 名稱 的符卡，
+#    members 全部在隊上而且活著時，那招的數字 ($ 參數：弱化 / 強化 / 常識度) × mult；固定的數字 (賽錢 × 1.2、回合數) 不變
+ENSEMBLES = {"prismriver": {"name": "🎻 騷靈合奏", "members": ("lunasa", "merlin", "lyrica"), "mult": 1.2}}
 
 # ---- 一局 ----
 SANITY_START = 1000

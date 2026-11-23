@@ -38,8 +38,9 @@ async def main():
     p = {'name': '博麗靈夢', 'emoji': '☯️'}
     await udm.add_gacha_cards(1, [dict(instance_id=f'c_x_{i}', character_key='reimu', name='博麗靈夢', emoji='☯️', rarity='SR', title='t', completeness=0.5, obtained_at='x') for i in range(3)])
     cats = cd.load_categories()
-    check(f"categories order {list(cats)}", list(cats) == ["Main", "TH01", "TH02", "TH03", "TH04", "TH05", "TH06"])
-    check("24 chars", sum(len(c["characters"]) for c in cats.values()) == 24)
+    check(f"categories order {list(cats)}", list(cats) == ["Main", "TH01", "TH02", "TH03", "TH04", "TH05", "TH06", "TH07"])
+    check("35 chars", sum(len(c["characters"]) for c in cats.values()) == 35)
+    check("th07 category name", cats["TH07"]["category_name"] == "🌸 東方妖妖夢 (TH07)" and len(cats["TH07"]["characters"]) == 11)
 
     bot = commands.Bot(command_prefix="!", intents=discord.Intents.none())
     await bot.load_extension("Cogs.load-character.character")
@@ -49,7 +50,7 @@ async def main():
 
     it = Interaction(); await cmd.callback(cog, it)
     view = it.view
-    check("home", "角色圖鑑資料庫" in texts(view) and "24 位角色" in texts(view) and "`1 / 24`" in texts(view))
+    check("home", "角色圖鑑資料庫" in texts(view) and "35 位角色" in texts(view) and "`1 / 35`" in texts(view))
     real_thumbs = json.load(open("images/Thumbnails.json", encoding="utf-8"))
     fill = real_thumbs["fill"]
     # 每頁的卡面：有任何階級的專屬卡面 ➔ 「卡牌階級」每一行右側放該階級縮圖 (缺的退回角色圖 / fill)；

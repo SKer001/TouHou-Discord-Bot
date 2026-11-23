@@ -34,12 +34,15 @@ def texts(v): return "\n".join(i.content for i in v.walk_children() if isinstanc
 async def main():
     await udm.init_db()
     pool = gacha.GACHA_POOL
-    check("24 chars", len(pool) == 24)
+    check("35 chars", len(pool) == 35)
     check("pool fields", all(set(v) == {"name", "emoji", "uuid", "rarities", "titles", "pool", "profile_title"} and len(v["rarities"]) == 3 for v in pool.values()))
     classic = {k for k, v in pool.items() if v["pool"] == "classic"}
     th06 = {k for k, v in pool.items() if v["pool"] == "th06"}
     check(f"classic {len(classic)}", len(classic) == 15 and {"reimu", "marisa", "mima", "shinki"} <= classic)
     check(f"th06 {len(th06)}", th06 == {"rumia", "daiyousei", "cirno", "meiling", "koakuma", "patchouli", "sakuya", "remilia", "flandre"})
+    th07 = {k for k, v in pool.items() if v["pool"] == "th07"}   # 🌸 妖妖夢 (2026-11-24)：event_only，春雪異變才開
+    check(f"th07 {len(th07)}", th07 == {"lily_white", "letty", "chen", "alice_th07", "lunasa", "merlin", "lyrica", "youmu", "yuyuko", "ran", "yukari"}
+          and gacha.is_event_only("th07") and all(c["uuid"].startswith("th07-") for k, c in pool.items() if k in th07))
 
     bot = commands.Bot(command_prefix="!", intents=discord.Intents.none())
     cog = gacha.GachaCardSys(bot); await bot.add_cog(cog)

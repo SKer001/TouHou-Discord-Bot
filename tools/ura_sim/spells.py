@@ -1,4 +1,4 @@
-"""🌀 裏世界模擬：python tools/ura_sim/spells.py [-n 次數] [--teams 關鍵字] [--max-zone 10]
+"""🌀 裏世界模擬：python tools/ura_sim/spells.py [-n 次數] [--teams 關鍵字] [--max-zone 10] [--theme netherworld] [--aoe-solo]
 0.35.079 起直接呼叫正式引擎 (Database/ura/)，模擬跟遊戲用同一套規則，不會各算各的。
 這裡只有「自動玩家」的決策 (選哪扇門、什麼時候放符卡 / 用道具)；戰鬥、地圖、獎勵全部是引擎算的。
 """
@@ -15,7 +15,8 @@ os.chdir(ROOT)
 from Database.ura import combat, data, rules, run as R   # noqa: E402
 
 # ---------------- 自動玩家 ----------------
-HEAL_KINDS = {"daiyousei": "heal1", "yuki_mai": "healall"}
+HEAL_KINDS = {"daiyousei": "heal1", "yuki_mai": "healall", "lily_white": "healall"}
+AOE_SOLO = False   # --aoe-solo：只剩一隻精英 / BOSS 時也放全體 / 連打的傷害符卡 (預設照舊：2 隻以上才放)
 DOOR_PRIORITY = {"chest": 0, "event": 1, "battle": 2, "trap": 3, "elite": 4, "merchant": 0, "boss": 0}
 
 
@@ -88,7 +89,10 @@ def try_spell(run, actors, rng):
         if k in ("debuff", "buff", "control") and danger:
             tgt = max(foes, key=lambda f: f["hp"])["uid"]
             return R.battle_action(run, "spell", rng, uid=m["uid"], target=tgt) is None
-        if sp["target"] in ("enemy_all", "none") and k == "damage" and len(foes) >= 2:
+        if sp["target"] in ("enemy_all", "none") and k == "damage" and (len(foes) >= 2 or (AOE_SOLO and strong)):
+            return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
+        if k == "explore" and not sp.get("outside") and (
+                run["sanity"] <= 600 or any(e["do"] == "money_mult" for e in sp["effects"])):   # 回常識度 / 莉莉卡多賺錢
             return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
         if k == "action" and danger:
             return R.battle_action(run, "spell", rng, uid=m["uid"]) is None
@@ -195,7 +199,12 @@ if __name__ == "__main__":
     ap.add_argument("-n", type=int, default=200)
     ap.add_argument("--teams", default="")
     ap.add_argument("--max-zone", type=int, default=10)
+    ap.add_argument("--theme", default="", help="整局固定一個主題 (bamboo / makai / mountain / netherworld / higan)")
+    ap.add_argument("--aoe-solo", action="store_true", help="只剩一隻精英 / BOSS 時也放全體 / 連打的傷害符卡")
     args = ap.parse_args()
+    AOE_SOLO = args.aoe_solo
+    if args.theme:
+        R.zone_theme = lambda run, zone: data.zone_by_id(args.theme)
     rng = random.Random(1)
     for tname, team in TEAMS.items():
         if args.teams and not any(k in tname for k in args.teams.split(",")):

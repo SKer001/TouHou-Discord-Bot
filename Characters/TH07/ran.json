@@ -1,0 +1,62 @@
+{
+    "id": "ran",
+    "name": "八雲藍",
+    "emoji": "🦊",
+    "category": "th07",
+    "profile": {
+        "title": "隙間妖怪的式神",
+        "species": "妖獸 (九尾狐)",
+        "ability": "使役式神程度的能力",
+        "description": "八雲紫的式神，九尾狐。頭腦極好、擅長計算，替主人打理大小事，同時也是橙的主人。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-06d7c323-b17f-5395",
+        "rarities": [
+            "SSR",
+            "UR",
+            "LR"
+        ],
+        "titles": {
+            "SSR": "隙間妖怪的式神",
+            "UR": "策士的九尾",
+            "LR": "飯綱權現降臨之九尾"
+        }
+    },
+    "ura_class": "atk",
+    "base_stats": {
+        "hp": 82,
+        "atk": 33,
+        "def": 7.6
+    },
+    "special_powers": {
+        "id": "ran_SP",
+        "name": "式神「十二神將之宴」",
+        "levels": {
+            "SSR": {
+                "id": "ran_SP_I",
+                "name": "Easy・初陣・式神「十二神將之宴」",
+                "type": "damage",
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "連打 4～6 下（4 下 50%、5 下 33%、6 下 17%），每下對隨機一隻敵人造成 ATK × 0.6 的傷害"
+            },
+            "UR": {
+                "id": "ran_SP_II",
+                "name": "Lunatic・瘋狂・式神「十二神將之宴」",
+                "type": "damage",
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "連打 4～6 下（4 下 50%、5 下 33%、6 下 17%），每下對隨機一隻敵人造成 ATK × 0.7 的傷害"
+            },
+            "LR": {
+                "id": "ran_SP_III",
+                "name": "Phantasm・幻象・式神「十二神將之宴」",
+                "type": "damage",
+                "spent": 12,
+                "cooldown": 4,
+                "desc": "連打 4～6 下（4 下 50%、5 下 33%、6 下 17%），每下對隨機一隻敵人造成 ATK × 0.8 的傷害"
+            }
+        }
+    }
+}

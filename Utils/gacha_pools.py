@@ -13,6 +13,7 @@ from Utils.character_data import load_categories
 GACHA_POOLS = {
     "classic": {"name": "📜 舊作卡池", "desc": "主要主角 + TH01 ~ TH05", "folders": ["Main", "TH01", "TH02", "TH03", "TH04", "TH05"]},
     "th06":    {"name": "🔴 紅魔鄉卡池", "desc": "TH06 東方紅魔鄉", "folders": ["TH06"], "event_only": True},   # 紅霧異變期間開放
+    "th07":    {"name": "🌸 妖妖夢卡池", "desc": "TH07 東方妖妖夢", "folders": ["TH07"], "event_only": True},   # 春雪異變期間開放 (活動之後再設計)
 }
 
 

@@ -23,6 +23,7 @@ CATEGORY_INFO = {
     "TH04": ("📜 東方幻想鄉 (TH04)", "Lotus Land Story"),
     "TH05": ("📜 東方怪綺談 (TH05)", "Mystic Square"),
     "TH06": ("🔴 東方紅魔鄉 (TH06)", "the Embodiment of Scarlet Devil"),
+    "TH07": ("🌸 東方妖妖夢 (TH07)", "Perfect Cherry Blossom"),
 }
 
 REQUIRED_KEYS = ("id", "name", "emoji", "category", "profile", "gacha", "base_stats", "special_powers")

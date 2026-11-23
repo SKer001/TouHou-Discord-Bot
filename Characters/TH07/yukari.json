@@ -1,0 +1,62 @@
+{
+    "id": "yukari",
+    "name": "八雲紫",
+    "emoji": "☂️",
+    "category": "th07",
+    "profile": {
+        "title": "神隱的主犯",
+        "species": "妖怪",
+        "ability": "操縱境界程度的能力",
+        "description": "能操縱境界的大妖怪，幻想鄉的賢者之一。神出鬼沒、一睡就睡很久，據說冬天會冬眠；是幽幽子的老朋友。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-93e56337-e7a7-58a7",
+        "rarities": [
+            "SSR",
+            "UR",
+            "LR"
+        ],
+        "titles": {
+            "SSR": "神隱的主犯",
+            "UR": "潛藏於境界的妖怪",
+            "LR": "幻想鄉的妖怪賢者"
+        }
+    },
+    "ura_class": "guide",
+    "base_stats": {
+        "hp": 106,
+        "atk": 19.8,
+        "def": 13.2
+    },
+    "special_powers": {
+        "id": "yukari_SP",
+        "name": "紫奧義「彈幕結界」",
+        "levels": {
+            "SSR": {
+                "id": "yukari_SP_I",
+                "name": "Easy・初陣・紫奧義「彈幕結界」",
+                "type": "damage",
+                "spent": 15,
+                "cooldown": 5,
+                "desc": "對全部敵人造成 ATK × 1.3 的傷害；常識度 +40"
+            },
+            "UR": {
+                "id": "yukari_SP_II",
+                "name": "Lunatic・瘋狂・紫奧義「彈幕結界」",
+                "type": "damage",
+                "spent": 15,
+                "cooldown": 5,
+                "desc": "對全部敵人造成 ATK × 1.6 的傷害；常識度 +60"
+            },
+            "LR": {
+                "id": "yukari_SP_III",
+                "name": "Phantasm・幻象・紫奧義「彈幕結界」",
+                "type": "damage",
+                "spent": 15,
+                "cooldown": 5,
+                "desc": "對全部敵人造成 ATK × 1.9 的傷害；常識度 +80"
+            }
+        }
+    }
+}

@@ -1,0 +1,62 @@
+{
+    "id": "yuyuko",
+    "name": "西行寺幽幽子",
+    "emoji": "🦋",
+    "category": "th07",
+    "profile": {
+        "title": "幽冥樓閣的亡靈少女",
+        "species": "亡靈",
+        "ability": "操縱死亡程度的能力",
+        "description": "冥界白玉樓的亡靈公主，個性悠哉、食量驚人。為了讓白玉樓的妖怪櫻「西行妖」盛開而收集幻想鄉的春天，引發了春雪異變。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-55c9a3f5-54bc-5da0",
+        "rarities": [
+            "SSR",
+            "UR",
+            "LR"
+        ],
+        "titles": {
+            "SSR": "幽冥樓閣的亡靈少女",
+            "UR": "天衣無縫的亡靈",
+            "LR": "墨染櫻下的亡靈公主"
+        }
+    },
+    "ura_class": "atk",
+    "base_stats": {
+        "hp": 86,
+        "atk": 30,
+        "def": 8.8
+    },
+    "special_powers": {
+        "id": "yuyuko_SP",
+        "name": "「反魂蝶 -八分咲-」",
+        "levels": {
+            "SSR": {
+                "id": "yuyuko_SP_I",
+                "name": "Easy・初陣・「反魂蝶 -八分咲-」",
+                "type": "damage",
+                "spent": 15,
+                "cooldown": 5,
+                "desc": "對全部敵人造成 ATK × 1.1 的傷害；讓敵人全體 🦋 死蝶 2 回合（回合結束扣 5% 最大 HP，BOSS 扣一半）"
+            },
+            "UR": {
+                "id": "yuyuko_SP_II",
+                "name": "Lunatic・瘋狂・「反魂蝶 -八分咲-」",
+                "type": "damage",
+                "spent": 15,
+                "cooldown": 5,
+                "desc": "對全部敵人造成 ATK × 1.4 的傷害；讓敵人全體 🦋 死蝶 2 回合（回合結束扣 5% 最大 HP，BOSS 扣一半）"
+            },
+            "LR": {
+                "id": "yuyuko_SP_III",
+                "name": "Phantasm・幻象・「反魂蝶 -八分咲-」",
+                "type": "damage",
+                "spent": 15,
+                "cooldown": 5,
+                "desc": "對全部敵人造成 ATK × 1.7 的傷害；讓敵人全體 🦋 死蝶 2 回合（回合結束扣 5% 最大 HP，BOSS 扣一半）"
+            }
+        }
+    }
+}

@@ -1,0 +1,62 @@
+{
+    "id": "lunasa",
+    "name": "露娜薩·普莉茲姆利巴",
+    "emoji": "🎻",
+    "category": "th07",
+    "profile": {
+        "title": "騷靈提琴手",
+        "species": "騷靈",
+        "ability": "不用手就能演奏樂器程度的能力、演奏憂鬱之音程度的能力",
+        "description": "騷靈三姊妹的長女，負責小提琴。個性沉穩、做事認真，琴聲會讓聽眾的心情沉靜下來，聽太多甚至會變得憂鬱。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-d37bbead-83be-57c1",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "騷靈提琴手",
+            "SR": "憂鬱之音的長女",
+            "SSR": "大合葬的首席提琴"
+        }
+    },
+    "ura_class": "scout",
+    "base_stats": {
+        "hp": 94,
+        "atk": 21,
+        "def": 10.6
+    },
+    "special_powers": {
+        "id": "lunasa_SP",
+        "name": "弦奏「Guarneri del Gesù」",
+        "levels": {
+            "R": {
+                "id": "lunasa_SP_I",
+                "name": "Easy・初陣・弦奏「Guarneri del Gesù」",
+                "type": "debuff",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 2 回合（ATK −15%）；讓敵人全體 💔 弱化・DEF 3 回合（DEF −10%）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，弱化・ATK、弱化・DEF的數字 × 1.2"
+            },
+            "SR": {
+                "id": "lunasa_SP_II",
+                "name": "Lunatic・瘋狂・弦奏「Guarneri del Gesù」",
+                "type": "debuff",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 2 回合（ATK −20%）；讓敵人全體 💔 弱化・DEF 3 回合（DEF −15%）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，弱化・ATK、弱化・DEF的數字 × 1.2"
+            },
+            "SSR": {
+                "id": "lunasa_SP_III",
+                "name": "Phantasm・幻象・弦奏「Guarneri del Gesù」",
+                "type": "debuff",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "讓敵人全體 ⬇️ 弱化・ATK 2 回合（ATK −25%）；讓敵人全體 💔 弱化・DEF 3 回合（DEF −20%）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，弱化・ATK、弱化・DEF的數字 × 1.2"
+            }
+        }
+    }
+}

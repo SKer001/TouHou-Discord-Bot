@@ -1,0 +1,62 @@
+{
+    "id": "lyrica",
+    "name": "莉莉卡·普莉茲姆利巴",
+    "emoji": "🎹",
+    "category": "th07",
+    "profile": {
+        "title": "騷靈鍵盤手",
+        "species": "騷靈",
+        "ability": "不用手就能演奏樂器程度的能力、演奏幻想之音程度的能力",
+        "description": "騷靈三姊妹的三妹，負責鍵盤。三姊妹裡最機靈狡猾，凡事都算到三步之後，演奏的是現實中不存在的「幻想之音」。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-19d82102-fa35-5a57",
+        "rarities": [
+            "R",
+            "SR",
+            "SSR"
+        ],
+        "titles": {
+            "R": "騷靈鍵盤手",
+            "SR": "幻想之音的三妹",
+            "SSR": "大合葬的幻想鍵盤"
+        }
+    },
+    "ura_class": "guide",
+    "base_stats": {
+        "hp": 94,
+        "atk": 18,
+        "def": 11
+    },
+    "special_powers": {
+        "id": "lyrica_SP",
+        "name": "鍵靈「Bösendorfer 神奏」",
+        "levels": {
+            "R": {
+                "id": "lyrica_SP_I",
+                "name": "Easy・初陣・鍵靈「Bösendorfer 神奏」",
+                "type": "explore",
+                "spent": 10,
+                "cooldown": 6,
+                "desc": "常識度 +40；這場戰鬥的賽錢 × 1.2（不疊）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，常識度的數字 × 1.2"
+            },
+            "SR": {
+                "id": "lyrica_SP_II",
+                "name": "Lunatic・瘋狂・鍵靈「Bösendorfer 神奏」",
+                "type": "explore",
+                "spent": 10,
+                "cooldown": 6,
+                "desc": "常識度 +60；這場戰鬥的賽錢 × 1.2（不疊）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，常識度的數字 × 1.2"
+            },
+            "SSR": {
+                "id": "lyrica_SP_III",
+                "name": "Phantasm・幻象・鍵靈「Bösendorfer 神奏」",
+                "type": "explore",
+                "spent": 10,
+                "cooldown": 6,
+                "desc": "常識度 +80；這場戰鬥的賽錢 × 1.2（不疊）；🎻 騷靈合奏：露娜薩、梅露蘭、莉莉卡都在隊上 (活著) 時，常識度的數字 × 1.2"
+            }
+        }
+    }
+}

@@ -162,7 +162,7 @@ async def main():
     it = Interaction(uid=99); await cmds["history"].callback(cog, it)
     check("history empty", "`0 / 100`" in texts(it.view) and "尚未獲得" in texts(it.view))
     check("history next rate", "下一抽 UR `0.1%`" in texts(it.view) and "LR 不影響保底" in texts(it.view))
-    check("history rates select", [o.value for o in it.view.select.options] == list(gacha.GACHA_POOLS))
+    check("history rates select", [o.value for o in it.view.select.options] == ["classic", "th06"])   # 妖妖夢 (th07) 春雪異變才開
 
     # 📊 機率表：只有按的人看得到；顯示按的人自己的保底進度
     await udm.add_money(3, 10_000_000)

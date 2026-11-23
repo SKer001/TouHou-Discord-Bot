@@ -352,9 +352,18 @@ def cast(run: dict, uid: str, target_uid: str | None, rng) -> str | None:
         target = _pick_ally(run, target_uid)
         if not target:
             return "要選一位隊友"
+    ens = ensemble_mult(run, sp)   # 🎻 合奏：成員都在隊上 (活著) ➔ 數字 × 1.2
+    if ens != 1:
+        base_val = val
+
+        def val(v):
+            x = base_val(v)
+            return x * ens if isinstance(v, str) and v.startswith("$") and isinstance(x, (int, float)) else x
     run["b"] -= u["b_cost"]
     u["cd"] = u["cd_max"]
     _log(run, f"{u['emoji']} {u['name']}：{u.get('spell_name') or sp.get('desc', '')}")
+    if ens != 1:
+        _log(run, f"{rules.ENSEMBLES[sp['ensemble']]['name']}！效果 × {ens:g}")
     hit = []
     foes = living(run["battle"]["foes"]) if in_battle else []
     for eff in sp["effects"]:
@@ -371,6 +380,14 @@ def cast(run: dict, uid: str, target_uid: str | None, rng) -> str | None:
                 heal_amt = max(1, rules.round_half((hp0 - max(0, target["hp"])) * e["drain"]))
                 u["hp"] = min(max_hp(u), u["hp"] + heal_amt)
                 _log(run, f"🩸 {u['name']} 吸血 {heal_amt}")
+            if e.get("pursuit") and d and not target["alive"]:   # 👻 半靈追擊 (TH07 妖夢)：打倒目標 ➔ 再打另一隻 (沒有別隻就不打)
+                others = living(run["battle"]["foes"])
+                if others:
+                    f2 = rng.choice(others)
+                    d2 = deal(run, u, f2, e["pursuit"], rng, single=True)
+                    if d2:
+                        hit.append(f2)
+                    _log(run, f"👻 半靈追擊 {f2['name']} {d2}")
         elif do == "damage_all":
             for f in foes:
                 d = deal(run, u, f, e["mult"], rng)
@@ -639,13 +656,23 @@ def _foe_act(run: dict, foe: dict, rng):
         _log(run, f"{name}：{status.info(skill['status'])['name']}")
 
 
+def ensemble_mult(run: dict, sp: dict) -> float:
+    """🎻 合奏：符卡有 ensemble，而且成員全部在隊上、活著 ➔ 倍率 (rules.ENSEMBLES)；不然 1"""
+    ens = rules.ENSEMBLES.get(sp.get("ensemble") or "")
+    if not ens:
+        return 1.0
+    here = {m["cid"] for m in living(run["party"])}
+    return ens["mult"] if set(ens["members"]) <= here else 1.0
+
+
 def _trigger(run: dict, u: dict, trigger: str, rng):
     for inst, act in status.actions(u, trigger):
         if not u["alive"]:
             return
         do = act["do"]
         if do == "dot_max_hp_pct":
-            d = max(1, rules.round_half(max_hp(u) * act["value"]))
+            pct = act["value"] * (act.get("boss_mult", 1) if u.get("kind") == "boss" else 1)   # 🦋 死蝶對 BOSS 扣一半
+            d = max(1, rules.round_half(max_hp(u) * pct))
             floor_hp = act.get("min_hp", 1)   # 持續扣血最多扣到剩 1，不會直接打死 (使用者 2026-11-20)
             u["hp"] = max(floor_hp, u["hp"] - d)
             _log(run, f"{status.info(inst['id'])['emoji']} {u['name']} −{d}")

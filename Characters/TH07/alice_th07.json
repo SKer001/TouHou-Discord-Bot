@@ -1,0 +1,62 @@
+{
+    "id": "alice_th07",
+    "name": "愛麗絲·瑪格特羅依德",
+    "emoji": "🪆",
+    "category": "th07",
+    "profile": {
+        "title": "七色的人偶使",
+        "species": "魔法使",
+        "ability": "主要使用魔法程度的能力、操控人偶程度的能力",
+        "description": "住在魔法森林的人偶使，帶著上海人偶、蓬萊人偶戰鬥。跟《東方怪綺談》裡魔界的愛麗絲是不是同一人，至今仍是個謎。"
+    },
+    "gacha": {
+        "enabled": true,
+        "uuid": "th07-d419fd7e-be98-531e",
+        "rarities": [
+            "SR",
+            "SSR",
+            "UR"
+        ],
+        "titles": {
+            "SR": "七色的人偶使",
+            "SSR": "布加勒斯特的人偶師",
+            "UR": "人偶裁判的七色魔女"
+        }
+    },
+    "ura_class": "guard",
+    "base_stats": {
+        "hp": 128,
+        "atk": 16.5,
+        "def": 21
+    },
+    "special_powers": {
+        "id": "alice_th07_SP",
+        "name": "咒詛「蓬萊人偶」",
+        "levels": {
+            "SR": {
+                "id": "alice_th07_SP_I",
+                "name": "Easy・初陣・咒詛「蓬萊人偶」",
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；自己 🎎 人偶替身 2 回合（受到的傷害 −30%）"
+            },
+            "SSR": {
+                "id": "alice_th07_SP_II",
+                "name": "Lunatic・瘋狂・咒詛「蓬萊人偶」",
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；自己 🎎 人偶替身 2 回合（受到的傷害 −40%）"
+            },
+            "UR": {
+                "id": "alice_th07_SP_III",
+                "name": "Phantasm・幻象・咒詛「蓬萊人偶」",
+                "type": "shield",
+                "spent": 8,
+                "cooldown": 4,
+                "desc": "自己 📣 嘲諷 2 回合（敵人全部打這位）；自己 🎎 人偶替身 2 回合（受到的傷害 −50%）"
+            }
+        }
+    }
+}
