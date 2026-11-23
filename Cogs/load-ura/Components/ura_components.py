@@ -682,7 +682,7 @@ def build_status_table() -> ui.Container:
             continue
         line = f"{s.get('emoji', '')} **{s.get('name', sid)}**：{s.get('desc', '')}"
         (good if s.get("good") else bad).append(line)
-    c.add_item(ui.TextDisplay("## 📖 裏世界・狀態表\n-# 戰鬥畫面上的狀態後面括號 = 剩幾回合 / 幾次"))
+    c.add_item(ui.TextDisplay("## 📖 裏世界・狀態表\n-# 戰鬥畫面上的狀態後面括號 = 剩幾回合 / 幾次 / 幾關 (附身、提燈這類算關數)"))
     c.add_item(ui.Separator())
     c.add_item(ui.TextDisplay("### 🟢 好的狀態\n" + "\n".join(good)))
     c.add_item(ui.Separator())

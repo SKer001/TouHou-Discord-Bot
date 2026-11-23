@@ -68,8 +68,8 @@ def guest_mood(guest: dict, t: datetime) -> int:
 
 
 def serving_reward(mood: int, portions: int = 1) -> int:
-    """招待報酬 (不含加成)：每份 2000 × 心情²"""
-    return int(SERVING_REWARD * (mood / 100) ** 2 * portions)
+    """招待報酬 (不含加成)：每份 2000 × 心情²；跟實際入帳 (calc_serve_reward) 一樣四捨五入 (2026-11-23：原本截斷，心情 70% 寫 979 實拿 980)"""
+    return int(round(SERVING_REWARD * (mood / 100) ** 2 * portions))
 
 
 def calc_serve_reward(mood: int, order: list[str], extra: str | None, rules: dict, favorite: str | None) -> dict:
@@ -82,7 +82,7 @@ def calc_serve_reward(mood: int, order: list[str], extra: str | None, rules: dic
     event_count = sum(1 for d in served if d in rules["event_dishes"])
     favorite_hit = bool(extra) and extra == favorite
     mult = rules["event_dish_bonus"] ** event_count * (FAVORITE_BONUS if favorite_hit else 1) * modifier(rules, "serve_reward")
-    return {"base": int(base), "event_count": event_count, "favorite_hit": favorite_hit,
+    return {"base": int(round(base)), "event_count": event_count, "favorite_hit": favorite_hit,
             "multiplier": mult, "total": int(round(base * mult))}
 
 

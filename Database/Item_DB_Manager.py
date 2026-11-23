@@ -28,7 +28,7 @@ CATEGORY_NAMES = {
     "material": "🧺 素材",
 }
 
-# 招待料理的種類 (effect.serve)：每位參拜客至少要 1 份，最多 3 種共 5 份
+# 招待料理的種類 (effect.serve)：每位參拜客點 1～3 種 (不同種類，每道 1 份)，可以再額外招待 1 份 (Economy_DB_Manager.ORDER_SIZE)
 SERVE_TYPES = {"food": "🍚 食物", "drink": "🍵 茶水", "dessert": "🍮 點心"}
 
 # 每日簽到固定贈送的道具 (道具 ID, 數量)

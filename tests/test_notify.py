@@ -153,6 +153,13 @@ async def main():
     s = await ndm.get_settings(A)
     check("default all on", set(s) == set(notify_data.NOTIFY_TYPES) and all(s.values()))
     check("all dm now", all(i["dm"] for i in notify_data.NOTIFY_TYPES.values()))
+    # 說明裡的數字從常數組字 (2026-11-23：原本寫死)
+    from Database import Quest_DB_Manager as _qdm
+    nt = notify_data.NOTIFY_TYPES
+    check("notify desc from constants", f"{econ.SHRINE_BOX_MAX:,}" in nt["shrine_box_full"]["desc"]
+          and f"{econ.YOUKAI_MAX} 隻" in nt["youkai_max"]["name"]
+          and f"{econ.LISTING_DURATION.days} 天" in nt["market_expired"]["desc"]
+          and f"{int(_qdm.REMIND_WINDOW.total_seconds() // 3600)} 小時" in nt["event_quest_reminder"]["desc"])
     check("disable", await ndm.set_enabled(A, "youkai_max", False) and not (await ndm.get_settings(A))["youkai_max"])
     check("unknown kind", not await ndm.set_enabled(A, "nope", False))
     check("set_all", await ndm.set_all(C, False) == len(notify_data.NOTIFY_TYPES)

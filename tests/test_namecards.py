@@ -117,6 +117,18 @@ async def main():
     await udm.get_title_state(A)
     check("namecard kept after sold", await udm.get_namecards(A) == ["cirno"])
 
+    # 放進收藏冊湊齊 ➔ 馬上取出：名片還在 (放進去的當下就補發，不用等算稱號 / 通知 loop；2026-11-23)
+    L = 41
+    await udm.get_or_create_user(L)
+    add_cards(L, "cirno", CIRNO[:-1], locked=1, prefix="alb")
+    add_cards(L, "cirno", CIRNO[-1:], locked=0, prefix="book")    # 最後一階還在卡冊
+    check("lock-path no namecard yet", await udm.get_namecards(L) == [])
+    check("lock completes set", await udm.set_cards_locked(L, [f"book{L}cirno{CIRNO[-1]}"], True) == 1)
+    check("namecard granted on lock", await udm.get_namecards(L) == ["cirno"])
+    check("take out right away", await udm.set_cards_locked(L, [f"book{L}cirno{CIRNO[-1]}"], False) == 1)
+    check("namecard kept after quick take out", await udm.get_namecards(L) == ["cirno"]
+          and "oshi_cirno" not in (await udm.get_title_state(L))["unlocked"])
+
     # 沒擁有不能戴、不存在不能戴、卸下
     check("cannot equip not owned", await udm.set_equipped_namecard(A, "reimu") is False
           and (await udm.get_namecard_state(A))["equipped"] == "cirno")

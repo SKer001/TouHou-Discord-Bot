@@ -13,6 +13,18 @@
 
 ---
 
+## 0.37.009 — 2026-11-23：🔧 小問題 5 個 (招待報酬差 1、凶的 emoji、狀態表、通知說明、名片漏發) (筆電，玩法 session)
+- 統整 session 轉來，使用者「轉給遊戲設計」(第 2 題照統整的建議)。
+1. 💰 **招待報酬顯示差 1**：`serving_reward()` 用 `int()` 截斷、實際入帳 `calc_serve_reward` 用 `round()`，心情 70% 時神社畫面寫每份 979、實拿 980 ➔ `serving_reward` 改成四捨五入 (`calc_serve_reward` 的 `base` 也一樣)，畫面跟實拿一致。
+2. 🎎 **運勢「凶 (厄神降臨)」改成 🎎** (雛人形，配合厄神雛)；原本跟「小吉」一樣是 🍵。教學書資料卡那本從 `FORTUNE_MAP` 讀，自己跟著變。
+3. 📖 **裏世界狀態表**標題「括號 = 剩幾回合 / 幾次」補上「/ 幾關 (附身、提燈這類算關數)」。
+4. 🔔 **`/notify` 說明的數字改讀常數**：賽錢箱上限 `SHRINE_BOX_MAX`、妖怪上限 `YOUKAI_MAX` (名稱「妖怪滿 N 隻」)、上架期限 `LISTING_DURATION`、活動任務提醒 `Quest_DB_Manager.REMIND_WINDOW`；文字跟原本一樣，之後改數值會自己跟著變 (教學書資料卡那本也讀這裡)。
+5. 🖼️ **名片可能漏發**：推角稱號 (收藏冊集齊那位角色每個階級的完美卡) 的名片原本要等下次算稱號 / 通知 loop 才補，中間把卡拿出收藏冊就拿不到 ➔ `set_cards_locked` 放進收藏冊成功後馬上 `get_title_state` (會 `sync_oshi_namecards`)，所有放進收藏冊的路都會補。
+- 過時的註解：`Item_DB_Manager.SERVE_TYPES` (點 1～3 種 + 額外 1 份)、`shrine_data.SHOP_PRICES` (心情 100% 時還是賺)、`User_DB_Manager` 名片 (顯示在今日運勢下面)、`leaderboard.py` docstring (翻頁按鈕文字)。
+- 測試：`test_economy.py` 心情 70% 每份 980 = 實拿、0～100% 每 10% 都一致、運勢 6 種 emoji 都不一樣；`test_notify.py` 通知說明的數字跟常數一樣；`test_namecards.py` 放進收藏冊湊齊 ➔ 馬上有名片 ➔ 馬上取出 ➔ 名片還在 (修之前這兩項會失敗)。`tests/test_guide.py profile` 過。
+
+---
+
 ## 0.37.008 — 2026-11-23：🌀 裏世界同一關可以有兩扇真寶箱 (筆電，玩法 session)
 - 0.37.007 陷阱門偽裝成寶箱後，因為 `gen_doors` 同一關不會出現兩扇同種類的非戰鬥門，看到兩扇 💰 就知道一定有一扇是假的。使用者：「好，改成可以有兩扇真寶箱」。
 - `gen_doors` 抽門時，寶箱也可以重複 (新的 `rules.REPEAT_ROOMS = ("chest",)`)；每區寶箱上限 `ROOM_CAPS["chest"]` 照算 (同一關已經抽到的也算進去)。陷阱、事件、精英一關照舊最多一扇，所以兩扇 💰 可能都真、也可能一真一假，不會兩扇都假。`force_chest`、保底寶物 (`_guaranteed`)、斥候的隱藏寶箱都沒改。

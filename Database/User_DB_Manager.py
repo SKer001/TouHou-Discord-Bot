@@ -932,7 +932,7 @@ async def set_equipped_title(user_id: int, title_id: str | None) -> bool:
 
 # ---------------------------------------------------------
 # 🖼️ 角色名片 (2026-11-14 使用者)：第一次獲得某位角色的推角稱號 (oshi_<角色id>) 時永久拿到；
-#    之後稱號失去 (卡拿出收藏冊、賣掉) 名片還是留著。戴一張顯示在 /profile 最上面，圖片網址在 images/Namecards.json
+#    之後稱號失去 (卡拿出收藏冊、賣掉) 名片還是留著。戴一張顯示在 /profile 今日運勢下面 (0.35.038 起)，圖片網址在 images/Namecards.json
 # ---------------------------------------------------------
 OSHI_PREFIX = "oshi_"
 
@@ -1073,7 +1073,12 @@ async def set_cards_locked(user_id: int, instance_ids: list[str], locked: bool) 
         )
         await db.commit()
     card_cache.invalidate(user_id)
-    return cursor.rowcount
+    changed = cursor.rowcount
+    if locked and changed:
+        # 🖼️ 放進收藏冊可能剛好湊齊推角稱號 ➔ 馬上補發名片 (get_title_state 會 sync_oshi_namecards)；
+        # 不然要等下次算稱號 / 通知 loop，中間把卡拿出來就拿不到 (2026-11-23)
+        await get_title_state(user_id)
+    return changed
 
 
 async def get_gacha_stats(user_id: int) -> dict:

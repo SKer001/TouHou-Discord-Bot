@@ -77,6 +77,16 @@ async def main():
     s = econ.advance_shrine(s, T0 + 50 * H, NEVER)
     check("guest leaves at 0", s["guests"] == [])
     check("serving reward", econ.serving_reward(100) == 2000 and econ.serving_reward(50) == 500 and econ.serving_reward(10, 2) == 40)
+    # 畫面上的「每份」跟實際入帳一樣四捨五入 (2026-11-23：心情 70% 原本寫 979、實拿 980)
+    from Database.events import game_rules as _gr
+    _br = _gr([])
+    _d0 = next(iter(_br["dish_types"]))
+    check("serving reward = payout at 70%", econ.serving_reward(70) == 980 == econ.calc_serve_reward(70, [_d0], None, _br, None)["total"]
+          and all(econ.serving_reward(m) == econ.calc_serve_reward(m, [_d0], None, _br, None)["total"] for m in range(0, 101, 10)))
+    # 運勢 6 種的 emoji 都不一樣 (2026-11-23：凶和小吉原本都是 🍵)
+    import importlib as _il
+    _fm = _il.import_module("Cogs.load-general.Components.general_components").FORTUNE_MAP
+    check("fortune emoji unique", len({v["name"].split(" ")[0] for v in _fm.values()}) == len(_fm) and _fm[0]["name"].startswith("🎎"))
     check("efficiency floor", abs(econ.shrine_efficiency(4, 5) - 0.2) < 1e-9)
     # 很久沒來：只模擬最後 14 天，不會卡住
     s = econ.advance_shrine(st, T0 + timedelta(days=400), Rng(last=0.5))
