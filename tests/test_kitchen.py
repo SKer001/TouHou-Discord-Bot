@@ -298,6 +298,25 @@ async def main():
     await btns(view)["🍵 端上桌"].callback(It())
     check("served without extra", view.mode == "main" and view.extra is None and view.extra_cat is None)
 
+    # ⏳ 神社畫面逾時 (2026-11-23)：按鈕 / 選單反灰 + 提示；先用最近一次互動改，失敗再用第一次送出的訊息
+    class Edits:
+        def __init__(s, fail=False): s.views, s.fail = [], fail
+        async def edit_original_response(s, view=None, **kw):
+            if s.fail: raise discord.HTTPException(types.SimpleNamespace(status=404, reason="x"), "expired")
+            s.views.append(view)
+        async def edit(s, view=None, **kw): s.views.append(view)
+    last = Edits()
+    view.last = last
+    await view.on_timeout()
+    comps = [c for c in view.walk_children() if isinstance(c, (discord.ui.Button, discord.ui.Select))]
+    check("shrine timeout disables", last.views == [view] and comps and all(c.disabled for c in comps)
+          and shrine_mod.TIMEOUT_TEXT in vtext(view) and sum(1 for _ in view.walk_children()) <= 40)
+    view2 = await ShrineView.create(user8, await econ.get_shrine(8))
+    view2.last, view2.message = Edits(fail=True), Edits()
+    await view2.on_timeout()
+    check("shrine timeout fallback to message", view2.message.views == [view2] and view2.last.views == [])
+    check("shrine view timeout", view2.timeout == shrine_mod.VIEW_TIMEOUT)
+
     # 🧺 神社倉庫的素材分類 (0.36.001：原本只在「全部道具」裡、分類數量也不算)
     gen = importlib.import_module("Cogs.load-general.Components.general_components")
     data = gen.get_inventory_view_data({"mat_rice": 2, "mat_flour": 1, "reimu_onigiri": 1}, items, "material", 1)
@@ -319,6 +338,13 @@ async def main():
     cook = shrine_mod.ShrineCog.cook   # GroupCog 的子指令 (app_commands.Command)
     check(f"cook description {cook.description}", f"一鍋 {sd.COOK_YIELD} 份" in cook.description
           and f"體力料理一鍋 {sd.STAMINA_COOK_YIELD} 份" in cook.description and len(cook.description) <= 100)
+    # 🎪 /event info 的倍率：每個預留位都有名字 (2026-11-23 補祈願價格、市場買家手續費、轉帳手續費)
+    from Database import events as ev_mod
+    check("modifier names cover keys", set(sc.MODIFIER_NAMES) == set(ev_mod.MODIFIER_KEYS))
+    fake = {"id": "x", "emoji": "🎪", "name": "測試活動", "modifiers": {"gacha_cost": 0.9, "market_fee": 0.5, "transfer_fee": 2}}
+    t = "\n".join(i.content for i in sc.build_event_container([{"event": fake, "status": "active"}], items, {}).walk_children()
+                  if isinstance(i, discord.ui.TextDisplay))
+    check(f"event info fee modifiers", "祈願價格 ×0.9" in t and "市場買家手續費 ×0.5" in t and "轉帳手續費 ×2" in t)
     mc = importlib.import_module("Cogs.load-market.Components.market_components")
     t = mc.build_price_container({"emoji": "❄️", "name": "琪露諾", "key": "cirno"}, [], None).children[0].content
     check("market price header", f"最多漲 {econ.PRICE_IDLE_RISE:.0%}、最多跌 {econ.PRICE_DAILY_LIMIT:.0%}" in t and "±" not in t)

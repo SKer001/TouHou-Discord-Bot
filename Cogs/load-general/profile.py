@@ -214,7 +214,7 @@ class ProfileView(ui.LayoutView):
         await interaction.response.defer(ephemeral=True)
         shrine_view = importlib.import_module("Cogs.load-general.shrine").ShrineView   # 呼叫時才取，重載後拿到新版
         view = await shrine_view.create(interaction.user, await econ.get_shrine(interaction.user.id))
-        await interaction.followup.send(view=view, ephemeral=True)
+        view.message = await interaction.followup.send(view=view, ephemeral=True)   # 逾時時把按鈕反灰用
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.target_user.id:

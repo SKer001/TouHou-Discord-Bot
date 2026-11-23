@@ -58,7 +58,7 @@ def _shrine() -> str:
     full_hours = box_max / income
     min_eff = max(0.0, 1 - e.DIRT_PENALTY * e.DIRT_MAX - e.YOUKAI_PENALTY * e.YOUKAI_MAX)
     lo, hi = e.YOUKAI_REWARD
-    view_minutes = 10   # 來源：Cogs/load-general/shrine.py ShrineView timeout=600
+    view_minutes = _m("Cogs.load-general.shrine").VIEW_TIMEOUT // 60   # ShrineView 的 timeout
     lines = [
         "每位玩家都有一間自己的神社，打 `/shrine manage` 打開（只有自己看得到）。"
         "神社不用一直開著：每次打開或按按鈕時，才把這段時間發生的事一次算完。",
@@ -95,7 +95,7 @@ def _shrine() -> str:
         "- 畫面最下面寫著「下一次妖怪 / 參拜客判定」的時間，按「🔄」重新整理",
         f"- 太久沒來的話，只會補算**最近 {e.SHRINE_MAX_CATCHUP.days} 天**（那時賽錢箱早就滿了）",
         "- 下排的「🗺️ 採集」「🍳 料理」「🏪 雜貨店」通往其他玩法，後面幾章會講",
-        f"- 神社畫面放著超過 {view_minutes} 分鐘，按鈕就會失效，再打一次指令就好",
+        f"- 神社畫面 {view_minutes} 分鐘沒動作，按鈕和選單會變灰色停用（最下面會寫一行提示），再打一次指令就好",
         f"-# 🔔 賽錢箱滿了、妖怪滿 {e.YOUKAI_MAX} 隻時，機器人可以私訊提醒你（在 `/notify` 開關）",
         # 來源：Economy_DB_Manager.modifier (shrine_income / youkai_spawn / youkai_reward)；神社畫面只有每小時進帳會跟著變
         "-# 活動期間神社收入、妖怪出現機率、治退的賽錢可能會調整：每小時進帳以神社畫面為準，其他看 `/event info`",

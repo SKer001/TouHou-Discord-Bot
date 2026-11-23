@@ -614,6 +614,7 @@ class PartyPickerView(GroupPickerView):
         self.cards = cards
         self.picked: list[str] = []    # instance_id (照選的順序)
         self.card_choice = None
+        self.card_page = 1             # 「🎴 派哪一張卡？」第幾頁 (同一位角色超過 LIST_PER_PAGE 張時翻頁)
 
     @classmethod
     async def create(cls, cog, user):
@@ -688,6 +689,7 @@ class PartyPickerView(GroupPickerView):
         mine = sorted([c for c in self.cards if c["character_key"] == item and c["ok"]],
                       key=lambda c: (-UC.RARITY_SORT.get(c["rarity"], 0), -c["completeness"]))
         self.card_choice = mine[0]["instance_id"] if mine else None
+        self.card_page = 1   # 預設選的是能派的最好那張，排在第一頁
 
     def actions(self):
         cid = self.selected
@@ -701,12 +703,18 @@ class PartyPickerView(GroupPickerView):
         if self.selected:
             last = self.children[-1]
             self.remove_item(last)
+            # 能派的、階級高、完整度高的在前；超過一頁就翻頁 (2026-11-23：原本只列前 25 張，後面的選不到)
             mine = sorted([c for c in self.cards if c["character_key"] == self.selected],
-                          key=lambda c: (not c["ok"], -UC.RARITY_SORT.get(c["rarity"], 0), -c["completeness"]))[:25]
+                          key=lambda c: (not c["ok"], -UC.RARITY_SORT.get(c["rarity"], 0), -c["completeness"]))
+            pg = paginate(mine, self.card_page, LIST_PER_PAGE)
+            self.card_page = pg.page
             opts = [_opt(f"{'' if c['ok'] else '🚫 '}〔{c['rarity']}〕完整度 {c['completeness']:.4f}", c["instance_id"],
-                         c["why"] or "可以出征", default=c["instance_id"] == self.card_choice) for c in mine]
+                         c["why"] or "可以出征", default=c["instance_id"] == self.card_choice) for c in pg.items]
             if opts:
-                self.add_item(_select("🎴 派哪一張卡？", opts, self.on_card))
+                self.add_item(_select("🎴 派哪一張卡？" + (f" (第 {pg.page} / {pg.total} 頁)" if pg.total > 1 else ""),
+                                      opts, self.on_card))
+            if pg.total > 1:
+                self.add_item(ui.ActionRow(*nav_buttons(pg.page, pg.total, self.set_card_page, "compact")))
             self.add_item(last)
         box_rows(self)
 
@@ -716,6 +724,10 @@ class PartyPickerView(GroupPickerView):
             await self.done(interaction, f"❌ 這張不能派：{(c or {}).get('why') or '找不到這張卡'}")
             return
         self.card_choice = c["instance_id"]
+        await self.done(interaction)
+
+    async def set_card_page(self, interaction, page: int):
+        self.card_page = page
         await self.done(interaction)
 
     async def on_add(self, interaction):

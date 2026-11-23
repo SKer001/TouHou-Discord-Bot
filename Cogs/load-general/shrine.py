@@ -23,6 +23,8 @@ from Utils.stamina_modal import open_stamina_modal   # ⚡ 恢復體力彈窗 (�
 
 GATHER_TIMES = (1, 3, 5, 10)   # 快速採集的按鈕：總共採幾趟 (使用者 2026-11-16 指定)
 EXTRA_PER_PAGE = 25            # 額外招待的料理選單一頁幾道 (一個分類超過就翻頁)
+VIEW_TIMEOUT = 600             # 神社畫面幾秒沒動作就停用 (教學書讀這個)
+TIMEOUT_TEXT = "-# ⏳ 畫面放太久，按鈕已經停用了；再打一次指令就好"
 from .Components.general_components import get_inventory_view_data, build_inventory_container
 from Utils.numbers import fmt_money   # 持有金額一萬以上縮寫 (1.5M)
 from Utils.guide import open_guide
@@ -147,7 +149,7 @@ class ShrineView(ui.LayoutView):
     """
 
     def __init__(self, user: discord.abc.User, result: dict, notice: str | None = None):
-        super().__init__(timeout=600)
+        super().__init__(timeout=VIEW_TIMEOUT)
         self.user = user
         self.summary = result["summary"]
         self.notice = notice
@@ -161,6 +163,8 @@ class ShrineView(ui.LayoutView):
         self.serve_return = None      # 從招待跳到料理時記住的客人 id (「🍵 回去招待」用)
         self.serve_queue = []         # 那位客人還缺、要做的菜
         self.gather_result = None     # 快速採集剛剛的結果
+        self.message = None           # 第一次送出的訊息 (指令填入)；逾時時用來把按鈕反灰
+        self.last = None              # 最近一次改到這個畫面的互動 (訊息是私人的，用它的 token 改比較不會過期)
 
     @classmethod
     async def create(cls, user, result: dict, notice: str | None = None, mode: str = "main") -> "ShrineView":
@@ -429,6 +433,27 @@ class ShrineView(ui.LayoutView):
         await self.reload(result)
         self.build()
         await interaction.response.edit_message(view=self)
+        self.last = interaction
+
+    async def on_timeout(self):
+        """逾時 (VIEW_TIMEOUT) 後把按鈕和選單反灰、最下面寫一行提示 (2026-11-23：原本沒處理，按下去顯示「互動失敗」)"""
+        for item in self.walk_children():
+            if isinstance(item, (ui.Button, ui.Select)):
+                item.disabled = True
+        containers = [c for c in self.children if isinstance(c, ui.Container)]
+        if containers and sum(1 for _ in self.walk_children()) < 40:
+            containers[-1].add_item(ui.TextDisplay(TIMEOUT_TEXT))
+        for target in (self.last, self.message):   # 最近的互動優先 (私人訊息的 token 15 分鐘後過期)
+            if target is None:
+                continue
+            try:
+                if hasattr(target, "edit_original_response"):   # 互動 (訊息物件沒有這個方法)
+                    await target.edit_original_response(view=self)
+                else:
+                    await target.edit(view=self)
+                return
+            except discord.HTTPException:
+                continue
 
     async def on_home(self, interaction):
         self.serve_return, self.serve_queue, self.gather_result = None, [], None
@@ -606,6 +631,7 @@ class ShrineView(ui.LayoutView):
         self.mode, self.notice = "cook", notice
         self.build()
         await interaction.response.edit_message(view=self)
+        self.last = interaction
 
     # ---------------- 快速採集 ----------------
     async def on_gather_open(self, interaction):
@@ -703,7 +729,7 @@ class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩�
         await interaction.response.defer(ephemeral=True)
         result = result or await econ.get_shrine(interaction.user.id)
         view = await ShrineView.create(interaction.user, result, notice, mode)
-        await interaction.followup.send(view=view, ephemeral=True)
+        view.message = await interaction.followup.send(view=view, ephemeral=True)
 
     @app_commands.command(name="explore", description="🗺️ 到幻想鄉各地採集料理素材 (消耗體力)")
     async def explore(self, interaction: discord.Interaction):

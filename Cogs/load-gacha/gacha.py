@@ -401,7 +401,8 @@ class GachaResultView(ui.LayoutView):
             await send_notice(interaction, "🎒 你的卡冊空空如也，快進行祈願吧！")
             return
 
-        inv_view = InventoryView(self.user_id, sort_cards(cards), self.user_name, self.gacha_cog)
+        inv_view = InventoryView(self.user_id, sort_cards(cards), self.user_name, self.gacha_cog,
+                                 owned_keys=await owned_character_keys(self.user_id))
         await interaction.edit_original_response(view=inv_view)
 
 
@@ -532,9 +533,16 @@ def build_stacks(cards: list) -> list[dict]:
     return list(stacks.values())
 
 
-def collection_progress(cards: list) -> list[tuple[dict, int, int]]:
-    """各卡池的收集進度：[(卡池設定, 已擁有角色數, 卡池角色數), ...]"""
-    owned = {c["character_key"] for c in cards}
+async def owned_character_keys(user_id: int) -> set[str]:
+    """
+    收集進度用的「已擁有角色」：卡冊 + 收藏冊 + 裏世界出征中的卡 (跟圖鑑「已擁有」、稱號、排行榜一致)
+    2026-11-23 使用者定：卡冊畫面的收集進度也算收藏冊；張數、疊卡列表照舊只算卡冊裡的
+    """
+    return {c["character_key"] for c in await get_user_cards(user_id, include_locked=True)}
+
+
+def collection_progress(owned: set) -> list[tuple[dict, int, int]]:
+    """各卡池的收集進度：[(卡池設定, 已擁有角色數, 卡池角色數), ...]；owned = 擁有的角色 id"""
     result = []
     for key, pool in GACHA_POOLS.items():
         members = [k for k, v in GACHA_POOL.items() if v["pool"] == key]
@@ -562,7 +570,8 @@ class InventoryView(ui.LayoutView):
     卡冊：同一個 View 依狀態切換三種畫面
       疊卡列表 (卡池 / 階級篩選 + 排序) ➔ 單一疊的卡牌列表 ➔ 單卡詳情
     """
-    def __init__(self, user_id: int, cards: list, user_name: str, gacha_cog, owner_id: int | None = None):
+    def __init__(self, user_id: int, cards: list, user_name: str, gacha_cog, owner_id: int | None = None,
+                 owned_keys: set | None = None):
         super().__init__(timeout=180)
         self.user_id = user_id                       # 操作畫面的人
         self.owner_id = owner_id or user_id          # 卡冊的主人 (管理員檢視別人卡冊時不同)
@@ -570,6 +579,8 @@ class InventoryView(ui.LayoutView):
         self.gacha_cog = gacha_cog
         self.all_cards = cards
         self.all_stacks = build_stacks(cards)
+        # 收集進度算的角色 (owned_character_keys：含收藏冊、出征中)；沒給就只看這些卡 (管理員畫面本來就含收藏冊)
+        self.owned_keys = owned_keys if owned_keys is not None else {c["character_key"] for c in cards}
 
         self.pool_filter = "ALL"
         self.rarity_filter = "ALL"
@@ -604,7 +615,7 @@ class InventoryView(ui.LayoutView):
 
     def _progress_text(self) -> str:
         return " · ".join(
-            f"{p['name']} `{owned}/{total}`" for p, owned, total in collection_progress(self.all_cards)
+            f"{p['name']} `{owned}/{total}`" for p, owned, total in collection_progress(self.owned_keys)
         )
 
     # ---------------- 畫面 ----------------
@@ -984,7 +995,8 @@ class CardActionConfirmView(ui.LayoutView):
         if not cards:
             await send_notice(interaction, "🎒 你的卡冊空空如也，快進行祈願吧！")
             return
-        inv_view = InventoryView(self.user_id, sort_cards(cards), self.user_name, self.gacha_cog)
+        inv_view = InventoryView(self.user_id, sort_cards(cards), self.user_name, self.gacha_cog,
+                                 owned_keys=await owned_character_keys(self.user_id))
         await interaction.edit_original_response(view=inv_view)
 
 
@@ -1232,7 +1244,8 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             await send_notice(interaction, "🎒 你的卡冊空空如也，快去使用 `/card gacha` 進行第一次祈願吧！")
             return
 
-        view = InventoryView(user_id, sort_cards(cards), interaction.user.display_name, self)
+        view = InventoryView(user_id, sort_cards(cards), interaction.user.display_name, self,
+                             owned_keys=await owned_character_keys(user_id))
         await interaction.followup.send(view=view)
 
     @app_commands.command(name="album", description="🔒 收藏冊：收進來的卡不會被合成、融合、分解或上架")

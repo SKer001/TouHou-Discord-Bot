@@ -25,7 +25,8 @@ MOOD_EMOJI = [(80, "😊"), (50, "🙂"), (20, "😐"), (0, "😠")]
 LOCATION_NAMES = {k: f"{v['emoji']} {v['name']}" for k, v in shrine_data.LOCATIONS.items()}
 MODIFIER_NAMES = {"shrine_income": "神社收入", "youkai_reward": "打退妖怪的賽錢", "serve_reward": "招待報酬", "explore_stamina": "採集體力消耗",
                   "youkai_spawn": "妖怪出現機率", "guest_spawn": "參拜客來訪機率", "daily_money": "簽到賽錢",
-                  "daily_exp": "簽到經驗", "decompose": "分解拿到的賽錢"}
+                  "daily_exp": "簽到經驗", "decompose": "分解拿到的賽錢",
+                  "gacha_cost": "祈願價格", "market_fee": "市場買家手續費", "transfer_fee": "轉帳手續費"}   # 跟 events.MODIFIER_KEYS 一一對應 (測試會查)
 
 
 def _mood_emoji(mood: int) -> str:

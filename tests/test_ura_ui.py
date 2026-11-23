@@ -669,6 +669,7 @@ async def main():
     check("fest locked page", "活動期間才會出現" in texts(bv) and "❓ ？？？" in texts(bv))
 
     await long_lists(cog, staged, event_room, FUZZ)
+    await many_cards(cog)
     check(f"no select cut at 25 {_over[:3]}", not _over)
 
 
@@ -692,6 +693,40 @@ async def page_values(view, uid, placeholder, texts_out=None):
             break
         await press(view, uid, label="下一頁")
     return got
+
+
+async def many_cards(cog):
+    """2026-11-23 修：同一位角色超過 25 張卡時「🎴 派哪一張卡？」只列前 25 張 ➔ 翻頁"""
+    uid = 7777
+    await udm.get_or_create_user(uid)
+    cards = [{"instance_id": f"c{i:02d}", "character_key": "cirno", "name": "琪露諾", "emoji": "", "rarity": "SR", "title": "",
+              "completeness": round(0.95 - i * 0.02, 4), "obtained_at": "x"} for i in range(30)]   # c00 最好 ➔ c29 完整度 0.37
+    cards += [{"instance_id": "bad", "character_key": "cirno", "name": "琪露諾", "emoji": "", "rarity": "UR", "title": "",
+               "completeness": 0.1, "obtained_at": "x"}]   # 不能派的排最後
+    async with udm.connect() as db:
+        await udm._insert_cards(db, uid, cards)
+        await db.commit()
+    it = It(uid); await cogmod.UraCog.explore.callback(cog, it)
+    picker = it.view
+    await press(picker, uid, placeholder="🧍", values=["cirno"])
+    sel = find(picker, placeholder="🎴")
+    check(f"card page 1 {sel.placeholder}", len(sel.options) == 25 and "(第 1 / 2 頁)" in sel.placeholder
+          and sel.options[0].value == "c00" and sel.options[0].default and picker.card_choice == "c00")
+    limits(picker, "picker many cards")
+    await press(picker, uid, label="▶️")
+    sel = find(picker, placeholder="🎴")
+    check(f"card page 2 {[o.value for o in sel.options]}", [o.value for o in sel.options] == ["c25", "c26", "c27", "c28", "c29", "bad"]
+          and picker.card_page == 2 and "(第 2 / 2 頁)" in sel.placeholder)
+    await press(picker, uid, placeholder="🎴", values=["c29"])
+    check("card page 2 pick", picker.card_choice == "c29" and picker.card_page == 2
+          and next(o for o in find(picker, placeholder="🎴").options if o.value == "c29").default)
+    await press(picker, uid, label="➕ 加入隊伍")
+    check("card page 2 added", picker.picked == ["c29"])
+    await press(picker, uid, label="◀️")
+    check("card back to page 1", picker.card_page == 1 and len(find(picker, placeholder="🎴").options) == 25)
+    await press(picker, uid, placeholder="🧍", values=["cirno"])   # 重選角色 ➔ 回到第 1 頁
+    check("card page reset", picker.card_page == 1)
+    limits(picker, "picker many cards end")
 
 
 async def long_lists(cog, staged, event_room, uid):

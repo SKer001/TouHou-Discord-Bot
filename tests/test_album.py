@@ -111,6 +111,12 @@ async def main():
     check("stack gone ➔ back to list", inv.selected_stack is None and inv.selected_card is None
           and all(c["character_key"] != "cirno" for c in inv.all_cards))
     check("lock notice", any("放進收藏冊" in texts(v) for v in i2.views))
+    # 收集進度連收藏冊一起算 (2026-11-23 使用者定)；張數、疊卡照舊只算卡冊：琪露諾全進收藏冊，進度照樣算 1 位
+    th06 = g.GACHA_POOLS["th06"]["name"]
+    check(f"progress keeps album {inv._progress_text()}", f"{th06} `1/" in inv._progress_text())
+    it = Interaction(uid=U); await cmds["inventory"].callback(cog, it)
+    check(f"reopened progress counts album {it.view._progress_text()}", f"{th06} `1/" in it.view._progress_text()
+          and all(s["character_key"] != "cirno" for s in it.view.all_stacks) and len(it.view.all_cards) == 2)
 
     # 管理員檢視別人的卡冊：看得到鎖住的卡，但沒有放進收藏冊按鈕
     adm = g.InventoryView(900, g.sort_cards(await udm.get_user_cards(U, include_locked=True)), "t", cog, owner_id=U)
