@@ -619,6 +619,20 @@ async def main():
     await press(v, FUZZ, label="🔙 確定撤離")
     check("talisman evacuated", v.mode == "settle" and v.settle["result"] == "evacuated")
 
+    # 🕳️ 沒有斥候：陷阱門看起來是寶箱 (下下一關預覽也一樣)，走進去才寫「是假寶箱」
+    def traps(s, g):
+        s["floor"], s["phase"], s["room"] = 3, "doors", None
+        s["doors"] = [{"type": "trap"}, {"type": "chest", "locked": True, "mimic": False}]
+        s["peek"] = {"floor": 5, "doors": [{"type": "trap"}, {"type": "battle", "foes": ["lost_spirit"]}]}
+    v = await staged(traps)
+    t = texts(v)
+    labels = [b.label for b in v.walk_children() if isinstance(b, ui.Button) and b.label[:1].isdigit()]
+    check(f"trap door disguised {labels}", not combat.has_scout(v.state) and labels == ["1. 💰 寶箱", "2. 💰 寶箱"]
+          and "陷阱" not in t and "🗺️ 下下一關：💰 寶箱" in t)
+    await press(v, FUZZ, label="1. 💰 寶箱")
+    check("fake chest text", v.state["phase"] == "trap" and "是假寶箱" in texts(v))
+    await ura.act(FUZZ, v.rev, lambda s, g: R.abandon(s))
+
     def merchant(s, g):
         s["floor"], s["phase"] = 9, "merchant"
         s["room"] = {"type": "merchant", "stock": R._merchant_stock(s, g)}
@@ -722,6 +736,7 @@ async def main():
 
     await long_lists(cog, staged, event_room, FUZZ)
     await many_cards(cog)
+    await quick_buy(cog)
     check(f"no select cut at 25 {_over[:3]}", not _over)
 
 
@@ -779,6 +794,136 @@ async def many_cards(cog):
     await press(picker, uid, placeholder="🧍", values=["cirno"])   # 重選角色 ➔ 回到第 1 頁
     check("card page reset", picker.card_page == 1)
     limits(picker, "picker many cards end")
+
+
+async def quick_buy(cog):
+    """
+    ⚡ 快速整裝補買 (2026-11-23 使用者定)：倉庫不夠的照 /ura shop 原價買，只買這次的背包放得下的量
+    使用者擔心「沒裝背包時補買會不會有 bug」：存的那組 22 格、基本背包 20 格 ➔ 只買放得下的，寫出沒買的
+    """
+    LOAD = {"eientei_salve": 5, "shrine_tea": 5, "telescope": 5, "map_piece": 5, "substitute_doll": 1, "phoenix_feather": 1}
+    price = {i: data.items()[i]["price"] for i in LOAD}
+    picker = types.SimpleNamespace(picked=[], card=lambda i: None)
+
+    async def setup(uid, money, bag=False, load=LOAD, stock=True):
+        await udm.get_or_create_user(uid)
+        async with udm.connect() as db:
+            await db.execute("UPDATE users SET money = ? WHERE user_id = ?", (money, uid))
+            await db.execute("DELETE FROM ura_storage WHERE user_id = ?", (uid,))
+            if stock:
+                await db.execute("INSERT INTO ura_storage (user_id, kind, key, qty) VALUES (?, 'item', 'eientei_salve', 2)", (uid,))   # 倉庫有一部分
+            if bag:
+                await db.execute("INSERT INTO ura_bags (user_id, bag_id, uses_left) VALUES (?, ?, 3)",
+                                 (uid, bag if isinstance(bag, str) else "bag_n"))   # 預設 +5 格
+            await db.commit()
+        await ura.save_loadout(uid, load)
+        view = await cogmod.LoadoutView.create(cog, types.SimpleNamespace(id=uid), picker)
+        return view
+
+    async def money(uid):
+        return (await udm.get_or_create_user(uid))["money"]
+
+    # ① 沒裝額外背包 (20 格)：替身人形、不死鳥的羽毛放不下 ➔ 不買；錢差 1 ➔ 按鈕反灰
+    fit_cost = 3 * price["eientei_salve"] + 5 * price["shrine_tea"] + 5 * price["telescope"] + 5 * price["map_piece"]
+    uid = 5551
+    v = await setup(uid, fit_cost - 1)
+    await press(v, uid, label="⚡ 快速整裝")
+    t = texts(v)
+    btn = find(v, label="🛒 補買")
+    check(f"quick buy plan no bag {v.buy_plan}", v.buy_plan == {"buy": {"eientei_salve": 3, "shrine_tea": 5, "telescope": 5, "map_piece": 5},
+                                                                 "cost": fit_cost}
+          and v.carry == {"eientei_salve": 2} and f"共 **{fit_cost:,} 賽錢**" in t and "有 2 個放不下，沒有買" in t
+          and "背包只有 20 格" in t)
+    check("quick buy short by 1", btn is not None and btn.disabled and "還差 1" in btn.label and "還差 1" in t)
+    limits(v, "quick buy plan")
+    # 錢剛好夠 ➔ 按得下去；買完倉庫 = 帶的 (買的全部帶得進去，沒有白花)
+    async with udm.connect() as db:
+        await db.execute("UPDATE users SET money = ? WHERE user_id = ?", (fit_cost, uid))
+        await db.commit()
+    await press(v, uid, label="⚡ 快速整裝")
+    btn = find(v, label="🛒 補買缺的")
+    check("quick buy exact money", btn is not None and not btn.disabled and f"{fit_cost:,}" in btn.label)
+    await press(v, uid, label="🛒 補買缺的")
+    st = await ura.get_storage(uid)
+    check(f"quick bought no bag {st['items']} {v.carry}", await money(uid) == 0 and st["items"] == v.carry
+          and v.carry == {"eientei_salve": 5, "shrine_tea": 5, "telescope": 5, "map_piece": 5}
+          and R.slots_used({"items": v.carry, "materials": {}, "treasures": [], "relics": []}) == rules.BAG_SLOTS
+          and "🛒 買了" in texts(v) and v.buy_plan is None and find(v, label="🛒 補買") is None)
+
+    # ② 裝了額外背包 (+5 = 25 格)：22 格剛好放得下 ➔ 全部買齊
+    uid = 5552
+    full_cost = fit_cost + price["substitute_doll"] + price["phoenix_feather"]
+    v = await setup(uid, full_cost, bag=True)
+    await press(v, uid, placeholder="🎒", values=[find(v, placeholder="🎒").options[1].value])
+    await press(v, uid, label="⚡ 快速整裝")
+    check(f"quick buy plan with bag {v.buy_plan}", v.buy_plan and v.buy_plan["cost"] == full_cost
+          and v.buy_plan["buy"]["substitute_doll"] == 1 and "放不下" not in texts(v))
+    # 換背包 ➔ 補買要重算 (按鈕先收起來)
+    await press(v, uid, placeholder="🎒", values=["none"])
+    check("quick buy cleared on bag change", v.buy_plan is None and find(v, label="🛒 補買") is None)
+    await press(v, uid, placeholder="🎒", values=[find(v, placeholder="🎒").options[1].value])
+    await press(v, uid, label="⚡ 快速整裝")
+    # 中間倉庫變了 (別的畫面買過) ➔ 重算、不扣錢，要再按一次
+    async with udm.connect() as db:
+        await db.execute("INSERT INTO ura_storage (user_id, kind, key, qty) VALUES (?, 'item', 'shrine_tea', 5)", (uid,))
+        await db.commit()
+    await press(v, uid, label="🛒 補買缺的")
+    check("quick buy stale plan", await money(uid) == full_cost and "重算了" in texts(v)
+          and v.buy_plan["cost"] == full_cost - 5 * price["shrine_tea"])
+    await press(v, uid, label="🛒 補買缺的")
+    st = await ura.get_storage(uid)
+    check(f"quick bought with bag {v.carry}", v.carry == LOAD and st["items"] == LOAD
+          and await money(uid) == 5 * price["shrine_tea"] and "⚡ 帶齊了" in texts(v))
+    limits(v, "quick buy done")
+
+    # ③ 倉庫都夠 ➔ 不會出現補買
+    await press(v, uid, label="⚡ 快速整裝")
+    check("quick no buy when stocked", v.buy_plan is None and find(v, label="🛒 補買") is None and "⚡ 帶齊了" in texts(v))
+    # 資料層：錢不夠整筆不買、沒賣的不買
+    r = await ura.shop_buy_many(uid, {"bomb": 999})
+    check("buy many not enough", not r["ok"] and r["reason"] == "not_enough" and await money(uid) == 5 * price["shrine_tea"])
+    check("buy many not found", (await ura.shop_buy_many(uid, {"nope": 1}))["reason"] == "not_found"
+          and (await ura.shop_buy_many(uid, {}))["reason"] == "empty")
+
+    # ④ 先設好帶進去的賽錢：要留著那筆錢 (不然買完出發不了)；改了帶的錢 / 存檔 ➔ 補買收起來
+    uid = 5553
+    v = await setup(uid, fit_cost + 1000)
+    await press(v, uid, label="⚡ 快速整裝")
+    it = await press(v, uid, label="💰 帶賽錢")
+    it.modal.amount._value = "1001"
+    await it.modal.on_submit(It(uid))
+    check("pocket clears buy plan", v.pocket == 1001 and v.buy_plan is None and find(v, label="🛒 補買") is None)
+    await press(v, uid, label="⚡ 快速整裝")
+    btn = find(v, label="🛒 補買")
+    check(f"pocket counted {btn.label}", btn.disabled and "還差 1" in btn.label and "要帶進去的 1,001 賽錢也算在內" in texts(v))
+    it = await press(v, uid, label="💰 帶賽錢")
+    it.modal.amount._value = "1000"
+    await it.modal.on_submit(It(uid))
+    await press(v, uid, label="⚡ 快速整裝")
+    await press(v, uid, label="💾 儲存這組")
+    check("save clears buy plan", v.buy_plan is None and find(v, label="🛒 補買") is None)
+    await ura.save_loadout(uid, LOAD)   # 上面存的是現在帶的 (倉庫只有 2 個傷藥)，換回原本那組
+    v.record = await ura.get_record(uid)
+    await press(v, uid, label="⚡ 快速整裝")
+    # 連按兩下：只買一次
+    btn = find(v, label="🛒 補買缺的")
+    await asyncio.gather(press_comp(v, uid, btn), press_comp(v, uid, btn))
+    check(f"double press buys once {await money(uid)}", await money(uid) == 1000 and v.pocket == 1000
+          and (await ura.get_storage(uid))["items"].get("shrine_tea") == 5)
+
+    # ⑤ 最長的情況：每一種道具都存到上限、倉庫全空 (帶最大的背包 / 不帶背包)，畫面不超過 40 個元件、4000 字
+    every = {i: (it_.get("max") or 5) for i, it_ in data.items().items()}
+    big_bag = max(data.bags(), key=lambda b: data.bags()[b]["slots"])
+    for uid, bag in ((5554, big_bag), (5555, False)):
+        v = await setup(uid, 10 ** 9, bag=bag, load=every, stock=False)
+        if bag:
+            await press(v, uid, placeholder="🎒", values=[find(v, placeholder="🎒").options[1].value])
+        await press(v, uid, label="⚡ 快速整裝")
+        limits(v, f"quick buy worst {bag}")
+        cap, _ = v.capacity()
+        bought_slots = R.slots_used({"items": v.buy_plan["buy"], "materials": {}, "treasures": [], "relics": []})
+        check(f"quick buy worst fits {bag} {bought_slots}/{cap}", v.buy_plan and bought_slots <= cap
+              and len(texts(v)) <= 4000 and (bag or "放不下，沒有買" in texts(v)))
 
 
 async def long_lists(cog, staged, event_room, uid):

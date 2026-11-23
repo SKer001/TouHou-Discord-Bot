@@ -23,7 +23,7 @@ def pick_door(run):
     revealed = R.doors_revealed(run)
     best, best_key = 0, None
     for i, d in enumerate(run["doors"]):
-        key = DOOR_PRIORITY.get(d["type"], 5)
+        key = DOOR_PRIORITY.get(R.door_view(run, d, revealed)["type"], 5)   # 看不穿時陷阱看起來是寶箱 (跟玩家一樣)
         if d["type"] == "chest" and revealed and (d.get("mimic") or (d.get("locked") and not run["bag"]["items"].get("chest_key"))):
             key = 6
         if d["type"] == "battle":

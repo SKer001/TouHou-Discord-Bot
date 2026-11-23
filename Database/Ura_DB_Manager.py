@@ -474,6 +474,37 @@ async def shop_buy(user_id: int, item_id: str, qty: int = 1) -> dict:
     return {"ok": True, "cost": cost, "money": money - cost}
 
 
+async def shop_buy_many(user_id: int, buy: dict) -> dict:
+    """
+    ⚡ 快速整裝的補買：一次照 /ura shop 原價買好幾樣道具放進倉庫 (同一個交易，錢不夠就整筆不買)
+    buy = {道具 id: 數量}；reason：empty / not_found / not_enough
+    """
+    buy = {k: int(v) for k, v in buy.items() if int(v) > 0}
+    if not buy:
+        return {"ok": False, "reason": "empty"}
+    items = data.items()
+    if any(not items.get(k, {}).get("price") for k in buy):
+        return {"ok": False, "reason": "not_found"}
+    cost = sum(items[k]["price"] * n for k, n in buy.items())
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            async with db.execute("SELECT money FROM users WHERE user_id = ?", (user_id,)) as cur:
+                money = (await cur.fetchone())["money"]
+            if money < cost:
+                await db.rollback()
+                return {"ok": False, "reason": "not_enough", "cost": cost, "money": money}
+            await db.execute("UPDATE users SET money = money - ? WHERE user_id = ?", (cost, user_id))
+            for k, n in buy.items():
+                await _storage_add(db, user_id, "item", k, n)
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {"ok": True, "cost": cost, "money": money - cost}
+
+
 async def sell_treasures(user_id: int, sell: dict) -> dict:
     """賣寶物 {寶物 id: 數量} (固定價格，賣給系統)；數量不夠就整筆不賣"""
     prices = data.treasure_prices()

@@ -791,6 +791,7 @@ class PocketModal(ui.Modal, title="💰 帶多少賽錢進去？"):
             await send_notice(interaction, f"❌ 賽錢不夠 (你只有 {money:,})")
             return
         self.owner.pocket, self.owner.money, self.owner.notice = n, money, None
+        self.owner.buy_plan = None   # 帶的錢變了 ➔ 補買夠不夠錢要重算 (再按一次 ⚡ 快速整裝)
         await self.owner.redraw(interaction)
 
 
@@ -805,6 +806,7 @@ class LoadoutView(ui.LayoutView):
         self.sel = None
         self.page = 1   # 🧪 選道具的頁數
         self.notice = None
+        self.buy_plan = None   # ⚡ 快速整裝算好的補買 {"buy": {道具: 數量}, "cost": 總價}；帶的東西 / 背包一改就清掉
         self.build()
 
     @classmethod
@@ -890,6 +892,11 @@ class LoadoutView(ui.LayoutView):
                 opts.append(_opt(f"🎒 {info['name']} (+{info['slots']} 格)" + (f" ×{len(ids)}" if len(ids) > 1 else ""), str(ids[0]),
                                  f"還能用 {uses} 次 (這次出發用掉 1 次)", default=self.bag_row in ids))
             self.add_item(_select("🎒 額外背包", opts, self.on_bag))
+        if self.buy_plan:
+            cost = self.buy_plan["cost"]
+            short = cost - (self.money - self.pocket)   # 帶進去的賽錢要留著 (不然買完出發不了)
+            label = f"🛒 補買缺的 ({cost:,} 賽錢)" if short <= 0 else f"🛒 補買 (賽錢還差 {short:,})"
+            self.add_item(ui.ActionRow(_btn(label, SUCCESS, self.on_buy_missing, disabled=short > 0)))
         self.add_item(ui.ActionRow(
             _btn("⚡ 快速整裝", PRIMARY, self.on_quick, disabled=not self.record.get("loadout")),
             _btn("💰 帶賽錢", SECONDARY, self.on_pocket),
@@ -908,7 +915,7 @@ class LoadoutView(ui.LayoutView):
     def _add_cb(self, n: int):
         async def cb(interaction):
             why = self.add(self.sel, n) if self.sel else "先選一個道具"
-            self.notice = f"⚠️ {why}" if why else None
+            self.notice, self.buy_plan = (f"⚠️ {why}" if why else None), None
             await self.redraw(interaction)
         return cb
 
@@ -921,27 +928,115 @@ class LoadoutView(ui.LayoutView):
             self.carry[self.sel] -= 1
             if not self.carry[self.sel]:
                 del self.carry[self.sel]
-        self.notice = None
+        self.notice, self.buy_plan = None, None
         await self.redraw(interaction)
 
     async def on_clear(self, interaction):
-        self.carry, self.notice = {}, None
+        self.carry, self.notice, self.buy_plan = {}, None, None
         await self.redraw(interaction)
 
     async def on_save(self, interaction):
         await ura.save_loadout(self.user.id, self.carry)
         self.record = await ura.get_record(self.user.id)
-        self.notice = "💾 存好了，下次出發可以按 ⚡ 快速整裝一鍵帶齊"
+        self.notice, self.buy_plan = "💾 存好了，下次出發可以按 ⚡ 快速整裝一鍵帶齊", None   # 補買清單被換掉 ➔ 按鈕也收起來
         await self.redraw(interaction)
 
-    async def on_quick(self, interaction):
+    def quick_fill(self) -> list[str]:
+        """照存好的那組，先從倉庫帶 (帶不齊的原因寫在回傳的清單)"""
         self.carry = {}
         short = []
         for iid, n in self.record.get("loadout", {}).items():
+            if iid not in data.items():
+                continue
             why = self.add(iid, n)
             if why:
                 short.append(f"{UC.item_name(iid)}：{why}")
-        self.notice = ("⚠️ 有些沒帶齊\n-# " + "\n-# ".join(short)) if short else "⚡ 帶齊了！"
+        return short
+
+    def quick_plan(self) -> tuple[dict, dict]:
+        """
+        倉庫不夠的部分照 /ura shop 原價補買 (2026-11-23 使用者定)：
+        只買「這次的背包放得下、沒超過道具上限」的量 (存那組時有裝額外背包、這次沒裝的話就少買，不會白花錢)
+        回傳 (要買的 {道具: 數量}, 沒買的 {道具: (數量, 原因)})；倉庫還有剩卻沒帶上的 (卡在上限 / 格數) 不算缺
+        """
+        cap, _ = self.capacity()
+        trial, buy, skipped = dict(self.carry), {}, {}
+        for iid, n in self.record.get("loadout", {}).items():
+            have = trial.get(iid, 0)
+            if iid not in data.items() or n <= have:
+                continue
+            in_storage = self.storage["items"].get(iid, 0) > have   # 倉庫還有卻沒帶上 = 卡在上限 / 格數，不是缺貨
+            for _ in range(n - have):
+                why = R.item_limit_reason(trial, iid, 1)
+                test = dict(trial)
+                test[iid] = test.get(iid, 0) + 1
+                if not why and R.slots_used({"items": test, "materials": {}, "treasures": [], "relics": []}) > cap:
+                    why = f"背包只有 {cap} 格"
+                if why:
+                    k, _r = skipped.get(iid, (0, why))
+                    skipped[iid] = (k + 1, why)
+                    continue
+                if in_storage:   # 照理不會發生 (第一輪就帶上了)；不買
+                    continue
+                trial = test
+                buy[iid] = buy.get(iid, 0) + 1
+        return buy, skipped
+
+    def _quick_notice(self, short: list[str]) -> str:
+        """快速整裝的結果；倉庫不夠的話算好補買 (self.buy_plan) 並列出要買什麼、共多少錢"""
+        buy, skipped = self.quick_plan()
+        self.buy_plan = None
+        if not short:
+            return "⚡ 帶齊了！"
+        lines = []
+        if buy:
+            items = data.items()
+            cost = sum(items[i]["price"] * k for i, k in buy.items())
+            self.buy_plan = {"buy": buy, "cost": cost}
+            lines.append("⚡ 倉庫有的都帶上了，還缺的可以照 `/ura shop` 原價補買：")
+            lines += [f"- {UC.item_name(i)} ×{k}　`{items[i]['price']:,}` × {k} = `{items[i]['price'] * k:,}`" for i, k in buy.items()]
+            lines.append(f"共 **{cost:,} 賽錢** (你有 {self.money:,})；按「🛒 補買缺的」才扣錢，買的放進倉庫並直接帶上")
+            avail = self.money - self.pocket   # 帶進去的賽錢要留著
+            if cost > avail:
+                lines.append(f"-# 💸 賽錢不夠，還差 {cost - avail:,}"
+                             + (f" (要帶進去的 {self.pocket:,} 賽錢也算在內)" if self.pocket else ""))
+        else:
+            lines.append("⚠️ 有些沒帶齊")
+            lines += [f"-# {x}" for x in short]
+        if skipped and buy:   # 沒東西要買時，上面「有些沒帶齊」已經寫了原因
+            n = sum(k for k, _ in skipped.values())
+            lines.append(f"-# ⚠️ 有 {n} 個放不下，沒有買：" + "、".join(f"{UC.item_name(i)} ×{k} ({why})" for i, (k, why) in skipped.items()))
+        return "\n".join(lines)
+
+    async def on_quick(self, interaction):
+        self.money = (await get_or_create_user(self.user.id))["money"]
+        self.notice = self._quick_notice(self.quick_fill())
+        await self.redraw(interaction)
+
+    async def on_buy_missing(self, interaction):
+        """🛒 補買：重新讀倉庫和賽錢再算一次，跟畫面上寫的一樣才買 (避免中間在別的地方買過 / 花過錢)"""
+        shown, self.buy_plan = self.buy_plan, None   # 先收起來：連按兩下的第二下會走「重算了」，不會買兩次
+        self.storage = await ura.get_storage(self.user.id)
+        self.money = (await get_or_create_user(self.user.id))["money"]
+        notice = self._quick_notice(self.quick_fill())
+        if not shown or self.buy_plan != shown:
+            self.notice = "⚠️ 倉庫或背包變了，補買的東西重算了，確認後再按一次\n" + notice
+            await self.redraw(interaction)
+            return
+        if shown["cost"] > self.money - self.pocket:   # 帶進去的賽錢要留著
+            self.notice = notice
+            await self.redraw(interaction)
+            return
+        res = await ura.shop_buy_many(self.user.id, shown["buy"])
+        if not res["ok"]:
+            why = {"not_enough": f"賽錢不夠 (要 {res.get('cost', 0):,}，你有 {res.get('money', 0):,})"}.get(res["reason"], "買不了")
+            self.notice = f"❌ {why}\n" + notice
+            await self.redraw(interaction)
+            return
+        self.storage = await ura.get_storage(self.user.id)
+        self.money = res["money"]
+        bought = "、".join(f"{UC.item_name(i)} ×{k}" for i, k in shown["buy"].items())
+        self.notice = f"🛒 買了 {bought}，花了 {res['cost']:,} 賽錢\n" + self._quick_notice(self.quick_fill())
         await self.redraw(interaction)
 
     async def on_bag(self, interaction):
@@ -953,6 +1048,8 @@ class LoadoutView(ui.LayoutView):
             self.bag_row, self.notice = old, f"⚠️ 現在帶的道具超過 {cap} 格，先少帶一點"
         else:
             self.notice = None
+        if self.bag_row != old:
+            self.buy_plan = None   # 背包大小變了，補買要重算 (再按一次 ⚡ 快速整裝)
         await self.redraw(interaction)
 
     async def on_pocket(self, interaction):

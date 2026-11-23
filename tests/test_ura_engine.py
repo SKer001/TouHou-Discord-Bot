@@ -237,6 +237,16 @@ check("door view hidden without scout", R.door_view(r, {"type": "event", "event"
 check("door view revealed", R.door_view(r, {"type": "event", "event": "tea_house", "etype": "good"}, True)["etype"] == "good")
 rs = new(team=(("rumia", "SR"),))
 check("scout reveals", R.doors_revealed(rs))
+# 🕳️ 沒看穿的陷阱門偽裝成寶箱、寶箱上鎖 50% (2026-11-23 使用者定)
+check("trap disguised as chest", R.door_view(r, {"type": "trap"}, False) == {"type": "chest"}
+      and R.door_view(r, {"type": "trap"}, True) == {"type": "trap"} and rules.LOCKED_CHANCE == 0.5)
+check("floor revealed", R.floor_revealed(rs, 99) and not R.floor_revealed(r, r["floor"] + 2))
+rt = new(); rt["doors"] = [{"type": "trap"}]
+R.choose_door(rt, 0, Rng([0.9]))
+check("disguised trap room", rt["phase"] == "trap" and rt["room"].get("disguised") is True)
+rs["doors"] = [{"type": "trap"}]
+R.choose_door(rs, 0, Rng())
+check("scout trap not disguised", rs["room"]["result"] == "scout" and not rs["room"].get("disguised"))
 
 # ---------------- 進一關 / 常識度 ----------------
 run = new()

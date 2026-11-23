@@ -24,7 +24,7 @@ ROOM_CAPS = {"elite": 2, "trap": 2, "chest": 3, "event": 4}   # 每區每種房�
 BATTLE_FLOORS = (2, 4, 6, 8)    # 每區第幾關固定是戰鬥
 HIDDEN_CHEST_CHANCE = 0.1       # 有斥候時多一扇隱藏寶箱門
 MIMIC_CHANCE = 0.1
-LOCKED_CHANCE = 0.3
+LOCKED_CHANCE = 0.5             # 寶箱上鎖機率 (2026-11-23 使用者：30% ➔ 50%)
 TRAP_HP_PCT = 0.1
 
 # ---- 戰鬥 ----

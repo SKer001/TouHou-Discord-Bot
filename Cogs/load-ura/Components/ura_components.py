@@ -282,7 +282,9 @@ def doors_text(run: dict) -> str:
         lines.append(door_label(run, i, d, revealed) + (f"\n-# 　{detail}" if detail else ""))
     peek = run.get("peek")
     if peek and peek["floor"] == nxt + 1:
-        lines.append("-# 🗺️ 下下一關：" + "　".join(DOOR_NAMES.get(d["type"], d["type"]) for d in peek["doors"]))
+        seen = R.floor_revealed(run, peek["floor"])   # 陷阱一樣偽裝成寶箱 (看不穿的話)
+        lines.append("-# 🗺️ 下下一關：" + "　".join(DOOR_NAMES.get(t, t) for t in
+                                                    (R.door_view(run, d, seen)["type"] for d in peek["doors"])))
     return "\n".join(lines)
 
 
@@ -357,6 +359,8 @@ def _room_text(run: dict) -> str:
         text = {"scout": "🔍 斥候看穿了陷阱，大家安全通過。", "amulet": "🧿 避邪護符擋下了陷阱！",
                 "hp": f"🕳️ 掉進陷阱了！全隊 −{int(rules.TRAP_HP_PCT * 100)}% HP (最低留 1)",
                 "item": f"🕳️ 掉進陷阱，慌亂中弄丟了 {item_name(room.get('lost', ''))}"}.get(r, "🕳️ 陷阱")
+        if room.get("disguised"):   # 門上看起來是寶箱 (沒看穿的陷阱)
+            text = "💰 打開一看——是假寶箱！\n" + text
         return f"### 🕳️ 陷阱\n{text}"
     if phase == "merchant":
         lines = ["### 🛒 流浪商人", "-# 「用你口袋裡的錢買吧，嘿嘿。」(價格 = 商店 × 1.2)"]

@@ -336,8 +336,13 @@ def gen_doors(run: dict, floor: int, rng) -> list[dict]:
 
 
 def door_view(run: dict, door: dict, revealed: bool) -> dict:
-    """門上顯示的東西 (沒有斥候只看得到類型；有斥候 / 望遠鏡 / 提燈多看細節)"""
+    """
+    門上顯示的東西 (沒有斥候只看得到類型；有斥候 / 望遠鏡 / 提燈多看細節)
+    🕳️ 沒看穿時陷阱門偽裝成 💰 寶箱 (2026-11-23 使用者定；寶箱門本來就只看得到「寶箱」，看不出差別)
+    """
     t = door["type"]
+    if t == "trap" and not revealed:
+        t = "chest"
     v = {"type": t}
     if door.get("fest"):
         v["fest"] = door["fest"]   # 🎪 一定看得到 (環境也寫在門上)
@@ -355,8 +360,13 @@ def door_view(run: dict, door: dict, revealed: bool) -> dict:
     return v
 
 
+def floor_revealed(run: dict, floor: int) -> bool:
+    """看不看得穿某一關的門 (斥候 / 提燈效果中，或望遠鏡看過那一關)"""
+    return combat.has_scout(run) or run.get("revealed") == floor
+
+
 def doors_revealed(run: dict) -> bool:
-    return combat.has_scout(run) or run.get("revealed") == run["floor"] + 1
+    return floor_revealed(run, run["floor"] + 1)
 
 
 def _set_doors(run: dict, rng):
@@ -402,10 +412,13 @@ def choose_door(run: dict, idx: int, rng) -> str | None:
     if not 0 <= idx < len(run["doors"]):
         return "沒有這扇門"
     door = run["doors"][idx]
+    disguised = door["type"] == "trap" and not doors_revealed(run)   # 以為是寶箱 (畫面寫「是假寶箱！」)
     _enter_floor(run, rng)
     if run["phase"] == "ended":
         return None
     _start_room(run, door, rng)
+    if disguised and run.get("room"):
+        run["room"]["disguised"] = True
     return None
 
 
