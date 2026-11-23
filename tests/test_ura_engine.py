@@ -265,6 +265,18 @@ for seed in range(400):
 check(f"two chests per floor {pairs}", pairs == {"both real", "one fake"})
 check(f"chest cap per zone {over[:3]}", not over and rz["caps"]["1"].get("chest", 0) <= rules.ROOM_CAPS["chest"])
 check("never two traps on one floor", double_trap == 0 and "trap" not in rules.REPEAT_ROOMS)
+# 👹 區域 BOSS 報酬照第幾區縮放 (2026-11-23 使用者選 B)：第 1 區賽錢 ×0.3、寶物 1～2；第 5 區回到原本 10,000～15,000、3～5；越深越多
+check("boss scale table", [round(rules.boss_money_mult(z), 3) for z in (1, 2, 5, 9)] == [0.3, 0.475, 1.0, 1.7]
+      and [rules.boss_treasure_range(z) for z in (1, 2, 3, 4, 9)] == [(1, 2), (2, 3), (2, 4), (3, 5), (3, 5)])
+for z, (mlo, mhi), (tlo, thi) in ((1, (3000, 4500), (1, 2)), (3, (6500, 9750), (2, 4)), (5, (10000, 15000), (3, 5)), (9, (17000, 25500), (3, 5))):
+    rb = new(seed=f"boss{z}"); rb["floor"] = z * 10
+    g = random.Random(z)
+    loots = [R.foe_loot(rb, "boss", g) for _ in range(300)]
+    ms, ts = [l["money"] for l in loots], [len(l["treasures"]) for l in loots]
+    check(f"boss loot zone {z} money {min(ms)}~{max(ms)} treasures {min(ts)}~{max(ts)}",
+          mlo <= min(ms) and max(ms) <= mhi and min(ts) == tlo and max(ts) == thi and all(len(l["relics"]) == 1 for l in loots))
+rf = new(seed="fb"); rf["floor"] = 10
+check("fest boss not scaled", all(10000 <= R.foe_loot(rf, "fest_boss", random.Random(i))["money"] <= 15000 for i in range(50)))
 rt = new(); rt["doors"] = [{"type": "trap"}]
 R.choose_door(rt, 0, Rng([0.9]))
 check("disguised trap room", rt["phase"] == "trap" and rt["room"].get("disguised") is True)

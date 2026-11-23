@@ -52,6 +52,21 @@ REWARDS = {   # 一隻敵人 (含勸走) 給的東西
     "fest_boss": {"materials": (3, 5), "items": (2, 3), "money": (10000, 15000)},
 }
 
+# ---- 👹 區域 BOSS 的報酬照第幾區縮放 (2026-11-23 使用者選 B：第 1 區少、越深越多，第 5 區回到原本) ----
+#      起因：前期經濟模擬，1 張 R 卡就能 96% 打完第 1 區、一局帶回約 4 萬，第 1 區變成最快的賺錢法
+BOSS_MONEY_SCALE = (0.3, 0.175)   # BOSS 賽錢 × (0.3 + 0.175 × (區 − 1))：第 1 區 ×0.3、第 5 區 ×1、第 9 區 ×1.7 (之後照樣變多)
+BOSS_TREASURES_EARLY = {1: (1, 2), 2: (2, 3), 3: (2, 4)}   # 寶物個數；第 4 區起照 REWARDS["boss"]["treasures"]
+
+
+def boss_money_mult(zone: int) -> float:
+    a, b = BOSS_MONEY_SCALE
+    return a + b * (max(1, zone) - 1)
+
+
+def boss_treasure_range(zone: int) -> tuple[int, int]:
+    return BOSS_TREASURES_EARLY.get(zone, REWARDS["boss"]["treasures"])
+
+
 # ---- 🎪 活動關卡 (docs/ura.md「活動融入」B 組，使用者 2026-11-20) ----
 FEST_STAGE_CHANCE = 0.1         # 活動期間每一關有 10% 其中一扇門變成 🎪 活動門
 FEST_ZONE_CAP = 2               # 每區最多 2 扇

@@ -209,6 +209,8 @@ def foe_loot(run: dict, kind: str, rng, money_mult: float = 1.0) -> dict:
         return loot
     r = rules.REWARDS[kind]
     lo, hi = r["money"]
+    if kind == "boss":   # 👹 區域 BOSS 照第幾區縮放 (第 1 區少、越深越多；活動 BOSS 不縮放)
+        money_mult *= rules.boss_money_mult(zone)
     loot["money"] = rules.money_roll(lo, hi, rng, money_mult)
     if "materials" in r:
         loot["materials"] = roll_materials(zone, rules.weighted_count(*r["materials"], rng), rng, theme=theme)
@@ -222,7 +224,9 @@ def foe_loot(run: dict, kind: str, rng, money_mult: float = 1.0) -> dict:
     if r.get("treasure_chance") and rng.random() < r["treasure_chance"]:
         loot["treasures"].append(roll_treasure(r["treasure_table"], zone, rng, theme=theme))
     if "treasures" in r:
-        loot["treasures"] += [roll_treasure(r["treasure_table"], zone, rng, theme=theme) for _ in range(rules.weighted_count(*r["treasures"], rng))]
+        lo_t, hi_t = rules.boss_treasure_range(zone) if kind == "boss" else r["treasures"]
+        loot["treasures"] += [roll_treasure(r["treasure_table"], zone, rng, theme=theme)
+                              for _ in range(rules.weighted_count(lo_t, hi_t, rng))]
     return loot
 
 

@@ -4,6 +4,7 @@
 Database/Ura_DB_Manager.py、活動檔 Events/*.json 的 "ura" 區塊)，開畫面時才算
 """
 import importlib
+import math
 
 
 # =========================================================
@@ -42,6 +43,14 @@ def _zone_len() -> int:
 
 def _theme_names() -> str:
     return "、".join(f"{z['emoji']} {z['name']}" for z in _data().zones() if not z.get("borrowed"))
+
+
+def _boss_money(zone: int) -> str:
+    """區域 BOSS 在第 zone 區的賽錢範圍 (來源：run.foe_loot ➔ rules.money_roll(lo, hi, mult = boss_money_mult))"""
+    r = _rules()
+    lo, hi = r.REWARDS["boss"]["money"]
+    m = r.boss_money_mult(zone)
+    return f"{math.ceil(lo * m / 10) * 10:,}～{math.floor(hi * m / 10) * 10:,}"
 
 
 def _item(iid: str) -> str:
@@ -426,8 +435,10 @@ def _bag() -> str:
         f"{_pct(rw['normal']['treasure_chance'])} 寶物",
         f"- 精英：賽錢 {_rng(rw['elite']['money'])}、道具 {_rng(rw['elite']['items'])}、"
         f"{_pct(rw['elite']['relic_chance'])} 法具、{_pct(rw['elite']['treasure_chance'])} 寶物",
-        f"- BOSS：賽錢 {_rng(rw['boss']['money'])}、素材 {_rng(rw['boss']['materials'])}、道具 {_rng(rw['boss']['items'])}、"
-        f"法具 {_rng(rw['boss']['relics'])}、寶物 {_rng(rw['boss']['treasures'])}",
+        f"- BOSS：素材 {_rng(rw['boss']['materials'])}、道具 {_rng(rw['boss']['items'])}、法具 {_rng(rw['boss']['relics'])}；"
+        "**賽錢和寶物照第幾區變多** (越深越多)：",
+        *[f"-# 　第 {z} 區：賽錢 {_boss_money(z)}、寶物 {_rng(r.boss_treasure_range(z))} 個" for z in (1, 2, 3, 4, 5)],
+        f"-# 　之後賽錢每深一區再多第 5 區的 {r.BOSS_MONEY_SCALE[1] * 100:g}% (第 9 區 {_boss_money(9)})，寶物照第 5 區；🎪 活動 BOSS 不跟著變",
         f"- 寶箱：賽錢 {_rng(ch['normal']['money'])} × 第幾區 (上鎖 {_rng(ch['locked']['money'])} × 區)、"
         f"素材、道具、寶物 {_rng(ch['normal']['treasures'])} (上鎖 {_rng(ch['locked']['treasures'])})",
         f"- 寶箱怪：賽錢 {r.mimic_money(1):,} 起、道具 {_rng(r.MIMIC_ITEMS)}、法具 {_rng(r.MIMIC_RELICS)}、寶物 {_rng(r.MIMIC_TREASURES)}",
