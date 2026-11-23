@@ -12,7 +12,7 @@ from Database import Economy_DB_Manager as econ
 from Utils import card_cache   # autocomplete 專用的卡冊快取
 from Database.User_DB_Manager import (
     get_user_cards, transform_cards, draw_gacha, get_gacha_pity, get_gacha_stats, InsufficientFunds,
-    get_album_cards, set_cards_locked,
+    get_album_cards, set_cards_locked, auto_synthesize_cards,
 )
 from .Components.gacha_components import (
     STACKS_PER_PAGE,
@@ -28,6 +28,8 @@ from .Components.gacha_components import (
     ALBUM_PER_PAGE,
     build_synthesis_preview_container,
     build_synthesis_result_container,
+    build_auto_synthesis_preview_container,
+    build_auto_synthesis_result_container,
     build_fusion_preview_container,
     build_fusion_result_container,
 )
@@ -332,6 +334,79 @@ def roll_synthesis(comp_a: float, comp_b: float, rarity: str) -> dict:
         "increase": calc[f"{key}_increase"],
         "doubled": doubled,
     }
+
+
+def synthesized_card(a: dict, completeness: float, now: str | None = None) -> dict:
+    """合成出來的新卡 (角色、階級、稱號照素材 a；卡牌 ID 是新的)"""
+    prefix = a["instance_id"].split("_")[1]
+    return {
+        "instance_id": f"c_{prefix}_{uuid.uuid4().hex[:12]}",
+        "character_key": a["character_key"],
+        "name": a["name"],
+        "emoji": a["emoji"],
+        "rarity": a["rarity"],
+        "title": a["title"],
+        "completeness": completeness,
+        "obtained_at": now or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+# ---------------- ⚡ 自動合成全部 (2026-11-23 使用者定案) ----------------
+def auto_synthesis_preview(cards: list) -> dict:
+    """{階級: 未滿 1.0000 的張數}，只列至少 2 張 (合得起來) 的階級，階級由低到高；確認畫面「R：12 張 ➔ 最多合成 11 次」"""
+    counts = {}
+    for c in cards:
+        if not is_perfect(c):
+            counts[c["rarity"]] = counts.get(c["rarity"], 0) + 1
+    return {r: counts[r] for r in sorted(counts, key=lambda r: RARITY_ORDER.get(r, 0)) if counts[r] >= 2}
+
+
+def run_auto_synthesis(cards: list, roll=None, now: str | None = None) -> dict:
+    """
+    ⚡ 自動合成全部 (純邏輯，cards = 一位角色、卡冊裡的卡，依取得順序)：
+    - 每個階級各自合：每次拿完整度最低的兩張 (一樣低先拿比較早取得的)，新卡放回去繼續比
+    - 合到 1.0000 的不再參加；合到只剩一張未滿 1.0000 為止；每次照樣 roll_synthesis 擲加倍
+    回傳 {"consumed": [用掉的原本卡牌 ID], "created": [最後留下的新卡], "count": 合成次數,
+          "rarities": {階級: {"before" 張數, "count" 合成次數, "doubled" 加倍次數, "perfect" 合到 1.0000 的張數,
+                             "last" 剩下那張未滿 1.0000 的完整度 (都合滿了 = None)}}}
+    中間合出來又被拿去合的卡不在 created 裡 (不會寫進資料庫)
+    """
+    roll = roll or roll_synthesis
+    now = now or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    groups = {}
+    for seq, c in enumerate(cards):
+        if not is_perfect(c):
+            groups.setdefault(c["rarity"], []).append((seq, c))
+    consumed, created, rarities = [], [], {}
+    seq_next = len(cards)
+    for rarity in sorted(groups, key=lambda r: RARITY_ORDER.get(r, 0)):
+        pool = groups[rarity]
+        if len(pool) < 2:
+            continue
+        info = {"before": len(pool), "count": 0, "doubled": 0, "perfect": 0, "last": None}
+        made = {}   # 這個階級合出來、還留著的新卡
+        while len(pool) >= 2:
+            pool.sort(key=lambda sc: (round(sc[1]["completeness"], 4), sc[1].get("obtained_at") or "", sc[0]))
+            (_, a), (_, b) = pool[0], pool[1]
+            pool = pool[2:]
+            result = roll(a["completeness"], b["completeness"], rarity)
+            new = synthesized_card(a, result["new_completeness"], now)
+            for x in (a, b):
+                if made.pop(x["instance_id"], None) is None:   # 原本的卡 (中間合出來的卡直接丟掉，不用刪資料庫)
+                    consumed.append(x["instance_id"])
+            made[new["instance_id"]] = new
+            info["count"] += 1
+            info["doubled"] += bool(result["doubled"])
+            if is_perfect(new):
+                info["perfect"] += 1   # 合到 1.0000 就不再參加
+            else:
+                pool.append((seq_next, new))
+                seq_next += 1
+        info["last"] = round(pool[0][1]["completeness"], 4) if pool else None
+        created += list(made.values())
+        rarities[rarity] = info
+    return {"consumed": consumed, "created": created, "count": sum(i["count"] for i in rarities.values()),
+            "rarities": rarities}
 
 
 def get_next_rarity(card: dict) -> str | None:
@@ -934,13 +1009,18 @@ class CardActionConfirmView(ui.LayoutView):
     """
     確認畫面：按「確認」才真的消耗卡牌。
     on_confirm(interaction) 回傳結果 Container；失敗時回傳 str (錯誤訊息)。
+    continue_character = 合成用：結果畫面「🎒 查看卡庫」旁邊多「⚗️ 繼續合成」(回到這位角色的選卡畫面，沒得合時反灰)；
+      continue_on_success=False (⚡ 自動合成) ➔ 成功時不放，失敗時才放
     """
-    def __init__(self, user_id: int, user_name: str, gacha_cog, container: ui.Container, on_confirm, confirm_label: str):
+    def __init__(self, user_id: int, user_name: str, gacha_cog, container: ui.Container, on_confirm, confirm_label: str,
+                 continue_character: str | None = None, continue_on_success: bool = True):
         super().__init__(timeout=120)
         self.user_id = user_id
         self.user_name = user_name
         self.gacha_cog = gacha_cog
         self.on_confirm = on_confirm
+        self.continue_character = continue_character
+        self.continue_on_success = continue_on_success
         self.done = False
 
         confirm_btn = ui.Button(label=confirm_label, style=discord.ButtonStyle.success)
@@ -974,11 +1054,32 @@ class CardActionConfirmView(ui.LayoutView):
 
         inv_btn = ui.Button(label="🎒 查看卡庫", style=discord.ButtonStyle.secondary)
         inv_btn.callback = self.view_inventory
+        row = [inv_btn]
+        if self.continue_character and (isinstance(result, str) or self.continue_on_success):
+            cont_btn = ui.Button(label="⚗️ 繼續合成", style=discord.ButtonStyle.success,
+                                 disabled=not await self._synthesis_cards())   # 這位角色已經沒得合 ➔ 反灰
+            cont_btn.callback = self.continue_synthesis
+            row.append(cont_btn)
         container.add_item(ui.Separator())
-        container.add_item(ui.ActionRow(inv_btn))
+        container.add_item(ui.ActionRow(*row))
         self.clear_items()
         self.add_item(container)
         await interaction.edit_original_response(view=self)
+
+    async def _synthesis_cards(self) -> list:
+        """這位角色現在還能合成的卡 (重新讀資料庫)"""
+        return [c for (key, _), group in find_synthesis_groups(await get_user_cards(self.user_id)).items()
+                if key == self.continue_character for c in group]
+
+    async def continue_synthesis(self, interaction: discord.Interaction):
+        """⚗️ 繼續合成：回到同一位角色的選卡畫面 (重新讀卡)"""
+        cards = await self._synthesis_cards()
+        if not cards:
+            await send_notice(interaction, "❌ 這位角色已經沒有可以合成的卡了。")
+            return
+        self.stop()
+        view = SynthesisPickerView(self.user_id, self.user_name, self.gacha_cog, self.continue_character, cards)
+        await interaction.response.edit_message(view=view)
 
     async def cancel_callback(self, interaction: discord.Interaction):
         self.done = True
@@ -1087,6 +1188,8 @@ class SynthesisPickerView(ui.LayoutView):
         if self.first is not None:
             nav.insert(0, self._button("🔙 重選第一張", self.back_callback, discord.ButtonStyle.secondary))
         container.add_item(ui.ActionRow(*nav))
+        # ⚡ 這位角色每個階級都自動合完 (先出確認畫面)
+        container.add_item(ui.ActionRow(self._button("⚡ 自動合成全部", self.auto_callback, discord.ButtonStyle.success)))
         self.add_item(container)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -1122,6 +1225,15 @@ class SynthesisPickerView(ui.LayoutView):
         self.first = None
         self.page = 1
         await self.refresh(interaction)
+
+    async def auto_callback(self, interaction: discord.Interaction):
+        """⚡ 自動合成全部 ➔ 確認畫面 (重新讀卡；範圍 = 這位角色，每個階級各自合)"""
+        result = await self.gacha_cog.make_auto_synthesis_view(self.user_id, self.user_name, self.character_key)
+        if isinstance(result, str):
+            await send_notice(interaction, result)
+            return
+        self.stop()
+        await interaction.response.edit_message(view=result)
 
     async def set_page(self, interaction: discord.Interaction, page: int):
         self.page = page
@@ -1311,18 +1423,7 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             if not can_synthesize(a, b):
                 raise ValueError("卡牌狀態已改變，無法合成")
             result = roll_synthesis(a["completeness"], b["completeness"], a["rarity"])
-            prefix = a["instance_id"].split("_")[1]
-            return {
-                "instance_id": f"c_{prefix}_{uuid.uuid4().hex[:12]}",
-                "character_key": a["character_key"],
-                "name": a["name"],
-                "emoji": a["emoji"],
-                "rarity": a["rarity"],
-                "title": a["title"],
-                "completeness": result["new_completeness"],
-                "obtained_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "_result": result,
-            }
+            return {**synthesized_card(a, result["new_completeness"]), "_result": result}
 
         async def on_confirm(_interaction: discord.Interaction):
             try:
@@ -1332,7 +1433,33 @@ class GachaCardSys(commands.GroupCog, group_name="card", group_description="東�
             result = new_card.pop("_result")
             return build_synthesis_result_container(new_card, result["increase"], result["doubled"], user_name, THUMBNAILS)
 
-        return CardActionConfirmView(user_id, user_name, self, container, on_confirm, "⚗️ 確認合成")
+        return CardActionConfirmView(user_id, user_name, self, container, on_confirm, "⚗️ 確認合成",
+                                     continue_character=card_a["character_key"])
+
+    async def make_auto_synthesis_view(self, user_id: int, user_name: str, character_key: str):
+        """⚡ 自動合成全部的確認畫面 (這位角色每個階級各自合)；沒有可以合的卡 ➔ 錯誤訊息 (str)"""
+        cards = [c for c in await get_user_cards(user_id) if c["character_key"] == character_key]
+        preview = auto_synthesis_preview(cards)
+        if not preview:
+            return "❌ 這位角色已經沒有可以合成的卡了 (同一個階級至少要兩張未滿 `1.0000` 的卡)。"
+        sample = cards[0]
+        container = build_auto_synthesis_preview_container(sample, preview, user_name, THUMBNAILS)
+
+        def run(current: list) -> dict:   # 在交易裡，用當下的卡重算；跟確認畫面不一樣就整筆不做
+            if auto_synthesis_preview(current) != preview:
+                raise ValueError("卡牌跟確認畫面不一樣了 (有卡被用掉、收進收藏冊或新抽到)，請回到選卡畫面重新按「⚡ 自動合成全部」")
+            return run_auto_synthesis(current)
+
+        async def on_confirm(_interaction: discord.Interaction):
+            try:
+                result = await auto_synthesize_cards(user_id, character_key, run)
+            except ValueError as e:
+                return f"❌ **自動合成沒有執行**：{e}\n-# 卡牌沒有任何變動。"
+            return build_auto_synthesis_result_container(sample, result, user_name, THUMBNAILS)
+
+        # 自動合成完只留「🎒 查看卡庫」(失敗時才有「⚗️ 繼續合成」回選卡畫面)
+        return CardActionConfirmView(user_id, user_name, self, container, on_confirm, "⚡ 確認自動合成",
+                                     continue_character=character_key, continue_on_success=False)
 
     @app_commands.command(name="synthesis", description="⚗️ 合成卡牌：兩張同角色、同階級的卡合成一張完整度更高的卡")
     @app_commands.describe(pool="代數 (只列出有可合成卡牌的)", character="角色 (只列出該代數中有可合成卡牌的)")

@@ -407,6 +407,48 @@ def build_synthesis_result_container(new_card: dict, increase: float, doubled: b
     return container
 
 
+def build_auto_synthesis_preview_container(sample: dict, preview: dict, user_name: str, thumbnails: dict = None) -> ui.Container:
+    """
+    ⚡ 自動合成全部的確認畫面：preview = {階級: 未滿 1.0000 的張數} (gacha.auto_synthesis_preview)
+    合到 1.0000 的卡會提早退出，所以次數寫「最多」
+    """
+    rows = "\n".join(f"`{r}`：`{n}` 張 ➔ 最多合成 `{n - 1}` 次" for r, n in preview.items())
+    top = list(preview)[-1]
+    text = (
+        f"## ⚡ 自動合成全部：{sample.get('emoji', '🎴')} {sample['name']}\n"
+        f"每個階級各自合：每次拿**完整度最低的兩張**合成，新卡放回去繼續比，合到只剩一張未滿 `1.0000` 為止"
+        f"（合到 `1.0000` 的卡不再參加）\n\n"
+        f"{rows}\n\n"
+        f"-# ⚠️ 用掉的卡會消失，每一次會不會加倍都是隨機的，合完**不能還原**\n"
+        f"-# 🔒 收藏冊、正在裏世界出征的卡不會被合；想留的卡先放進收藏冊 (`/card album`) | 擁有者: {user_name}"
+    )
+    container = ui.Container(accent_color=discord.Color.orange())
+    container.add_item(_card_block(text, sample.get("character_key"), thumbnails, top))
+    return container
+
+
+def build_auto_synthesis_result_container(sample: dict, result: dict, user_name: str, thumbnails: dict = None) -> ui.Container:
+    """⚡ 自動合成完成：每個階級一行 (合成幾次、加倍幾次、剩下那張的完整度、合到 1.0000 的張數)，不逐次列"""
+    rows = []
+    for r, info in result["rarities"].items():
+        line = f"`{r}`：合成 `{info['count']}` 次" + (f"（✨ 加倍 `{info['doubled']}` 次）" if info["doubled"] else "")
+        if info["last"] is not None:
+            line += f" ➔ 剩下 {get_completeness_eval(info['last'])[0]}"
+        if info["perfect"]:
+            line += f" · 合到 `1.0000`：`{info['perfect']}` 張"
+        rows.append(line)
+    top = list(result["rarities"])[-1] if result["rarities"] else sample.get("rarity")
+    text = (
+        f"## ⚡ 自動合成完成：{sample.get('emoji', '🎴')} {sample['name']}\n"
+        f"卡牌的靈力一張接一張交融在一起...\n\n"
+        + "\n".join(rows) +
+        f"\n\n-# 共合成 {result['count']} 次 (都算進合成次數) | 擁有者: {user_name}"
+    )
+    container = ui.Container(accent_color=discord.Color.teal())
+    container.add_item(_card_block(text, sample.get("character_key"), thumbnails, top))
+    return container
+
+
 def build_fusion_preview_container(cards: list[dict], next_rarity: str, next_title: str, user_name: str, thumbnails: dict = None) -> ui.Container:
     """融合確認畫面：三張滿完整度素材 ➔ 高一階 (新卡完整度隨機)"""
     base = cards[0]

@@ -1297,6 +1297,56 @@ async def transform_cards(user_id: int, instance_ids: list[str], build_new_card,
     return consumed, new_card
 
 
+async def auto_synthesize_cards(user_id: int, character_key: str, run_synthesis) -> dict:
+    """
+    ⚡ 自動合成全部 (2026-11-23)：一位角色的卡全部自動合成，同一個交易
+    - BEGIN IMMEDIATE ➔ 重新讀這位角色、卡冊裡 (不含收藏冊 locked、出征中 expedition) 的卡
+    - run_synthesis(cards) 回傳 {"consumed": [被用掉的原本卡牌 ID], "created": [最後留下的新卡], "count": 合成次數, ...}；
+      中間合出來又被拿去合的卡不會寫進資料庫；條件不符 (例如跟確認畫面不一樣) 丟出 ValueError ➔ 整筆不寫
+    - 刪掉用掉的卡、寫入新卡、gacha_stats.total_synths + count (合成稱號一次算一次)
+    回傳 run_synthesis 的結果
+    """
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            async with db.execute(
+                """
+                SELECT instance_id, character_key, name, emoji, rarity, title, completeness, obtained_at
+                FROM gacha_cards WHERE user_id = ? AND character_key = ? AND locked = 0 AND expedition = 0 ORDER BY rowid
+                """,
+                (user_id, character_key),
+            ) as cursor:
+                cards = [apply_current_names(dict(row)) for row in await cursor.fetchall()]
+            result = run_synthesis(cards)
+            owned = {c["instance_id"] for c in cards}
+            consumed = list(dict.fromkeys(result["consumed"]))
+            if any(i not in owned for i in consumed):
+                raise ValueError("部分卡牌已不在你的卡冊中")
+            if consumed:
+                placeholders = ", ".join("?" for _ in consumed)
+                cursor = await db.execute(
+                    f"DELETE FROM gacha_cards WHERE user_id = ? AND locked = 0 AND expedition = 0 AND instance_id IN ({placeholders})",
+                    (user_id, *consumed),
+                )
+                if cursor.rowcount != len(consumed):
+                    raise ValueError("部分卡牌已不在你的卡冊中")
+            await _insert_cards(db, user_id, result["created"])
+            if result["count"]:
+                await db.execute(
+                    """
+                    INSERT INTO gacha_stats (user_id, total_synths) VALUES (?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET total_synths = total_synths + excluded.total_synths
+                    """,
+                    (user_id, result["count"]),
+                )
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    card_cache.invalidate(user_id)
+    return result
+
+
 # ---------------------------------------------------------
 # 🛠️ 8. 管理員卡冊操作 (Admin-gacha)
 # ---------------------------------------------------------
