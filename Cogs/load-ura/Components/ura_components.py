@@ -362,7 +362,9 @@ def _room_text(run: dict) -> str:
         lines = ["### 🛒 流浪商人", "-# 「用你口袋裡的錢買吧，嘿嘿。」(價格 = 商店 × 1.2)"]
         for i, s in enumerate(room.get("stock", [])):
             name = item_name(s["id"]) if s["kind"] == "item" else relic_name(s["relic"])
-            lines.append(f"{i + 1}. {name}　`{s['price']:,}`　" + (f"剩 {s['qty']}" if s["qty"] > 0 else "~~賣完了~~"))
+            desc = thing_desc(s["kind"], s["id"] if s["kind"] == "item" else s["relic"])
+            lines.append(f"{i + 1}. {name}　`{s['price']:,}`　" + (f"剩 {s['qty']}" if s["qty"] > 0 else "~~賣完了~~")
+                         + (f"\n-# 　{desc}" if desc else ""))
         return "\n".join(lines)
     if phase == "boss_clear":
         lines = [f"### 👹 打倒了第 {run['boss_cleared']} 區的 BOSS！", "可以現在 **🏁 撤離** 把東西帶回去，或 **➡️ 繼續** 往下一區 (越深越危險、寶物越好)。"]
@@ -384,6 +386,45 @@ def pending_text(run: dict) -> str | None:
     if not run.get("pending"):
         return None
     return f"📦 有 {len(run['pending'])} 樣東西放不下 (整理背包後可以再撿，離開這關就沒了)"
+
+
+def talisman_confirm_text(run: dict, iid: str) -> str:
+    """🔙 歸還符的確認：現在就成功撤離，寫清楚會帶回什麼、什麼帶不回來 (2026-11-23 使用者要多一道確認)"""
+    bag = run["bag"]
+    items = sum(bag["items"].values()) - (1 if bag["items"].get(iid) else 0)   # 歸還符自己會用掉
+    got = [f"💰 口袋 {run['pocket']:,} 賽錢", f"🧪 道具 {items} 個", f"🧺 素材 {sum(bag['materials'].values())} 個",
+           f"💎 寶物 {len(bag['treasures'])} 個"]
+    lines = [f"### {item_name(iid)}：確定要現在撤離嗎？",
+             "用了就**成功撤離**，這一局到此結束，不能再往下走。",
+             "帶回去：" + "・".join(got),
+             f"-# {item_name(iid)} 用掉就沒了；🦊 法具帶不回來"]
+    if run.get("pending"):
+        lines.append(f"-# 📦 放不下的 {len(run['pending'])} 樣東西會留在這裡")
+    dead = [m["name"] for m in run["party"] if not m["alive"]]
+    if dead:
+        revive = next((item_name(i) for i, it in data.items().items() if it.get("effect", {}).get("do") == "revive"), None)
+        lines.append(f"-# 💀 倒下的 {'、'.join(dead)} 完整度 −{rules.COMP_PENALTY:g}"
+                     + (f" (先用 {revive} 救回來就不算)" if revive else ""))
+    return "\n".join(lines)
+
+
+def thing_desc(kind: str, key) -> str:
+    """
+    一樣東西的功用 (流浪商人、📦 待撿用；2026-11-23 使用者：「商人賣的物品不清楚其功用是啥 撿不起來的道具也是」)
+    道具 = items.json 的 desc (跟 /ura shop、背包一樣)；法具 = 效果 + 這一檔的數字；寶物 = 說明 + 賣價；素材 = 料理素材
+    """
+    if kind in ("item", "items"):
+        return data.items().get(key, {}).get("desc", "")
+    if kind in ("relic", "relics"):
+        return describe.relic_effect(key)
+    if kind == "treasures":
+        info = data.treasure_info(key["id"]) or {}
+        price = data.treasure_prices().get(key["rarity"])
+        sell = f"帶回去一個賣 {price:,} 賽錢" if price else "帶回去可以賣"
+        return f"{info['desc']}｜{sell}" if info.get("desc") else sell
+    if kind == "materials":
+        return "料理素材：成功撤離就放進神社倉庫"
+    return ""
 
 
 def pending_label(p: dict) -> str:
@@ -476,7 +517,9 @@ def bag_entries(run: dict, kind: str) -> list[dict]:
                         "desc": data.relics().get(rel["rid"], {}).get("desc", "")})
     elif kind == "pending":
         for i, p in enumerate(run.get("pending") or []):
-            out.append({"key": str(i), "line": pending_label(p), "label": pending_label(p), "desc": None})
+            desc = thing_desc(p["kind"], p["key"])
+            out.append({"key": str(i), "line": pending_label(p) + (f"\n-# 　{desc}" if desc else ""), "label": pending_label(p),
+                        "desc": desc[:100] or None})
     return out
 
 

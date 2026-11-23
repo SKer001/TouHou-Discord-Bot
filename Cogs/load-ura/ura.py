@@ -172,6 +172,10 @@ class RunView(ui.LayoutView):
             self.add_item(UC.build_run_container(st, self.notice, body))
             self.add_item(ui.ActionRow(_btn("🏳️ 確定放棄", DANGER, self.on_abandon_yes), _btn("↩️ 返回", SECONDARY, self.on_back)))
             return
+        if self.mode == "evac_confirm":
+            self.add_item(UC.build_run_container(st, self.notice, UC.talisman_confirm_text(st, self.pending["item"])))
+            self.add_item(ui.ActionRow(_btn("🔙 確定撤離", SUCCESS, self.on_talisman_yes), _btn("↩️ 返回", SECONDARY, self.on_back)))
+            return
         if self.mode == "target":
             self._build_target()
             return
@@ -206,7 +210,8 @@ class RunView(ui.LayoutView):
         return cb
 
     def _pending_opts(self) -> list:
-        return [_opt(UC.pending_label(p), str(i)) for i, p in enumerate(self.state.get("pending") or [])]
+        return [_opt(UC.pending_label(p), str(i), UC.thing_desc(p["kind"], p["key"]))
+                for i, p in enumerate(self.state.get("pending") or [])]
 
     def _pending_row(self):
         """主畫面的「撿起放不下的東西」：25 樣以內直接選；更多的話到背包裡翻頁挑"""
@@ -317,7 +322,8 @@ class RunView(ui.LayoutView):
             stock = [(i, s) for i, s in enumerate(room.get("stock", [])) if s["qty"] > 0]
             if stock:
                 opts = [_opt(UC.item_name(s["id"]) if s["kind"] == "item" else UC.relic_name(s["relic"]), str(i),
-                             f"{s['price']:,} 賽錢｜剩 {s['qty']}") for i, s in stock]
+                             f"{s['price']:,} 賽錢｜剩 {s['qty']}｜"
+                             + UC.thing_desc(s["kind"], s["id"] if s["kind"] == "item" else s["relic"])) for i, s in stock]
                 self.add_item(_select("🛒 買一個…", opts, self.on_buy))
             row.append(_btn("🚪 離開", PRIMARY, self.on_leave))
         elif phase == "boss_clear":
@@ -373,7 +379,7 @@ class RunView(ui.LayoutView):
                                             data.relics().get(m["relic"]["rid"], {}).get("desc", "")) for m in worn],
                                       self.on_unequip))
         elif not battle and tab == "pending" and page:
-            self.add_item(_select(f"📦 撿起放不下的東西{sfx}…", [_opt(e["label"], e["key"]) for e in page], self.on_take))
+            self.add_item(_select(f"📦 撿起放不下的東西{sfx}…", [_opt(e["label"], e["key"], e["desc"]) for e in page], self.on_take))
         nav = nav_buttons(pg.page, pg.total, self._pager(f"bag:{tab}")) if pg.total > 1 else []
         self.add_item(ui.ActionRow(*nav, _btn("↩️ 返回", SECONDARY, self.on_back)))
 
@@ -489,7 +495,19 @@ class RunView(ui.LayoutView):
             self.pending, self.mode = {"action": "item_out", "item": iid, "kind": kind}, "target"
             await self.redraw(interaction)
             return
+        if data.items().get(iid, {}).get("effect", {}).get("do") == "evacuate" and self.state["phase"] == "doors":
+            # 🔙 歸還符：一用這局就結束，先確認 (2026-11-23 使用者：「歸還符要多一道確認」)
+            self.pending, self.mode, self.notice = {"action": "talisman", "item": iid}, "evac_confirm", None
+            await self.redraw(interaction)
+            return
         await self.act(interaction, lambda s, g: R.use_item(s, iid, None, g), keep=True)
+
+    async def on_talisman_yes(self, interaction):
+        iid = (self.pending or {}).get("item")
+        if not iid:
+            await self.on_back(interaction)
+            return
+        await self.act(interaction, lambda s, g: R.use_item(s, iid, None, g))
 
     async def on_target(self, interaction):
         t, p = interaction.data["values"][0], self.pending or {}

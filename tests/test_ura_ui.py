@@ -7,7 +7,7 @@ import discord
 from discord import ui
 from Database import User_DB_Manager as udm
 from Database import Ura_DB_Manager as ura
-from Database.ura import data, rules, combat, run as R
+from Database.ura import data, describe, rules, combat, run as R
 
 tmp = tempfile.mkdtemp()
 udm.DB_PATH = os.path.join(tmp, "Users.db")   # 絕不碰真實 Users.db
@@ -582,6 +582,58 @@ async def main():
     await press(v, FUZZ, label="🚪 繼續前進")
     check("after event doors", v.state["phase"] == "doors")
     await ura.act(FUZZ, v.rev, lambda s, g: R.abandon(s))
+    # 🔙 歸還符先確認、📦 待撿和 🛒 流浪商人寫功用 (2026-11-23 使用者回饋)
+    from Database.shrine_data import MATERIAL_ITEMS
+    mat = MATERIAL_ITEMS[0][0]
+    bamboo = {"id": "ura_bamboo_shoot", "rarity": "N", "zone": 1}
+
+    def talisman(s, g):
+        s["floor"], s["phase"], s["room"] = 3, "doors", None
+        s["bag"]["items"] = {"return_talisman": 1, "eientei_salve": 2}
+        s["bag"]["treasures"] = [dict(bamboo)]
+        s["party"][1]["alive"], s["party"][1]["hp"] = False, 0
+        s["pending"] = [{"kind": "items", "key": "eirin_elixir"}, {"kind": "relics", "key": {"rid": "nine_tails", "tier": 0}},
+                        {"kind": "treasures", "key": dict(bamboo)}, {"kind": "materials", "key": mat}]
+    v = await staged(talisman)
+    sel = find(v, placeholder="📦")
+    check(f"pending option desc {[o.description for o in sel.options]}",
+          sel and all(o.description for o in sel.options) and data.items()["eirin_elixir"]["desc"] in sel.options[0].description
+          and "這一檔" in sel.options[1].description and f"賣 {data.treasure_prices()['N']:,} 賽錢" in sel.options[2].description
+          and "料理素材" in sel.options[3].description)
+    await press(v, FUZZ, label="🎒 背包")
+    await press(v, FUZZ, placeholder="🎒 看哪一類", values=["pending"])
+    t = texts(v)
+    check("pending tab desc", data.items()["eirin_elixir"]["desc"] in t and "這一檔" in t and "料理素材" in t
+          and all(o.description for o in find(v, placeholder="📦").options))
+    await press(v, FUZZ, placeholder="🎒 看哪一類", values=["items"])
+    await press(v, FUZZ, placeholder="🧪", values=["return_talisman"])
+    t = texts(v)
+    check(f"talisman confirm {t[-200:]}", v.mode == "evac_confirm" and v.state["phase"] == "doors" and "確定要現在撤離嗎" in t
+          and "口袋 20,000 賽錢" in t and "道具 2 個" in t and "寶物 1 個" in t and "放不下的 4 樣" in t and "完整度 −" in t
+          and find(v, label="🔙 確定撤離") is not None)
+    limits(v, "talisman confirm")
+    await press(v, FUZZ, label="↩️ 返回")
+    check("talisman back", v.mode == "main" and v.state["phase"] == "doors" and v.state["bag"]["items"].get("return_talisman") == 1)
+    await press(v, FUZZ, label="🎒 背包")
+    await press(v, FUZZ, placeholder="🧪", values=["return_talisman"])
+    await press(v, FUZZ, label="🔙 確定撤離")
+    check("talisman evacuated", v.mode == "settle" and v.settle["result"] == "evacuated")
+
+    def merchant(s, g):
+        s["floor"], s["phase"] = 9, "merchant"
+        s["room"] = {"type": "merchant", "stock": R._merchant_stock(s, g)}
+        s["room"]["stock"].append({"kind": "relic", "relic": {"rid": "nine_tails", "tier": 1}, "qty": 1, "price": 99999})
+    v = await staged(merchant)
+    t = texts(v)
+    stock = v.state["room"]["stock"]
+    sel = find(v, placeholder="🛒")
+    check("merchant desc", all(data.items()[s_["id"]]["desc"] in t for s_ in stock if s_["kind"] == "item")
+          and describe.relic_effect({"rid": "nine_tails", "tier": 1}) in t
+          and all("｜" in o.description and len(o.description) <= 100 for o in sel.options)
+          and data.items()[stock[0]["id"]]["desc"][:20] in sel.options[0].description)
+    limits(v, "merchant desc")
+    await ura.act(FUZZ, v.rev, lambda s, g: R.abandon(s))
+
     v = await staged(event_room("shrine_altar", treasures=2))
     sel = find(v, placeholder="⛩️")
     check("offer lists one kind", sel and len(sel.options) == 1)
