@@ -77,7 +77,7 @@
 - 清空卡冊：`clear_gacha_cards(user_id)` / `clear_all_gacha_cards()`（全部玩家）都走 `_clear_cards`，同一個交易：刪卡冊 + 收藏冊 (`expedition = 0`)、`market_listings`（連同 `notify_listings` 的快照）、`gacha_pity.since_ur` 歸零；回傳 `{"cards", "listings", "skipped"}`（skipped = 🌀 出征中沒刪的張數）。確認畫面先用 `count_gacha_clear(user_id=None)` 算人數 / 張數。
 
 ### 角色資料（`Characters/<分類>/<id>.json`）
-- 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`base_stats{hp, atk, def}`（目前都是 0）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。
+- 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`ura_class`（裏世界職業 atk / guard / sup / scout / guide）、`base_stats{hp, atk, def}`（裏世界 N 階數值，見 `docs/ura.md`）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。
 - SP 等級名稱 = `Easy・初陣` / `Lunatic・瘋狂` / `Phantasm・幻象` + `・` + SP 名稱；`spent` 是 B 點消耗（B 點系統尚未實作）。`type`、`spent`、`cooldown`、`desc` 目前只用於圖鑑顯示。
 - 有裏世界符卡的角色，`special_powers.levels.*.desc` = 那一級的符卡效果，由 `python tools/ura_roster.py` 從 `Database/ura/data/spells.json` 同步 (不要手改；圖鑑執行時也直接從同一份資料產生，2026-11-22)。
 - 驗證：檔名必須等於 `id`、`special_powers.levels` 的鍵必須等於 `gacha.rarities`。分類顯示名稱在 `Utils/character_data.py` 的 `CATEGORY_INFO`。

@@ -145,7 +145,7 @@ async def setup(bot):
 
 - 一角色一檔，格式見 `CLAUDE.md` §3；`Utils/character_data.py` 負責讀取與驗證（壞檔印警告略過，不會讓機器人掛掉）。
 - 圖鑑每次指令都重讀；抽卡卡池 `GACHA_POOL` 在模組載入時讀 ➔ 改角色檔後要 `/admin-sys reload` 抽卡模組。
-- 新增角色：放 json ➔（要進卡池就 `gacha.enabled: true`、放在卡池包含的資料夾）➔ reload ➔ 補卡面（§6）。
+- 新增角色：放 json ➔（要進卡池就 `gacha.enabled: true`、放在卡池包含的資料夾）➔ reload ➔ 補卡面（§6）。加一整代 (新卡池) 要改的檔案清單在 `docs/new-characters.md`。
 
 ### 4.3 階級
 

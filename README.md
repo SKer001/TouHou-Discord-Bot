@@ -145,7 +145,8 @@ images/Thumbnails.json   角色縮圖對照表 {"角色id": "圖片URL", "fill":
 1. 在 `Characters/<分類>/` 新增 `<角色id>.json`，格式可以參考 `Characters/Main/reimu.json`。
    - 檔名必須和 `id` 一致。
    - `special_powers.levels` 的階級必須和 `gacha.rarities` 一致。
-2. 若要開放抽取，把 `gacha.enabled` 設為 `true`，並確認該分類資料夾已列在 `Cogs/load-gacha/gacha.py` 的 `GACHA_POOLS` 中。
+2. 若要開放抽取，把 `gacha.enabled` 設為 `true`，並確認該分類資料夾已列在 `Utils/gacha_pools.py` 的 `GACHA_POOLS` 中。
+   - 每位角色都要有裏世界符卡 (`Database/ura/data/spells.json`) 和 `ura_class`；加一整代角色要改的檔案見 `docs/new-characters.md`。
 3. （可選）在 `images/Thumbnails.json` 加入角色縮圖；沒有的話會使用 `fill` 預設圖。
 4. `/character` 會即時讀取新資料；抽卡需要用 `/admin-sys reload` 重新載入抽卡模組。
 

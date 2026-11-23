@@ -15,6 +15,7 @@
 | 卡面 / 頭像生圖、ComfyUI、PhotoCraft | `docs/card-art.md` |
 | 跑測試、botcli、實機驗證 | `docs/testing.md` |
 | 活動檔格式與預留位 | `Events/README.md` |
+| 新增一代角色 (TH07 之後)：流程、要改的檔案、稱號 / 階級慣例、查萌娘百科、查過的角色資料 | `docs/new-characters.md` |
 | 待做、目前進度 | `TODO.md` |
 | 每個版本做了什麼、踩過的坑 | `CHANGELOG.md`（最上面幾筆就好） |
 | 早期重構歷程 | `docs/history.md` |
