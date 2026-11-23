@@ -694,17 +694,19 @@ async def send_character_page(interaction: discord.Interaction, character_key: s
     """📖 角色圖鑑：另開一則只有自己看得到的 /character 角色頁 (Cog 之間不互相 import，呼叫時才取)"""
     from Utils.character_data import load_categories
     cc = importlib.import_module("Cogs.load-character.Components.character_components")
-    found = next(((ch, cat) for cat in load_categories().values() for ch in cat["characters"] if ch["id"] == character_key), None)
+    found = next(((ch, cat, folder) for folder, cat in load_categories().items() for ch in cat["characters"]
+                  if ch["id"] == character_key), None)
     if found is None:
         await send_notice(interaction, "❌ 圖鑑裡找不到這位角色。")
         return
-    char, cat = found
+    char, cat, folder = found
     owned = {}   # 看的人自己的收藏 (收藏冊的卡也算)
     for c in await get_user_cards(interaction.user.id, include_locked=True):
         per = owned.setdefault(c["character_key"], {})
         per[c["rarity"]] = per.get(c["rarity"], 0) + 1
     view = ui.LayoutView()
-    view.add_item(cc.build_character_container(char, cat["category_name"], THUMBNAILS, owned))
+    view.add_item(cc.build_character_container(char, cat["category_name"], THUMBNAILS, owned,
+                                               folder=folder, rules=await econ.get_rules()))
     if interaction.response.is_done():
         await interaction.followup.send(view=view, ephemeral=True)
     else:

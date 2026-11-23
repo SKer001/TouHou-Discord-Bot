@@ -114,6 +114,27 @@ async def main():
     v6 = mod.CharacterBrowserView(cats, {"fill": fill}, {}); v6.category_key, v6.char_id = "Main", "reimu"; v6.build()
     check("no art ➔ single fill thumbnail", thumbs(v6) == [fill] and rarity_rows(v6) == [])
 
+    # 🎴 卡牌階級下面那行 (2026-11-24)：一般卡池照舊；event_only 卡池看現在有沒有活動開著
+    cc = importlib.import_module("Cogs.load-character.Components.character_components")
+    evm = importlib.import_module("Database.events")
+    scarlet, quiet = evm.game_rules([evm.load_events()["th06_scarlet_mist"]]), evm.game_rules([])
+    by_id = {c["id"]: (c, f) for f, cat in cats.items() for c in cat["characters"]}
+    how = "`/card gacha` 選「🎪 活動限定卡池」"
+    check("pool state classic", cc.pool_state_text(*by_id["reimu"], scarlet) == "🎴 可在 `/card gacha` 祈願中獲得")
+    check("pool state th06 open", cc.pool_state_text(*by_id["cirno"], scarlet) == f"🎪 紅霧異變期間開放：{how}")
+    check("pool state th06 closed", cc.pool_state_text(*by_id["cirno"], quiet) == "🎪 只在活動期間開放 (目前沒有開)")
+    check("pool state th07 closed", cc.pool_state_text(*by_id["yuyuko"], scarlet) == "🎪 只在活動期間開放 (目前沒有開)")
+    check("pool state rules unknown", cc.pool_state_text(*by_id["yuyuko"], None) == f"🎪 只在活動期間開放：{how}")
+    check("pool state disabled", cc.pool_state_text({"gacha": {"enabled": False}}, "TH06", scarlet) == "🚫 目前不在卡池中"
+          and cc.pool_state_text({"gacha": {"enabled": True}}, "TH99", scarlet) == "🚫 目前不在卡池中")
+    it = Interaction(); await cmd.callback(cog, it); pv = it.view   # 開圖鑑時讀進行中的活動 (沙盒：紅霧異變 auto_start)
+    pv.category_key, pv.char_id = "TH07", "yuyuko"; pv.build()
+    check("/character th07 closed", "目前沒有開" in texts(pv) and "可在 `/card gacha` 祈願中獲得" not in texts(pv))
+    pv.category_key, pv.char_id = "TH06", "cirno"; pv.build()
+    check("/character th06 open", "紅霧異變期間開放" in texts(pv))
+    pv.category_key, pv.char_id = "Main", "reimu"; pv.build()
+    check("/character classic", "可在 `/card gacha` 祈願中獲得" in texts(pv))
+
     gc = importlib.import_module("Cogs.load-gacha.Components.gacha_components")
     check("card thumbnail by rarity", gc.get_thumbnail_url("reimu", by_rarity, "UR") == "https://x/reimu_UR.png")
     check("card thumbnail fallback", gc.get_thumbnail_url("reimu", by_rarity, "SSR") == fill

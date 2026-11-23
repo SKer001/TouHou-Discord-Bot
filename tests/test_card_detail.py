@@ -122,7 +122,8 @@ async def main():
     check("inventory buttons", labels(it.view)[-4:] == ["🔙 返回這一疊", "🎒 返回卡冊", "🔒 放進收藏冊", "📖 角色圖鑑"])
     page = Interaction(); await button(it.view, "📖 角色圖鑑").callback(page)
     check("character page", page.view is not None and "蕾米莉亞" in texts(page.view) and "🏷️ 卡牌階級" in texts(page.view)
-          and page.response.kw.get("ephemeral") is True)
+          and page.response.kw.get("ephemeral") is True
+          and "紅霧異變期間開放" in texts(page.view))   # 卡池狀態那行也讀當下的活動 (2026-11-24)
     check("detail stays", "### 📜 角色資料" in texts(view))
     admin_cards = gacha.sort_cards(await udm.get_user_cards(UID, include_locked=True))
     av = gacha.InventoryView(OTHER, admin_cards, "目標", None, owner_id=UID)

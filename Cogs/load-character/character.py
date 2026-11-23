@@ -11,6 +11,7 @@ from .Components.character_components import (
 from Utils.components import send_notice
 from Utils.character_data import load_categories
 from Database.User_DB_Manager import get_user_cards
+from Database import Economy_DB_Manager as econ
 
 # ---------------------------------------------------------
 # 💡 路徑設定
@@ -39,11 +40,12 @@ def load_thumbnails() -> dict:
 #   首頁 (只有分類選單) ➔ 分類頁 (角色選單 + 分類選單) ➔ 角色檔案頁 (同上)
 # ---------------------------------------------------------
 class CharacterBrowserView(ui.LayoutView):
-    def __init__(self, categories: dict, thumbnails: dict, owned: dict | None = None):
+    def __init__(self, categories: dict, thumbnails: dict, owned: dict | None = None, rules: dict | None = None):
         super().__init__(timeout=180)
         self.categories = categories
         self.thumbnails = thumbnails
         self.owned = owned or {}   # 下指令的人自己的收藏 {"角色id": {"階級": 張數}}
+        self.rules = rules         # 開圖鑑當下的活動規則 (活動限定卡池開了沒；None = 讀不到)
         self.category_key = None
         self.char_id = None
         self.message = None  # 送出後由指令填入，供逾時時停用選單
@@ -63,7 +65,8 @@ class CharacterBrowserView(ui.LayoutView):
         else:
             char = self._get_char(self.category_key, self.char_id)
             container = build_character_container(
-                char, self.categories[self.category_key]["category_name"], self.thumbnails, self.owned
+                char, self.categories[self.category_key]["category_name"], self.thumbnails, self.owned,
+                folder=self.category_key, rules=self.rules,
             )
 
         container.add_item(ui.Separator())
@@ -165,7 +168,12 @@ class CharacterProfileCog(commands.Cog):
             per_char = owned.setdefault(card["character_key"], {})
             per_char[card["rarity"]] = per_char.get(card["rarity"], 0) + 1
 
-        view = CharacterBrowserView(categories, load_thumbnails(), owned)
+        try:   # 活動限定卡池 (紅魔鄉 / 妖妖夢) 現在開了沒
+            rules = await econ.get_rules()
+        except Exception as e:
+            print(f"⚠️ [Character] 讀取活動規則失敗：{e!r}")
+            rules = None
+        view = CharacterBrowserView(categories, load_thumbnails(), owned, rules)
         await interaction.response.send_message(view=view)
         view.message = await interaction.original_response()
 

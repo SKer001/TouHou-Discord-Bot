@@ -11,6 +11,7 @@ import discord
 from discord import ui
 
 from Database.ura import data as ura_data, describe as ura_describe
+from Utils.gacha_pools import GACHA_POOLS
 
 # 角色檔案頁的色條：依該角色「最高階級」上色
 RARITY_COLORS = {
@@ -100,11 +101,39 @@ def build_category_container(category_data: dict, owned: dict | None = None) -> 
 
 
 # ---------------------------------------------------------
+# 🎴 卡牌階級下面那行：抽不抽得到 (2026-11-24：event_only 卡池要看現在有沒有活動開著)
+# ---------------------------------------------------------
+def pool_state_text(char: dict, folder: str | None, rules: dict | None = None) -> str:
+    """
+    folder = 角色所在的 Characters/ 分類資料夾 (決定卡池)；rules = econ.get_rules() (讀不到 = None，只寫「活動期間開放」)
+    - 一般卡池 (classic)：「🎴 可在 /card gacha 祈願中獲得」
+    - event_only 卡池 (th06 / th07)：開著 ➔「🎪 紅霧異變期間開放：…」；沒開 ➔「🎪 只在活動期間開放 (目前沒有開)」
+    - 沒開抽卡 / 不在任何卡池：「🚫 目前不在卡池中」
+    """
+    pool_key = next((k for k, p in GACHA_POOLS.items() if folder in p["folders"]), None)
+    if not char.get("gacha", {}).get("enabled") or pool_key is None:
+        return "🚫 目前不在卡池中"
+    if not GACHA_POOLS[pool_key].get("event_only"):
+        return "🎴 可在 `/card gacha` 祈願中獲得"
+    how = "`/card gacha` 選「🎪 活動限定卡池」"
+    if rules is None:
+        return f"🎪 只在活動期間開放：{how}"
+    ep = (rules.get("gacha_event_pools") or {}).get(pool_key)
+    if not ep:
+        return "🎪 只在活動期間開放 (目前沒有開)"
+    from Database.events import load_events
+    events = load_events()
+    names = "、".join(events.get(e, {}).get("name", e) for e in ep.get("events") or [ep.get("event")])
+    return f"🎪 {names}期間開放：{how}"
+
+
+# ---------------------------------------------------------
 # 👤 3. 角色檔案頁：文字 + 每個階級旁邊的卡面縮圖
 # ---------------------------------------------------------
 def build_character_container(char: dict, category_name: str, thumbnails: dict | None = None,
-                              owned: dict | None = None) -> ui.Container:
-    """owned = {"角色id": {"階級": 張數}}：檢視者自己的收藏"""
+                              owned: dict | None = None, folder: str | None = None,
+                              rules: dict | None = None) -> ui.Container:
+    """owned = {"角色id": {"階級": 張數}}：檢視者自己的收藏；folder / rules = 卡池狀態那行用 (pool_state_text)"""
     my_cards = (owned or {}).get(char.get("id"), {})
     profile = char["profile"]
     gacha = char["gacha"]
@@ -141,7 +170,7 @@ def build_character_container(char: dict, category_name: str, thumbnails: dict |
 
     # 卡池階級與稱號
     if rarities:
-        pool_state = "🎴 可在 `/card gacha` 祈願中獲得" if gacha.get("enabled") else "🚫 目前不在卡池中"
+        pool_state = pool_state_text(char, folder, rules)
         lines = {
             r: f"`[{r}]` {gacha.get('titles', {}).get(r, '')}　" + (f"✅ ×{my_cards[r]}" if my_cards.get(r) else "▫️ 未擁有")
             for r in rarities
