@@ -1,5 +1,5 @@
 """
-📚 🎴 抽卡與卡牌・教學書 (0.36.000；0.37.003 改成新機率與紅魔鄉活動限定)
+📚 🎴 抽卡與卡牌・教學書 (0.36.000；0.37.003 改成新機率；0.37.005 活動卡池不寫死，照開書時進行中的活動)
 格式見 Components/guide_components.py；數字從抽卡 Cog (Cogs/load-gacha/gacha.py) 的常數讀，開畫面時才算
 (Cog 模組用 importlib 在函式裡取，/admin-sys reload 之後拿得到新版)
 """
@@ -53,8 +53,10 @@ def _rarity_names(g) -> list[str]:
     return sorted(g.RARITY_ORDER, key=g.RARITY_ORDER.get)
 
 
-def _pull() -> str:
+def _pull(ctx: dict | None = None) -> str:
+    """ctx = 開書時讀的進行中活動 (guide_components.current_context)；不要把某個活動寫死成例子"""
     g = _gacha()
+    event_pool = ((ctx or {}).get("rules") or {}).get("gacha_event_pool")
     ur, rar = g.PITY_RARITY, g.RARITIES
     rates = g.base_rates()
     rate_line = "、".join(f"{r} {g.rate_text(rates[r] / 100)}" for r in rar)
@@ -71,8 +73,9 @@ def _pull() -> str:
         avg = f" · 平均約 **{st['avg']:.0f}** 抽一張 {ur}" if st["avg"] else ""
         if p.get("event_only"):
             note = g.open_note(key).replace("🎪 ", "")
+            now = "　🟢 **現在開放中**" if event_pool and event_pool.get("key") == key else ""
             pool_lines.append(f"- **{p['name']}**：{p['desc']}，共 **{len(chars)}** 位角色{avg}；"
-                              f"🎪 平常不能抽，只有**{note}**從「🎪 活動限定卡池」抽得到")
+                              f"🎪 平常不能抽，只有**{note}**從「🎪 活動限定卡池」抽得到{now}")
         else:
             pool_lines.append(f"- **{p['name']}**：{p['desc']}，共 **{len(chars)}** 位角色{avg}")
         if not st["avg"]:
@@ -85,8 +88,10 @@ def _pull() -> str:
         "",
         "### 🎰 卡池",
         *pool_lines,
-        "- **🎪 活動限定卡池**：活動期間開放的卡池 (例如紅霧異變期間就是🔴 紅魔鄉卡池，結果畫面標「・紅霧異變限定」)；"
-        "沒有的時候選它會提示「🎪 目前沒有進行中的活動卡池。」",
+        "- **🎪 活動限定卡池**：只在活動期間開放，抽哪個卡池由那個活動決定 (可能是上面標 🎪 的卡池，"
+        "也可能是活動自己的限定卡池)，結果畫面的卡池名稱會標「・〇〇限定」；沒有的時候選它會提示「🎪 目前沒有進行中的活動卡池。」",
+        *([f"-# 🟢 現在的活動限定卡池：{event_pool['name']}" if event_pool else "-# 現在沒有開放活動限定卡池"]
+          if ctx is not None else []),
         "",
         "### 💰 價格",
         f"- 單抽 **{one:,}** 賽錢、十連 **{ten:,}** 賽錢" + (" (十連就是 10 抽的錢，沒有折扣)" if ten == one * 10 else ""),

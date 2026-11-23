@@ -1,21 +1,16 @@
 """
 📚 🎪 活動・教學書 (0.36.000)
-格式見 Components/guide_components.py；數字從活動檔 (Events/*.json，Database/events.load_events) 讀，開畫面時才算
+格式見 Components/guide_components.py；數字從活動檔讀，開畫面時才算
+0.37.005：不寫死某個活動當例子，只列開書時**進行中**的活動 (ctx = guide_components.current_context())；
+沒有活動或讀不到 (ctx None) 時只寫通用說明
 """
-import importlib
 
 
-def _events() -> list[dict]:
-    return list(importlib.import_module("Database.events").load_events().values())
+def _active(ctx: dict | None) -> list[dict]:
+    return list((ctx or {}).get("active") or [])
 
 
-def _example() -> dict | None:
-    evs = _events()
-    return evs[0] if evs else None
-
-
-def _about() -> str:
-    ev = _example()
+def _about(ctx: dict | None = None) -> str:
     lines = [
         "幻想鄉發生**異變**的時候就會開活動。活動期間，平常的玩法裡會多出限定內容，活動結束就恢復原狀。",
         "",
@@ -26,19 +21,28 @@ def _about() -> str:
         "- 🌀 **裏世界的活動關卡**：選門時會出現標 🎪 的門，有活動限定的敵人、BOSS 和寶物 (詳見🌀 裏世界教學書)",
         "",
         "### ✨ 活動料理加成",
-        "招待客人時端上活動料理，**每一份**都會讓這次的報酬再乘上活動加成；端越多份乘越多次。",
+        "招待客人時端上活動料理，**每一份**都會讓這次的報酬再乘上活動加成；端越多份乘越多次。加成多少每個活動不一樣。",
     ]
-    if ev:
-        loc = ev.get("location") or {}
-        parts = []
-        if loc:
-            parts.append(f"限定地點 {loc.get('emoji', '')} {loc.get('name', '')}")
-        if ev.get("recipes"):
-            parts.append(f"{len(ev['recipes'])} 道活動料理")
-        if ev.get("guests"):
-            parts.append(f"{len(ev['guests'])} 種限定客人")
-        parts.append(f"活動料理每份 ×{ev.get('event_dish_bonus', 1.0):g}")
-        lines += ["", f"-# 例如 {ev.get('emoji', '')} {ev['name']}：" + "、".join(parts)]
+    active = _active(ctx)
+    if active:
+        lines += ["", "### 🟢 現在進行中"]
+        for ev in active:
+            parts = [f"{loc.get('emoji', '')} {loc.get('name', '')}" for loc in
+                     ([ev["location"]] if ev.get("location") else []) + list(ev.get("locations") or [])]
+            parts = [f"限定地點 {'、'.join(parts)}"] if parts else []
+            if ev.get("recipes"):
+                parts.append(f"{len(ev['recipes'])} 道活動料理")
+            if ev.get("guests"):
+                parts.append(f"{len(ev['guests'])} 種限定客人")
+            if ev.get("ura"):
+                parts.append("裏世界活動關卡")
+            if (ev.get("gacha") or {}).get("pool"):
+                parts.append("活動限定卡池")
+            if ev.get("event_dish_bonus"):
+                parts.append(f"活動料理每份 ×{ev['event_dish_bonus']:g}")
+            lines.append(f"- {ev.get('emoji', '')} **{ev.get('name', ev.get('id'))}**：" + "、".join(parts))
+    elif ctx is not None:
+        lines += ["", "-# 現在沒有進行中的活動；之後排好的活動也會列在 `/event info`"]
     lines += [
         "",
         "### ⚠️ 活動結束時",
@@ -51,7 +55,7 @@ def _about() -> str:
     return "\n".join(lines)
 
 
-def _quests() -> str:
+def _quests(ctx: dict | None = None) -> str:
     lines = [
         "活動期間做的事會累積成**活動任務**的進度，完成之後到 `/event quest` 領賽錢和經驗值。",
         "",
@@ -70,7 +74,7 @@ def _quests() -> str:
         "### 🏷️ 活動稱號",
         "領取的任務數量達到門檻，就會**永久**拿到那個活動的稱號，活動結束也不會消失，在 `/profile` 的稱號分組「🎪 活動」裡換上。",
     ]
-    for ev in _events():
+    for ev in _active(ctx):   # 只列進行中的活動 (不要拿某個活動當固定例子)
         titles = sorted(ev.get("quest_titles", []), key=lambda t: t.get("min_quests", 0))
         if titles:
             text = "、".join(f"{t['min_quests']} 項 [{t['rarity']}]「{t['name']}」" for t in titles)

@@ -81,8 +81,9 @@ class HelpView(ui.LayoutView):
         return callback
 
     async def set_page(self, interaction: discord.Interaction, page: str):
-        if page in book_chapter_counts():   # 📚 有教學書的分類 ➔ 同一則訊息翻開那本書
-            await interaction.response.edit_message(view=GuideView(self.bot, page, admin=self.admin, from_help=True))
+        if page in book_chapter_counts():   # 📚 有教學書的分類 ➔ 同一則訊息翻開那本書 (順便讀現在進行中的活動)
+            ctx = await guide_components().current_context()
+            await interaction.response.edit_message(view=GuideView(self.bot, page, admin=self.admin, from_help=True, ctx=ctx))
             return
         self.page = page
         self.build()
@@ -99,15 +100,18 @@ class GuideView(ui.LayoutView):
     """
     📚 教學書：chapter 0 = 目錄，1～N = 第幾章 (最後一章是指令速查)
     from_help=True (從 /help 翻開) ➔「🏠 回到總覽」；False (/xxx help) ➔「⛩️ 其他模式」，兩個都換成 /help 總覽
+    ctx = 開書時讀的 current_context() (現在進行中的活動)，翻頁都用同一份
     """
 
-    def __init__(self, bot: commands.Bot, key: str, chapter: int = 0, *, admin: bool = False, from_help: bool = False):
+    def __init__(self, bot: commands.Bot, key: str, chapter: int = 0, *, admin: bool = False, from_help: bool = False,
+                 ctx: dict | None = None):
         super().__init__(timeout=600)
         self.bot = bot
         self.key = key
         self.chapter = chapter
         self.admin = admin
         self.from_help = from_help
+        self.ctx = ctx
         self.build()
 
     def build(self):
@@ -145,7 +149,7 @@ class GuideView(ui.LayoutView):
         jump.callback = self.on_jump
         cmds = hc.categorize(self.bot.tree).get(self.key, [])
         rows = [ui.ActionRow(prev_btn, toc, next_btn, home), ui.ActionRow(jump)]
-        self.add_item(gc.build_chapter_container(self.key, book, self.chapter, cmds, rows))
+        self.add_item(gc.build_chapter_container(self.key, book, self.chapter, cmds, rows, self.ctx))
 
     def _goto(self, chapter: int):
         async def callback(interaction: discord.Interaction):
@@ -166,7 +170,8 @@ class GuideView(ui.LayoutView):
 
 async def open_guide(interaction: discord.Interaction, key: str):
     """/card help、/ura help…：另開一則只有自己看得到的教學書 (目錄頁)"""
-    view = GuideView(interaction.client, key, admin=is_admin(interaction.user), from_help=False)
+    ctx = await guide_components().current_context()
+    view = GuideView(interaction.client, key, admin=is_admin(interaction.user), from_help=False, ctx=ctx)
     await interaction.response.send_message(view=view, ephemeral=True)
 
 

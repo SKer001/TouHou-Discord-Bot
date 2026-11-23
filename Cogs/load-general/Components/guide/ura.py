@@ -521,7 +521,12 @@ def _storage() -> str:
 # =========================================================
 # 10. 📖 怪物圖鑑
 # =========================================================
-def _bestiary() -> str:
+def _active_ids(ctx: dict | None) -> set:
+    """開書時進行中的活動 id (guide_components.current_context)；0.37.005 起不拿某個活動當固定例子"""
+    return {ev.get("id") for ev in (ctx or {}).get("active") or []}
+
+
+def _bestiary(ctx: dict | None = None) -> str:
     r = _rules()
     bestiary = importlib.import_module("Database.ura.bestiary")
     td = importlib.import_module("Database.title_data")
@@ -542,9 +547,9 @@ def _bestiary() -> str:
     if zones:
         zt = title(f"ura_dex_{zones[0]['id']}")
         zone_title = f" (例：{zones[0]['name']} {zt})" if zt else ""
-    fests = [s for s in secs if s["kind"] == "fest"]
+    fests = [s for s in secs if s["kind"] == "fest" and s["id"] in _active_ids(ctx)]   # 只拿進行中的活動舉例
     fest_title = title(f"ura_dex_{fests[0]['id']}") if fests else ""
-    fest_title = f"再拿那個活動的稱號 (例：{fest_title})" if fest_title else "再拿那個活動的稱號"
+    fest_title = f"再拿那個活動的稱號 (現在的{fests[0]['name']}是 {fest_title})" if fest_title else "再拿那個活動的稱號"
     lines = [
         "打 `/ura bestiary` 打開怪物圖鑑，記錄你在裏世界遇過的敵人。",
         "",
@@ -578,9 +583,10 @@ def _bestiary() -> str:
 # =========================================================
 # 11. 🎪 活動關卡
 # =========================================================
-def _fest() -> str:
+def _fest(ctx: dict | None = None) -> str:
     r, d = _rules(), _data()
-    fl = d.fests()
+    live = _active_ids(ctx)
+    fl = {k: v for k, v in d.fests().items() if k in live}   # 只列進行中的活動 (不拿某個活動當固定例子)
     boss_hp, fest_hp = r.BOSS_MULT[0], r.FEST_BOSS_MULT[0]
     slot = "、".join(f"{n} 個 {_pct(w / 100)}" for n, w in r.FEST_TREASURE_SLOT)
     boss_slot = "～".join(str(n) for n, _ in r.FEST_BOSS_TREASURE_SLOT)
@@ -631,7 +637,9 @@ def _fest() -> str:
             n_t = sum(len(v) for v in (f.get("treasures") or {}).values())
             if n_t:
                 parts.append(f"活動寶物 {n_t} 種")
-            lines.append(f"-# 例如 {f.get('emoji', '')} {f.get('name', '')}：" + "；".join(parts))
+            lines.append(f"-# 🟢 現在 {f.get('emoji', '')} {f.get('name', '')}：" + "；".join(parts))
+    elif ctx is not None:
+        lines += ["", "-# 現在沒有裏世界內容的活動在進行，活動門暫時不會出現"]
     lines.append("-# 現在有什麼活動看 `/event info`，活動任務看 `/event quest`，詳細看 🎪 活動的教學書")
     return "\n".join(lines)
 

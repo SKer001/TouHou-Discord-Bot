@@ -56,6 +56,7 @@ class Inter:
 
 async def main():
     only = set(sys.argv[1:])
+    await udm.init_db()
     bot = commands.Bot(command_prefix="!", intents=discord.Intents.none())
     for path in sorted(glob.glob("Cogs/load-*/*.py")):
         folder, name = os.path.basename(os.path.dirname(path)), os.path.splitext(os.path.basename(path))[0]
@@ -115,6 +116,42 @@ async def main():
         chapter_btns = [b for b in buttons(cover) if b.label in [c["title"] for c in gc.chapters(book)]]
         check(f"{key}: cover has a button per chapter", len(chapter_btns) == total)
 
+    # 🎪 開書時讀進行中的活動 (0.37.005)：不寫死某個活動；沒有活動 / 紅霧異變 / 換成別的活動，三種都要對
+    events_mod = importlib.import_module("Database.events")
+    scarlet = events_mod.load_events()["th06_scarlet_mist"]
+    other = {"id": "test_spring", "name": "測試春雪", "emoji": "🌸", "event_dish_bonus": 1.5,
+             "location": {"id": "test_loc", "name": "測試花園", "emoji": "🌷", "drops": []}}
+    ctxs = {"none": {"active": [], "rules": events_mod.game_rules([])},
+            "scarlet": {"active": [scarlet], "rules": events_mod.game_rules([scarlet])},
+            "other": {"active": [other], "rules": events_mod.game_rules([])}}
+    for name, ctx in ctxs.items():
+        for key in gc.BOOK_KEYS:
+            book = gc.load_book(key)
+            if not book or (only and key not in only):
+                continue
+            for i, ch in enumerate(book["chapters"], 1):
+                body = gc.body_text(ch, ctx)
+                check(f"ctx {name} {key} ch{i}: renders", 50 <= len(body) <= 3200 and "{" not in body and "None" not in body)
+                v = help_mod.GuideView(bot, key, i, ctx=ctx)
+                check(f"ctx {name} {key} ch{i}: page ok", len(texts(v)) <= 4000 and components(v) <= 40)
+    if not only or "event" in only:
+        ev_text = lambda ctx: "\n".join(gc.body_text(ch, ctx) for ch in gc.load_book("event")["chapters"])
+        check("event book: no fixed example when nothing active", "紅霧異變" not in ev_text(ctxs["none"]) and "現在沒有進行中的活動" in ev_text(ctxs["none"]))
+        check("event book: lists the active event", "紅霧異變" in ev_text(ctxs["scarlet"]) and "紅霧異變的解決者" in ev_text(ctxs["scarlet"]))
+        check("event book: other event, not scarlet", "測試春雪" in ev_text(ctxs["other"]) and "紅霧異變" not in ev_text(ctxs["other"]))
+    if not only or "card" in only:
+        pull = gc.load_book("card")["chapters"][0]
+        check("card: event pool now (scarlet)", "現在的活動限定卡池" in gc.body_text(pull, ctxs["scarlet"]) and "現在開放中" in gc.body_text(pull, ctxs["scarlet"]))
+        check("card: no event pool", "現在沒有開放活動限定卡池" in gc.body_text(pull, ctxs["none"]) and "現在開放中" not in gc.body_text(pull, ctxs["none"]))
+        check("card: no fixed 紅霧 example in the 🎪 line", "例如紅霧異變" not in gc.body_text(pull, ctxs["none"]))
+    if not only or "ura" in only:
+        fest = next(ch for ch in gc.load_book("ura")["chapters"] if ch["title"] == "🎪 活動關卡")
+        check("ura fest: none", "紅霧" not in gc.body_text(fest, ctxs["none"]) and "現在沒有裏世界內容的活動" in gc.body_text(fest, ctxs["none"]))
+        check("ura fest: scarlet", "🟢 現在 🔴 紅霧異變" in gc.body_text(fest, ctxs["scarlet"]))
+    live = await gc.current_context()
+    check(f"current_context reads the DB ({live and [e['id'] for e in live['active']]})",
+          live is not None and "th06_scarlet_mist" in [e["id"] for e in live["active"]])   # 紅霧異變 auto_start、沒有紀錄 = 進行中
+
     # 翻頁：目錄 ➔ 第 1 章 ➔ 下一章 ➔ 上一章 ➔ 跳章 ➔ 目錄 ➔ 回總覽
     key = next(k for k in gc.BOOK_KEYS if gc.load_book(k) and (not only or k in only))
     book = gc.load_book(key)
@@ -143,7 +180,7 @@ async def main():
     check(f"overview book buttons {len(book_btns)}", len(book_btns) == len(help_mod.book_chapter_counts()))
     it = Inter(bot); await book_btns[0].callback(it)
     check("overview opens book", isinstance(it.response.view, help_mod.GuideView) and it.response.view.from_help
-          and it.response.view.chapter == 0)
+          and it.response.view.chapter == 0 and it.response.view.ctx is not None)
 
     # /card help、/ura help…：另開一則只有自己看得到的目錄頁；🪪 資料卡沒有 /profile help
     groups = {"card": "card", "shrine": "shrine", "ura": "ura", "market": "market", "event": "event"}
@@ -157,6 +194,7 @@ async def main():
         gv = it.response.view
         check(f"/{group} help opens book", isinstance(gv, help_mod.GuideView) and gv.key == key and not gv.from_help
               and it.response.ephemeral)
+        check(f"/{group} help read the live events", gv.ctx is not None and "active" in gv.ctx)
         check(f"/{group} help not listed as chapter command", f"{group} help" not in {c.qualified_name for c in cats[key]})
     check("no /profile help", not hasattr(bot.tree.get_command("profile"), "get_command"))
 

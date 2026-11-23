@@ -5,7 +5,8 @@
         "intro": "目錄頁的一兩句簡介",
         "chapters": [
             {"title": "⚗️ 合成與融合", "short": "目錄與跳章選單的一句話 (≤ 90 字)",
-             "body": "玩法說明 (Markdown) 或回傳字串的函式 (數字從程式常數讀，開畫面時才算)",
+             "body": "玩法說明 (Markdown) 或回傳字串的函式 (數字從程式常數讀，開畫面時才算)；
+                      函式可以收一個參數 ctx = current_context() 的結果 (現在進行中的活動)，見下面",
              "commands": ["card synthesis", "card fusion"]},   # 這章用到的指令 (qualified name)；沒有就 []
             ...
         ],
@@ -14,8 +15,12 @@
 - 標題、色條、代表卡面沿用 help_components.CATEGORIES；指令說明與參數從 bot.tree 即時讀
 - 目錄頁：簡介 + 章節列表 + 每章一顆按鈕 (一排 3 顆)；章節頁：玩法 ➔ 這章用到的指令 ➔ 翻頁按鈕 + 跳章選單
   (按鈕和選單由 help.py 的 GuideView 做好傳進來，放在框裡)
+- 🎪 不要把某個活動寫死成例子 (0.37.005，使用者：「萬一今天活動不是紅魔鄉呢」)：開書時讀一次 current_context()
+  = {"active": [進行中的活動檔], "rules": 當下規則 (game_rules)}，body(ctx) 用它寫「現在」的內容；
+  ctx 是 None (測試、讀不到資料庫) 時只寫通用說明
 """
 import importlib
+import inspect
 
 import discord
 from discord import ui
@@ -50,15 +55,36 @@ def chapters(book: dict) -> list[dict]:
     return [*book["chapters"], QUICKREF]
 
 
-def body_text(chapter: dict) -> str:
+async def current_context() -> dict | None:
+    """開書時讀一次：進行中的活動 + 當下規則；讀不到就 None (書照樣能看，只是不寫現在的活動)"""
+    try:
+        econ = importlib.import_module("Database.Economy_DB_Manager")
+        events = importlib.import_module("Database.events")
+        active = [o["event"] for o in await econ.get_events_overview() if o["status"] == "active"]
+        return {"active": active, "rules": events.game_rules(active)}
+    except Exception as e:
+        print(f"⚠️ [Guide] 讀取進行中的活動失敗：{e!r}")
+        return None
+
+
+def _takes_ctx(fn) -> bool:
+    try:
+        return len(inspect.signature(fn).parameters) >= 1
+    except (TypeError, ValueError):
+        return False
+
+
+def body_text(chapter: dict, ctx: dict | None = None) -> str:
     body = chapter.get("body", "")
-    return (body() if callable(body) else body).strip()
+    if callable(body):
+        body = body(ctx) if _takes_ctx(body) else body()
+    return body.strip()
 
 
-def safe_body_text(chapter: dict) -> str:
+def safe_body_text(chapter: dict, ctx: dict | None = None) -> str:
     """畫面用：從程式讀數字的函式壞掉時，這章顯示一句提示就好，不要整頁打不開 (測試用 body_text 會抓出來)"""
     try:
-        return body_text(chapter)
+        return body_text(chapter, ctx)
     except Exception as e:
         print(f"⚠️ [Guide] 教學書「{chapter.get('title')}」這章產生失敗：{e!r}")
         return "⚠️ 這章暫時打不開，請通知管理員。下面的指令說明還是可以看。"
@@ -94,7 +120,7 @@ def build_cover_container(key: str, book: dict, thumbnails: dict | None, chapter
     return c
 
 
-def build_chapter_container(key: str, book: dict, index: int, cmds: list, rows: list) -> ui.Container:
+def build_chapter_container(key: str, book: dict, index: int, cmds: list, rows: list, ctx: dict | None = None) -> ui.Container:
     """📖 章節頁 (index 從 1 開始)：第幾章 ➔ 玩法 ➔ 這章用到的指令 ➔ 翻頁按鈕 + 跳章選單"""
     hc = help_components()
     info = hc.category_info(key)
@@ -102,7 +128,7 @@ def build_chapter_container(key: str, book: dict, index: int, cmds: list, rows: 
     ch = chs[index - 1]
     c = ui.Container(accent_color=info["color"])
     c.add_item(ui.TextDisplay(f"-# 📚 {info['title']}・教學書 · 第 {index} / {len(chs)} 章\n## {ch['title']}"))
-    body = safe_body_text(ch) if ch is not QUICKREF else "這個模式的全部指令。想知道怎麼玩，按「📚 目錄」翻到對應的章節。"
+    body = safe_body_text(ch, ctx) if ch is not QUICKREF else "這個模式的全部指令。想知道怎麼玩，按「📚 目錄」翻到對應的章節。"
     if body:
         c.add_item(ui.Separator())
         c.add_item(ui.TextDisplay(body))
