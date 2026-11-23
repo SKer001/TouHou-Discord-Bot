@@ -156,8 +156,16 @@ def _explore() -> str:
         "- 目標是做 **1 鍋**：素材採齊就提早收工，不會多花體力；體力不夠就先停下來",
         "- 採集是隨機的，運氣不好可能要多跑幾趟",
         "",
+        "### 🏮 人里打工",
+        # 來源：Economy_DB_Manager.do_job (JOB_STAMINA / JOB_REWARD / JOB_DAILY_LIMIT，tw_day 換日)
+        "用 `/shrine job`，或神社畫面的「🏮 人里打工」，幫人里的商家跑腿拿工錢：",
+        f"- 花 **{e.JOB_STAMINA} 體力** ➔ **{e.JOB_REWARD:,} 賽錢**，工錢固定，不受神社效率影響",
+        f"- **每天最多 {e.JOB_DAILY_LIMIT} 次**（台灣時間 00:00 重置）；按鈕上會寫今天還能打幾次，打完或體力不夠時按鈕會反灰",
+        "- 打工畫面也有「⚡ 恢復體力」",
+        "-# 體力要拿來採集還是打工自己決定；活動期間工錢可能有加成",
+        "",
         "### ⚡ 恢復體力",
-        "採集畫面、快速採集畫面和 `/profile` 都有「⚡ 恢復體力」：",
+        "採集畫面、快速採集畫面、打工畫面和 `/profile` 都有「⚡ 恢復體力」：",
         "- 跳出彈窗，選「要吃哪一個？」和「吃幾個？」",
         # 來源：User_DB_Manager.stamina_items_left (用 tw_day 換日 = 台灣時間 00:00)
         f"- **每天最多吃 {udm.STAMINA_ITEM_DAILY_LIMIT} 個體力道具，包含簽到送的 🍙**（台灣時間 00:00 重置）",
@@ -378,8 +386,8 @@ BOOK = {
     "chapters": [
         {"title": "⛩️ 賽錢箱、清掃與妖怪", "short": "賽錢箱每小時自動進帳；清掃、治退妖怪讓神社效率保持在高檔",
          "body": _shrine, "commands": ["shrine manage", "shrine collect"]},
-        {"title": "🧺 採集與體力", "short": "花體力到幻想鄉各地採素材，快速採集自動補齊缺的素材，體力道具每天限吃幾個",
-         "body": _explore, "commands": ["shrine explore"]},
+        {"title": "🧺 採集與體力", "short": "花體力採素材、快速採集補齊缺的素材、人里打工換賽錢，體力道具每天限吃幾個",
+         "body": _explore, "commands": ["shrine explore", "shrine job"]},
         {"title": "🍳 料理", "short": "先選分類再選料理；招待料理和體力料理的差別，缺素材時一鍵去採",
          "body": _cook, "commands": ["shrine cook"]},
         {"title": "🍵 招待參拜客", "short": "客人怎麼來、心情怎麼掉、報酬怎麼算；額外招待猜中最愛有加成",

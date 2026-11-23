@@ -26,6 +26,9 @@ DB_PATH = os.path.join(DB_DIR, "Users.db")
 # 舊版資料庫位置 (專案根目錄)，只用來在啟動時提醒「還沒遷移」
 LEGACY_DB_PATH = os.path.join(os.path.dirname(DB_DIR), "database.db")
 
+# 💰 新玩家的起步賽錢 (2026-11-23 使用者定：1,000 ➔ 50,000 = 10 抽，一進來就能抽；已經有資料的玩家不補)
+STARTING_MONEY = 50_000
+
 
 # ---------------------------------------------------------
 # 🧱 資料表結構 (整個資料庫的結構都定義在這裡)
@@ -34,7 +37,7 @@ SCHEMA_STATEMENTS = [
     """
     CREATE TABLE IF NOT EXISTS users (
         user_id       INTEGER PRIMARY KEY,
-        money         INTEGER DEFAULT 1000,
+        money         INTEGER DEFAULT 50000,
         level         INTEGER DEFAULT 0,
         exp           INTEGER DEFAULT 0,
         last_daily    TEXT    DEFAULT NULL,
@@ -294,6 +297,8 @@ USERS_EXTRA_COLUMNS = [
     ("equipped_namecard", "TEXT DEFAULT NULL"),   # 戴著的角色名片 (角色 id，namecards 表)；NULL = 不放名片
     ("stamina_item_day", "TEXT DEFAULT NULL"),    # 最後一次吃體力道具的日期 (台灣時間 YYYY-MM-DD)；每日上限用
     ("stamina_item_used", "INTEGER DEFAULT 0"),   # stamina_item_day 那天吃了幾個 (上限 STAMINA_ITEM_DAILY_LIMIT)
+    ("job_day", "TEXT DEFAULT NULL"),             # 🏮 人里打工：最後一次打工的日期 (台灣時間 YYYY-MM-DD)
+    ("job_used", "INTEGER DEFAULT 0"),            # job_day 那天打了幾次 (上限 Economy_DB_Manager.JOB_DAILY_LIMIT)
 ]
 # 💰 best_money 由觸發器維護：任何地方改到 money (簽到、分解、市場、轉帳、神社…) 都會自動跟上，不用每個函式自己記
 #    (init_db 補完欄位之後才建，舊資料庫建觸發器時欄位已經在了)
@@ -336,8 +341,9 @@ async def connect():
 
 
 async def _ensure_user(db, user_id: int):
-    """確保玩家資料列存在 (用資料表預設值建立：1000 賽錢、0 等級、空背包)"""
-    await db.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+    """確保玩家資料列存在 (新玩家：STARTING_MONEY 賽錢、0 等級、空背包)
+    賽錢直接寫進去，不靠資料表預設值：舊的 Users.db 欄位預設還是 1000 (SQLite 不能改欄位預設)"""
+    await db.execute("INSERT OR IGNORE INTO users (user_id, money) VALUES (?, ?)", (user_id, STARTING_MONEY))
 
 
 # ---------------------------------------------------------

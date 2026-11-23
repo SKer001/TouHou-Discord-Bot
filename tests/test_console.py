@@ -54,7 +54,7 @@ async def main():
     check("all consistent after reload all", gacha.InsufficientFunds is sys.modules["Database.User_DB_Manager"].InsufficientFunds)
 
     out = await run(bot, "money 5 2500")
-    check("money", "3,500" in out)
+    check("money", f"{udm.STARTING_MONEY + 2500:,}" in out)
     check("money usage", "用法" in await run(bot, "money x"))
     out = await run(bot, "stamina 5 -40")
     check("stamina", "200 / 240" in out)

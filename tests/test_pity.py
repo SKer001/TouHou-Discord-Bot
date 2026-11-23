@@ -7,6 +7,7 @@ from Database import User_DB_Manager as udm
 
 tmp = tempfile.mkdtemp()
 udm.DB_PATH = os.path.join(tmp, "Users.db")
+udm.STARTING_MONEY = 1000   # 這個測試的金額照舊的起步 1,000 算 (2026-11-23 起新玩家 50,000，test_economy 會查)
 gacha = importlib.import_module("Cogs.load-gacha.gacha")
 
 ok = fail = 0

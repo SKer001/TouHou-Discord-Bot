@@ -86,13 +86,14 @@ async def main():
     await udm.get_or_create_user(M)
     def best():
         con = sqlite3.connect(udm.DB_PATH); r = con.execute("SELECT money, best_money FROM users WHERE user_id = ?", (M,)).fetchone(); con.close(); return r
-    check("best money on insert", best() == (1000, 1000))
+    S = udm.STARTING_MONEY
+    check("best money on insert", best() == (S, S))
     await udm.add_money(M, 200_000)
-    check("best money up", best() == (201_000, 201_000))
+    check("best money up", best() == (S + 200_000, S + 200_000))
     await udm.add_money(M, -150_000)
-    check("best money kept", best() == (51_000, 201_000))
+    check("best money kept", best() == (S + 50_000, S + 200_000))
     sql("UPDATE users SET money = money + 5 WHERE user_id = ?", (M,))   # 任何地方改 money 都會跟上 (觸發器)
-    check("best money below best unchanged", best() == (51_005, 201_000))
+    check("best money below best unchanged", best() == (S + 50_005, S + 200_000))
     unlocked = (await udm.get_title_state(M))["unlocked"]
     check("money title", "money_100k" in unlocked and "money_1m" not in unlocked)
     check("money titles", [(td.TITLES[k]["rarity"], td.TITLES[k]["name"]) for k in ("money_100k", "money_1m", "money_10m", "money_50m", "money_100m", "money_1b")]

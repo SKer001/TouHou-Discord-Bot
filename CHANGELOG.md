@@ -13,6 +13,17 @@
 
 ---
 
+## 0.39.001 — 2026-11-23：🏮 人里打工、新手起步 50,000 (筆電，玩法 session)
+- 統整 session 跟使用者 grill 定案 (人里打工「照修正版」、前期經濟第 1 題「都好」)。裏世界 BOSS 報酬照區域縮放還在等使用者選數值，這次沒動。
+- 🏮 **人里打工** (`/shrine job`，神社主畫面「🗺️ 採集」旁邊多一顆「🏮 人里打工」)：花 `JOB_STAMINA = 100` 體力 ➔ `JOB_REWARD = 10,000` 賽錢 (固定，不吃神社效率)，**每天最多 `JOB_DAILY_LIMIT = 2` 次** (台灣時間 00:00 重置，跟體力道具同一套 `tw_day`)。
+  - 資料層 `Economy_DB_Manager.do_job`：一個交易 (`BEGIN IMMEDIATE`) 結算體力 ➔ 檢查今天次數和體力 ➔ 扣體力、加錢、次數 +1、`player_stats` 記 `job`；失敗什麼都不改 (reason `daily_limit` / `stamina`)。users 新欄位 `job_day` / `job_used` (init_db 自動補)。
+  - 活動倍率預留位 `modifiers.job_reward` (`events.MODIFIER_KEYS`、`shrine_components.MODIFIER_NAMES`「人里打工的工錢」)。
+  - 畫面 (mode `job`，`build_job_container`)：體力、今天還能打幾次；按鈕「🏮 花 100 體力 ➔ 10,000 賽錢 (今天還能 N 次)」，打完或體力不夠反灰並寫原因；「⚡ 恢復體力」(共用 `Utils/stamina_modal.py`)、「🏠 返回神社」。
+  - 教學書神社那本「🧺 採集與體力」補一段 (數字從常數讀)，`/shrine job` 寫進那章的 commands；`docs/cogs.md` 補一條。
+- 💰 **新玩家起步 1,000 ➔ 50,000** (`User_DB_Manager.STARTING_MONEY`，10 抽)：`_ensure_user` 建立玩家時直接寫入 (舊的 Users.db 欄位預設還是 1000，SQLite 改不了欄位預設)；已經有資料的玩家不補。
+- 測試：新的 `tests/test_job.py` (體力剛好 100 / 99、第 3 次被擋、台灣時間 23:59 ➔ 00:00 換日、活動倍率、一起送 3 次只成功 2 次、體力只夠 1 次時一起送 2 次只成功 1 次、從滿的掉下來開始計時、神社畫面按鈕 / 反灰 / 原因、`/shrine job`)。`test_economy.py` 查新玩家 50,000 (舊資料表預設 1000 也一樣)；原本照起步 1,000 算的測試改用 `udm.STARTING_MONEY` 或在測試裡設回 1,000 (`test_pity` / `test_v2` / `test_leaderboard`)；`test_help.py` 神社子指令 6 ➔ 7。
+
+---
 ## 0.39.000 — 2026-11-23：🔍 單卡詳情改版 (角色資料、這張卡的實力、特殊能力、價值、狀態、📖 角色圖鑑) (筆電，抽卡 session)
 - 統整 session 轉來，grill 5 題都照建議 (使用者回「都好」)。使用者原話：「看卡冊的詳細資料也要使用類似characters那樣的詳細資料 目前能看的只有這些」；舊版只有角色名稱、稀有度、專屬稱號、完整度品相、ID、獲得時間。
 - **單卡詳情分段** (`gacha_components.build_card_detail_container(card, user_name, thumbnails, info)`)：

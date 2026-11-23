@@ -5,7 +5,7 @@
 ### Users.db（`User_DB_Manager.py`）
 - `connect()`：`aiosqlite`、`row_factory=aiosqlite.Row`、`PRAGMA foreign_keys=ON`。
 - 資料表：
-  - `users(user_id PK, money DEFAULT 1000, level, exp, last_daily TEXT, fortune_level INTEGER DEFAULT NULL, inventory TEXT DEFAULT '{}', created_at, is_public DEFAULT 1, stamina DEFAULT 240, stamina_updated_at TEXT)`
+  - `users(user_id PK, money DEFAULT 50000 (新玩家起步 `STARTING_MONEY`，2026-11-23 起由 `_ensure_user` 直接寫入；舊資料庫欄位預設還是 1000), level, exp, last_daily TEXT, fortune_level INTEGER DEFAULT NULL, inventory TEXT DEFAULT '{}', created_at, is_public DEFAULT 1, stamina DEFAULT 240, stamina_updated_at TEXT)`
   - `gacha_pity(user_id, pool, total_draws, since_ur, last_ur_at)`，主鍵 `(user_id, pool)`
   - `gacha_stats(user_id PK → users ON DELETE CASCADE, total_draws, total_fusions)`
   - `player_stats(user_id, stat, value)` PK (user_id, stat)：通用計數器 (2026-11-14 起)，項目在 `udm.PLAYER_STATS`：serve / serve_favorite (額外端上客人最愛的料理) / explore (趟) / youkai / cook (鍋) / clean / collect_money (累計回收金額) / shop；0.35.001 起每種客人另外有 `serve_guest:<客人>` (招待次數) / `serve_fav:<客人>` (成功招待次數)，客人稱號用；0.35.003 起每個採集地點有 `explore:<地點>` (趟數)，足跡稱號用；0.35.005 起運氣稱號用的 `explore_good` / `explore_bad`、`fortune_5` / `fortune_0`、`gacha_pity` (觸發保底張數)、`tenpull_2ur:<卡池>` (90 抽內就出 UR 的次數；2026-11-22 前是一次十連出 2 張以上 UR，名稱沿用、舊次數照算)；0.35.007 起美食家稱號用的 `cook:<料理>` (每道料理的鍋數)、`eat_stamina` (吃了幾個體力道具，含飯糰)；0.35.083 起裏世界的 `ura_runs` / `ura_evacuated` / `ura_kill:<敵人>` (打倒 / 勸走隻數；0.35.103 起 `Ura_DB_Manager.act` 每一步就記，全滅 / 放棄那一場也算；📖 怪物圖鑑與圖鑑稱號用)。`earned_titles` 除了活動任務稱號，也存踏破這類 `keep` 稱號 (`save_earned_titles`)。寫入用 `add_player_stat(db, uid, stat, n)` (在呼叫端交易裡)，讀 `get_player_stats(uid)`；稱號統計的鍵是 `ps:<項目>`。

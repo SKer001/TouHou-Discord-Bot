@@ -34,7 +34,7 @@ async def main():
                                          "shrine manage", "shrine storage", "event info", "event quest", "market sell", "trade", "notify"} <= names)
     check("notify in profile", "notify" in {c.name for c in cats["profile"]})
     check("no other yet", "other" not in cats)
-    check("shrine has 6", len(cats["shrine"]) == 6)
+    check("shrine has 7", len(cats["shrine"]) == 7)   # 2026-11-23 多了 /shrine job
     check("ura has 7", {c.qualified_name for c in cats.get("ura", [])} == {"ura explore", "ura resume", "ura abandon", "ura shop", "ura inventory", "ura status", "ura bestiary"})
 
     # 新指令沒分類時出現在「其他」

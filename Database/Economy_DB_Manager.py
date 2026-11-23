@@ -604,6 +604,71 @@ def _remember_fee_mods(rules: dict):
 
 
 # =========================================================
+# 🏮 人里打工 (2026-11-23 使用者定)：花體力換固定工錢，每天最多 2 次 (台灣時間 00:00 重置)
+#   限 2 次 = 2 萬 = 剛好一天自然回復的 240 體力；不設上限的話「做體力料理 ➔ 吃 ➔ 打工」會變成印鈔流程
+#   不吃神社效率；活動倍率 modifiers.job_reward
+# =========================================================
+JOB_STAMINA = 100
+JOB_REWARD = 10_000
+JOB_DAILY_LIMIT = 2
+
+
+def job_reward(rules: dict | None) -> int:
+    """這一刻打工一次拿多少 (含活動倍率)"""
+    return int(round(JOB_REWARD * modifier(rules, "job_reward")))
+
+
+def jobs_left(day: str | None, used: int | None, now: datetime | None = None) -> int:
+    """(純計算) 今天還能打工幾次；job_day 不是今天 = 今天還沒打過"""
+    if day != tw_day(now):
+        return JOB_DAILY_LIMIT
+    return max(0, JOB_DAILY_LIMIT - (used or 0))
+
+
+async def get_jobs_left(user_id: int, now: datetime | None = None) -> int:
+    """今天還能打工幾次 (唯讀)"""
+    async with connect() as db:
+        async with db.execute("SELECT job_day, job_used FROM users WHERE user_id = ?", (user_id,)) as cursor:
+            row = await cursor.fetchone()
+    return jobs_left(row["job_day"], row["job_used"], now) if row else JOB_DAILY_LIMIT
+
+
+async def do_job(user_id: int, now: datetime | None = None) -> dict:
+    """
+    🏮 打工一次：扣 JOB_STAMINA 體力、加工錢、今天次數 +1、記 player_stats job，同一個交易 (連按兩下也不會超過次數 / 體力)
+    失敗什麼都不改：reason = daily_limit (今天打完了) / stamina (體力不夠)
+    回傳 {"ok", "reward", "money", "jobs_left", "stamina" (calc_stamina 的結果)}
+    """
+    now = now or datetime.now(timezone.utc)
+    reward = job_reward(await get_rules(now=now))
+    async with connect() as db:
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await _ensure_user(db, user_id)
+            async with db.execute("SELECT money, stamina, stamina_updated_at, job_day, job_used FROM users WHERE user_id = ?",
+                                  (user_id,)) as cursor:
+                row = await cursor.fetchone()
+            info = calc_stamina(row["stamina"], row["stamina_updated_at"], now)
+            left = jobs_left(row["job_day"], row["job_used"], now)
+            fail = "daily_limit" if left <= 0 else "stamina" if info["stamina"] < JOB_STAMINA else None
+            if fail:
+                await db.rollback()
+                return {"ok": False, "reason": fail, "jobs_left": left, "stamina": info, "money": row["money"], "reward": reward}
+            new_value = info["stamina"] - JOB_STAMINA
+            updated_at = now.isoformat() if info["stamina"] >= STAMINA_MAX else info["updated_at"]   # 從滿掉下來 ➔ 從現在開始計時
+            used_today = JOB_DAILY_LIMIT - left + 1
+            await db.execute("UPDATE users SET stamina = ?, stamina_updated_at = ?, money = money + ?, job_day = ?, job_used = ? "
+                             "WHERE user_id = ?", (new_value, updated_at, reward, tw_day(now), used_today, user_id))
+            await add_player_stat(db, user_id, "job")   # 之後可以做打工稱號
+            await db.commit()
+        except BaseException:
+            await db.rollback()
+            raise
+    return {"ok": True, "reward": reward, "money": row["money"] + reward, "jobs_left": left - 1,
+            "stamina": calc_stamina(new_value, updated_at, now)}
+
+
+# =========================================================
 # 🗺️ 採集 / 🍳 料理 / 🏪 雜貨店 / 🍵 招待
 # =========================================================
 async def _read_user(db, user_id: int) -> dict:

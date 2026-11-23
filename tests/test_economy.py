@@ -94,12 +94,14 @@ async def main():
 
     # ---------------- 神社：資料庫操作 ----------------
     await udm.get_or_create_user(1)
+    # 💰 新玩家起步 50,000 (2026-11-23)：舊的 users 表欄位預設還是 1000，建立玩家時直接寫進去
+    check("starting money", udm.STARTING_MONEY == 50_000 and money(1) == udm.STARTING_MONEY)
     r = await econ.get_shrine(1, now=T0, rng=NEVER)
     check("shrine created", r["summary"]["box"] == 0 and r["summary"]["efficiency"] == 1)
     r = await econ.shrine_collect(1, now=T0 + 3 * H + timedelta(minutes=30), rng=Rng([0.0], 0.999))   # 第 1 小時來一隻妖怪
-    check(f"collect {r['collected']}", r["collected"] == 5000 + int(2.5 * 5000 * 0.92) and money(1) == 1000 + r["collected"])
+    check(f"collect {r['collected']}", r["collected"] == 5000 + int(2.5 * 5000 * 0.92) and money(1) == udm.STARTING_MONEY + r["collected"])
     r = await econ.shrine_defeat(1, now=T0 + 4 * H, rng=NEVER)
-    check("defeat", r["ok"] and r["summary"]["youkai"] == 0 and r["summary"]["dirt"] == 2 and money(1) == 1000 + 16500 + 1500)  # NEVER = 0.999 ➔ 上限 1500
+    check("defeat", r["ok"] and r["summary"]["youkai"] == 0 and r["summary"]["dirt"] == 2 and money(1) == udm.STARTING_MONEY + 16500 + 1500)  # NEVER = 0.999 ➔ 上限 1500
     r = await econ.shrine_defeat(1, now=T0 + 4 * H, rng=NEVER)
     check("defeat none", not r["ok"])
     # 晦氣不會讓清潔度超過 4

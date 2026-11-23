@@ -9,6 +9,7 @@ from Database import Item_DB_Manager as idm
 
 tmp = tempfile.mkdtemp()
 udm.DB_PATH = os.path.join(tmp, "Users.db")
+udm.STARTING_MONEY = 1000   # 這個測試的金額照舊的起步 1,000 算 (2026-11-23 起新玩家 50,000，test_economy 會查)
 shutil.copy(idm.DB_PATH, os.path.join(tmp, "Item.db"))   # 道具資料庫用副本，絕不改動原檔
 idm.DB_PATH = os.path.join(tmp, "Item.db")
 

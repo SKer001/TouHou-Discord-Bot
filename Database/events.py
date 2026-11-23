@@ -44,7 +44,8 @@ def event_item_ids(event: dict) -> set[str]:
 # 數值倍率的預留位：活動檔的 "modifiers" 可以設定，沒設定 = 1 (不影響)；同時有多個活動時相乘
 MODIFIER_KEYS = ("shrine_income", "youkai_reward", "serve_reward", "explore_stamina",
                  "youkai_spawn", "guest_spawn", "daily_money", "daily_exp", "decompose",
-                 "gacha_cost", "market_fee", "transfer_fee")   # 祈願價格、市場買家手續費、轉帳手續費 (2026-11-13 補的預留位)
+                 "gacha_cost", "market_fee", "transfer_fee",   # 祈願價格、市場買家手續費、轉帳手續費 (2026-11-13 補的預留位)
+                 "job_reward")   # 🏮 人里打工的工錢 (2026-11-23)
 
 
 def _as_list(x) -> list:

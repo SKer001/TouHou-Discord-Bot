@@ -17,7 +17,7 @@ from Utils.components import send_notice
 from Utils.pagination import nav_buttons, paginate   # 📄 共用分頁
 from .Components.shrine_components import (
     build_shrine_container, build_serve_container, build_explore_container, build_cook_container, build_shop_container,
-    build_gather_container, COOK_CATEGORIES, dish_category,
+    build_gather_container, build_job_container, COOK_CATEGORIES, dish_category,
 )
 from Utils.stamina_modal import open_stamina_modal   # ⚡ 恢復體力彈窗 (跟 /profile 共用)
 
@@ -159,6 +159,7 @@ class ShrineView(ui.LayoutView):
         self.extra_cat, self.extra_page = None, 1   # 額外招待選單：選的分類 (food / drink / dessert)、頁數
         self.explore_loc, self.explore_result, self.stamina = None, None, None
         self.cook_sel, self.shop_sel, self.money = None, None, 0
+        self.jobs_left = 0            # 🏮 今天還能打工幾次 (reload 讀)
         self.cook_cat = None          # 料理畫面選的分類 (food / drink / dessert / stamina)
         self.serve_return = None      # 從招待跳到料理時記住的客人 id (「🍵 回去招待」用)
         self.serve_queue = []         # 那位客人還缺、要做的菜
@@ -183,6 +184,7 @@ class ShrineView(ui.LayoutView):
         self.rules = await econ.get_rules()
         self.stamina = await get_stamina(self.user.id)
         self.money = (await get_or_create_user(self.user.id))["money"]
+        self.jobs_left = await econ.get_jobs_left(self.user.id)   # 🏮 今天還能打工幾次
 
     # ---------------- 畫面 ----------------
     def build(self):
@@ -210,6 +212,7 @@ class ShrineView(ui.LayoutView):
         ))
         container.add_item(ui.ActionRow(
             self._btn("🗺️ 採集", discord.ButtonStyle.secondary, self.on_explore_open),
+            self._btn("🏮 人里打工", discord.ButtonStyle.secondary, self.on_job_open),
             self._btn("🍳 料理", discord.ButtonStyle.secondary, self.on_cook_open),
             self._btn("🏪 雜貨店", discord.ButtonStyle.secondary, self.on_shop_open),
         ))
@@ -572,6 +575,38 @@ class ShrineView(ui.LayoutView):
         self.guest_id = self.serve_return
         await self._show(interaction, "serve", result=await econ.get_shrine(self.user.id))
 
+    # ---------------- 🏮 人里打工 ----------------
+    async def on_job_open(self, interaction):
+        await self._show(interaction, "job")
+
+    async def on_job(self, interaction):
+        r = await econ.do_job(self.user.id)
+        if r["ok"]:
+            notice = (f"🏮 跑完腿了！拿到 `{r['reward']:,}` 賽錢，花了 {econ.JOB_STAMINA} 體力（今天還能打工 {r['jobs_left']} 次）"
+                      f"\n-# 目前持有 `{fmt_money(r['money'])}` 賽錢")
+        elif r["reason"] == "daily_limit":
+            notice = f"⚠️ 今天的 {econ.JOB_DAILY_LIMIT} 次已經打完了，明天（台灣時間 00:00）再來吧。"
+        else:
+            notice = f"⚠️ 體力不夠：打工要 {econ.JOB_STAMINA}，現在只有 {r['stamina']['stamina']}。"
+        await self._show(interaction, "job", notice)
+
+    def _build_job(self):
+        pay = econ.job_reward(self.rules)
+        stamina = self.stamina["stamina"]
+        why = None
+        if self.jobs_left <= 0:
+            why = f"今天的 {econ.JOB_DAILY_LIMIT} 次已經打完了，明天（台灣時間 00:00）再來"
+        elif stamina < econ.JOB_STAMINA:
+            why = f"體力不夠（要 {econ.JOB_STAMINA}，現在 {stamina}）"
+        container = build_job_container(self.stamina, self.jobs_left, pay, self.notice, why)
+        container.add_item(ui.ActionRow(
+            self._btn(f"🏮 花 {econ.JOB_STAMINA} 體力 ➔ {pay:,} 賽錢 (今天還能 {self.jobs_left} 次)",
+                      discord.ButtonStyle.success, self.on_job, why is not None),
+            self._btn("⚡ 恢復體力", discord.ButtonStyle.secondary, self.on_stamina),
+            self._home(),
+        ))
+        self.add_item(container)
+
     # ---------------- 採集 ----------------
     async def on_explore_open(self, interaction):
         self.explore_result = None
@@ -730,6 +765,11 @@ class ShrineCog(commands.GroupCog, group_name="shrine", group_description="⛩�
         result = result or await econ.get_shrine(interaction.user.id)
         view = await ShrineView.create(interaction.user, result, notice, mode)
         view.message = await interaction.followup.send(view=view, ephemeral=True)
+
+    @app_commands.command(name="job", description=f"🏮 人里打工：花 {econ.JOB_STAMINA} 體力換 {econ.JOB_REWARD:,} 賽錢 "
+                                                  f"(每天 {econ.JOB_DAILY_LIMIT} 次)")
+    async def job(self, interaction: discord.Interaction):
+        await self._open(interaction, "job")
 
     @app_commands.command(name="explore", description="🗺️ 到幻想鄉各地採集料理素材 (消耗體力)")
     async def explore(self, interaction: discord.Interaction):

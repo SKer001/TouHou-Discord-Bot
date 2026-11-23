@@ -26,7 +26,8 @@ LOCATION_NAMES = {k: f"{v['emoji']} {v['name']}" for k, v in shrine_data.LOCATIO
 MODIFIER_NAMES = {"shrine_income": "神社收入", "youkai_reward": "打退妖怪的賽錢", "serve_reward": "招待報酬", "explore_stamina": "採集體力消耗",
                   "youkai_spawn": "妖怪出現機率", "guest_spawn": "參拜客來訪機率", "daily_money": "簽到賽錢",
                   "daily_exp": "簽到經驗", "decompose": "分解拿到的賽錢",
-                  "gacha_cost": "祈願價格", "market_fee": "市場買家手續費", "transfer_fee": "轉帳手續費"}   # 跟 events.MODIFIER_KEYS 一一對應 (測試會查)
+                  "gacha_cost": "祈願價格", "market_fee": "市場買家手續費", "transfer_fee": "轉帳手續費",
+                  "job_reward": "人里打工的工錢"}   # 跟 events.MODIFIER_KEYS 一一對應 (測試會查)
 
 
 def _mood_emoji(mood: int) -> str:
@@ -141,6 +142,25 @@ def build_serve_container(g: dict, items: dict, inventory: dict, extra: str | No
 # =========================================================
 # 🗺️ 採集 / 🍳 料理 / 🏪 雜貨店
 # =========================================================
+def build_job_container(stamina: dict, jobs_left: int, pay: int, notice: str | None, why: str | None) -> ui.Container:
+    """🏮 人里打工：幫人里的商家跑腿拿工錢 (econ.do_job)；why = 現在不能打工的原因 (按鈕會反灰)"""
+    from Database.Economy_DB_Manager import JOB_STAMINA, JOB_DAILY_LIMIT
+    container = ui.Container(accent_color=discord.Color.from_rgb(230, 160, 60))
+    text = (f"## 🏮 人里打工\n幫人里的商家跑腿，拿一份工錢：花 `{JOB_STAMINA}` 體力 ➔ `{pay:,}` 賽錢\n"
+            f"-# 每天最多 {JOB_DAILY_LIMIT} 次（台灣時間 00:00 重置），工錢固定，不受神社效率影響\n\n"
+            f"⚡ 體力 `{stamina['stamina']} / {stamina['max']}`　🏮 今天還能打工 `{jobs_left}` 次")
+    if stamina.get("next_in"):
+        text += f"\n-# 下一點 {stamina['next_in'] // 60} 分 {stamina['next_in'] % 60} 秒後回復"
+    if why:
+        text += f"\n-# ⚠️ {why}"
+    container.add_item(ui.TextDisplay(text))
+    if notice:
+        container.add_item(ui.Separator())
+        container.add_item(ui.TextDisplay(notice))
+    container.add_item(ui.Separator())
+    return container
+
+
 def build_explore_container(locations: dict, stamina: dict, cost: int, result: dict | None, items: dict) -> ui.Container:
     container = ui.Container(accent_color=discord.Color.dark_green())
     lo, hi = shrine_data.EXPLORE_DROPS
