@@ -11,6 +11,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 開發工具：預設看得到未公開卡池 (同 tools/botcli.py)
 
 from Database.ura import combat, data, rules, run as R   # noqa: E402
 
@@ -182,7 +183,7 @@ TEAMS = {
     "靈夢隊 (靈夢 UR / 美鈴 SSR / 大妖精 SR，0.9)": [("reimu", "UR", 0.9), ("meiling", "SSR", 0.9), ("daiyousei", "SR", 0.9)],
     "頂尖 (神綺 LR / 蕾米莉亞 LR / 大妖精 SR，1.0)": [("shinki", "LR", 1.0), ("remilia", "LR", 1.0), ("daiyousei", "SR", 1.0)],
 }
-BAGS = {   # 道具 id ➔ 數量 (同 docs/ura.md 的輕裝 / 一般 / 重裝)
+BAGS = {   # 道具 id ➔ 數量 (同 docs/gameplay/ura.md 的輕裝 / 一般 / 重裝)
     "輕裝": {"bamboo_herb": 2, "shrine_tea": 2},
     "一般": {"eientei_salve": 2, "eirin_elixir": 1, "bamboo_herb": 2, "bunbunmaru": 3, "gensokyo_engi": 2, "bomb": 5},
     "重裝": {"eientei_salve": 2, "eirin_elixir": 1, "bamboo_herb": 2, "gensokyo_engi": 5, "bomb": 5,

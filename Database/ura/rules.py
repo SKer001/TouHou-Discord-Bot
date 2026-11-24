@@ -1,5 +1,5 @@
 """
-🌀 裏世界的數值公式 (純計算，全部照 docs/ura.md；數字是使用者定的，改這裡就好)
+🌀 裏世界的數值公式 (純計算，全部照 docs/gameplay/ura.md；數字是使用者定的，改這裡就好)
 """
 import math
 
@@ -70,7 +70,7 @@ def boss_treasure_range(zone: int) -> tuple[int, int]:
     return BOSS_TREASURES_EARLY.get(zone, REWARDS["boss"]["treasures"])
 
 
-# ---- 🎪 活動關卡 (docs/ura.md「活動融入」B 組，使用者 2026-11-20) ----
+# ---- 🎪 活動關卡 (docs/gameplay/ura.md「活動融入」B 組，使用者 2026-11-20) ----
 FEST_STAGE_CHANCE = 0.1         # 活動期間每一關有 10% 其中一扇門變成 🎪 活動門
 FEST_ZONE_CAP = 2               # 每區最多 2 扇
 FEST_ROOM_TYPES = ("battle", "elite", "chest", "event")   # 有活動版的房間 (陷阱沒有；商人關、BOSS 關不換)
@@ -80,7 +80,7 @@ FEST_TREASURE_SLOT = ((0, 20), (1, 70), (2, 10))   # 🎪 活動保留格：本�
 FEST_BOSS_TREASURE_SLOT = ((1, 80), (2, 20))       # 活動 BOSS 一定掉
 FEST_RELIC_CHANCE = 0.5         # 🎪 房間掉法具時換成活動法具的機率
 
-# ---- 👹 區域 BOSS 第 2 區起 (使用者 2026-11-21 選 T3；docs/ura.md「🧪 深區 BOSS 放招」) ----
+# ---- 👹 區域 BOSS 第 2 區起 (使用者 2026-11-21 選 T3；docs/gameplay/ura.md「🧪 深區 BOSS 放招」) ----
 #      招式照 enemies.json 的 deep_order 開放：第 2～5 區 1 招、6～10 區 2 招…；數值 × 0.8；每 4 回合才放一次；本身沒有閃避
 DEEP_BOSS_SKILL_SCALE = 0.8
 DEEP_BOSS_SKILL_EVERY = 4

@@ -1,5 +1,5 @@
 {
-    "_說明": "🃏 每位角色一招符卡 (docs/ura.md「符卡設計」+ 實作時第二輪)。tiers = [最低階, 中間, 最高階]，每檔是一組參數，effects 裡的 \"$名稱\" 換成那檔的數字。",
+    "_說明": "🃏 每位角色一招符卡 (docs/gameplay/ura.md「符卡設計」+ 實作時第二輪)。tiers = [最低階, 中間, 最高階]，每檔是一組參數，effects 裡的 \"$名稱\" 換成那檔的數字。",
     "_target": "enemy_one 選一隻敵人 / enemy_all 敵人全體 / ally_one 選一位隊友 / ally_all 全隊 / self 自己 / none 不用選",
     "_effects": "damage 打選到的 / damage_all 打全部 / multi_hit 隨機打幾下 / heal 回選到的 / heal_all 回全隊 / heal_self 回自己 / apply 施加狀態 (to: self / allies / enemies / target / hit) / drain 吸血 / time_stop 全員再行動一次 / sanity 回常識度 / money_mult 這場的錢 × / reroll_doors 重抽門 / skip_battle 跳過這場一般戰鬥",
     "marisa": {"kind": "damage", "b": 8, "cd": 3, "target": "enemy_one",

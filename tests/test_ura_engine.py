@@ -2,6 +2,7 @@
 import json, math, os, random, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT); os.chdir(ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (Utils/config.py)
 from Database.ura import combat, data, rules, status, run as R
 
 ok = fail = 0

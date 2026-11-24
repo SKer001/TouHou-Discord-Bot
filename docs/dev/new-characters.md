@@ -2,7 +2,7 @@
 
 > 使用者 2026-11-24：「做的時候順便紀錄，下次不用每次都找程式碼跟資料庫」。
 > 這份記三件事：**流程與分工**、**要改哪些檔案**、**查過的角色資料**。加 TH08 之後的角色時先讀這份，不用再翻程式碼找要改哪裡；查萌娘百科得到的資料也寫在最後，建檔時直接用。
-> 改了流程或多了要改的檔案，請更新這份 (統整 session 負責)。
+> 改了流程或多了要改的檔案，請更新這份 (統整負責)。
 
 ## 1. 流程與分工
 | 步驟 | 誰做 | 內容 |
@@ -10,32 +10,33 @@
 | 1. 🔥 卡池、名單、階級範圍 | 統整 grill | 新卡池平常能不能抽、角色有哪些、每位的三個階級 |
 | 2. 🔥 卡牌稱號 | 統整 grill (先查萌娘百科) | 每張卡左上角的稱號 (定了卡面才能開工) |
 | 3. 🔥 裏世界職業、數值、符卡 | 統整 grill，遊戲設計跑模擬 | 角色檔一定要有，不然單卡詳情和裏世界會出錯 |
-| 4. 角色檔 + 卡池 + 分類 + 卡池稱號 + 測試 | 遊戲設計 session | 第 2 節的檔案**一次推** (卡池和角色檔要一起加) |
-| 5. 卡面 | 卡面 session (筆電) / 桌機分工 | `docs/card-art.md`；一位角色定案才推 |
-| 6. 名片 | 名片 session (桌機) | 推角稱號會送名片，`docs/card-art.md` 名片那節 |
+| 4. 角色檔 + 卡池 + 分類 + 卡池稱號 + 測試 | 玩法 | 第 2 節的檔案**一次推** (卡池和角色檔要一起加) |
+| 5. 卡面 | 卡面 (筆電) / 桌機分工 | `docs/art/card-art.md`；一位角色定案才推 |
+| 6. 名片 | 名片 (桌機) | 推角稱號會送名片，`docs/art/card-art.md` 名片那節 |
 | 7. 🔥 活動 (開卡池) | 統整 grill ➔ 遊戲設計 | 新卡池 `event_only` 的話要有活動才抽得到；卡面都做完再設計 |
 | 8. 驗證、文件 | 統整 | pull 跑全部測試、更新 TODO / 這份 |
 
-- 🔥 = 有設計決定，照 CLAUDE.md 第 7 節先 grill (每輪編號列問題 + 建議答案)。查得到的事實 (名字、稱號、能力) 自己查，不要問使用者。
+- 🔥 = 有設計決定，照 `docs/handbook/workflow.md` 先 grill (每輪編號列問題 + 建議答案)。查得到的事實 (名字、稱號、能力) 自己查，不要問使用者。
 
 ## 2. 要改的檔案 (2026-11-24 放一位假角色 + 新卡池跑全部測試查的)
 | 檔案 | 要做什麼 | 沒做會怎樣 |
 |---|---|---|
-| `Characters/THxx/<id>.json` | 一角色一檔，格式見 `docs/database.md`「角色資料」；檔名 = `id`、`special_powers.levels` 的鍵 = `gacha.rarities` | 壞檔印警告並略過 |
-| `Utils/gacha_pools.py` `GACHA_POOLS` | 加 `"thxx": {"name", "desc", "folders": ["THxx"], "event_only": True}` | 抽不到 |
+| `Characters/THxx/<id>.json` | 一角色一檔，格式見 `docs/dev/database.md`「角色資料」；檔名 = `id`、`special_powers.levels` 的鍵 = `gacha.rarities` | 壞檔印警告並略過 |
+| `Utils/gacha_pools.py` `ALL_GACHA_POOLS` | 加 `"thxx": {"name", "desc", "folders": ["THxx"], "event_only": True, "released": False}`。`"released": False` = 還沒公開：`.env` 沒設 `SHOW_UNRELEASED=1` 時整個卡池當作不存在 (`GACHA_POOLS` 不含它，圖鑑、稱號、名片選單、裏世界都看不到那代角色)；**要公開時把 `"released": False` 刪掉** | 抽不到 |
 | `Utils/character_data.py` `CATEGORY_INFO` | 加 `"THxx": ("<emoji> 東方XX (THxx)", "<英文副標>")` | 圖鑑分類名稱變成 `📁 THxx` |
-| `Database/ura/data/spells.json` | **每位角色一招符卡** (格式說明在檔案開頭 `_說明` / `_target` / `_effects`)；角色檔要有 `ura_class` (atk / guard / sup / scout / guide) 和 `base_stats` (N 階數值，職業數值 ±10%，表在 `docs/ura.md`) | 單卡詳情、裏世界引擎直接 `KeyError` |
-| ↳ 然後跑 `python tools/ura_roster.py` | 把符卡效果同步進角色檔的 `special_powers.levels.*.desc`，重產 `docs/ura_roster.md` | 圖鑑的符卡說明對不上 |
+| `Database/ura/data/spells.json` | **每位角色一招符卡** (格式說明在檔案開頭 `_說明` / `_target` / `_effects`)；角色檔要有 `ura_class` (atk / guard / sup / scout / guide) 和 `base_stats` (N 階數值，職業數值 ±10%，表在 `docs/gameplay/ura.md`) | 單卡詳情、裏世界引擎直接 `KeyError` |
+| ↳ 然後跑 `python tools/ura_roster.py` | 把符卡效果同步進角色檔的 `special_powers.levels.*.desc`，重產 `docs/gameplay/ura_roster.md` | 圖鑑的符卡說明對不上 |
 | `Database/title_data.py` | `TITLES` 加 `pool_<卡池>_chars` (SR，角色到齊) 和 `pool_<卡池>_cards` (UR，全卡收集)；`LUCK_POOL_TEXT` 加 `<卡池>: {ssr, ur, lr}` 歐氣稱號 (名稱、說明要 grill)；推角稱號從角色檔自動產生 (一組最多 24 位) | `test_titles` 擋 |
 | `tests/test_pools.py`、`tests/test_ura_engine.py` | 寫死的「24 位角色」改成新總數 | 測試失敗 |
-| `Database/namecard_data.py` + `images/Namecards.json` | 名片 (名片 session 做) | 推角稱號照樣拿得到，名片顯示「還沒做」 |
-| `tools/card_art/layered/hd_card.py`、`build_cards.py` `EN_NAMES` | 卡面設定、英文名 (卡面 session 做)；`build_cards.py` 會寫 `images/Thumbnails.json` | 顯示預設圖 `fill` |
+| `Database/namecard_data.py` + `images/Namecards.json` | 名片 (名片負責) | 推角稱號照樣拿得到，名片顯示「還沒做」 |
+| `tools/card_art/layered/hd_card.py`、`build_cards.py` `EN_NAMES` | 卡面設定、英文名 (卡面負責)；`build_cards.py` 會寫 `images/Thumbnails.json` | 顯示預設圖 `fill` |
 | `Events/<id>.json` | `event_only` 卡池要靠活動的 `gacha.pool {"from": "thxx"}` 才開 (格式 `Events/README.md`) | 卡池抽不到 |
-| `docs/ura.md` 職業表、`TODO.md` 第 3 節、這份第 4 節 | 記錄 | — |
+| `docs/gameplay/ura.md` 職業表、`TODO.md` 第 3 節、這份第 5 節 | 記錄 | — |
 
 - **不用改**：圖鑑、卡冊篩選、抽卡選單、`/card history`、教學書、排行榜、卡池收集統計都直接讀 `GACHA_POOLS` 和角色檔。
+- 🙈 **未公開卡池**：開發機的 `.env` 加 `SHOW_UNRELEASED=1` 才看得到；測試與開發工具 (`tools/botcli.py`、`tools/ura_roster.py`、`tools/ura_sim/`) 自己會預設打開，正式機器人 (雲端 VM) 不要設。`tests/test_unreleased.py` 會在開 / 關兩種環境各檢查一次。
 - ⚠️ **卡池和角色檔要一起加**：只加一個空卡池，「幻想鄉緣起」(所有卡池全收集，`all_cards`) 就永遠拿不到。
-- ⚠️ 活動卡池可以同時開好幾個 (0.39.005)；但活動的 `gacha.rarity_weights` 目前會套到所有卡池 (連舊作池)，用之前先問使用者要不要只套自己的卡池 (`docs/cogs.md` 有標)。
+- ⚠️ 活動卡池可以同時開好幾個 (0.39.005)；但活動的 `gacha.rarity_weights` 目前會套到所有卡池 (連舊作池)，用之前先問使用者要不要只套自己的卡池 (`docs/gameplay/cogs.md` 有標)。
 
 ## 3. 慣例
 - **名字**：照萌娘百科繁中頁面的標題 (例：愛麗絲·瑪格特羅依德，不是「洛依德」)。`id` 用英文小寫 (羅馬拼音或英文名)；跟舊作同名、外觀不同的角色加 `_thxx` (例 `alice_th07`)。
@@ -44,9 +45,9 @@
 - **卡牌稱號** (`gacha.titles`)：
   - 最低階 = 那一作的官方稱號；中間 = 其他作品的官方稱號或角色特色；最高階 = 招牌符卡或能力。
   - **9 個字以內** (卡面左上角毛筆字，現有最長 9 字)；跟同一位角色的舊作版不要重複。
-  - 卡面字型 (衡山毛筆行書) 缺字時換異體字 (`吞→呑`、`絕→絶`)，卡面 session 合成時檢查。
+  - 卡面字型 (衡山毛筆行書) 缺字時換異體字 (`吞→呑`、`絕→絶`)，卡面合成時檢查。
 - **圖鑑**：`profile.title` = 那一作的官方稱號；`species`、`ability` 照萌娘百科的資訊框。
-- **SP 名稱**：`special_powers.name` 用招牌符卡；各級名稱 `Easy・初陣・` / `Lunatic・瘋狂・` / `Phantasm・幻象・` + 符卡名 (見 `docs/database.md`)。
+- **SP 名稱**：`special_powers.name` 用招牌符卡；各級名稱 `Easy・初陣・` / `Lunatic・瘋狂・` / `Phantasm・幻象・` + 符卡名 (見 `docs/dev/database.md`)。
 
 ## 4. 查萌娘百科的方法
 - curl、`action=raw`、api.php、手機版都會 403。用**內建瀏覽器**打開 `https://zh.moegirl.org.cn/<簡體頁名>` (例 `爱丽丝·玛格特罗依德`)，頁面會顯示繁中。
@@ -114,7 +115,7 @@
 - **emoji**：莉莉 🌷、蕾蒂 ☃️、橙 🐈、愛麗絲 🪆、露娜薩 🎻、梅露蘭 🎺、莉莉卡 🎹、妖夢 ✂️、幽幽子 🦋、藍 🦊、紫 ☂️。
 - **合奏的細節**：三位都在隊上**而且活著**才 × 1.2；只放大三檔不同的數字 (弱化、強化、常識度)，莉莉卡固定的賽錢 × 1.2 不放大。死蝶給敵人用一樣最多扣到剩 1 HP。
 - **模擬 (2026-11-23，正式引擎自動玩家，重裝，每格 200 局)**：新角色大多落在同職業範圍裡；妖夢 SR 第 5 區 86% (魔理沙 82%)、UR 第 7 區：妖夢 80% / 幽幽子 86% / 藍 84% (芙蘭 72%、神綺 94%)；守護者同一檔：蕾蒂 84%、愛麗絲 SSR 75% (美鈴 89%、夢子 68%)；全體隊換主攻 第 5 區：幽幽子 65% / 藍 74% (琪露諾 38%)，紫 22% (嚮導 ATK 低，放嚮導位跟靈夢差不多)；冥界第 7 區 (強隊)：幽幽子 / 藍 / 妖夢 65～70% (芙蘭 52%)；騷靈三姊妹整隊第 3 區 1%。莉莉照原案 2% (雪與舞 30%)，改成 15 / 20 / 25% + 3 回合後 23%。⚠️ 自動玩家只在敵人 2 隻以上才放全體 / 連打招，這類符卡的倍率模擬量不出來 (腳本在統整的筆記資料夾 `th07-sim/`)。
-- **數值流程**：基礎數值照職業表 (`docs/ura.md`) ±10% 排；符卡倍率先照上表，遊戲設計跑模擬 (重點：全體攻擊隊、冥界深區)，**數值 + 模擬結果整理成一張表給使用者看過才建檔推送**。
+- **數值流程**：基礎數值照職業表 (`docs/gameplay/ura.md`) ±10% 排；符卡倍率先照上表，遊戲設計跑模擬 (重點：全體攻擊隊、冥界深區)，**數值 + 模擬結果整理成一張表給使用者看過才建檔推送**。
 
 **各作品的官方稱號 (萌娘百科「登場信息」，寫圖鑑簡介、之後的稱號、活動時用)**
 - 莉莉霍瓦特：運送春天的妖精 (妖妖夢、求聞史紀；遊戲條目寫「帶來春天的妖精」)。黑衣的「莉莉黑」是同一人 (花映塚)。

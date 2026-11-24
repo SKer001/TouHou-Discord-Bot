@@ -1,6 +1,6 @@
 """
 📝 裏世界的白話說明 (純函式，不 import discord)：職業特性、符卡效果、法具效果
-- 🔍 查看詳情、出發選角色、/character 圖鑑的特殊能力、tools/ura_roster.py (docs/ura_roster.md) 都用這裡，寫法一樣
+- 🔍 查看詳情、出發選角色、/character 圖鑑的特殊能力、tools/ura_roster.py (docs/gameplay/ura_roster.md) 都用這裡，寫法一樣
 - 敵人招式的說明在 bestiary.skill_text
 
 符卡「效果」的寫法 (使用者 2026-11-22 定，分支 ura-skill-desc)：

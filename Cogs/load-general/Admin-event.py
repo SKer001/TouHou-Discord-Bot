@@ -66,7 +66,7 @@ def pool_close_text(ev: dict, still_open: set | None = None) -> str:
     if not ep or ep["key"] in (still_open or set()):
         return ""
     if ep["from"]:
-        return f"{GACHA_POOLS[ep['from']]['name']}也會跟著關 (平常抽不到)"
+        return f"{GACHA_POOLS.get(ep['from'], {}).get('name', ep['from'])}也會跟著關 (平常抽不到)"
     return f"{ep['name']}也會跟著關"
 
 

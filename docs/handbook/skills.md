@@ -1,13 +1,13 @@
 # 🧩 外掛 skill：Matt Pocock skill 包
 
-> 2026-11-19 使用者決定安裝 (統整 session 查過內容後 grill 定案)。CLAUDE.md 第 7 節只放「不要用」的清單，細節在這裡。
+> 2026-11-19 使用者決定安裝 (統整查過內容後 grill 定案)。「不要用」的清單與使用規則在 `docs/handbook/workflow.md` 第 9 節，細節在這裡。
 
 ## 安裝方式
 - **外掛 (plugin)** `mattpocock-skills@claude-plugins-official`，寫在專案的 `.claude/settings.json` (`enabledPlugins`)，跟著 git 走。**⚠️ 還沒確認真的會載入**：要在主資料夾 pull、開新對話，看 skill 清單有沒有 `mattpocock-skills:grill-me`；沒有的話改用 app 的外掛畫面或終端機 `claude plugin install mattpocock-skills@claude-plugins-official` 安裝。
-- 官方商店收錄的版本：1.3.1 (repo `mattpocock/skills` commit `49dd158`，27 個 skill)，會自動更新；更新後如果多了新 skill，統整 session 要再看一次這張表。
+- 官方商店收錄的版本：1.3.1 (repo `mattpocock/skills` commit `49dd158`，27 個 skill)，會自動更新；更新後如果多了新 skill，統整要再看一次這張表。
 - skill 名字前面會加 `mattpocock-skills:` (例如 `/mattpocock-skills:grill-me`)，不會跟內建的 `/code-review` 撞名。
 - **沒有跑 `/setup-matt-pocock-skills`** (使用者決定)：它會建 `docs/agents/*`、改 CLAUDE.md、要選 issue 追蹤。
-- 「不要用」的 11 個另外在 `.claude/settings.json` 的 `skillOverrides` 設成 `user-invocable-only` (使用者選的：Claude 不會自己觸發，使用者打 `/mattpocock-skills:<名字>` 還是能用)。這個設定的 key 格式 (`外掛名:skill名`) 還沒實際確認有效，所以 CLAUDE.md 也寫一份「不要用」當第二道防線。
+- 「不要用」的 11 個另外在 `.claude/settings.json` 的 `skillOverrides` 設成 `user-invocable-only` (使用者選的：Claude 不會自己觸發，使用者打 `/mattpocock-skills:<名字>` 還是能用)。這個設定的 key 格式 (`外掛名:skill名`) 還沒實際確認有效，所以 `docs/handbook/workflow.md` 第 9 節也寫一份「不要用」當第二道防線。
 - **MCP：27 個 skill 都不需要 MCP**，外掛本身也沒有附 MCP 伺服器、hook 或指令。
 
 ## 全部 27 個 skill
@@ -27,7 +27,7 @@
 | research | 查一手資料、整理成 Markdown | 背景子任務 | ✅ | ✅ 結果存到 `docs/` |
 | tdd | 測試先行 (紅 → 綠) | 無 | ✅ | ✅ 照 `tests/` 的寫法 (`check()` + `run_all.py`)，不建 GLOSSARY；它說的「重構交給 `code-review`」改用內建 `/code-review` |
 | codebase-design | 「深模組」設計用語 | 無 (範例偏 TypeScript) | ✅ | ✅ |
-| improve-codebase-architecture | 找可以整併的地方、出 HTML 報告再 grill | 無 | | ✅ 統整 session 巡視用；它會叫 `domain-modeling` 更新 GLOSSARY / ADR，**這步跳過** |
+| improve-codebase-architecture | 找可以整併的地方、出 HTML 報告再 grill | 無 | | ✅ 統整巡視用；它會叫 `domain-modeling` 更新 GLOSSARY / ADR，**這步跳過** |
 | prototype | 做一次性的原型試手感 | 瀏覽器 | ✅ | ✅ 原型放暫存資料夾；它說的「開拋棄式分支、貼到 issue」不要做 (開分支要先問使用者、沒有 issue) |
 | retro | 回顧一段工作 | 無 | | ✅ |
 | wizard | 產生一步一步帶人操作的 bash 精靈 (例如雲端設定) | bash + 瀏覽器 | ✅ | ✅ 雲端部署可用；`.env` 不進 git |

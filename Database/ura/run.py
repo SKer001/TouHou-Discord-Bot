@@ -1,5 +1,5 @@
 """
-🗺️ 裏世界一局的流程 (docs/ura.md)：選門 ➔ 房間 (戰鬥 / 精英 / 寶箱 / 事件 / 陷阱 / 商人 / BOSS) ➔ … ➔ 撤離 / 失敗 / 放棄
+🗺️ 裏世界一局的流程 (docs/gameplay/ura.md)：選門 ➔ 房間 (戰鬥 / 精英 / 寶箱 / 事件 / 陷阱 / 商人 / BOSS) ➔ … ➔ 撤離 / 失敗 / 放棄
 
 run["phase"]：doors 選門 / battle 戰鬥 / chest 寶箱 / event 事件 / trap 陷阱結果 / merchant 商人 / boss_clear 打完 BOSS / ended 結束
 所有動作都是 xxx(run, ..., rng) ➔ 失敗回傳原因字串，成功回傳 None；狀態直接改在 run 裡 (JSON 可存)。

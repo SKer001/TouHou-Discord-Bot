@@ -1,6 +1,6 @@
 """
 🌀 裏世界探索的畫面產生器 (純函式：進度 dict ➔ 文字 / Container；不碰資料庫、不回應互動)
-規則全在 Database/ura/ (引擎)；版面照 docs/ura.md「狀態效果」的兩行排版、「第二階段第一輪：畫面」。
+規則全在 Database/ura/ (引擎)；版面照 docs/gameplay/ura.md「狀態效果」的兩行排版、「第二階段第一輪：畫面」。
 """
 import discord
 from discord import ui
@@ -62,7 +62,7 @@ def zone_title(run: dict | None, floor: int) -> str:
 
 
 def sanity_bar(n: int) -> str:
-    """常識度 10 格：> 30% 🟦、≤ 30% 🟧、≤ 10% 🟥，空格 ⬜ (docs/ura.md「常識度」)"""
+    """常識度 10 格：> 30% 🟦、≤ 30% 🟧、≤ 10% 🟥，空格 ⬜ (docs/gameplay/ura.md「常識度」)"""
     ratio = max(0, n) / rules.SANITY_START
     cells = min(10, max(0, round(ratio * 10)))
     if n > 0 and cells == 0:

@@ -1,10 +1,10 @@
 # 🎨 卡面製作 (ComfyUI、分層合成、PhotoCraft)
 
-> 從 `CLAUDE.md` 拆出來的細節文件 (2026-11-11)。要做這方面的工作時才讀；改了內容記得一起更新。
+> 從專案交接文件拆出來的細節文件 (2026-11-11)。要做這方面的工作時才讀；改了內容記得一起更新。
 
-## 🧭 使用者的工作習慣 (兩台電腦的 Claude 都照這個做，2026-11-12 整理)
+## 🧭 使用者的工作習慣 (兩台電腦都照這個做，2026-11-12 整理)
 - **外觀先查萌娘百科**：不確定的角色外觀、翅膀、符卡一律先查，不要憑印象 (芙蘭的水晶顏色就曾寫錯)。curl / `action=raw` / api.php 會 403，要用內建瀏覽器打開 `https://zh.moegirl.org.cn/<簡體頁名>`，等幾秒再用 javascript_tool 讀 `document.body.innerText` 搜關鍵字。
-- **候選**：每個階級 2 張背景 (B1 B2，種子 1101 2202) + 4 張人物 (C1~C4，種子 3303 4404 5505 6606)，做成對照表 (上排 B、下面 C) 用 SendUserFile 傳。附各張的優缺點和推薦。使用者回覆格式「SR:B1C2 UR:B2C3」。
+- **候選**：每個階級 2 張背景 (B1 B2，種子 1101 2202) + 4 張人物 (C1~C4，種子 3303 4404 5505 6606)，做成對照表 (上排 B、下面 C) 傳給使用者。附各張的優缺點和推薦。使用者回覆格式「SR:B1C2 UR:B2C3」。
 - **生圖絕對不能露點**；髮色、服裝、是否畫成別的角色都要檢查。
 - **人物被切到** (翅膀、腳) ➔ `outpaint_workflow(pads=...)` 往那邊擴圖 (一次 2 張給使用者挑) ➔ `wf-up` 重繪高清。**使用者想自己修** ➔ 把 `10_char.png` 傳給他，傳回來存成 `10c_char_photocraft.png`。
 - **UR / LR**：彈幕密度使用者偏好少一點 (UR 0.7～0.75、LR 0.7)；背景偏暗、跟彈幕顏色拉開 (紅彈幕配暗紫黑背景)；人物背光 + **眼睛發光** (`light.eyes` 用 10_char 座標量，`eye` 1.3、`eye_size` 3)。局部發光 (水晶、武器) 先做給使用者看，他不喜歡就拿掉 (蕾米莉亞神槍發光偏粉紅，選回原版)。
@@ -13,7 +13,7 @@
 - **筆電 (16GB RAM) 生圖時不要同時去背 / 合成**：ComfyUI 生圖約佔 4GB、去背 (BiRefNet CPU) 再吃好幾 GB，2026-11-12 兩次同時跑都讓 ComfyUI 直接崩潰 (Fatal Python error: Aborted)。先讓佇列跑完或暫停，再合成；桌機 16GB VRAM / 記憶體較多沒遇到。
 - **改了 `light` (眼睛、emissive) 要先跑 `hd_card.py light <角色> <階級>`**，再 `compose`；只跑 compose 會沿用舊的 10b_char_lit。紅色小物 (領結) 會被翅膀紋路偵測當成紋路發光 ➔ 沒有翅膀的角色設 `glow_red: 0`。
 - **背景道具要跟人物互動時 (倚著樹、坐在椅子上)**：人物層白底去背會把樹、地面一起切掉 ➔ 把樹畫在背景，人物照常去背、用 `char_scale` / `offset` 放到樹根；或像咲夜 / 蕾米莉亞的椅子一樣讓道具留在人物層 (去背模型通常會保留緊貼人物的家具)。
-- **兩台分工**：一台負責一位角色的整套流程；每個階段 (候選完成、使用者選圖、合成完、推送) 都用 SendMessage 跟另一台互報一則短訊。
+- **兩台分工**：一台負責一位角色的整套流程；每個階段 (候選完成、使用者選圖、合成完、推送) 都跟另一台互報一則短訊。
 
 ## 🖼️ 角色名片 (0.33.000，2026-11-14 使用者決定)
 - 推角稱號 (收藏冊集齊某位角色每個階級的完美卡) 第一次解鎖時，玩家永久拿到那位角色的名片，戴上後顯示在 `/profile` 資料卡最上面 (`ui.MediaGallery`)。
@@ -54,7 +54,7 @@
 
 - **名片畫風 (2026-11-14 使用者決定)**：畫「角色平常看不到的另一面」的反差日常，主題固定是睡顏 (見上表)，**不是**戰鬥影畫風；可愛 / 慵懶，**不要性感或擦邊** (衣服完整蓋住，負面提示詞擋 nsfw, cleavage, underwear, panties, suggestive, upskirt, thighs, bare legs, midriff…)。
 - **名片生圖 (桌機)**：Animagine XL 4.0 整張一次生 1536×728 ➔ 4x-UltraSharp 放大再縮 2304×1092、denoise 0.4 重繪 ➔ 4x-UltraSharp 放大到 3840×1820。正面加 painterly, soft shading, warm colors, dappled sunlight。RTX 5060 Ti 一張約 1 分鐘，一次出 4 張候選給使用者挑。原圖存 `images/Original/Namecards/<角色>/` (gitignore)。小道具 (蝴蝶結掉在旁邊、團扇、賽錢箱) 一次生常常畫不出來。**補道具**：直接局部重繪 (高 denoise) 只會畫出很小的東西 ➔ 先在原圖上手畫草稿 (形狀 + 顏色 + 光暈)，遮罩內 img2img denoise 0.5～0.65 給使用者挑 (2026-11-14 魅魔新月杖，腳本範例 `SetLatentNoiseMask` + 裁切區 1920×1000 縮到 1536×800 重繪再 4x-UltraSharp 放回)。
-- **👯 雙人 (2026-11-16 雪與舞名片；卡面 session 做雪與舞 N / R / SR 也照這個)**：一次生兩人會互相染色，改成**分開生再合成**：
+- **👯 雙人 (2026-11-16 雪與舞名片；卡面做雪與舞 N / R / SR 也照這個)**：一次生兩人會互相染色，改成**分開生再合成**：
   1. **各自單獨生** (正方形 1024 ➔ hires 1536)，同一個坐姿、側面，方向不對就用 PIL 鏡像，不要叫模型「朝左 / 朝右」。每人負面提示詞放 `2girls, multiple girls` + **另一人的特徵** (雪擋 `blue hair, white dress, wings`；舞擋 `blonde hair, black dress, black hat`)。**純色底方便去背**：白衣白翅的舞用深灰底、黑衣的雪用淺灰底。熱氣、冰霜、火焰這類特效**不要在這步畫** (去背會切掉)。
   2. **去背**：`tools/card_art/layered/cutout.py` (BiRefNet)，要用 **ComfyUI 的 venv** 跑：`C:\Users\kowre\Documents\comfy\ComfyUI\.venv\Scripts\python.exe -I cutout.py <圖...> <輸出資料夾>` (另一個 `comfy\venv` 沒有 PIL)。舞的白色翅膀在深灰底上去背完整。
   3. **背景另外生** (`no humans, scenery`，1536×728 ➔ 2304×1092)。
@@ -122,12 +122,12 @@
     0. **先上網找參考圖**（使用者 2026-10-29 指定，從夢美開始）：**優先查萌娘百科**（使用者指定，東方資料最詳細，例如 `https://zh.moegirl.org.cn/艾丽(东方Project)`，有外貌、萌點、性格、設定 neta），舊作角色要查「(東方Project舊作)」條目（例如 `愛麗絲(東方Project舊作)`，跟新作同名角色是不同頁）；立繪圖檔可從 Touhou Wiki（en.touhouwiki.net 的 `/wiki/<作品>/Characters` 頁，例如 `Mystic_Square/Characters` 有 TH05 全員頭像、`Embodiment_of_Scarlet_Devil/Characters` 有 TH06 立繪）取得；THBWiki 有 Cloudflare 驗證、Danbooru 內建瀏覽器打不開。確認髮型髮色、服裝、配件、招牌道具，把參考圖與重點特徵給使用者看，再依此寫 prompt。
     1. 在 `make_workflow.py` 加 `BASE`（外觀 Danbooru 標籤）、每個階級的 `SCENES`（依稱號、個性、故事；階級越高越強），需要時加 `EXTRA_NEGATIVE`（可用角色或 `(角色, 階級)` 當鍵）；在 `build_cards.py` 加 `EN_NAMES`。先用一兩句話跟使用者說明各階級的構想。
     2. 每個階級用兩個種子各生 2 張（共 4 張）：`make_workflow.py <角色> <階級> <種子> <out.json>` → ComfyUI MCP `run_workflow(wait=False)` → `job(action="wait")`。
-    3. `python tools/card_art/candidates.py <角色> --out <暫存資料夾>` 做對照表（取最新 4 張，標 1～4），用 SendUserFile 傳給使用者，順便指出明顯的問題（多出的腳、翅膀、髮色錯誤等）。
+    3. `python tools/card_art/candidates.py <角色> --out <暫存資料夾>` 做對照表（取最新 4 張，標 1～4），傳給使用者，順便指出明顯的問題（多出的腳、翅膀、髮色錯誤等）。
     4. 使用者回覆例如「343」＝各階級依序選第 3、4、3 張 → 把 ComfyUI 輸出的那張複製成 `images/Original/Art/<角色>_<階級>.png` → `build_cards.py <角色>` → 跑測試 → commit + push（不用先問）。
   - **使用者偏好與踩過的坑**：明亮、淡陰影、全身、貼近角色個性；字不能太粗（會糊）；**構圖不一定要正面**（側身、回頭、看遠方都可以，不要每張都 `looking at viewer`）。**仰角可以用、些微裙底可以接受，但絕對不能露點**（2026-10-29 使用者修正；NEGATIVE 排除 nsfw / nude / nipples 等）。**要有角色個性，不要只有微笑**：從萌娘百科的「萌點」「性格」挑幾個元素放進表情、動作、道具（例如幻月：天然呆歪頭、姊姊的得意、鬼畜狂笑），三個等級分配不同的面向。魔理沙要加 `standing, holding broom` 負面提示不然會拿著掃帚；魅魔是幽靈尾巴但模型常畫出腳；玄爺照使用者給的官方形象（陸龜、白鬍子白眉、白毛尾巴，不是海龜、不要翅膀）；里香（PC-98 角色、二創造型不統一）用自訂的工程師造型：棕短髮、護目鏡、白襯衫、綠吊帶褲、手套，使用者已接受；兩個角色同框時（玄爺 R 載著靈夢）外觀標籤會互相染色（靈夢變白髮），要在負面提示排除。雙人卡（雪與舞）一次生兩人特徵會互相染色（雪的黑衣變白、翅膀長錯人、甚至合成一人），**現在一律分開生再合成** (`hd_card.py` 的 `duo`，見上面「雙人卡」那條；`make_workflow.py` 的 `DUO` / `DUO_GIRLS` 是舊的一次生兩人做法，只剩玄爺 R 這種「人 + 坐騎」還適用)。使用者不滿意時會給參考圖或說明，照著改 prompt 重生。小瑕疵（例如魔理沙 UR 掃帚柄沒對齊、幻月 SSR 少一隻腳）可以用 PIL 剪貼 + ComfyUI 局部重繪 (VAEEncodeForInpaint，遮罩只蓋問題區域、一次出 4 版讓使用者挑) 修，修好的檔名 `fix_<角色>_<階級>_*.png`；高清分層卡現在改用 `fix_region.py` (見上面「雙人卡」那條)。
   - **PhotoCraft 修圖（2026-10-30 筆電已安裝，使用者指定用官方版）**：storytold/photocraft（免費開源、Rust 寫的 Photoshop 類修圖軟體，Apache-2.0），內建 MCP 伺服器 `photocraft-cli mcp`，有圖層、遮罩、調整（曲線、色階…）等幾百個指令（`command_list` 查、`command_run` / `command_batch` 執行；batch 失敗不會回滾，先 `image.duplicate` 在副本上改）。
     - 安裝：GitHub Releases 下載 `photocraft-<版本>-windows-x64.msi`（對 `SHA256SUMS.txt` 驗證）→ 預設裝在 `%LOCALAPPDATA%\Programs\ArtCraft\PhotoCraft\`，CLI 是同資料夾的 `photocraft-cli.exe`（不在 PATH）。
-    - 登記：這台沒有 `claude` 指令，改用專案根目錄的 `.mcp.json`（含本機路徑，已加入 `.gitignore`，**每台電腦自己建**）：command = CLI 的完整路徑，args = `mcp --automation-read-root <專案>\images\Original --automation-write-root %USERPROFILE%\Documents\photocraft_out`。只能讀步驟圖資料夾、只能寫到獨立的輸出資料夾，修好的圖由 Claude 複製回步驟資料夾再重跑後續步驟。加好後要開新對話（第一次會詢問是否允許專案的 MCP 伺服器）。
+    - 登記：這台沒有 `claude` 指令，改用專案根目錄的 `.mcp.json`（含本機路徑，已加入 `.gitignore`，**每台電腦自己建**）：command = CLI 的完整路徑，args = `mcp --automation-read-root <專案>\images\Original --automation-write-root %USERPROFILE%\Documents\photocraft_out`。只能讀步驟圖資料夾、只能寫到獨立的輸出資料夾，修好的圖由 AI 助手複製回步驟資料夾再重跑後續步驟。加好後要開新對話（第一次會詢問是否允許專案的 MCP 伺服器）。
     - **對話開始後才加的 MCP 不會載入成工具**：用 `tools/card_art/layered/photocraft.py` 的 `PC` 類別直接跟 `photocraft-cli mcp` 走 stdio JSON-RPC，效果一樣（讀 `.mcp.json` 的設定與權限）。範例：`pc_shinki_LR_tips.py`（神綺 LR 羽尖壓暗，產出步驟 `10c_char_photocraft.png`，疊層優先用 10c）。好用的指令：`select.colorRange`（**滴管 points 沒生效、會退回前景黑色，要直接給 color / colors 色碼**）、`select.lasso` (mode subtract)、`select.loadSelection` (channel transparency, operation intersect，保護外側半透明光暈)、`select.modify.feather`、`image.adjustments.curves` / `hueSaturation`；預覽選取範圍用 `image.adjustments.invert` + `render_preview`（低飽和顏色用色相偏移看不出來）。`doc_export` 會保留 alpha。
     - 分工：局部手修（接縫、調亮調暗、調色、光暈）用 PhotoCraft；AI 補畫（翅膀、腳）還是用 ComfyUI；整批、要重複的（去背、放大、疊層、打光、動畫）用程式。
   - **ComfyUI 環境（筆電與桌機都已安裝）**：

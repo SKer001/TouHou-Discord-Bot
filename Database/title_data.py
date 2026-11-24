@@ -242,6 +242,17 @@ TITLES = {
                  "desc": "幻想鄉的每一位、每一張都在你的卡冊裡，你就是活著的緣起。"},
 }
 
+
+def _drop_hidden_pool_titles():
+    """🙈 未公開卡池 (不在 Utils.gacha_pools.GACHA_POOLS) 的卡池收集稱號拿掉；推角 / 歐氣稱號本來就照 GACHA_POOLS 產生"""
+    from Utils.gacha_pools import GACHA_POOLS
+    for tid in [tid for tid, t in TITLES.items()
+                if t["stat"].startswith(("pool_chars:", "pool_cards:")) and t["stat"].split(":", 1)[1] not in GACHA_POOLS]:
+        del TITLES[tid]
+
+
+_drop_hidden_pool_titles()
+
 RARITY_ORDER = {"N": 0, "R": 1, "SR": 2, "SSR": 3, "UR": 4, "LR": 5}
 
 # 🗂️ 稱號分組 (/profile 先選分組再選稱號：Discord 選單最多 25 個選項，稱號全放一個選單會放不下)

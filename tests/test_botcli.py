@@ -63,6 +63,7 @@ check("sandbox files", os.path.exists(os.path.join(tmp, "Users.db")))
 
 # 6. 實機工具的離線部分 (不連網路)：元件轉文字、計數、錯誤說明、鏡像時停用按鈕
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (Utils/config.py)
 sys.path.insert(0, ROOT)
 from discord_rest import render_components, count_components, describe_error
 payload = [{"type": 17, "accent_color": 0xf1c40f, "components": [

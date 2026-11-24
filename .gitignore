@@ -1,6 +1,4 @@
 /.env
-/main copy.py
-/t.py
 /TouHou-Discord-Bot.code-workspace
 /Logger/Logs/
 __pycache__/
@@ -21,3 +19,5 @@ __pycache__/
 # CodeGraph 程式碼索引 (每台電腦各自 codegraph init)
 /.codegraph/
 /images/Original/Namecards/
+# TH07 模擬腳本的輸出 (每次重跑都會變)
+/tools/ura_sim/th07/out/

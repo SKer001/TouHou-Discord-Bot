@@ -2,6 +2,7 @@
 import asyncio, os, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 專案根目錄
 sys.path.insert(0, ROOT); os.chdir(ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (Utils/config.py)
 from Utils.pagination import PageJumpModal, nav_buttons, page_count, paginate, step
 
 ok = fail = 0

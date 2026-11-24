@@ -2,6 +2,7 @@
 import asyncio, os, sys, tempfile, types, random, importlib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (Utils/config.py)
 os.chdir(ROOT)
 import discord
 from discord import ui

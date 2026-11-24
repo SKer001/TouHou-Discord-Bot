@@ -1,4 +1,4 @@
-"""☁️ 雲端 VM 上的控制腳本 (在 VM 上以 root 執行；說明見 docs/deploy.md)
+"""☁️ 雲端 VM 上的控制腳本 (在 VM 上以 root 執行；說明見 docs/dev/deploy.md)
 
     sudo python3 /opt/touhou-bot/repo/deploy/vm_ctl.py <指令>
 

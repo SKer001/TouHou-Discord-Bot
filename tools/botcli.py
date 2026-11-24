@@ -45,6 +45,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(1, os.path.join(ROOT, "tools"))   # discord_rest (實機鏡像用)
 os.chdir(ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 開發工具：預設看得到未公開卡池 (要看正式機器人的樣子 ➔ SHOW_UNRELEASED=0)
 for stream in (sys.stdout, sys.stderr):
     try:
         stream.reconfigure(encoding="utf-8")

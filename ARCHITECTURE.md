@@ -1,7 +1,7 @@
 # 🏗️ 專案架構說明 (ARCHITECTURE.md)
 
 > 這份文件說明**程式要怎麼寫、東西要放哪裡**，讓之後新增功能時（不管是哪台電腦、哪次對話）都維持同一套做法。
-> 進度、使用者偏好、歷史決策請看 `CLAUDE.md`；給一般使用者看的功能介紹在 `README.md`。
+> 進度看 `TODO.md`、工作習慣與分工看 `docs/handbook/workflow.md`、專案結構看 `docs/dev/structure.md`、歷史決策看 `CHANGELOG.md` (所有文件的目錄在 `docs/README.md`)；給一般使用者看的功能介紹在 `README.md`。
 > 新增功能前先讀這份；如果改變了下面任何一條規則，**一定要回來更新這份文件**。
 
 ---
@@ -43,7 +43,7 @@ Discord ─▶ Main.py (TouHouBot)
 | `Cogs/load-<類別>/Components/` | 該類別的畫面產生器 | `<類別>_components.py`（**不是** Embeds） |
 | `Utils/` | 跨 Cog 共用、不是 Cog 的程式 | `snake_case.py` |
 | `Database/` | 資料庫存取 + `.db` 檔 | `<名稱>_DB_Manager.py` |
-| `Characters/<分類>/<id>.json` | 一角色一檔 | 檔名 = `id`；分類 `Main`、`TH01`～`TH06` |
+| `Characters/<分類>/<id>.json` | 一角色一檔 | 檔名 = `id`；分類 `Main`、`TH01`～`TH07` |
 | `Logger/` | 日誌 Cog（優先載入） | — |
 | `tests/test_*.py` | 每個功能一個測試檔 | `run_all.py` 自動找 |
 | `tools/` | 開發工具（不會被機器人載入） | `botcli.py`、`card_art/` 等 |
@@ -143,9 +143,9 @@ async def setup(bot):
 
 ### 4.2 角色資料 `Characters/`
 
-- 一角色一檔，格式見 `CLAUDE.md` §3；`Utils/character_data.py` 負責讀取與驗證（壞檔印警告略過，不會讓機器人掛掉）。
+- 一角色一檔，格式見 `docs/dev/database.md`「角色資料」；`Utils/character_data.py` 負責讀取與驗證（壞檔印警告略過，不會讓機器人掛掉）。
 - 圖鑑每次指令都重讀；抽卡卡池 `GACHA_POOL` 在模組載入時讀 ➔ 改角色檔後要 `/admin-sys reload` 抽卡模組。
-- 新增角色：放 json ➔（要進卡池就 `gacha.enabled: true`、放在卡池包含的資料夾）➔ reload ➔ 補卡面（§6）。加一整代 (新卡池) 要改的檔案清單在 `docs/new-characters.md`。
+- 新增角色：放 json ➔（要進卡池就 `gacha.enabled: true`、放在卡池包含的資料夾）➔ reload ➔ 補卡面（§6）。加一整代 (新卡池) 要改的檔案清單在 `docs/dev/new-characters.md`。
 
 ### 4.3 階級
 
@@ -185,7 +185,7 @@ tools/card_art/               卡面產生工具 (不會被機器人載入)
 - 程式取縮圖的順序：`角色_階級` ➔ `角色` ➔ `fill` ➔ 都沒有就只顯示文字（`get_thumbnail_url`）。
 - SSR / UR / LR 的縮圖是動態 GIF（`<角色>_<階級>.gif`，`tools/card_art/animate.py`），Thumbnails.json 直接指向 GIF，程式端不分靜態 / 動態。
 - 卡面 = 原圖 ➔ 蓋卡框 `empty.png` ➔ 稱號與名字 ➔ 等級圖；`build_cards.py` 整批產生、`--stages` 輸出每一步（`card_stages/`，不進 git）。
-- 生圖流程與各角色 prompt 在 `tools/card_art/make_workflow.py`，細節與使用者偏好見 `CLAUDE.md` §4「卡面」。
+- 生圖流程與各角色 prompt 在 `tools/card_art/make_workflow.py`，細節與使用者偏好見 `docs/art/card-art.md`。
 - **UR 與 LR 一律用分層合成**（2026-10-29 起）：背景 / 彈幕 / 人物分開做再合成（`tools/card_art/layered/`）。
 - **高清分層流程**（2026-10-30 起，`layered/hd_card.py`）：背景與人物各自生成 → 重繪 → 放大 16 倍 → 修改 → 壓縮，每一步存在 `images/Original/<分類>/<角色>/<階級>/`（`*_hd.png` 不進 git）；疊層順序 背景 ➔ 卡框 ➔ 人物 (蓋在卡框上) ➔ 文字 ➔ 等級 ➔ 特效。`build_cards.py` 看到該資料夾有 `05_bg.png` + `10_char.png` 就改用分層合成。
 
@@ -210,4 +210,4 @@ tools/card_art/               卡面產生工具 (不會被機器人載入)
 6. 指令內再驗證一次使用者輸入。
 6.5 新的**頂層**玩家指令要在 `Cogs/load-general/Components/help_components.py` 的 `CATEGORIES` 分類 (沒分到會出現在 `/help` 的「其他」)。**📚 教學書** (0.36.000)：新指令要寫進那個分類教學書 (`Components/guide/<分類>.py`) 某一章的 `commands`，玩法有變就改那章的說明 (`tests/test_guide.py` 會抓沒有章節講到的指令)；書裡的數字盡量在開畫面時從程式常數讀。新的指令群組要加 `help` 子指令 (寫法見 `Utils/guide.py`)。
 7. 補 `tests/test_*.py`，`run_all.py` 全過，再用 botcli 點一次。
-8. 更新 `CLAUDE.md`（進度、決策）與這份文件（如果改了規則），然後 commit + push。
+8. 更新文件：進度寫 `TODO.md`，細節寫進 `docs/` 對應的檔案（目錄在 `docs/README.md`；新增或搬動檔案時改 `docs/dev/structure.md`），改了規則就改這份文件，然後 commit + push。

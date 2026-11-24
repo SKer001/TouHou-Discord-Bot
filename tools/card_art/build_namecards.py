@@ -73,6 +73,7 @@ def main(argv: list[str]) -> int:
         print(f"❌ 找不到原圖：{src}")
         return 1
     sys.path.insert(0, PROJECT_ROOT)
+    os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 開發工具：預設看得到未公開卡池 (同 tools/botcli.py)
     from Utils.gacha_pools import load_gacha_pool
     if cid not in load_gacha_pool():
         print(f"⚠️ 卡池裡沒有角色「{cid}」(還是會輸出，確認一下 id 有沒有打錯)")

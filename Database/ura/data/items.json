@@ -1,5 +1,5 @@
 {
-    "_說明": "🎒 裏世界的道具 (docs/ura.md「商店道具」「功能型道具」)。price 商店價格 (流浪商人 × 1.2)；max 一局最多帶幾個 (0 = 不限)；stack 一格疊幾個 (1 = 不疊)；cat 有合計上限的類別 (heal / sanity 各合計最多 5 個)；use 在哪裡能用 (battle 戰鬥 / doors 選門 / any 都可以 / passive 自動)；cheap = 局內撿得到。",
+    "_說明": "🎒 裏世界的道具 (docs/gameplay/ura.md「商店道具」「功能型道具」)。price 商店價格 (流浪商人 × 1.2)；max 一局最多帶幾個 (0 = 不限)；stack 一格疊幾個 (1 = 不疊)；cat 有合計上限的類別 (heal / sanity 各合計最多 5 個)；use 在哪裡能用 (battle 戰鬥 / doors 選門 / any 都可以 / passive 自動)；cheap = 局內撿得到。",
     "category_max": {"heal": 5, "sanity": 5},
     "items": {
         "eientei_salve": {"name": "永遠亭的傷藥", "emoji": "🩹", "price": 10000, "max": 5, "stack": 1, "cat": "heal", "use": "any",

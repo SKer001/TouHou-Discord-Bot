@@ -1,5 +1,5 @@
 """
-✨ 統一的「狀態效果」系統 (docs/ura.md「狀態效果」)：狀態本身寫在 data/statuses.json
+✨ 統一的「狀態效果」系統 (docs/gameplay/ura.md「狀態效果」)：狀態本身寫在 data/statuses.json
 
 一個單位 (角色 / 敵人) 的 u["statuses"] = [{"id", "left", "stacks", "value", "src_atk"}, ...]
 - 同一個狀態只有 1 層 (max_stacks > 1 的才能疊)；再被施加 ➔ 刷新持續時間

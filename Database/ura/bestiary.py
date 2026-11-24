@@ -1,5 +1,5 @@
 """
-📖 裏世界怪物圖鑑 (純邏輯，不 import discord；規格 docs/ura.md「📖 怪物圖鑑」，使用者 2026-11-21 定)
+📖 裏世界怪物圖鑑 (純邏輯，不 import discord；規格 docs/gameplay/ura.md「📖 怪物圖鑑」，使用者 2026-11-21 定)
 
 - 解鎖 = 打倒或用糰子勸走過 (player_stats 的 ura_kill:<敵人> >= 1；打倒當下就記)；寶箱怪算那一區的精英
 - 分區：每個主題一區 (zones.json 的順序；copy_of 借名單的主題不列) + 每個有裏世界內容的活動一區 (🎪)

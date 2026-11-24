@@ -1,4 +1,4 @@
-"""🔁 本機 ⇄ 雲端交接 (筆電 / 桌機執行；說明見 docs/deploy.md)
+"""🔁 本機 ⇄ 雲端交接 (筆電 / 桌機執行；說明見 docs/dev/deploy.md)
 
     python deploy/handoff.py status          雲端的模式、版本、機器人狀態
     python deploy/handoff.py take            雲端 ➔ 這台：雲端停機器人並交出最新 DB，下載到 Database/
@@ -50,7 +50,7 @@ def load_settings() -> dict:
     }
     missing = [key for key in ("project", "bucket") if not settings[key]]
     if missing:
-        raise SystemExit(f"❌ .env 缺少 {', '.join('GCP_' + key.upper() for key in missing)} (見 docs/deploy.md)")
+        raise SystemExit(f"❌ .env 缺少 {', '.join('GCP_' + key.upper() for key in missing)} (見 docs/dev/deploy.md)")
     return settings
 
 
@@ -208,12 +208,24 @@ def cmd_deploy(_settings, _args):
     print("✅ 已推到 online，雲端 1 分鐘內會自動更新 (python deploy/handoff.py status 可以看)")
 
 
+DEV_ONLY_ENV = {"SHOW_UNRELEASED"}   # 只給開發機用的 .env 設定
+
+
 def cmd_push_env(settings, _args):
     env = os.path.join(ROOT, ".env")
     if not os.path.exists(env):
         raise SystemExit("❌ 找不到 .env")
-    gcloud("compute", "scp", env, f"{settings['vm']}:/tmp/touhou.env",
-           "--zone", settings["zone"], "--project", settings["project"])
+    # 開發用的旗標不上傳 (SHOW_UNRELEASED 會讓正式機器人顯示還沒公開的卡池)
+    with open(env, encoding="utf-8") as f:
+        lines = [l for l in f if l.split("=", 1)[0].strip() not in DEV_ONLY_ENV]
+    upload = os.path.join(tempfile.mkdtemp(), "touhou.env")
+    with open(upload, "w", encoding="utf-8", newline="\n") as f:
+        f.writelines(lines)
+    try:
+        gcloud("compute", "scp", upload, f"{settings['vm']}:/tmp/touhou.env",
+               "--zone", settings["zone"], "--project", settings["project"])
+    finally:
+        os.remove(upload)
     vm(settings, "sudo install -o touhou -g touhou -m 600 /tmp/touhou.env /opt/touhou-bot/app/.env && rm /tmp/touhou.env"
                  " && (systemctl is-active --quiet touhou-bot && sudo systemctl restart touhou-bot || true)")
     print("✅ .env 已上傳 (雲端機器人在跑的話已重啟)")

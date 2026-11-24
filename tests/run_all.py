@@ -25,6 +25,7 @@ def db_hashes() -> dict:
 
 def main() -> int:
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    env.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (沒開的樣子由 test_unreleased.py 另開子行程檢查)
     before = db_hashes()
     total_pass = total_fail = 0
     broken = []

@@ -359,7 +359,7 @@ def _ura_relic_name(rel: dict) -> str:
 
 def leaderboard_entry(type_key: str, rank: int, row: dict, viewer_id: int) -> str:
     """
-    一位玩家一塊 (條列式，docs/ura.md「排行榜」)：
+    一位玩家一塊 (條列式，docs/gameplay/ura.md「排行榜」)：
       🥇 名字 · [SR] 稱號
       (裏世界兩項) 角色：[SR] 琪露諾 💀 / [N] 大妖精　法具：🦊 九尾式神
       項目：數字

@@ -1,155 +1,39 @@
-# TouHou-Discord-Bot — 專案交接文件（給 Claude Code）
+# TouHou-Discord-Bot — 入口（給接手的人與 AI 助手）
 
-> 這份文件整理了先前對話中對本專案的所有理解與決策。放在專案根目錄命名為 `CLAUDE.md`，Claude Code 啟動時會自動載入。
-> 專案在**筆電與桌機兩台電腦**上各有一份 clone，靠 GitHub 同步；對話紀錄與 Claude 記憶不會跨電腦，**重要的背景與決策都要寫進這份文件**。
-> 使用者慣用**繁體中文**溝通；回覆請簡潔、用繁體中文，不要貼一堆網址。
-> **⚠️ 每一則給使用者看的文字都要用繁體中文，沒有例外**：包括背景工作通知 (Monitor 事件、生圖 / 合成完成、子任務 / Workflow 回報、其他對話傳來的訊息) 之後的那一輪、對話壓縮後接續的第一則、wrap_up 的 recap 與問題。這些「前面沒有使用者中文訊息」的輪次最容易不小心切成英文 (2026-11-13 使用者要求改善)。程式碼、指令、檔名可以保留原文。
-> **程式架構與寫法規則（Cog 怎麼分、畫面 / 資料層怎麼寫、新增功能檢查清單）在 `ARCHITECTURE.md`，新增功能前先讀。**
+繁體中文的「東方 Project」主題 Discord 機器人 (`discord.py` Components V2 + SQLite)：抽卡、卡冊、神社經營、市場、活動、🌀 裏世界探索。
+這一頁只放每次都要知道的事；細節都在下面的文件裡，**只讀跟這次工作有關的**。
 
-## 📚 文件樹（先看這張表，只讀跟這次工作有關的）
+## 💬 最重要：一律繁體中文
+**每一則給使用者看的文字都要用繁體中文，沒有例外。** 最容易切成英文的是前面沒有使用者訊息的輪次：背景工作通知或子任務回報之後、對話壓縮後的第一則、收尾的摘要與提問。回覆要簡潔，不要貼一堆網址。程式碼、指令、檔名可以保留原文。
+
+## 🚫 紅線（使用者定的，不能違反）
+1. **經濟 / 玩法數值：使用者沒給的一定要先問**，不要自己決定。
+2. **有設計決定的工作 (新功能、改玩法、改畫面) 動手前先一輪一輪問**：每輪編號列問題、每題附建議答案，全部確認才動手。修 bug、小調整、講得很清楚的指示直接做。一組做完就停，不主動丟下一組的草案。
+3. **不改寫 git 歷史、不開分支、不刪大量資料**，除非先問過。例行改動測試通過後直接 commit + push 到 `main` (不開 PR；卡面要等使用者說定案才推)。
+4. **機器人同一時間只在一台上執行** (同一個 Token)。雲端上線後，本機用正式 Token 執行前一定要先 `python deploy/handoff.py take`，用完 `release`。
+5. **`Database/Users.db` 開發階段刻意跟著推上 git**：不要建議移出追蹤；權限檢查擋下時請使用者自己執行，不要繞過。但交接期間 (`take` 之後、`release` 之前) 本機是玩家真實資料，**不要 commit / push `Database/*.db`**。
+
+每次 commit 都要更新 `Utils/version.py` 與 `CHANGELOG.md`，版本號推送前才編。以上每一條的完整做法在 `docs/handbook/workflow.md`。
+
+## 📚 文件樹
 | 要做什麼 | 讀這份 |
 |---|---|
-| 新增 / 修改功能前 | `ARCHITECTURE.md`（分層、寫法、新增功能檢查清單） |
-| 指令、玩法規則、數值 (抽卡、神社、經濟、市場…) | `docs/cogs.md` |
-| 資料表、資料庫函式、道具、角色檔格式 | `docs/database.md` |
-| 卡面 / 頭像生圖、ComfyUI、PhotoCraft | `docs/card-art.md` |
-| 跑測試、botcli、實機驗證 | `docs/testing.md` |
-| 活動檔格式與預留位 | `Events/README.md` |
-| 新增一代角色 (TH07 之後)：流程、要改的檔案、稱號 / 階級慣例、查萌娘百科、查過的角色資料 | `docs/new-characters.md` |
+| 找某份文件 (所有文件的總目錄) | `docs/README.md` |
+| 開始工作前：溝通、先問的規則、推送、版本號、分工 (統整 / 卡面 / 名片 / 玩法)、工作守則 | `docs/handbook/workflow.md` |
+| 接手某個角色的工作：做過什麼、踩過的坑、交接清單 | `docs/handbook/sessions.md` |
+| 找東西放在哪、`.env`、環境注意事項 (LF、cp950) | `docs/dev/structure.md` |
+| 新增 / 修改功能前：分層、寫法、新增功能檢查清單 | `ARCHITECTURE.md` |
+| 寫或改 Discord 畫面 | `docs/dev/components-v2.md` |
+| 指令、玩法規則、數值 | `docs/gameplay/cogs.md`、`docs/gameplay/ura.md` (🌀 裏世界) |
+| 資料表、資料庫函式、道具、角色檔格式 | `docs/dev/database.md` |
+| 跑測試 (`python tests/run_all.py`)、實機驗證 | `docs/dev/testing.md` |
+| 卡面 / 頭像 / 名片 | `docs/art/card-art.md` |
+| 新增一代角色 | `docs/dev/new-characters.md` |
+| 活動檔格式 | `Events/README.md` |
+| 雲端部署、本機 ⇄ 雲端交接 | `docs/dev/deploy.md` |
+| 外掛 skill：哪些能用、哪些不要用 | `docs/handbook/workflow.md` 第 9 節、`docs/handbook/skills.md` |
 | 待做、目前進度 | `TODO.md` |
-| 每個版本做了什麼、踩過的坑 | `CHANGELOG.md`（最上面幾筆就好） |
-| 早期重構歷程 | `docs/history.md` |
-| CodeGraph 安裝 | `docs/setup.md` |
-| 雲端部署 (Google Cloud)、本機 ⇄ 雲端交接、雲端 DB 備份 | `docs/deploy.md` |
-| 外掛 skill（Matt Pocock skill 包）哪些能用、需要什麼工具 | `docs/skills.md`（不要用的清單在第 7 節） |
-| 🌀 裏世界 (`/ura`) 搜打撤玩法的規則與進度 (三階段做完，待實機試玩) | `docs/ura.md` |
-| 🌀 裏世界角色 / 敵人數值一覽 (自動產生，不要手改；資料改了跑 `python tools/ura_roster.py` 重產) | `docs/ura_roster.md` |
-| 找程式碼 | 先用 CodeGraph（`codegraph_explore`），不要整份檔案讀 |
+| 每個版本做了什麼、踩過的坑 | `CHANGELOG.md` (最上面幾筆就好；0.38 以前在 `docs/changelog/`) |
 
-## 1. 專案概觀
-- 繁體中文的「東方 Project」主題 Discord 機器人，使用 `discord.py`（**需要 >= 2.6**，因為用了 Components V2；目前用 2.7.1）、`aiosqlite`、`python-dotenv`、`Pillow`。Python：筆電 3.11.9 / Pillow 11、桌機 3.14.0 / Pillow 13（2026-11-11 確認，兩台的 discord.py 2.7.1、aiosqlite 0.22.1 一樣）。顯示卡：筆電 RTX 4060 Laptop 8GB、桌機 RTX 5060 Ti 16GB（2026-11-12 換，生圖約筆電 2 倍快，兩台可以分工做卡面，見 `docs/card-art.md`）。
-- 功能：抽卡（gacha）、卡冊、卡牌合成 / 融合、道具背包、角色圖鑑、個人資料卡 + 每日簽到 + 運勢、管理員指令、日誌。
-- Repo 是**公開**的（GitHub：SKer001/TouHou-Discord-Bot），分支 `main`。圖片以 `raw.githubusercontent.com` 連結提供，剛 push 的圖片可能要等一下 GitHub 才抓得到（曾出現「載入圖片失敗」，實為 GitHub 延遲）。**Discord 會依網址快取圖片**：卡面重做後檔名不變的話 Discord 會一直顯示舊圖，所以 `build_cards.py` 寫進 Thumbnails.json 的網址會帶 `?v=<檔案雜湊>`（2026-10-31），圖一改網址就變。
-
-## 2. 專案結構（目前狀態）
-```
-Main.py                      入口；setup_hook 先 init_db() 再 init_item_db()，並自動載入 Cogs/load-*/ 下所有 .py
-README.md                    給人看的專案說明 (功能、指令、安裝、新增角色)
-CHANGELOG.md                 開發紀錄：版本號規則 + 每個版本做了什麼、遇到的問題與解法
-Utils/version.py             目前版本號 VERSION (開機時印在主控台與 log 頻道)
-TODO.md                      待做清單：UR/LR 重做、未做卡面的角色、TH07 之後的角色、經濟系統計畫
-ARCHITECTURE.md              程式架構與寫法規則 (分層、Cog / View / 資料層慣例、新增功能檢查清單)
-requirements.txt             套件清單：pip install -r requirements.txt
-tests/                       測試 (python tests/run_all.py)，見 `docs/testing.md`
-tools/botcli.py              指令列測試工具：假裝打指令、點按鈕、選選單；--live 會把畫面真的送到測試頻道，見 `docs/testing.md`
-tools/discord_peek.py        用機器人 Token 讀測試頻道最新訊息，把實機 V2 畫面印成文字，見 `docs/testing.md`
-tools/discord_rest.py        上面兩個工具共用的 Discord REST 小工具 (只用 REST，不連 Gateway)
-deploy/                      雲端部署：vm_ctl.py (VM 上)、handoff.py (本機 ⇄ 雲端交接)、install.sh、systemd/，見 `docs/deploy.md`
-tools/card_art/              卡面產生工具 (ComfyUI 生圖 → 蓋卡框 → 寫字 → 縮圖)，見 `docs/card-art.md`
-Characters/                  角色資料，一角色一檔：Main/ (主要主角)、TH01/ ~ TH06/ (各代)；圖鑑與卡池都讀這裡
-Database/
-  User_DB_Manager.py         玩家資料庫（Users.db）所有存取
-  Item_DB_Manager.py         道具資料庫（Item.db）所有存取
-  Economy_DB_Manager.py      經濟系統（神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳），資料也在 Users.db；所有數值常數都在檔案開頭
-  shrine_data.py             神社的遊戲資料：素材、料理配方、採集地點與事件、雜貨店價格、參拜客 (最愛、提示、台詞)
-  Ura_DB_Manager.py          🌀 裏世界的資料存取 (進行中的一局 ura_runs、倉庫、額外背包、紀錄、怪物圖鑑領獎 ura_bestiary_claims、出征鎖 gacha_cards.expedition)
-  ura/                       🌀 裏世界探索的遊戲引擎 (純邏輯，不 import discord、亂數由呼叫端注入)：rules / status / combat / run / fest (🎪 活動關卡：活動門、環境、活動 BOSS、活動保留格、活動法具) / bestiary (📖 怪物圖鑑：分區、解鎖、全收獎勵) / describe (職業特性、符卡、法具效果的白話說明；🔍 查看詳情與 tools/ura_roster.py 共用)；資料檔在 ura/data/*.json (敵人、狀態、符卡、道具、法具、寶物、事件、區域)，活動內容寫在 Events/*.json 的 `ura` 區塊；設計用模擬 tools/ura_sim/spells.py 直接呼叫它
-  events.py                  讀 Events/*.json，把進行中的活動跟 shrine_data 合併成當下規則 (game_rules)
-Events/                      活動資料檔，一個活動一檔 (th06_scarlet_mist.json = 紅霧異變)；README.md = 格式與所有預留位
-  Users.db / Item.db         SQLite 檔（開發階段 Users.db 也刻意推上 git，見第 5 節）
-  item.new.json              道具批次匯入用資料
-Cogs/
-  load-character/  character.py, Components/character_components.py   # 圖鑑
-  load-gacha/      gacha.py, Admin-gacha.py, Components/gacha_components.py   # 抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理
-  load-market/     market.py, Admin-market.py, Components/market_components.py   # 市值 / 分解 / 市場
-  load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard.py, Admin-item.py, Admin-user.py, Admin-shrine.py, Admin-event.py, Admin-trade.py, Components/general_components.py, shrine_components.py, trade_components.py, help_components.py, guide_components.py + guide/<分類>.py (📚 教學書，一個分類一本)
-  load-ura/        ura.py, Components/ura_components.py   # 🌀 裏世界探索 /ura (explore / resume / abandon / shop / inventory / status / bestiary)
-  load-system/     Admin-sys.py
-Utils/components.py          共用的 Components V2 通知工具（send_notice 等）
-Utils/picker.py              共用控制台 GroupPickerView：分組選單 ➔ 選項選單 (翻頁) ➔ 按鈕 (+ 預覽)；管理員稱號 / 名片、玩家修改稱號 / 名片都用（0.35.039）
-Utils/numbers.py             金額顯示 fmt_money() (一萬以上縮寫 1.5M / 12.35M，以下 5,000；2026-11-14 使用者定)：持有 / 餘額 / 累計 / 排行榜都用它；價格、花費、獎勵要看確切數字的照舊 f"{n:,}"。不要另寫縮寫
-Utils/guide.py               📚 教學書入口 open_guide()：各指令群組的 help 子指令 (/card help、/ura help…) 呼叫它
-Utils/thumbnails.py          Thumbnails.json 共用讀取 load_thumbnails() / thumbnail_url()（0.35.034 起 /help 用；其他 Cog 還有各自的舊寫法）
-Utils/stamina_modal.py       ⚡ 恢復體力彈窗（/profile 與神社採集畫面共用；每天最多吃 3 個體力道具）
-Utils/character_data.py      Characters/ 載入器：load_categories() / load_characters()，壞檔印警告並略過
-Utils/config.py              .env 設定：ADMIN_IDS 與 is_admin(user)
-Utils/reloader.py            模組重載 (/admin-sys reload 與主控台共用)
-Utils/console.py             主控台指令：機器人執行中可在終端機輸入 help / status / reload / sync / money / stamina / shutdown
-Logger/Logger.py             日誌與錯誤回報（需要 .env 的 LOG_CHANNEL_ID）
-images/                      專案根目錄；Thumbnails.json = {"角色id_階級": URL, "角色id": URL, ..., "fill": 預設圖URL}
-  Thumbnails/                Discord 用的縮圖 (460×640)：<角色id>_<階級>.png、fill.png
-  Original/Art/              沒有加框的角色原圖 <角色id>_<階級>.png (ComfyUI 生成、使用者挑選)
-  Original/Thumbnails/       fill.png 原圖、empty_greenscreen.jpg (使用者給的綠幕卡框，736×1024)、empty_greenscreen_hd.png (AI 放大版)、empty.png (去背後的空白卡框)
-```
-- Main.py 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Components.x import ...`（命名空間套件）。
-- **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾或專案根的 `Utils/`。
-- 畫面產生器的資料夾與檔名一律叫 `Components` / `*_components.py`（舊名 `Embeds` / `*_embeds.py` 已全部改掉）。
-- `.env` 需要 `DISCORD_TOKEN`、`LOG_CHANNEL_ID`、`ADMIN_IDS`（管理員 ID，逗號分隔；沒設定時所有管理員指令都不能用）、`NAMECARD_CHANNEL_ID`（名片原圖的私人頻道，2026-11-14 起）。`.env` 不進 git，換電腦要手動複製。`.gitignore` 有 `/.env`、`/Logger/Logs/`、`__pycache__/`、`/.vscode` 等。
-- 專案換行符為 **LF**（Windows 上 `core.autocrlf=true`，工作目錄可能是 CRLF，git 內部仍是 LF）。
-- Windows 主控台是 cp950，印 emoji 會 `UnicodeEncodeError`：執行 Python 時設 `PYTHONIOENCODING=utf-8`（例如 PowerShell：`$env:PYTHONIOENCODING = 'utf-8'; python Main.py`）。
-- CodeGraph（程式碼索引 MCP）安裝見 `docs/setup.md`；筆電已裝，桌機還沒裝。改了很多檔案後可以跑 `codegraph sync` 更新索引。
-
-## 3. Components V2 的做法與限制
-- **所有介面與通知一律用 Components V2**，不要再用 `discord.Embed` 或純文字 `content` 回覆。
-- 使用 `ui.LayoutView`、`ui.Container(accent_color=…)`、`ui.Section(TextDisplay, accessory=Thumbnail|Button)`、`ui.Separator`、`ui.ActionRow`。
-- **單則訊息最多 40 個元件**；V2 訊息不能帶 `content`/`embeds`，且一旦是 V2 之後只能以 V2 編輯。
-- 互動回呼寫成 `button.callback = self.xxx` 並在 `build()` 內重組畫面（`clear_items()` 後重新 `add_item`）；多種狀態（例如編輯 / 刪除確認 / 已刪除）放在同一個 View 用 `build(mode=...)` 切換。
-- 縮圖規則：依序查 `images/Thumbnails.json` 的 `角色id_階級` → `角色id` → `"fill"`，連 URL 都沒有就只顯示文字。卡牌畫面用該卡的階級（融合預覽用升階後的階級）；圖鑑角色頁在「🏷️ 卡牌階級」**每個階級一行、右側各放該階級的卡面縮圖**（`ui.Section` + `Thumbnail`；該階級沒有專屬卡面時退回角色圖 / fill），標題右側不放縮圖；角色一張專屬卡面都沒有時才照舊只在標題右側放一張（fill）。
-- **通知工具 `Utils/components.py`**：
-  - `send_notice(interaction, text, color=None, footer=None, ephemeral=True)`：自動判斷用 `response` 或 `followup` 送出，預設 ephemeral。
-  - `notice_container()` / `notice_view()`：需要自行加按鈕或嵌進其他畫面時使用。
-  - 色條依開頭 emoji 自動上色：❌/🚫/🗑️ 紅、⚠️ 橘、✅/🎁/✨/🟢 綠、↩️/✖️/⚙️ 灰，其他 blurple。
-- V2 畫面清單：`/card gacha`、`/card inventory`、`/card synthesis`、`/card fusion`、道具背包 `/inventory`（分類 + 分頁 + 跳頁 Modal）、`/character` 圖鑑（分類→角色→檔案頁）、`/profile`（含今日簽到狀態、運勢、簽到按鈕）、`/daily`、`/admin-item edit_item` 編輯控制台、`/admin-sys reload` 重載控制台、`/admin-gacha` 各畫面、Logger 重大事件通知，以及所有錯誤 / 成功提示。
-- **autocomplete 最多 25 個選項**：選項可能變多的地方一律「先選代數 (pool) → 再選角色」，選卡改用分頁選單畫面（每頁 20 張），不要直接用 autocomplete 列出卡牌。
-- 原本的 `/fortune` 已併入 `/profile`，已不存在。
-- 卡面相關（縮圖網址帶 `?v=`、卡框、分層合成、生圖流程）全部在 `docs/card-art.md`。
-
-## 4. 細節文件
-資料庫設計 ➔ `docs/database.md`；各 Cog 重點 ➔ `docs/cogs.md`；驗證方式 ➔ `docs/testing.md`；重構歷程 ➔ `docs/history.md`。
-- 最近一次測試：見 `docs/testing.md` 最後幾行（`python tests/run_all.py`）。
-
-## 5. 使用者的決定與工作習慣
-- **開發階段 `Database/Users.db` 刻意跟著推上 git**（雖然 repo 公開、內含玩家資料）。不要再建議移出追蹤或加入 `.gitignore`。
-  - Claude Code 的自動權限檢查可能會擋下「提交 / 推送 Users.db」，此時請使用者自己執行 git 指令，不要繞過。
-- 直接推到 `main`（個人專案，不開 PR）。
-- **版本號與開發紀錄（2026-11-05 使用者指定）**：版本格式 `X.XX.XXX`（大版本：新功能 / 新活動，開發階段為 0；第二段：功能改動、新 UI；最後三碼：瑣碎 commit）。**每次 commit 都要更新 `Utils/version.py` 並在 `CHANGELOG.md` 最上面補一筆**（做了什麼、遇到的問題與解法）。
-- **經濟系統的數值：使用者沒給的一定要先問，不要自己決定**（2026-11-05）。規格與待確認項目在 `TODO.md` 第 5 節。
-- 兩台電腦切換：離開前 `commit` + `push`，開始前 `pull`；**機器人同一時間只在一台上執行**（同一個 Token，且 Users.db 是二進位無法合併）。
-- **雲端上線後 (2026-11-17 部署檔已就緒，VM 照 `docs/deploy.md` 設定完才算上線)**：正式機器人在 Google Cloud VM 上跑 `online` 分支，玩家真實 DB 在私人儲存桶。本機要用正式 Token 跑 `python Main.py` 前**一定要先** `python deploy/handoff.py take`，用完 `release` 交回；git 裡的 `Database/Users.db` 只是測試資料。程式要上線：main 推完再 `python deploy/handoff.py deploy`。
-- **完成並測試通過後直接 commit + push 到 `main`，不用先問**（2026-10-28 使用者指示）。只有重大事件才先問，例如要開分支、改寫 git 歷史、刪除大量資料等。`Database/Users.db`、`Item.db` 有變動時也一起推。
-- **卡面：一個角色（或一張卡）定案後才 commit + push**（2026-10-30 使用者指示，避免 git 歷史塞滿試作圖）。試作、調參數、使用者還在挑圖或要求調整時都只留在本機；使用者說「定案」「推送」或明確表示這版 OK 才推。程式碼改動也跟著那次定案一起推。
-
-- **多 session 分工（2026-11-16 使用者決定）**：每個 session 只改自己負責的範圍，跨範圍的共用工具先跟統整 session 說一聲。
-  | session | 負責 | 主要檔案 |
-  |---|---|---|
-  | 統整（筆電，原本的 TouHou Bot design 對話） | 巡視整個系統、找各分支重複的系統改成共用、分派任務、整合測試 | `ARCHITECTURE.md`、`Utils/` 共用工具、`CLAUDE.md` / `docs/` |
-  | 卡面（筆電，用主資料夾，要 ComfyUI 與 gitignore 的字型） | 剩下的卡面 | `tools/card_art/`、`images/`（名片除外）、`TODO.md` 第 1 節 |
-  | 名片（桌機） | 角色名片「幻想鄉睡顏圖鑑」 | `images/Namecards*`、`Database/namecard_data.py`、`tools/card_art/upload_namecard.py` |
-  | 遊戲 / 關卡設計（筆電，自己的 worktree） | 玩法、經濟、活動、稱號 | `Cogs/`、`Database/`、`Events/`、`tests/` |
-  - **版本號最後才編（2026-11-16，三個 session 同時推，0.35.006 / 0.35.009 都撞過號）**：先 commit 內容（CHANGELOG 標題可以先寫 `## 0.XX.??? —`），推送前 `git pull --rebase` ➔ 看 main 最新的 `Utils/version.py` ➔ 才填上「最新 + 1」，`git commit --amend` 後馬上 push。push 被拒就再 pull 一次重編。CHANGELOG 衝突兩邊都保留。
-  - 推完跟統整 session 報一聲新增了什麼系統。
-
-## 6. 給 Claude Code 的工作守則
-- 動資料前先備份；遷移類工作**不得刪除或改動舊檔**。
-- 修改後保持 LF 換行；沿用既有的程式風格與繁體中文註解/文案（emoji 標題風格）。
-- 新增畫面或通知一律用 V2（優先用 `Utils/components.py`），注意 40 個元件上限，縮圖走 `Thumbnails.json`（角色_階級 → 角色 → `fill` 後備）。
-- 資料庫寫入涉及多表時用單一交易；日常領獎類操作用原子 `UPDATE … WHERE` 防重複；會消耗東西的操作先給確認畫面。
-- 使用者可能繞過 autocomplete 直接輸入值，指令內一定要再驗證一次。
-- 新 Cog 檔放進 `Cogs/load-*/`，不要留下舊的同名/過期檔案。
-- 不要在回覆中貼大量 URL；完成後簡述結果與下一步即可。
-- **文件樹**：CLAUDE.md 只放每次都要知道的事；細節寫進 `docs/` 對應的檔案，新主題就開新檔並加進上面的文件樹表格。
-
-## 7. 🧩 外掛 skill（Matt Pocock skill 包，2026-11-19 使用者決定）
-- 外掛 `mattpocock-skills@claude-plugins-official` 在專案 `.claude/settings.json` 啟用（**還沒確認真的會載入**，確認方式見 `docs/skills.md`），名字是 `mattpocock-skills:<skill>`；**27 個都不需要 MCP**。全部對照表在 `docs/skills.md`。
-- **🚫 這個專案不要用**（`.claude/settings.json` 的 `skillOverrides` 設成 `user-invocable-only`，Claude 不會自己觸發；萬一沒擋住也不要主動用，除非使用者自己打指令）：
-  - `pr`：不開 PR，直接推 main
-  - `code-review`：用內建的 `/code-review`
-  - `triage`、`to-spec`、`to-tickets`、`wayfinder`、`implement-spec`、`implement`：都要靠 issue 追蹤或規格單，本專案沒有
-  - `setup-matt-pocock-skills`：使用者決定不跑（會建 `docs/agents/*`、改這份文件）
-  - `domain-modeling`、`grill-with-docs`：會建 `GLOSSARY.md` / `docs/adr/`，跟上面的文件樹衝突；要 grill 用 `grill-me`
-- **🔥 動手前先 grill（2026-11-19 使用者決定，所有 session 都要照做，不靠外掛也要做）**：
-  - **要先 grill**：新功能、改玩法 / 數值、改畫面這類有設計決定的工作。動手前一輪一輪問使用者：每輪把「現在就能問的問題」編號列出、每題附上建議答案（措辭讓使用者回「好」就等於採用建議），等回答再問下一輪；查得到的事實自己查，不要問使用者；全部確認了才動手。外掛載入的話可以用 `grilling` skill，格式一樣。
-  - **不用 grill**：修 bug、小調整、轉達其他 session 的回報、使用者已經講得很清楚的指示 ➔ 直接做。
-  - 經濟數值本來就要先問（第 5 節），grill 時一併問。
-- 其他可以用；用的時候守這裡的規則：文件照文件樹放（`research` 結果存 `docs/`），**不要建 `GLOSSARY.md`、`docs/adr/`、`CONTEXT.md`**；`prototype` 不開分支、不貼 issue；`tdd` 照 `tests/` 的寫法（`check()` + `python tests/run_all.py`）；skill 的問句格式是英文也要用繁體中文問。
-- 外掛會自動更新：多了新 skill 時，統整 session 要更新 `docs/skills.md` 和這份清單。
+找程式碼：有裝程式碼索引 (CodeGraph，見 `docs/dev/setup.md`) 就先用它查，不要整份檔案讀。
+Windows 執行 Python 要設 `PYTHONIOENCODING=utf-8`；檔案一律 UTF-8、LF 換行。

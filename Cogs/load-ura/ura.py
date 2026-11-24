@@ -1,7 +1,7 @@
 """
 🌀 裏世界探索 /ura：出發 (選卡 ➔ 整裝 ➔ 出發)、探索 (選門、戰鬥、房間、背包)、接回、放棄、商店、倉庫、狀態表
 規則在 Database/ura/ (引擎)、存取在 Database/Ura_DB_Manager.py、畫面文字在 Components/ura_components.py
-(docs/ura.md「第二階段第一輪：畫面」)
+(docs/gameplay/ura.md「第二階段第一輪：畫面」)
 
 - 畫面全部私人 (ephemeral)；只有結算在頻道另外發一則公開的 (資料卡設成私人就不發)
 - 每個動作都帶進度版本號 rev 呼叫 ura.act()：連點、舊畫面只會成功一次，舊畫面按了會重新讀進度

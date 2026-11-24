@@ -53,7 +53,10 @@ def load_categories() -> dict:
     讀取 Characters/ 底下所有角色，依分類資料夾分組：
     {"Main": {"category_name": ..., "description": ..., "characters": [角色, ...]}, ...}
     分類內的角色依 id 排序；空分類不列出。
+    🙈 未公開卡池的資料夾 (Utils.gacha_pools.hidden_folders()) 不讀：沒開 SHOW_UNRELEASED 時那些角色整個當作不存在
     """
+    from Utils.gacha_pools import hidden_folders   # 放這裡：gacha_pools 會 import 本模組
+    hidden = hidden_folders()
     categories = {}
     if not os.path.isdir(CHARACTERS_DIR):
         print(f"❌ [Character Error] 找不到角色資料夾：{CHARACTERS_DIR}")
@@ -61,7 +64,7 @@ def load_categories() -> dict:
 
     for folder in sorted(os.listdir(CHARACTERS_DIR), key=_category_sort_key):
         folder_path = os.path.join(CHARACTERS_DIR, folder)
-        if not os.path.isdir(folder_path):
+        if not os.path.isdir(folder_path) or folder in hidden:
             continue
 
         characters = []

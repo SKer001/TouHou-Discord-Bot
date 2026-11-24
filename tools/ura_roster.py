@@ -1,5 +1,5 @@
 """
-🌀 裏世界：角色與敵人一覽 (自動產生 docs/ura_roster.md) + 同步角色檔的特殊能力說明
+🌀 裏世界：角色與敵人一覽 (自動產生 docs/gameplay/ura_roster.md) + 同步角色檔的特殊能力說明
 
 用法：python tools/ura_roster.py
 資料全部從 Characters/、Database/ura/data/*.json、Events/*.json 的 ura 區塊讀；改了數值重跑一次就好。
@@ -13,13 +13,14 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 開發工具：預設看得到未公開卡池 (同 tools/botcli.py)
 
 from Database import shrine_data   # noqa: E402
 from Database.ura import bestiary, data, rules   # noqa: E402
 from Database.ura.describe import CLASS_NOTE, num, pct, spell_note, spell_text   # noqa: E402
 from Utils.version import VERSION   # noqa: E402
 
-OUT = os.path.join(ROOT, "docs", "ura_roster.md")
+OUT = os.path.join(ROOT, "docs", "gameplay", "ura_roster.md")
 CLASS_ORDER = ["atk", "guard", "sup", "scout", "guide"]
 
 
@@ -106,7 +107,7 @@ def main():
     out = [
         "# 🌀 裏世界：角色與敵人一覽",
         "",
-        f"> 自動產生 (版本 {VERSION})：`python tools/ura_roster.py`。資料改了重跑一次就好，**不要手改這份**。規則細節看 `docs/ura.md`。",
+        f"> 自動產生 (版本 {VERSION})：`python tools/ura_roster.py`。資料改了重跑一次就好，**不要手改這份**。規則細節看 `docs/gameplay/ura.md`。",
         "",
         "## 📐 數值怎麼算",
         f"- **角色**：基礎數值 (N 階、完整度 0.65) × 階級倍率 ({'、'.join(f'{r} ×{num(m)}' for r, m in rules.RARITY_MULT.items())}) × 完整度倍率 (0.3 = ×0.8、0.65 = ×1.0、1.0 = ×1.2，線性)。完整度 > 0.8 符卡冷卻 × 0.9 (無條件捨去，最少 1)。",

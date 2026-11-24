@@ -3,6 +3,7 @@ import asyncio, os, sys, tempfile, types, sqlite3, json
 from datetime import datetime, timezone
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 專案根目錄
 sys.path.insert(0, ROOT); os.chdir(ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (Utils/config.py)
 import discord
 from discord.ext import commands
 from discord import app_commands

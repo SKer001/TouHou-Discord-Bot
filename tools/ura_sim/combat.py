@@ -1,5 +1,5 @@
 """⚠️ 已過時：舊版 (沒有符卡、BOSS ATK ×2、第 6 區後 +1)，留著對照用；現在用 tools/ura_sim/spells.py
-🌀 裏世界戰鬥模擬 (設計用，還沒有正式程式；規則見 docs/ura.md)
+🌀 裏世界戰鬥模擬 (設計用，還沒有正式程式；規則見 docs/gameplay/ura.md)
 只有普攻 + 道具，沒有符卡 / 法具 / 陷阱 / 事件。
 用法：python tools/ura_sim/combat.py [--sup-heal N]   (N = 輔助每 N 回合回血 30%，粗估回血符卡；0 = 沒有)
 """
@@ -10,7 +10,7 @@ import argparse
 
 SUP_HEAL = 0   # 輔助每幾回合回血 30% (粗估符卡)；0 = 沒有
 
-# ---------- 規則 (docs/ura.md) ----------
+# ---------- 規則 (docs/gameplay/ura.md) ----------
 def red(d):                      # DEF 減傷
     return 0.6 * (1 - math.exp(-d / 20))
 

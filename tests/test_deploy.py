@@ -13,7 +13,7 @@ def check(name, cond):
 
 # 🔄 要不要重啟：圖片本體、文件、測試、工具、.md 不用；程式、角色檔、images/*.json、部署檔要
 check("png only", not vm_ctl.needs_restart(["images/Thumbnails/reimu_N.png", "images/Original/Art/x.png"]))
-check("docs only", not vm_ctl.needs_restart(["docs/deploy.md", "CHANGELOG.md", "TODO.md", "tests/test_x.py", "tools/card_art/card.py"]))
+check("docs only", not vm_ctl.needs_restart(["docs/dev/deploy.md", "CHANGELOG.md", "TODO.md", "tests/test_x.py", "tools/card_art/card.py"]))
 check("empty", not vm_ctl.needs_restart(["", "  "]))
 check("cog", vm_ctl.needs_restart(["images/Thumbnails/a.png", "Cogs/load-gacha/gacha.py"]))
 check("thumbnails json", vm_ctl.needs_restart(["images/Thumbnails.json"]))

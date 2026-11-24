@@ -4,17 +4,31 @@
 import time
 
 from Utils.character_data import load_categories
+from Utils.config import SHOW_UNRELEASED
 
 # 🎰 卡池依代數劃分：每個卡池包含哪些 Characters/ 分類資料夾
 #    新增卡池 ➔ 在這裡加一筆，並把角色檔放進對應資料夾即可
 #    (卡池收集稱號是一個卡池兩個，新卡池要在 Database/title_data.py 補稱號)
 #    event_only = 平常不能抽，只有活動檔寫了 gacha.pool {"from": 這個卡池} 的活動進行中才能從「🎪 活動限定卡池」抽
 #      (2026-11-22 使用者定案：一般池只給舊作；卡池分類、保底、收集稱號、卡冊篩選都照這個卡池，不變)
-GACHA_POOLS = {
+#    released = False ➔ 🙈 未公開：.env 沒開 SHOW_UNRELEASED (Utils/config.py) 時整個當作不存在
+#      (GACHA_POOLS 不含它；它的資料夾的角色不會出現在圖鑑、卡池、稱號、名片選單、裏世界)。
+#      要公開 ➔ 把那一筆的 "released": False 刪掉 (或改成 True)。沒寫 = 已公開
+ALL_GACHA_POOLS = {
     "classic": {"name": "📜 舊作卡池", "desc": "主要主角 + TH01 ~ TH05", "folders": ["Main", "TH01", "TH02", "TH03", "TH04", "TH05"]},
     "th06":    {"name": "🔴 紅魔鄉卡池", "desc": "TH06 東方紅魔鄉", "folders": ["TH06"], "event_only": True},   # 紅霧異變期間開放
-    "th07":    {"name": "🌸 妖妖夢卡池", "desc": "TH07 東方妖妖夢", "folders": ["TH07"], "event_only": True},   # 春雪異變期間開放 (活動之後再設計)
+    "th07":    {"name": "🌸 妖妖夢卡池", "desc": "TH07 東方妖妖夢", "folders": ["TH07"], "event_only": True, "released": False},   # 春雪異變期間開放 (活動之後再設計)
 }
+
+# 對外一律用這個：公開的卡池 (開了 SHOW_UNRELEASED 就是全部)。完整定義只有判斷「哪些資料夾要藏」時才看 ALL_GACHA_POOLS
+GACHA_POOLS = {key: pool for key, pool in ALL_GACHA_POOLS.items() if SHOW_UNRELEASED or pool.get("released", True)}
+
+
+def hidden_folders() -> frozenset:
+    """🙈 未公開卡池的角色資料夾 (Utils.character_data.load_categories 會跳過)；也屬於公開卡池的資料夾不藏"""
+    shown = {folder for pool in GACHA_POOLS.values() for folder in pool["folders"]}
+    return frozenset(folder for key, pool in ALL_GACHA_POOLS.items() if key not in GACHA_POOLS
+                     for folder in pool["folders"] if folder not in shown)
 
 
 def load_gacha_pool() -> dict:

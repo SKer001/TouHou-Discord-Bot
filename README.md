@@ -145,8 +145,8 @@ images/Thumbnails.json   角色縮圖對照表 {"角色id": "圖片URL", "fill":
 1. 在 `Characters/<分類>/` 新增 `<角色id>.json`，格式可以參考 `Characters/Main/reimu.json`。
    - 檔名必須和 `id` 一致。
    - `special_powers.levels` 的階級必須和 `gacha.rarities` 一致。
-2. 若要開放抽取，把 `gacha.enabled` 設為 `true`，並確認該分類資料夾已列在 `Utils/gacha_pools.py` 的 `GACHA_POOLS` 中。
-   - 每位角色都要有裏世界符卡 (`Database/ura/data/spells.json`) 和 `ura_class`；加一整代角色要改的檔案見 `docs/new-characters.md`。
+2. 若要開放抽取，把 `gacha.enabled` 設為 `true`，並確認該分類資料夾已列在 `Utils/gacha_pools.py` 的 `ALL_GACHA_POOLS` 中 (標了 `"released": False` 的卡池要在 `.env` 設 `SHOW_UNRELEASED=1` 才看得到)。
+   - 每位角色都要有裏世界符卡 (`Database/ura/data/spells.json`) 和 `ura_class`；加一整代角色要改的檔案見 `docs/dev/new-characters.md`。
 3. （可選）在 `images/Thumbnails.json` 加入角色縮圖；沒有的話會使用 `fill` 預設圖。
 4. `/character` 會即時讀取新資料；抽卡需要用 `/admin-sys reload` 重新載入抽卡模組。
 
@@ -185,6 +185,7 @@ python tools/discord_peek.py -n 5 --bot-only
 機器人執行中，可以直接在終端機輸入指令（輸入 `help` 看全部）：`status`、`version`、`modules`、`reload all` / `reload <名稱>`（名稱可以只打一部分，例如 `reload shrine`）、`sync`、`money <玩家ID> <數量>`、`stamina <玩家ID> <數量>`、`shutdown`。
 
 ## 🔧 開發備註
+- 開發文件的總目錄在 `docs/README.md`（程式寫法 `ARCHITECTURE.md`、待做 `TODO.md`、開發紀錄 `CHANGELOG.md`）。
 - 新增模組：在 `Cogs/load-*/` 放入 `.py` 檔，並提供 `async def setup(bot)`。資料夾第一層的每個 `.py` 都會被當成模組載入，不要在那裡放非模組檔案。
 - 單則 Components V2 訊息最多 40 個元件，新增畫面時要注意。
 - 會消耗卡牌的操作（合成、融合、刪除）都在單一資料庫交易中完成，並先顯示確認畫面。

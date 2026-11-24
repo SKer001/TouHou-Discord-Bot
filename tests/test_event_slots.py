@@ -2,6 +2,7 @@
 import os, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 專案根目錄
 sys.path.insert(0, ROOT); os.chdir(ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (Utils/config.py)
 from Database import User_DB_Manager as udm
 import tempfile
 udm.DB_PATH = os.path.join(tempfile.mkdtemp(), "Users.db")

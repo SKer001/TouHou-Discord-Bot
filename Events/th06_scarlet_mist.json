@@ -126,7 +126,7 @@
          "desc": "從神社的廚房到紅魔館的地下室，這場異變的每個角落你都去過了。"}
     ],
     "ura": {
-        "_說明": "🌀 裏世界的活動內容 (格式見 Events/README.md「裏世界」；規則 docs/ura.md「活動融入」)",
+        "_說明": "🌀 裏世界的活動內容 (格式見 Events/README.md「裏世界」；規則 docs/gameplay/ura.md「活動融入」)",
         "environment": {
             "name": "紅霧",
             "emoji": "🌫️",

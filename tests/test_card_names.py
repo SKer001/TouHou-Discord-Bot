@@ -2,6 +2,7 @@
 import asyncio, os, sys, tempfile, sqlite3
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # 專案根目錄
 sys.path.insert(0, ROOT)
+os.environ.setdefault("SHOW_UNRELEASED", "1")   # 🙈 測試預設看得到未公開卡池 (Utils/config.py)
 os.chdir(ROOT)
 from Database import User_DB_Manager as udm
 from Database import Economy_DB_Manager as econ

@@ -1,6 +1,6 @@
 # 🗄️ 資料庫設計 (Users.db / Item.db / 角色資料 / 卡牌 ID)
 
-> 從 `CLAUDE.md` 拆出來的細節文件 (2026-11-11)。要做這方面的工作時才讀；改了內容記得一起更新。
+> 從專案交接文件拆出來的細節文件 (2026-11-11)。要做這方面的工作時才讀；改了內容記得一起更新。
 
 ### Users.db（`User_DB_Manager.py`）
 - `connect()`：`aiosqlite`、`row_factory=aiosqlite.Row`、`PRAGMA foreign_keys=ON`。
@@ -29,7 +29,7 @@
 - 體力：`users.stamina`（預設 240）、`users.stamina_updated_at`（UTC ISO）。**不用背景排程**，每次讀取 / 使用 / 回復時才結算：
   - `calc_stamina(stored, updated_at, now)` 純計算：每 6 分鐘 +1，自然回復只到 240（`STAMINA_MAX`），零頭保留；超過 240（道具）時不再自然回復；已滿時時鐘停在現在。回傳 `stamina / max / updated_at / next_in / full_in`。
   - `get_stamina`（唯讀）、`spend_stamina(user_id, n)`（不夠不扣，回傳 `ok=False`）、`add_stamina(user_id, n)`（可超過 240，扣到 0 為止），寫入都用 `BEGIN IMMEDIATE`。
-  - 採集會消耗體力（見 `docs/cogs.md` 神社廚房）；回復靠道具：`use_stamina_item(user_id, item_id, restore, qty=1, now=None)` 在同一個交易裡背包 -qty、體力 +restore×qty（可超過 240）、今天吃的數量 +qty；失敗 `ok=False` + `reason`（`not_owned` 背包不夠 / `daily_limit` 今天額度不夠 / `bad_qty`）什麼都不改，回傳含 `before` / `left` / `used` / `daily_left`。
+  - 採集會消耗體力（見 `docs/gameplay/cogs.md` 神社廚房）；回復靠道具：`use_stamina_item(user_id, item_id, restore, qty=1, now=None)` 在同一個交易裡背包 -qty、體力 +restore×qty（可超過 240）、今天吃的數量 +qty；失敗 `ok=False` + `reason`（`not_owned` 背包不夠 / `daily_limit` 今天額度不夠 / `bad_qty`）什麼都不改，回傳含 `before` / `left` / `used` / `daily_left`。
   - **每日上限（0.35.000）**：`STAMINA_ITEM_DAILY_LIMIT = 3`（含簽到的 🍙），`users.stamina_item_day`（台灣日期）+ `users.stamina_item_used`（那天吃了幾個）；`stamina_items_left(day, used, now)` 純計算、`get_stamina_item_left(user_id)` 唯讀。
 - 背包：`adjust_item(user_id, item_id, delta)`（管理員給予 / 扣除用：扣完小於 0 不寫入回 `ok=False`、剛好 0 移除，回傳 `before/after`）；`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
 - 合成 / 融合：`transform_cards(user_id, instance_ids, build_new_card, count_fusion=False)`
@@ -37,7 +37,7 @@
   - 素材已不屬於玩家、重複 ID、驗證失敗都會回滾並丟 `ValueError`；連點或兩個確認畫面同時按只會成功一次。
 - 玩家 `inventory` 欄位是 JSON 字串（`{"道具id": 數量}`），讀取時需處理 str/dict 兩種型別。
 
-### 🌀 裏世界探索（`Ura_DB_Manager.py`，資料也在 Users.db；規則全在引擎 `Database/ura/`，見 `docs/ura.md`）
+### 🌀 裏世界探索（`Ura_DB_Manager.py`，資料也在 Users.db；規則全在引擎 `Database/ura/`，見 `docs/gameplay/ura.md`）
 - `ura_runs(user_id PK, rev, state TEXT, channel_id, message_id, started_at, updated_at)`：進行中的一局 (一人最多一局)，`state` = 引擎的 run dict (JSON)。
   - `act(uid, rev, fn)`：`BEGIN IMMEDIATE` ➔ 讀進度 ➔ rev 不對回 `stale` ➔ `fn(state, rng)` (回字串 = 失敗原因，不存) ➔ `UPDATE … SET rev = rev + 1 WHERE user_id = ? AND rev = ?`；連點、舊畫面都只會成功一次。亂數用 `run.action_rng(state)` (seed + 第幾個動作)。
   - 這局結束 (撤離 / 失敗 / 放棄) 就在同一個交易裡結算 (`_settle`)：發賽錢 + 經驗 (`calc_exp_change`)、素材進 `users.inventory`、道具 / 寶物進倉庫、扣完整度 (卡已經不在也不會失敗)、解除出征鎖、更新 `ura_records`、記 `player_stats` (撤離次數；擊殺數 0.35.103 起改在每一步記)、刪掉這一局；回傳的結算多一個 `dex_new` (這局第一次打倒、圖鑑新登錄的敵人)。
@@ -70,18 +70,18 @@
   | `reimu_onigiri` | 🍙 陰陽梅干飯糰 | 60（每日簽到贈送 1 個，`DAILY_REWARD_ITEM`） |
   - 🍙 只靠簽到；🍡 🫖 🍄 和 0.35.000 新增的 `onsen_zosui` 🍲 溫泉蛋雜炊 (60)、`hell_nabe` 🫕 地獄鍋 (150) 都是**體力料理**，在料理畫面用素材做（`shrine_data.STAMINA_RECIPES`，一鍋 1 份；新的兩個定義在 `shrine_data.STAMINA_DISH_ITEMS`，開機時 `managed_items` 補進 Item.db）。`Database/item.new.json` 是全部道具的批次匯入範本。
   - 0.35.000 新增的 12 種素材與 13 道招待料理也在 `shrine_data.MATERIAL_ITEMS` / `DISH_ITEMS`（開機自動補進 Item.db）。
-  - **🍱 招待料理（`cuisine`，v0.26.000，名稱與說明由 Claude 依東方梗自訂，使用者同意）**：`effect.serve` = `food` / `drink` / `dessert`（`SERVE_TYPES`），招待參拜客用；目前沒有取得方式（之後跟素材副本一起做）。食物：`mystia_lamprey` 🍢 夜雀烤八目鰻、`ran_inari` 🍣 八雲特製豆皮壽司、`nitori_cucumber` 🥒 河童冰鎮小黃瓜；茶水：`reimu_bancha` 🍵 博麗神社粗茶、`eirin_herbal_tea` 🌿 永遠亭藥草茶、`suika_amazake` 🍶 伊吹甘酒；點心：`eientei_tsukimi_dango` 🌕 月見糰子、`cirno_kakigori` 🍧 琪露諾特製刨冰、`alice_cookie` 🍪 人偶師的手工餅乾。
+  - **🍱 招待料理（`cuisine`，v0.26.000，名稱與說明由 AI 助手依東方梗自訂，使用者同意）**：`effect.serve` = `food` / `drink` / `dessert`（`SERVE_TYPES`），招待參拜客用；目前沒有取得方式（之後跟素材副本一起做）。食物：`mystia_lamprey` 🍢 夜雀烤八目鰻、`ran_inari` 🍣 八雲特製豆皮壽司、`nitori_cucumber` 🥒 河童冰鎮小黃瓜；茶水：`reimu_bancha` 🍵 博麗神社粗茶、`eirin_herbal_tea` 🌿 永遠亭藥草茶、`suika_amazake` 🍶 伊吹甘酒；點心：`eientei_tsukimi_dango` 🌕 月見糰子、`cirno_kakigori` 🍧 琪露諾特製刨冰、`alice_cookie` 🍪 人偶師的手工餅乾。
 - 動到真實資料前的備份放在 `Database/backups/`（已加入 `.gitignore`，只留在本機）。
 
 - 管理員卡冊操作：`delete_gacha_cards(user_id, ids)`、`update_cards_completeness(user_id, ids, value)`，都只動該玩家自己的卡並回傳實際影響張數。
 - 清空卡冊：`clear_gacha_cards(user_id)` / `clear_all_gacha_cards()`（全部玩家）都走 `_clear_cards`，同一個交易：刪卡冊 + 收藏冊 (`expedition = 0`)、`market_listings`（連同 `notify_listings` 的快照）、`gacha_pity.since_ur` 歸零；回傳 `{"cards", "listings", "skipped"}`（skipped = 🌀 出征中沒刪的張數）。確認畫面先用 `count_gacha_clear(user_id=None)` 算人數 / 張數。
 
 ### 角色資料（`Characters/<分類>/<id>.json`）
-- 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`ura_class`（裏世界職業 atk / guard / sup / scout / guide）、`base_stats{hp, atk, def}`（裏世界 N 階數值，見 `docs/ura.md`）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。
+- 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`ura_class`（裏世界職業 atk / guard / sup / scout / guide）、`base_stats{hp, atk, def}`（裏世界 N 階數值，見 `docs/gameplay/ura.md`）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。
 - SP 等級名稱 = `Easy・初陣` / `Lunatic・瘋狂` / `Phantasm・幻象` + `・` + SP 名稱；`spent` 是 B 點消耗（B 點系統尚未實作）。`type`、`spent`、`cooldown`、`desc` 目前只用於圖鑑顯示。
 - 有裏世界符卡的角色，`special_powers.levels.*.desc` = 那一級的符卡效果，由 `python tools/ura_roster.py` 從 `Database/ura/data/spells.json` 同步 (不要手改；圖鑑執行時也直接從同一份資料產生，2026-11-22)。
 - 驗證：檔名必須等於 `id`、`special_powers.levels` 的鍵必須等於 `gacha.rarities`。分類顯示名稱在 `Utils/character_data.py` 的 `CATEGORY_INFO`。
-- 舊作角色、大妖精、小惡魔的介紹與 SP 名稱是 Claude 依風格自訂的，使用者尚未確認。
+- 舊作角色、大妖精、小惡魔的介紹與 SP 名稱是 AI 助手依風格自訂的，使用者尚未確認。
 
 ### 卡牌 ID
 - 格式 `c_<角色uuid前4碼>_<隨機hex>`。`instance_id` 是**全域主鍵**，隨機段為 **12 碼**；舊的 8 碼 ID 仍有效。合成的新卡沿用素材 ID 的前綴，融合的新卡用卡池中的 uuid。
