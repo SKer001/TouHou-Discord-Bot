@@ -2,42 +2,47 @@
 
 > 從專案交接文件拆出來的細節文件 (2026-11-11)。要做這方面的工作時才讀；改了內容記得一起更新。
 
-### Users.db（`User_DB_Manager.py`）
-- `connect()`：`aiosqlite`、`row_factory=aiosqlite.Row`、`PRAGMA foreign_keys=ON`。
-- 資料表：
+> 📦 **入口 ➔ 實作在哪裡 (1.00.001 / 1.00.002 起)**：`Database/User_DB_Manager.py`、`Database/Economy_DB_Manager.py` 只是入口，外面照舊 `udm.X` / `econ.X` 匯入；函式與資料表實際寫在子模組 (下面各小節標出所在檔案)：
+> - `Database/users/`：`schema.py` (資料表 `SCHEMA_STATEMENTS` (經濟、裏世界、活動任務的表也在這裡)、`USERS_EXTRA_COLUMNS`、賽錢觸發器 `MONEY_TRIGGERS`、`STARTING_MONEY`、`connect`、`_ensure_user`、`init_db`)、`core.py` (玩家資料、賽錢 / 經驗、簽到、背包、排行榜、`player_stats`、活動任務計數、體力)、`titles.py` (稱號、角色名片)、`cards.py` (抽卡、保底、合成 / 融合、管理員卡冊操作)
+> - `Database/economy/`：`common.py` (神社數值常數、`economy_meta` 小工具)、`event_state.py` (活動狀態、`_active_events`、`get_rules`)、`shrine.py` (神社經營、`get_shrine`)、`gather.py` (打工、採集 / 料理 / 雜貨店 / 招待)、`market_value.py` (浮動市值)、`market.py` (分解、市場 `get_listings` / `expire_listings`、轉帳)
+> - 其他 `*_DB_Manager.py` (`Ura_` / `Quest_` / `Notify_` / `Item_`) 沒有拆，實作就在檔案本身。
+
+### Users.db（入口 `User_DB_Manager.py`，實作在 `Database/users/`）
+- `connect()` (`users/schema.py`)：`aiosqlite`、`row_factory=aiosqlite.Row`、`PRAGMA foreign_keys=ON`。
+- 資料表 (定義都在 `users/schema.py` 的 `SCHEMA_STATEMENTS`)：
   - `users(user_id PK, money DEFAULT 50000 (新玩家起步 `STARTING_MONEY`，2026-11-23 起由 `_ensure_user` 直接寫入；舊資料庫欄位預設還是 1000), level, exp, last_daily TEXT, fortune_level INTEGER DEFAULT NULL, inventory TEXT DEFAULT '{}', created_at, is_public DEFAULT 1, stamina DEFAULT 240, stamina_updated_at TEXT)`
   - `gacha_pity(user_id, pool, total_draws, since_ur, last_ur_at)`，主鍵 `(user_id, pool)`
   - `gacha_stats(user_id PK → users ON DELETE CASCADE, total_draws, total_fusions)`
-  - `player_stats(user_id, stat, value)` PK (user_id, stat)：通用計數器 (2026-11-14 起)，項目在 `udm.PLAYER_STATS`：serve / serve_favorite (額外端上客人最愛的料理) / explore (趟) / youkai / cook (鍋) / clean / collect_money (累計回收金額) / shop；0.35.001 起每種客人另外有 `serve_guest:<客人>` (招待次數) / `serve_fav:<客人>` (成功招待次數)，客人稱號用；0.35.003 起每個採集地點有 `explore:<地點>` (趟數)，足跡稱號用；0.35.005 起運氣稱號用的 `explore_good` / `explore_bad`、`fortune_5` / `fortune_0`、`gacha_pity` (觸發保底張數)、`tenpull_2ur:<卡池>` (90 抽內就出 UR 的次數；2026-11-22 前是一次十連出 2 張以上 UR，名稱沿用、舊次數照算)；0.35.007 起美食家稱號用的 `cook:<料理>` (每道料理的鍋數)、`eat_stamina` (吃了幾個體力道具，含飯糰)；0.35.083 起裏世界的 `ura_runs` / `ura_evacuated` / `ura_kill:<敵人>` (打倒 / 勸走隻數；0.35.103 起 `Ura_DB_Manager.act` 每一步就記，全滅 / 放棄那一場也算；📖 怪物圖鑑與圖鑑稱號用)。`earned_titles` 除了活動任務稱號，也存踏破這類 `keep` 稱號 (`save_earned_titles`)。寫入用 `add_player_stat(db, uid, stat, n)` (在呼叫端交易裡)，讀 `get_player_stats(uid)`；稱號統計的鍵是 `ps:<項目>`。
+  - `player_stats(user_id, stat, value)` PK (user_id, stat)：通用計數器 (2026-11-14 起)，項目在 `udm.PLAYER_STATS`：serve / serve_favorite (額外端上客人最愛的料理) / explore (趟) / youkai / cook (鍋) / clean / collect_money (累計回收金額) / shop；0.35.001 起每種客人另外有 `serve_guest:<客人>` (招待次數) / `serve_fav:<客人>` (成功招待次數)，客人稱號用；0.35.003 起每個採集地點有 `explore:<地點>` (趟數)，足跡稱號用；0.35.005 起運氣稱號用的 `explore_good` / `explore_bad`、`fortune_5` / `fortune_0`、`gacha_pity` (觸發保底張數)、`tenpull_2ur:<卡池>` (90 抽內就出 UR 的次數；2026-11-22 前是一次十連出 2 張以上 UR，名稱沿用、舊次數照算)；0.35.007 起美食家稱號用的 `cook:<料理>` (每道料理的鍋數)、`eat_stamina` (吃了幾個體力道具，含飯糰)；0.35.083 起裏世界的 `ura_runs` / `ura_evacuated` / `ura_kill:<敵人>` (打倒 / 勸走隻數；0.35.103 起 `Ura_DB_Manager.act` 每一步就記，全滅 / 放棄那一場也算；📖 怪物圖鑑與圖鑑稱號用)。`earned_titles` 除了活動任務稱號，也存踏破這類 `keep` 稱號 (`save_earned_titles`)。寫入用 `add_player_stat(db, uid, stat, n)` (在呼叫端交易裡)，讀 `get_player_stats(uid)` (兩個和 `PLAYER_STATS` 都在 `users/core.py`；`save_earned_titles` 在 `users/titles.py`)；稱號統計的鍵是 `ps:<項目>`。
 - 🎪 **活動任務** (0.34.000，`Database/Quest_DB_Manager.py`)：
-  - `event_quest_stats(user_id, run, stat, value)` PK (user_id, run, stat)：活動進行中才記的計數。`run` = `udm.event_run_id(活動 id, started_at)` = `活動 id:開始時間` (auto_start 沒有紀錄 = `活動 id:auto`)，重開活動 ➔ 新的 run。`stat`：`explore:<地點>`、`cook:<料理>`、`serve_guest:<客人>`、`serve_event_dish`、`serve_favorite`、`gacha_event_pool`、`daily`；🌀 裏世界 (0.35.090)：`ura_kill:<敵人>` (`Ura_DB_Manager.act` 每一步比對打倒數，含還在打的那一場)、`ura_fest_boss` (那個活動的活動 BOSS，per_event)、`ura_fest_treasure` (成功撤離帶出的那個活動的活動寶物，per_event)、`ura_evacuate` (成功撤離)。寫入用 `udm.add_quest_stats(db, uid, now, stats, per_event)` (在呼叫端交易裡；`udm._event_runs` 判斷哪些活動進行中，跟 `econ._active_events` 同一套規則但不寫入)。
+  - `event_quest_stats(user_id, run, stat, value)` PK (user_id, run, stat)：活動進行中才記的計數。`run` = `udm.event_run_id(活動 id, started_at)` = `活動 id:開始時間` (auto_start 沒有紀錄 = `活動 id:auto`)，重開活動 ➔ 新的 run。`stat`：`explore:<地點>`、`cook:<料理>`、`serve_guest:<客人>`、`serve_event_dish`、`serve_favorite`、`gacha_event_pool`、`daily`；🌀 裏世界 (0.35.090)：`ura_kill:<敵人>` (`Ura_DB_Manager.act` 每一步比對打倒數，含還在打的那一場)、`ura_fest_boss` (那個活動的活動 BOSS，per_event)、`ura_fest_treasure` (成功撤離帶出的那個活動的活動寶物，per_event)、`ura_evacuate` (成功撤離)。寫入用 `udm.add_quest_stats(db, uid, now, stats, per_event)` (在呼叫端交易裡；`udm._event_runs` 判斷哪些活動進行中，跟 `econ._active_events` 同一套規則但不寫入；前兩個在 `users/core.py`，`econ._active_events` 在 `economy/event_state.py`)。
   - `event_quest_claims(user_id, run, quest_id, event_id, claimed_at)` PK (user_id, run, quest_id)：領取紀錄 (防重複)。
-  - `earned_titles(user_id, title_id, earned_at)` PK (user_id, title_id)：永久獲得的稱號 (活動任務稱號)，`udm.get_earned_titles`；寫入在 `qdm._grant_titles` (領取時，以及打開 `/event quest` 時補發已達標的)；`get_title_state` 與通知 loop 都算進已解鎖。
+  - `earned_titles(user_id, title_id, earned_at)` PK (user_id, title_id)：永久獲得的稱號 (活動任務稱號)，`udm.get_earned_titles` (`users/titles.py`)；寫入在 `qdm._grant_titles` (領取時，以及打開 `/event quest` 時補發已達標的)；`get_title_state` 與通知 loop 都算進已解鎖。
   - 函式：`get_quest_board(uid, now)`、`claim_quest(uid, 活動, 任務, now)` (reason：not_active / not_found / not_done / claimed)、`pending_reminders(now)`；純計算 `events.quest_progress` / `quest_need` / `quest_goal` / `validate_quests`、`qdm.build_quests` / `remind_due`。
-- `gacha_cards(instance_id TEXT PK, user_id → users ON DELETE CASCADE, character_key, name, emoji, rarity, title, completeness REAL, obtained_at, locked INTEGER DEFAULT 0, expedition INTEGER DEFAULT 0)`（`locked = 1` = 放在收藏冊；`expedition = 1` = 🌀 裏世界出征中 (0.35.083，跟 locked 分開)；`get_user_cards(uid)` 預設兩種都不含，`include_locked=True` 才全部；`get_album_cards` / `set_cards_locked`；出征中的卡分解、上架、合成、融合、收藏冊、管理員刪卡 / 清空 / 改完整度都碰不到），索引 `idx_gacha_cards_user`
+- (`users/cards.py`) `gacha_cards(instance_id TEXT PK, user_id → users ON DELETE CASCADE, character_key, name, emoji, rarity, title, completeness REAL, obtained_at, locked INTEGER DEFAULT 0, expedition INTEGER DEFAULT 0)`（`locked = 1` = 放在收藏冊；`expedition = 1` = 🌀 裏世界出征中 (0.35.083，跟 locked 分開)；`get_user_cards(uid)` 預設兩種都不含，`include_locked=True` 才全部；`get_album_cards` / `set_cards_locked`；出征中的卡分解、上架、合成、融合、收藏冊、管理員刪卡 / 清空 / 改完整度都碰不到），索引 `idx_gacha_cards_user`
     - (`gacha_stats` 有 `total_draws` / `total_fusions` / `total_synths`；合成次數 0.31.002 才開始記)
-    - (玩家稱號是另一回事：`users.equipped_title` 存戴著的稱號 id，清單在 `Database/title_data.py`；`get_title_stats` / `get_title_state` / `set_equipped_title`；`users.best_money` = 曾經持有過的最高賽錢 (財富稱號；由觸發器 `trg_best_money_update` / `trg_best_money_insert` 維護，任何地方改 money 都會跟上；剛補欄位時用當下餘額回填)；`users.granted_titles` = 管理員給的稱號 (逗號分隔，不管條件，`get_title_state` 會一起列進已解鎖)，`get_granted_titles` / `set_granted_title`)
-    - 🖼️ **角色名片** (0.33.000)：`namecards(user_id, character_key, obtained_at, source)`，PK `(user_id, character_key)`，source = `'oshi'` (推角稱號解鎖) / `'admin'` (管理員給)；`users.equipped_namecard` = 戴著的名片角色 id (NULL = 不放；`USERS_EXTRA_COLUMNS` 自動補欄位)。函式：`sync_oshi_namecards(user_id, unlocked_title_ids)` (INSERT OR IGNORE，`get_title_state` 會呼叫；通知 loop 用內部的 `_sync_oshi_namecards(db, ...)` 一次補完所有玩家)、`get_namecards` (依取得時間)、`grant_namecard(user_id, cid, source)`、`revoke_namecard` (正戴著就卸下)、`set_equipped_namecard(user_id, cid | None)` (沒擁有回 False，一句 `UPDATE … WHERE EXISTS` 原子檢查)、`get_namecard_state` ➔ `{"equipped", "owned"}` (戴著的已不在擁有清單 ➔ None)。推角稱號只算收藏冊：`TITLE_OWNED_CARDS_SQL` 的 `album_best` = `MAX(CASE WHEN locked = 1 THEN completeness END)`。 名片的名稱與說明 (不在資料庫)：`Database/namecard_data.py` 的 `NAMECARDS = {角色: {name, desc}}`。
-    - `name` / `emoji` / `title` 只是寫入當下的副本：讀卡時 (`get_user_cards`、`transform_cards`、`econ.get_listings`、通知的上架清單) 一律用 `Utils.character_data.apply_current_names` 換成目前角色檔的內容，角色改名、改稱號後舊卡跟著變 (角色檔快取 60 秒；角色檔刪掉才顯示副本)。2026-11-13 起。
-- 缺欄位用 `USERS_EXTRA_COLUMNS` 自動補。
-- 主要函式：`get_or_create_user`、`add_money`、`add_exp`（升級回傳 `leveled_up/old_p/new_p/is_max/new_level`；純計算在 `calc_exp_change(level, exp, n)`，同一個交易裡要給經驗值時用它）、`get_required_exp_for_level`、`get_total_exp_for_level`、`reset_daily`、`update_daily_time`、`add_item`、`update_user_inventory`、`get_leaderboard_stats(user_ids)`、`update_visibility`。
-- 簽到：`get_daily_status(user_id, today)`（唯讀，不替對方建資料）、`claim_daily(user_id, today, fortune_level)`（原子 `UPDATE … WHERE last_daily IS NULL OR last_daily != today`，連點/雙視窗只有一次成功）。
-- 抽卡：`get_user_cards(user_id)`（依 rowid 排序）、`get_gacha_stats(user_id)`。
+    - (玩家稱號是另一回事 (函式在 `users/titles.py`，觸發器在 `users/schema.py`)：`users.equipped_title` 存戴著的稱號 id，清單在 `Database/title_data.py`；`get_title_stats` / `get_title_state` / `set_equipped_title`；`users.best_money` = 曾經持有過的最高賽錢 (財富稱號；由觸發器 `trg_best_money_update` / `trg_best_money_insert` 維護，任何地方改 money 都會跟上；剛補欄位時用當下餘額回填)；`users.granted_titles` = 管理員給的稱號 (逗號分隔，不管條件，`get_title_state` 會一起列進已解鎖)，`get_granted_titles` / `set_granted_title`)
+    - 🖼️ **角色名片** (0.33.000，函式在 `users/titles.py`)：`namecards(user_id, character_key, obtained_at, source)`，PK `(user_id, character_key)`，source = `'oshi'` (推角稱號解鎖) / `'admin'` (管理員給)；`users.equipped_namecard` = 戴著的名片角色 id (NULL = 不放；`USERS_EXTRA_COLUMNS` 自動補欄位)。函式：`sync_oshi_namecards(user_id, unlocked_title_ids)` (INSERT OR IGNORE，`get_title_state` 會呼叫；通知 loop 用內部的 `_sync_oshi_namecards(db, ...)` 一次補完所有玩家)、`get_namecards` (依取得時間)、`grant_namecard(user_id, cid, source)`、`revoke_namecard` (正戴著就卸下)、`set_equipped_namecard(user_id, cid | None)` (沒擁有回 False，一句 `UPDATE … WHERE EXISTS` 原子檢查)、`get_namecard_state` ➔ `{"equipped", "owned"}` (戴著的已不在擁有清單 ➔ None)。推角稱號只算收藏冊：`TITLE_OWNED_CARDS_SQL` 的 `album_best` = `MAX(CASE WHEN locked = 1 THEN completeness END)`。 名片的名稱與說明 (不在資料庫)：`Database/namecard_data.py` 的 `NAMECARDS = {角色: {name, desc}}`。
+    - `name` / `emoji` / `title` 只是寫入當下的副本：讀卡時 (`get_user_cards`、`transform_cards` (`users/cards.py`)、`econ.get_listings` (`economy/market.py`)、通知的上架清單) 一律用 `Utils.character_data.apply_current_names` 換成目前角色檔的內容，角色改名、改稱號後舊卡跟著變 (角色檔快取 60 秒；角色檔刪掉才顯示副本)。2026-11-13 起。
+- 缺欄位用 `USERS_EXTRA_COLUMNS` 自動補 (`users/schema.py`)。
+- 主要函式 (`users/core.py`)：`get_or_create_user`、`add_money`、`add_exp`（升級回傳 `leveled_up/old_p/new_p/is_max/new_level`；純計算在 `calc_exp_change(level, exp, n)`，同一個交易裡要給經驗值時用它）、`get_required_exp_for_level`、`get_total_exp_for_level`、`reset_daily`、`update_daily_time`、`add_item`、`update_user_inventory`、`get_leaderboard_stats(user_ids)`、`update_visibility`。
+- 簽到 (`users/core.py`)：`get_daily_status(user_id, today)`（唯讀，不替對方建資料）、`claim_daily(user_id, today, fortune_level)`（原子 `UPDATE … WHERE last_daily IS NULL OR last_daily != today`，連點/雙視窗只有一次成功）。
+- 抽卡 (`users/cards.py`)：`get_user_cards(user_id)`（依 rowid 排序）、`get_gacha_stats(user_id)`。
   - **祈願一律用 `draw_gacha(user_id, pool, draw_count, cost, roll_cards)`**：`BEGIN IMMEDIATE` → 查賽錢（不足丟 `InsufficientFunds`，什麼都不寫）→ 讀該卡池保底 → `roll_cards(since_ur)` 擲卡 → 扣款、寫卡、累加 `total_draws`、更新保底，全部同一個交易。卡上的 `pity` / `lucky` 只用來記運氣稱號的統計，不寫進卡牌表。
   - `add_gacha_cards(user_id, cards, draw_count=None)`：直接寫卡（管理員發放用 `draw_count=0`）。寫卡共用內部的 `_insert_cards` / `_add_draws`。
   - 保底表 `gacha_pity(user_id, pool, total_draws, since_ur, last_ur_at)`；`get_gacha_pity(user_id)`。
-- 體力：`users.stamina`（預設 240）、`users.stamina_updated_at`（UTC ISO）。**不用背景排程**，每次讀取 / 使用 / 回復時才結算：
+- 體力 (`users/core.py`)：`users.stamina`（預設 240）、`users.stamina_updated_at`（UTC ISO）。**不用背景排程**，每次讀取 / 使用 / 回復時才結算：
   - `calc_stamina(stored, updated_at, now)` 純計算：每 6 分鐘 +1，自然回復只到 240（`STAMINA_MAX`），零頭保留；超過 240（道具）時不再自然回復；已滿時時鐘停在現在。回傳 `stamina / max / updated_at / next_in / full_in`。
   - `get_stamina`（唯讀）、`spend_stamina(user_id, n)`（不夠不扣，回傳 `ok=False`）、`add_stamina(user_id, n)`（可超過 240，扣到 0 為止），寫入都用 `BEGIN IMMEDIATE`。
   - 採集會消耗體力（見 `docs/gameplay/cogs.md` 神社廚房）；回復靠道具：`use_stamina_item(user_id, item_id, restore, qty=1, now=None)` 在同一個交易裡背包 -qty、體力 +restore×qty（可超過 240）、今天吃的數量 +qty；失敗 `ok=False` + `reason`（`not_owned` 背包不夠 / `daily_limit` 今天額度不夠 / `bad_qty`）什麼都不改，回傳含 `before` / `left` / `used` / `daily_left`。
   - **每日上限（0.35.000）**：`STAMINA_ITEM_DAILY_LIMIT = 3`（含簽到的 🍙），`users.stamina_item_day`（台灣日期）+ `users.stamina_item_used`（那天吃了幾個）；`stamina_items_left(day, used, now)` 純計算、`get_stamina_item_left(user_id)` 唯讀。
-- 背包：`adjust_item(user_id, item_id, delta)`（管理員給予 / 扣除用：扣完小於 0 不寫入回 `ok=False`、剛好 0 移除，回傳 `before/after`）；`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
-- 合成 / 融合：`transform_cards(user_id, instance_ids, build_new_card, count_fusion=False)`
+- 背包 (`users/core.py`)：`adjust_item(user_id, item_id, delta)`（管理員給予 / 扣除用：扣完小於 0 不寫入回 `ok=False`、剛好 0 移除，回傳 `before/after`）；`add_item(user_id, item_id, amount)` 是原子操作（`BEGIN IMMEDIATE`，同時寫入不會遺失；數量 ≤ 0 時移除鍵）；`clear_all_inventories()` 清空所有玩家背包。
+- 合成 / 融合 (`users/cards.py`)：`transform_cards(user_id, instance_ids, build_new_card, count_fusion=False)`
   - `BEGIN IMMEDIATE` 鎖定 → 讀取素材 → `build_new_card(consumed)` 驗證並產生新卡（條件不符丟 `ValueError`）→ 刪素材 → 寫新卡 → 融合時 `total_fusions + 1`，全部同一個交易。
   - 素材已不屬於玩家、重複 ID、驗證失敗都會回滾並丟 `ValueError`；連點或兩個確認畫面同時按只會成功一次。
 - 玩家 `inventory` 欄位是 JSON 字串（`{"道具id": 數量}`），讀取時需處理 str/dict 兩種型別。
 
-### 🌀 裏世界探索（`Ura_DB_Manager.py`，資料也在 Users.db；規則全在引擎 `Database/ura/`，見 `docs/gameplay/ura.md`）
+### 🌀 裏世界探索（`Ura_DB_Manager.py`，資料也在 Users.db，資料表定義在 `users/schema.py`；規則全在引擎 `Database/ura/`，見 `docs/gameplay/ura.md`）
 - `ura_runs(user_id PK, rev, state TEXT, channel_id, message_id, started_at, updated_at)`：進行中的一局 (一人最多一局)，`state` = 引擎的 run dict (JSON)。
   - `act(uid, rev, fn)`：`BEGIN IMMEDIATE` ➔ 讀進度 ➔ rev 不對回 `stale` ➔ `fn(state, rng)` (回字串 = 失敗原因，不存) ➔ `UPDATE … SET rev = rev + 1 WHERE user_id = ? AND rev = ?`；連點、舊畫面都只會成功一次。亂數用 `run.action_rng(state)` (seed + 第幾個動作)。
   - 這局結束 (撤離 / 失敗 / 放棄) 就在同一個交易裡結算 (`_settle`)：發賽錢 + 經驗 (`calc_exp_change`)、素材進 `users.inventory`、道具 / 寶物進倉庫、扣完整度 (卡已經不在也不會失敗)、解除出征鎖、更新 `ura_records`、記 `player_stats` (撤離次數；擊殺數 0.35.103 起改在每一步記)、刪掉這一局；回傳的結算多一個 `dex_new` (這局第一次打倒、圖鑑新登錄的敵人)。
@@ -49,13 +54,13 @@
 - `ura_bestiary_claims(user_id, reward_id, claimed_at)` PK (user_id, reward_id)：📖 怪物圖鑑全收獎勵的領取紀錄 (0.35.103)；reward_id = `zone:<主題>` / `all` / `fest:<活動>`。讀 `get_bestiary(uid)` ({kills, claimed})、領 `claim_bestiary(uid, reward_id)` (單一交易：確認全收 ➔ INSERT OR IGNORE 看 rowcount ➔ 加賽錢 + 經驗)；金額在 `rules.BESTIARY_REWARDS`。
 
 ### 🔔 主動通知（`Notify_DB_Manager.py`，資料也在 Users.db）
-- 表由 `init_notify_db()` 自己建（notify Cog 的 `cog_load` 呼叫），不在 `User_DB_Manager.SCHEMA_STATEMENTS`；沒有外鍵。
+- 表由 `init_notify_db()` 自己建（notify Cog 的 `cog_load` 呼叫），不在 `User_DB_Manager.SCHEMA_STATEMENTS` (定義在 `users/schema.py`)；沒有外鍵。
   - `notify_settings(user_id, kind, enabled)`，主鍵 `(user_id, kind)`：玩家開關，**沒有紀錄 = 開啟**（預設全開）。
   - `notifications_sent(user_id, kind, key, sent_at, ok)`，主鍵 `(user_id, kind, key)`：去重，同一件事只發一次；`ok = 0` = 私訊失敗（不重試）；30 天前的紀錄由 `prune_sent` 清掉。
   - `notify_watch(user_id, kind, value, updated_at)`，主鍵 `(user_id, kind)`：上次看到的狀態（賽錢箱 / 妖怪 `full` / `not_full`、體力 `spent` / `full`）；`user_id = 0` 是全服狀態：`baseline`（系統第一次上線的時間，之前的成交不通知）、`event:<id>` = `狀態|started_at`。
   - `notify_listings(listing_id PK, seller_id, instance_id, name, emoji, rarity, price, listed_at)`：上次看到的上架清單；下次不見了、沒有成交紀錄、又過了 7 天 ➔ 到期退回通知。
 - 種類登記表 `Database/notify_data.py` 的 `NOTIFY_TYPES`（`name / emoji / desc / dm`）；`dm=False` 的種類永遠不私訊、不能開啟（`can_dm`）。
-- 純判斷：`check_shrine` / `check_stamina` / `check_sales` / `check_expired` / `check_events`；`collect_notices(now)` 讀資料庫跑一輪（會 `econ.get_shrine` 結算每座神社、`econ.expire_listings` 退回到期上架），回傳「開著、能私訊、還沒發過」的通知，發送前用 `claim` 佔位。常數：`CHECK_INTERVAL_MINUTES = 10`、`GUEST_LEAVING_WINDOW = 4 小時`、`SALES_LOOKBACK = 7 天`、`SENT_KEEP = 30 天`。
+- 純判斷：`check_shrine` / `check_stamina` / `check_sales` / `check_expired` / `check_events`；`collect_notices(now)` 讀資料庫跑一輪（會 `econ.get_shrine` (`economy/shrine.py`) 結算每座神社、`econ.expire_listings` (`economy/market.py`) 退回到期上架），回傳「開著、能私訊、還沒發過」的通知，發送前用 `claim` 佔位。常數：`CHECK_INTERVAL_MINUTES = 10`、`GUEST_LEAVING_WINDOW = 4 小時`、`SALES_LOOKBACK = 7 天`、`SENT_KEEP = 30 天`。
 
 ### Item.db（`Item_DB_Manager.py`）
 - `get_all_items`、`get_item`、`add_item_db`、`update_item_db`、`delete_item_db`、`batch_import_db`、`replace_all_items(items)`、`CATEGORY_NAMES`、`DEFAULT_ITEMS`、`DAILY_REWARD_ITEM`；`init_item_db()` 在 Item.db 缺少時會警告，**資料表空白時會寫入 `DEFAULT_ITEMS`**（所以預設清單要跟實際想要的道具一致）。
@@ -73,8 +78,8 @@
   - **🍱 招待料理（`cuisine`，v0.26.000，名稱與說明由 AI 助手依東方梗自訂，使用者同意）**：`effect.serve` = `food` / `drink` / `dessert`（`SERVE_TYPES`），招待參拜客用；目前沒有取得方式（之後跟素材副本一起做）。食物：`mystia_lamprey` 🍢 夜雀烤八目鰻、`ran_inari` 🍣 八雲特製豆皮壽司、`nitori_cucumber` 🥒 河童冰鎮小黃瓜；茶水：`reimu_bancha` 🍵 博麗神社粗茶、`eirin_herbal_tea` 🌿 永遠亭藥草茶、`suika_amazake` 🍶 伊吹甘酒；點心：`eientei_tsukimi_dango` 🌕 月見糰子、`cirno_kakigori` 🍧 琪露諾特製刨冰、`alice_cookie` 🍪 人偶師的手工餅乾。
 - 動到真實資料前的備份放在 `Database/backups/`（已加入 `.gitignore`，只留在本機）。
 
-- 管理員卡冊操作：`delete_gacha_cards(user_id, ids)`、`update_cards_completeness(user_id, ids, value)`，都只動該玩家自己的卡並回傳實際影響張數。
-- 清空卡冊：`clear_gacha_cards(user_id)` / `clear_all_gacha_cards()`（全部玩家）都走 `_clear_cards`，同一個交易：刪卡冊 + 收藏冊 (`expedition = 0`)、`market_listings`（連同 `notify_listings` 的快照）、`gacha_pity.since_ur` 歸零；回傳 `{"cards", "listings", "skipped"}`（skipped = 🌀 出征中沒刪的張數）。確認畫面先用 `count_gacha_clear(user_id=None)` 算人數 / 張數。
+- 管理員卡冊操作 (`users/cards.py`)：`delete_gacha_cards(user_id, ids)`、`update_cards_completeness(user_id, ids, value)`，都只動該玩家自己的卡並回傳實際影響張數。
+- 清空卡冊 (`users/cards.py`)：`clear_gacha_cards(user_id)` / `clear_all_gacha_cards()`（全部玩家）都走 `_clear_cards`，同一個交易：刪卡冊 + 收藏冊 (`expedition = 0`)、`market_listings`（連同 `notify_listings` 的快照）、`gacha_pity.since_ur` 歸零；回傳 `{"cards", "listings", "skipped"}`（skipped = 🌀 出征中沒刪的張數）。確認畫面先用 `count_gacha_clear(user_id=None)` 算人數 / 張數。
 
 ### 角色資料（`Characters/<分類>/<id>.json`）
 - 格式：`id`、`name`、`emoji`、`category`（`main_character` 或 `th01`…）、`profile{title, species, ability, description}`、`gacha{enabled, uuid, rarities, titles}`、`ura_class`（裏世界職業 atk / guard / sup / scout / guide）、`base_stats{hp, atk, def}`（裏世界 N 階數值，見 `docs/gameplay/ura.md`）、`special_powers{id: "<id>_SP", name, levels{階級: {id: "<id>_SP_I|II|III", name, type, spent, cooldown, desc}}}`。

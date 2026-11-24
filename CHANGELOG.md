@@ -15,6 +15,12 @@
 
 ---
 
+## 1.00.007 — 2026-11-24：拆檔後補上漏改的文件 (統整)
+- `docs/dev/database.md`：開頭加「入口 ➔ 實作在哪裡」一段 (`Database/users/` 四個檔、`Database/economy/` 六個檔各放什麼)，各小節補上函式 / 資料表實際所在的子模組 (逐一對照程式確認)；原本的內容沒刪沒改。
+- `ARCHITECTURE.md`：`RARITY_ORDER` 改寫成定義在 `Cogs/load-gacha/logic/rules.py` (入口 `gacha.py` 也拿得到)；`SCHEMA_STATEMENTS` 補上實際在 `Database/users/schema.py`。
+- `docs/gameplay/ura.md`：`box_rows()` 改成在 `Cogs/load-ura/views/common.py`；`docs/gameplay/cogs.md`：`LUCKY_WITHIN` / `roll_pool_cards` 補上定義在 `logic/rules.py`。
+- 只改文件，沒動程式；全部測試照舊通過。
+
 ## 1.00.006 — 2026-11-24：拆檔收尾：只重載同資料夾別的 Cog 時不動拆出去的規則 / 畫面 (統整)
 - 檢查員發現拆檔後唯一的行為差異：`reload Admin-gacha` 會把同資料夾的 `logic/`、`views/` 重新執行，入口 `gacha.py` 卻不會 ➔ 入口手上是舊的類別、子模組是新的 (新舊混用)。
 - `Utils/reloader.py` 加 `VIEW_OWNER`：`logic/`、`views/` 只跟著擁有它們的入口 (`gacha`、`ura`) 重載；重載同資料夾別的 Cog 時只重載 `Components/`，跟拆開前一樣。`test_console` 加 1 項。
