@@ -95,6 +95,8 @@ load-character/  character.py                                   圖鑑 /characte
                  Components/character_components.py
 load-gacha/      gacha.py, Admin-gacha.py                       抽卡 / 卡冊 / 合成 / 融合 / 卡冊管理
                  Components/gacha_components.py
+                 logic/rules.py, detail.py                      gacha.py 只留 GachaCardSys 指令；規則拆在這裡 (卡池資料 + 祈願 / 合成 / 融合規則 + 機率表的資料 / 單卡詳情的資料)
+                 views/synthesis.py, inventory.py, result.py    畫面 (View) 拆在這裡 (合成確認 + 選卡 / 卡冊 + 收藏冊 + 角色圖鑑頁 / 抽卡結果 + 活動卡池選單 + 祈願紀錄 + 機率表)；gacha.py 把名字全部轉出去
 load-market/     market.py, Admin-market.py                     市值 / 分解 / 市場
                  Components/market_components.py
 load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard.py, notify.py
@@ -110,7 +112,7 @@ load-ura/        ura.py                                         🌀 裏世界�
 load-system/     Admin-sys.py                                   /admin-sys reload / sync / shutdown
 ```
 - `Main.py` 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Components.x import ...` (命名空間套件)。
-- **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾 (畫面內容)、`views/` 子資料夾 (從大 Cog 檔拆出來的 View 類別，目前只有 `load-ura/`) 或專案根的 `Utils/`。
+- **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾 (畫面內容)、`views/` 子資料夾 (從大 Cog 檔拆出來的 View 類別：`load-ura/`、`load-gacha/`)、`logic/` 子資料夾 (從大 Cog 檔拆出來的純規則：`load-gacha/`) 或專案根的 `Utils/`。
 - 畫面產生器的資料夾與檔名一律叫 `Components` / `*_components.py` (舊名 `Embeds` / `*_embeds.py` 已全部改掉)。畫面寫法見 `docs/dev/components-v2.md`。
 
 ### 2.6 `Utils/`：跨 Cog 共用工具
@@ -128,7 +130,7 @@ thumbnails.py      Thumbnails.json 共用讀取 load_thumbnails() / thumbnail_ur
 namecards.py       🖼️ 角色名片的圖片網址與原圖下載 (讀 images/Namecards.json、NamecardOriginals.json)
 guide.py           📚 教學書入口 open_guide()：各指令群組的 help 子指令 (/card help、/ura help…) 呼叫它
 stamina_modal.py   ⚡ 恢復體力彈窗 (/profile 與神社採集畫面共用；每天最多吃 3 個體力道具)
-reloader.py        模組重載 (/admin-sys reload 與主控台共用)；拆成套件的資料層照 PACKAGE_ORDER、Cog 的 views/ 照 VIEW_ORDER 的順序重載
+reloader.py        模組重載 (/admin-sys reload 與主控台共用)；拆成套件的資料層照 PACKAGE_ORDER、Cog 的 logic/ 與 views/ 照 VIEW_ORDER 的順序重載
 console.py         主控台指令：機器人執行中可在終端機輸入 help / status / reload / sync / money / stamina / shutdown
 ```
 

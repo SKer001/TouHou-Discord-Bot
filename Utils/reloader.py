@@ -4,8 +4,8 @@
 reload_extension 只會重載 Cog 檔案本身；Components (畫面)、Database、Utils 不重載的話改了看不到。
 但 importlib.reload 是「原地」重新執行模組：沒被重載的 Cog 還拿著舊的類別 (例如 InsufficientFunds)，
 資料層卻開始丟新的類別 ➔ except 接不到。所以：
-- 重載單一模組：只重載它自己資料夾的 Components 與 views (拆出去的畫面)
-- 全部重載：Database、Utils、全部 Components、views 先重載，再重載全部 Cog (大家一起換新)
+- 重載單一模組：只重載它自己資料夾的 Components、logic (拆出去的規則) 與 views (拆出去的畫面)
+- 全部重載：Database、Utils、全部 Components、logic、views 先重載，再重載全部 Cog (大家一起換新)
 """
 import importlib
 import os
@@ -43,7 +43,10 @@ _PART_OF = {part: (entry, i) for entry, parts in PACKAGE_ORDER.items() for i, pa
 
 # 拆成 views/ 的 Cog 畫面 (Cogs/load-*/views/*.py)：照依賴順序重載 (共用小工具先)，排在全部 Components 後面；
 # Cog 檔本身 (入口) 由 reload_extension 重載，在這些之後。沒列在這裡的 views 模組排在同一包的最後面
+# 拆成 logic/ 的 Cog 規則 (Cogs/load-*/logic/*.py) 也列在這裡：同一個資料夾 logic 排在 views 前面 (畫面會匯入規則；照套件名稱排，logic < views)
 VIEW_ORDER = {
+    "Cogs.load-gacha.logic": ["rules", "detail"],
+    "Cogs.load-gacha.views": ["synthesis", "inventory", "result"],
     "Cogs.load-ura.views": ["common", "run", "setup", "shop_storage", "bestiary"],
 }
 _FIRST = {"Database.User_DB_Manager": 0}     # 其他資料層會從它匯入，要最先 (它的子模組也跟著排最前面)
@@ -59,7 +62,7 @@ def _order(name: str):
         return (1, name)
     if name.startswith("Utils."):
         return (2, name)
-    if name.startswith("Cogs.") and ".views." in name:   # Cog 的畫面：Components 之後，照 VIEW_ORDER
+    if name.startswith("Cogs.") and (".logic." in name or ".views." in name):   # Cog 的規則 / 畫面：Components 之後，照 VIEW_ORDER
         package, part = name.rsplit(".", 1)
         listed = VIEW_ORDER.get(package, [])
         return (4, package, listed.index(part) if part in listed else len(listed), part)
@@ -68,16 +71,16 @@ def _order(name: str):
 
 def reload_support_modules(extension: str | None = None) -> tuple[list[str], list[str]]:
     """
-    extension=None：重載 Database、Utils、全部 Components 與 views
-    extension="Cogs.load-general.shrine"：只重載 Cogs.load-general.Components.* 與 Cogs.load-general.views.*
+    extension=None：重載 Database、Utils、全部 Components、logic 與 views
+    extension="Cogs.load-general.shrine"：只重載 Cogs.load-general.Components.*、Cogs.load-general.logic.* 與 Cogs.load-general.views.*
     重載時保留 DB_PATH (botcli / 測試會把資料庫指到沙盒)。回傳 (成功, 失敗訊息)
     """
     if extension:
         folder = extension.rsplit(".", 1)[0]
-        names = [m for m in list(sys.modules) if m.startswith((folder + ".Components.", folder + ".views."))]
+        names = [m for m in list(sys.modules) if m.startswith((folder + ".Components.", folder + ".logic.", folder + ".views."))]
     else:
         names = [m for m in list(sys.modules)
-                 if m.startswith(("Database.", "Utils.")) or (m.startswith("Cogs.") and (".Components." in m or ".views." in m))]
+                 if m.startswith(("Database.", "Utils.")) or (m.startswith("Cogs.") and (".Components." in m or ".logic." in m or ".views." in m))]
     ok, failed = [], []
     for name in sorted(names, key=_order):
         module = sys.modules.get(name)

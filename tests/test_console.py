@@ -145,6 +145,54 @@ async def main():
         check(f"reload {what}: live cog uses new views", type(bot.get_cog("UraCog")) is sys.modules["Cogs.load-ura.ura"].UraCog)
     check("db path kept after ura reloads", udm.DB_PATH == os.path.join(tmp, "Users.db"))
 
+    # 抽卡 Cog 拆成 Cogs/load-gacha/logic/ (規則) + views/ (畫面)：Components ➔ logic ➔ views 照依賴順序，入口 (gacha.py) 由 reload_extension 最後重載
+    G = "Cogs.load-gacha."
+    gacha_names = [G + "views.result", G + "views.inventory", G + "views.synthesis", G + "logic.detail", G + "logic.rules",
+                   G + "Components.gacha_components", "Cogs.load-ura.views.common", "Utils.config", "Database.Item_DB_Manager"]
+    ordered = sorted(gacha_names, key=reloader._order)
+    check("reload order: gacha logic then views by dependency, after components",
+          ordered[-6:-1] == [G + p for p in ("logic.rules", "logic.detail", "views.synthesis", "views.inventory", "views.result")]
+          and ordered.index(G + "Components.gacha_components") < ordered.index(G + "logic.rules"))
+    for sub in ("logic", "views"):
+        sub_dir = os.path.join(reloader.PROJECT_ROOT, "Cogs", "load-gacha", sub)
+        check(f"reload order: every gacha {sub} file listed",
+              {f[:-3] for f in os.listdir(sub_dir) if f.endswith(".py")} == set(reloader.VIEW_ORDER[G + sub]))
+    check("logic is not an extension", not any(".logic." in e for e in reloader.scan_extensions()) and not any(".logic." in e for e in bot.extensions))
+
+    def gacha_parts():
+        return [sys.modules[G + sub + "." + p] for sub in ("logic", "views") for p in reloader.VIEW_ORDER[G + sub]]
+    def gacha_consistent():
+        ent = sys.modules[G + "gacha"]
+        rules_mod, detail_mod, synth_mod, inv_mod, result_mod = gacha_parts()
+        return (list(ent._PARTS) == gacha_parts() and ent.GACHA_POOL is rules_mod.GACHA_POOL and inv_mod.GACHA_POOL is rules_mod.GACHA_POOL
+                and ent.THUMBNAILS is rules_mod.THUMBNAILS and inv_mod.THUMBNAILS is rules_mod.THUMBNAILS
+                and ent.roll_pool_cards is rules_mod.roll_pool_cards and ent.card_detail_info is detail_mod.card_detail_info
+                and inv_mod.card_detail_info is detail_mod.card_detail_info and detail_mod.is_perfect is rules_mod.is_perfect
+                and ent.SynthesisPickerView is synth_mod.SynthesisPickerView and inv_mod.SynthesisPickerView is synth_mod.SynthesisPickerView
+                and ent.InventoryView is inv_mod.InventoryView and result_mod.InventoryView is inv_mod.InventoryView
+                and ent.GachaResultView is result_mod.GachaResultView and result_mod.sort_cards is rules_mod.sort_cards
+                and inv_mod.build_card_detail_container is sys.modules[G + "Components.gacha_components"].build_card_detail_container
+                and ent.InsufficientFunds is udm.InsufficientFunds and callable(ent.setup)
+                and ent.GachaCardSys.__module__ == G + "gacha" and ent.BASE_DIR == os.path.join(reloader.PROJECT_ROOT, "Cogs", "load-gacha"))
+    check("gacha entry consistent", gacha_consistent())
+    for line, what in (("reload all", "all"), ("reload load-gacha.gacha", "one")):
+        old_pool, old_inv, old_roll, old_cog = (gacha_parts()[0].GACHA_POOL, gacha_parts()[3].InventoryView, gacha_parts()[0].roll_pool_cards,
+                                                sys.modules[G + "gacha"].GachaCardSys)
+        out = await run(bot, line)
+        check(f"reload {what}: gacha logic / views reloaded {out!r}", gacha_parts()[0].GACHA_POOL is not old_pool
+              and gacha_parts()[3].InventoryView is not old_inv and gacha_parts()[0].roll_pool_cards is not old_roll
+              and sys.modules[G + "gacha"].GachaCardSys is not old_cog and "重載失敗" not in out and "重載 Cogs.load-gacha.gacha 失敗" not in out)
+        check(f"reload {what}: gacha entry consistent", gacha_consistent())
+        check(f"reload {what}: live cog uses new module", type(bot.get_cog("GachaCardSys")) is sys.modules[G + "gacha"].GachaCardSys)
+    # 對入口賦值會一起改到子模組 (函式是在子模組的命名空間裡找名字的)，跟拆開前一樣會生效
+    ent, rules_mod = sys.modules[G + "gacha"], gacha_parts()[0]
+    real_cost = ent.DRAW_COST
+    ent.DRAW_COST = 7
+    check("entry assignment reaches the rules module", rules_mod.DRAW_COST == 7 and ent.draw_cost(10) == 70)
+    ent.DRAW_COST = real_cost
+    check("entry assignment restored", rules_mod.DRAW_COST == real_cost and ent.draw_cost(1) == real_cost)
+    check("db path kept after gacha reloads", udm.DB_PATH == os.path.join(tmp, "Users.db"))
+
     out = await run(bot, "money 5 2500")
     check("money", f"{udm.STARTING_MONEY + 2500:,}" in out)
     check("money usage", "用法" in await run(bot, "money x"))
