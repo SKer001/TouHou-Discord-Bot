@@ -191,6 +191,12 @@ async def main():
     check("entry assignment reaches the rules module", rules_mod.DRAW_COST == 7 and ent.draw_cost(10) == 70)
     ent.DRAW_COST = real_cost
     check("entry assignment restored", rules_mod.DRAW_COST == real_cost and ent.draw_cost(1) == real_cost)
+    # 只重載同資料夾的別的 Cog (Admin-gacha)：logic / views 不跟著重載，入口與子模組不會新舊混用 (1.00.006)
+    pool_before, view_before = gacha_parts()[0].GACHA_POOL, sys.modules[G + "views.inventory"].InventoryView
+    out = await run(bot, "reload Admin-gacha")
+    check(f"reload Admin-gacha keeps gacha logic / views {out!r}", gacha_parts()[0].GACHA_POOL is pool_before
+          and sys.modules[G + "views.inventory"].InventoryView is view_before
+          and sys.modules[G + "gacha"].InventoryView is view_before and sys.modules[G + "gacha"].GACHA_POOL is pool_before)
     check("db path kept after gacha reloads", udm.DB_PATH == os.path.join(tmp, "Users.db"))
 
     out = await run(bot, "money 5 2500")

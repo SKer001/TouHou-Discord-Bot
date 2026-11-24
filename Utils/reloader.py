@@ -49,6 +49,9 @@ VIEW_ORDER = {
     "Cogs.load-gacha.views": ["synthesis", "inventory", "result"],
     "Cogs.load-ura.views": ["common", "run", "setup", "shop_storage", "bestiary"],
 }
+# logic/ 與 views/ 是哪個 Cog 檔 (入口) 拆出來的：只重載同資料夾的別的 Cog (例 Admin-gacha) 時不動它們，
+# 不然入口手上還是舊的類別、子模組卻換新了 (新舊混用)。沒列的資料夾照舊一起重載
+VIEW_OWNER = {"Cogs.load-gacha": "Cogs.load-gacha.gacha", "Cogs.load-ura": "Cogs.load-ura.ura"}
 _FIRST = {"Database.User_DB_Manager": 0}     # 其他資料層會從它匯入，要最先 (它的子模組也跟著排最前面)
 
 
@@ -77,7 +80,10 @@ def reload_support_modules(extension: str | None = None) -> tuple[list[str], lis
     """
     if extension:
         folder = extension.rsplit(".", 1)[0]
-        names = [m for m in list(sys.modules) if m.startswith((folder + ".Components.", folder + ".logic.", folder + ".views."))]
+        prefixes = [folder + ".Components."]
+        if VIEW_OWNER.get(folder, extension) == extension:   # 拆出去的規則 / 畫面只跟著擁有它們的入口重載
+            prefixes += [folder + ".logic.", folder + ".views."]
+        names = [m for m in list(sys.modules) if m.startswith(tuple(prefixes))]
     else:
         names = [m for m in list(sys.modules)
                  if m.startswith(("Database.", "Utils.")) or (m.startswith("Cogs.") and (".Components." in m or ".logic." in m or ".views." in m))]

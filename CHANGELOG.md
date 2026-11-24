@@ -15,6 +15,13 @@
 
 ---
 
+## 1.00.006 — 2026-11-24：拆檔收尾：只重載同資料夾別的 Cog 時不動拆出去的規則 / 畫面 (統整)
+- 檢查員發現拆檔後唯一的行為差異：`reload Admin-gacha` 會把同資料夾的 `logic/`、`views/` 重新執行，入口 `gacha.py` 卻不會 ➔ 入口手上是舊的類別、子模組是新的 (新舊混用)。
+- `Utils/reloader.py` 加 `VIEW_OWNER`：`logic/`、`views/` 只跟著擁有它們的入口 (`gacha`、`ura`) 重載；重載同資料夾別的 Cog 時只重載 `Components/`，跟拆開前一樣。`test_console` 加 1 項。
+- `README.md` 的專案結構補上 `load-market`、`load-ura`、`Database/users/`、`economy/`、`ura/`。
+- 拆檔總結 (1.00.001～1.00.005)：4 個大檔案從 1,442～1,730 行變成入口 44～414 行；搬過去的程式跟原本逐一比對相同 (只有兩個路徑常數與一行函式內匯入是必要調整)；舊的 import 全部照舊能用。全部測試 11,134 項通過。
+- 還超過 700 行的：`Database/ura/run.py` 1,089、`ura_components.py` 893、`title_data.py` 841 (大部分是稱號資料)、`shrine.py` 824、`ura/combat.py` 738；`tools/card_art/layered/hd_card.py` 1,849 (角色卡面設定，TH07 卡面開工前再拆成一角色一檔)。
+
 ## 1.00.005 — 2026-11-24：拆大檔案後的獨立檢查、補上沒跟到的文件 (統整)
 - **檢查 1.00.001～004 (程式一行沒改)**：四個原始大檔每個頂層函式 / 類別 / 常數的語法樹跟拆開前逐一比對，只有三處不同，都是搬位置必要的：`Database/users/schema.py` 的 `DB_DIR` 與 `Cogs/load-gacha/logic/rules.py` 的 `BASE_DIR` 多往上一層 (值照舊)、`CardActionConfirmView.view_inventory` 多一行函式內匯入 (兩個畫面檔互相要對方)。原檔 import 區以外的每一行都還在，只有兩行說明文字跟著改寫 (經濟入口說明的「改這裡的常數」、`DB_DIR` 上面那行註解)。
 - **相容**：原始檔的每個頂層名字 (含底線開頭的與 import 進來的，共 148 / 99 / 45 / 116 個) 從舊入口都拿得到，而且跟子模組是同一個物件；測試裡 7 種對入口賦值的寫法 (`DB_PATH`、`STARTING_MONEY`、`get_user_cards`、`get_rules`、`load_events`、`GUEST_SPAWN`、`_select`) 實際跑過都會傳到子模組。原始檔沒有 `global`，也沒有工具用路徑讀這四個檔。

@@ -120,15 +120,19 @@ python Main.py
 Main.py                  入口：初始化資料庫、自動載入 Cogs/load-*/ 底下所有模組、同步斜線指令
 Characters/              角色資料 (一個角色一個 JSON)
   Main/                  主要主角
-  TH01/ … TH06/          各代作品的角色
+  TH01/ … TH07/          各代作品的角色 (TH07 還沒公開)
 Cogs/
-  load-gacha/            抽卡、卡冊、合成、融合 (gacha.py)、卡冊管理 (Admin-gacha.py)
+  load-gacha/            抽卡、卡冊、合成、融合 (gacha.py 指令；logic/ 規則、views/ 畫面)、卡冊管理 (Admin-gacha.py)
+  load-market/           市值、分解、市場
+  load-ura/              🌀 裏世界探索 (ura.py 指令；views/ 畫面)
   load-character/        角色圖鑑
   load-general/          個人資料卡、簽到、神社倉庫、道具與玩家管理
   load-system/           系統維護指令
   */Components/          各模組的 Components V2 畫面產生器
 Database/
-  User_DB_Manager.py     玩家資料庫 (Users.db)：賽錢、等級、簽到、卡牌
+  User_DB_Manager.py     玩家資料庫 (Users.db) 的入口；實作在 users/ (schema、core、titles、cards)
+  Economy_DB_Manager.py  經濟系統的入口；實作在 economy/ (神社、採集、市值、市場)
+  ura/                   🌀 裏世界的遊戲引擎與資料
   Item_DB_Manager.py     道具資料庫 (Item.db)
 Utils/
   components.py          共用的 V2 通知工具
