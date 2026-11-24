@@ -15,6 +15,14 @@
 
 ---
 
+## 1.00.005 — 2026-11-24：拆大檔案後的獨立檢查、補上沒跟到的文件 (統整)
+- **檢查 1.00.001～004 (程式一行沒改)**：四個原始大檔每個頂層函式 / 類別 / 常數的語法樹跟拆開前逐一比對，只有三處不同，都是搬位置必要的：`Database/users/schema.py` 的 `DB_DIR` 與 `Cogs/load-gacha/logic/rules.py` 的 `BASE_DIR` 多往上一層 (值照舊)、`CardActionConfirmView.view_inventory` 多一行函式內匯入 (兩個畫面檔互相要對方)。原檔 import 區以外的每一行都還在，只有兩行說明文字跟著改寫 (經濟入口說明的「改這裡的常數」、`DB_DIR` 上面那行註解)。
+- **相容**：原始檔的每個頂層名字 (含底線開頭的與 import 進來的，共 148 / 99 / 45 / 116 個) 從舊入口都拿得到，而且跟子模組是同一個物件；測試裡 7 種對入口賦值的寫法 (`DB_PATH`、`STARTING_MONEY`、`get_user_cards`、`get_rules`、`load_events`、`GUEST_SPAWN`、`_select`) 實際跑過都會傳到子模組。原始檔沒有 `global`，也沒有工具用路徑讀這四個檔。
+- **重載**：真的建一個 bot 跑 `reload_all` / `reload_one`：20 個子模組 (加兩個套件的 `__init__`) 都會重載、子模組先入口後、重載後所有函式 / 類別都是新物件，入口、子模組、執行中的 Cog 互相對得上，`DB_PATH` 留在沙盒。照 `Main.py` 的方式載入是 19 個模組，`views/`、`logic/` 沒有被當成 Cog (`SHOW_UNRELEASED` 開 / 關都一樣)。
+- ⚠️ **留給之後決定**：只重載 `Admin-gacha` 時，同資料夾的 `logic/`、`views/` 會跟著重載但入口 `gacha.py` 不會 ➔ 入口手上是舊的類別與舊的 `GACHA_POOL` (拆開前這個動作不會動到 gacha 的程式)。指令照常能用；要完全換新就重載 `gacha` 或全部重載。
+- **文件**：`docs/dev/testing.md` 的測試總數改成 11,133；`TODO.md`、`docs/gameplay/cogs.md` 補上拆開後的位置；`ARCHITECTURE.md`「View 之間只能單向引用」補上函式內匯入那個例外。
+- **測試**：`python tests/run_all.py` 11133 項全過；沒設 `SHOW_UNRELEASED` 的環境單跑 `tests/test_unreleased.py` 59 項全過。
+
 ## 1.00.004 — 2026-11-24：抽卡 Cog 拆成 `Cogs/load-gacha/logic/` (規則) + `views/` (畫面) (統整)
 - **只搬位置、不改行為**：`Cogs/load-gacha/gacha.py` (1730 行) 只留 `GachaCardSys` 指令與 `setup` (414 行)。規則拆到 `logic/`：`rules.py` (卡池資料 `GACHA_POOL` / `THUMBNAILS`、⛩️ 祈願規則、⚗️ 合成 / 🔮 融合規則、📊 機率表的資料計算 `resolve_pool` / `rate_sheet_data` / `open_note`)、`detail.py` (🔍 `card_detail_info`)；畫面拆到 `views/`：`synthesis.py` (`CardActionConfirmView`、`SynthesisPickerView`、`find_synthesis_groups`)、`inventory.py` (`InventoryView`、`AlbumView`、`send_character_page`、疊卡 / 收集進度小工具)、`result.py` (`GachaResultView`、`send_rate_sheet`、`EventPoolPickerView`、`GachaHistoryView`)。
 - **`gacha.py` 當入口**：跟 `ura.py` 同一套 (`_PARTS` + `_EntryModule`)，原本的 import 整段留著、再把每個子模組的名字全部轉出來 ➔ `Admin-gacha.py`、市場、教學書、19 個用 `importlib.import_module("Cogs.load-gacha.gacha")` 的檔案一行都不用改。拆之前先把模組的 118 個名字與常數值存下來，拆完比對：一個都沒少、值都一樣 (`BASE_DIR` 在 `logic/rules.py` 多退一層，值照舊是 `Cogs/load-gacha`)。

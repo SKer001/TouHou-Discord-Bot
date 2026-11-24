@@ -3,7 +3,7 @@
 > 兩台電腦共用的進度表；做完一項就打勾或刪掉，跟著 commit 推上去。
 ## 0. 目前進度 (2026-11-24，v1.00.000)
 - **🎉 1.00.000 正式版**：舊作 + 紅魔鄉 (紅霧異變) 完工的版本，`online` 分支同步到這一版。TH07 妖妖夢的角色資料已經在程式裡，但標成**未公開** (`Utils/gacha_pools.py` 的 `released: False`)，正式機器人看不到；開發機 `.env` 加 `SHOW_UNRELEASED=1` 才看得到。
-- **📁 專案整理 (1.00.000)**：文件分類到 `docs/handbook` / `gameplay` / `dev` / `art` / `changelog`，總目錄 `docs/README.md`；下一階段：拆大檔案 (`gacha.py`、`User_DB_Manager.py`、`Economy_DB_Manager.py`、`ura.py`)，先列拆法給使用者看。
+- **📁 專案整理 (1.00.000)**：文件分類到 `docs/handbook` / `gameplay` / `dev` / `art` / `changelog`，總目錄 `docs/README.md`；拆大檔案 (1.00.001～004)：`Economy_DB_Manager.py` ➔ `Database/economy/`、`User_DB_Manager.py` ➔ `Database/users/`、`ura.py` ➔ `Cogs/load-ura/views/`、`gacha.py` ➔ `Cogs/load-gacha/logic/` + `views/`；舊檔名留著當入口。
 - **卡面**：24 位角色 N～LR 全部走高清分層流程完成 (0.35.024)；新角色的卡面跟著第 3 節做。
 - **名片**：✅ 24 / 24 位全部完成 (桌機，2026-11-19)。
 - **雲端**：`online` 分支與部署檔已就緒 (`docs/dev/deploy.md`)，Google Cloud 資源還沒建 (使用者：gcloud 晚點再用)。
@@ -108,7 +108,7 @@
 - [x] 角色名片圖 (19:9、睡顏系列，桌機)：24 / 24 位全部完成 ➔ 0.35.040 (`tools/card_art/build_namecards.py`，見 `docs/art/card-art.md`)
 
 ## 5. 經濟系統
-數值都在 `Database/Economy_DB_Manager.py` 開頭；**使用者沒給的數值一定要先問。**
+數值都在 `Database/economy/` 各檔開頭 (神社經營的在 `common.py`；外面照舊從入口 `Database/Economy_DB_Manager.py` 讀)；**使用者沒給的數值一定要先問。**
 - [ ] 紅霧異變要不要設結束時間：使用者 2026-11-22 決定**先維持不限時** (紅魔鄉卡池跟著活動開放，活動一結束就抽不到)
 - [ ] 更多活動 (Events/<id>.json，例如 TH07 春雪異變)；**等角色卡面都做完再做** (使用者 2026-11-13；卡面 2026-11-16 已全部完成)
 - [ ] 實機觀察數值平衡：神社一天約 12 萬賽錢 (全勤滿效率)，單抽 5,000 (使用者：之後微調)

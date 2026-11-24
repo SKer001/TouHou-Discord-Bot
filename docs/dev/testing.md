@@ -19,7 +19,7 @@
 - **實機（真的 Discord）**：測試頻道 = `.env` 的 `TEST_CHANNEL_ID`，沒設定時用 `LOG_CHANNEL_ID`（目前就是 log 頻道 `#touhou-logs`）。兩個工具都只用機器人自己的 Token 走 REST，機器人正在跑也能用，完全在 Discord 規範內。**不要**用瀏覽器自動操作使用者的 Discord 帳號（self-bot 違反服務條款）。
   - `python tools/botcli.py --live 步驟…`：流程照樣在沙盒模擬，但每一步新增 / 更新的畫面都由機器人真的送到測試頻道（同一則會用編輯更新），讓 **Discord 驗證真實的 V2 內容**；Discord 拒絕時會印出錯誤欄位（例如 `components：Must be 40 or fewer`）並算成錯誤。鏡像訊息的按鈕全部停用、頂端加一行「🧪 botcli 鏡像」說明（元件已滿 40 時不加）。
   - `python tools/discord_peek.py [-n 5] [--bot-only] [--raw]`：讀測試頻道最新訊息（由舊到新），印出作者、時間、是否 V2、是哪位使用者的互動，以及畫面文字與元件數。使用者在 Discord 實機操作後，用它查看真正的結果。ephemeral 訊息 API 讀不到。
-- 最近一次 (2026-11-24)：`python tests/run_all.py` 全數通過，共 11,046 項 (含新的 `test_unreleased.py` 59 項：未公開卡池開關 `SHOW_UNRELEASED` 關 / 開兩種環境各跑一次，關的時候卡池、圖鑑、稱號、名片選單、裏世界角色、所有指令的卡池選項都不能出現未公開的那一代)。
+- 最近一次 (2026-11-24)：`python tests/run_all.py` 全數通過，共 11,133 項 (1.00.001～005 拆大檔案後；含新的 `test_unreleased.py` 59 項：未公開卡池開關 `SHOW_UNRELEASED` 關 / 開兩種環境各跑一次，關的時候卡池、圖鑑、稱號、名片選單、裏世界角色、所有指令的卡池選項都不能出現未公開的那一代)。
 - 🙈 測試預設打開 `SHOW_UNRELEASED` (`run_all.py` 與碰到遊戲模組的 `test_*.py` 開頭都有 (`test_deploy.py` 不碰遊戲模組，沒有) `os.environ.setdefault("SHOW_UNRELEASED", "1")`；新測試檔照抄)，所以 TH07 也會被測到；要看正式機器人的樣子就設 `SHOW_UNRELEASED=0` 再跑 botcli。
 - 之前 (2026-11-22，0.36.000)：`python tests/run_all.py` 全數通過，共 10,253 項 (新的 `test_guide.py`：六本教學書的格式、每個玩家指令都有一章講到、每頁 ≤ 40 元件 / 4000 字、翻頁與 `/xxx help` 入口)；botcli `--live` 把六本書每一頁送到測試頻道，Discord 全部收下。
 - 之前 (2026-11-16，0.35.010)：24 個測試檔全數通過，共 1210 項 (廚房 111，含快速採集與招待 ➔ 料理連動畫面；道具 52，含體力彈窗與每日上限；稱號 164，含客人 / 足跡 / 運氣 / 美食家 / 神社分級稱號與稱號選單分頁)。V2 畫面細節仍以 Discord 實機為準。
