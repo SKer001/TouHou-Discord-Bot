@@ -48,11 +48,39 @@ async def main():
     check("other cog consistent", gacha.InsufficientFunds is udm.InsufficientFunds)
 
     # 全部重載：資料層一起換新，DB_PATH 留在沙盒，新檔案會被載入
+    old_get_shrine = sys.modules["Database.economy.shrine"].get_shrine
     out = await run(bot, "reload all")
     check("reload all loads new", "Cogs.load-market.market" in bot.extensions and "新載入" in out)
     check("db path kept", udm.DB_PATH == os.path.join(tmp, "Users.db"))
     gacha = sys.modules["Cogs.load-gacha.gacha"]
     check("all consistent after reload all", gacha.InsufficientFunds is sys.modules["Database.User_DB_Manager"].InsufficientFunds)
+
+    # 經濟系統拆成 Database/economy/ 套件：子模組照依賴順序先重載，入口 (Economy_DB_Manager) 最後
+    econ_names = ["Database.Economy_DB_Manager", "Database.economy.shrine", "Database.economy.market", "Database.economy.gather",
+                  "Database.economy.common", "Database.economy", "Database.economy.market_value", "Database.economy.event_state",
+                  "Database.User_DB_Manager", "Database.Item_DB_Manager", "Database.Notify_DB_Manager", "Database.events", "Utils.config"]
+    ordered = sorted(econ_names, key=reloader._order)
+    pos = {n: i for i, n in enumerate(ordered)}
+    check("reload order: udm first", ordered[0] == "Database.User_DB_Manager")
+    check("reload order: economy parts by dependency",
+          pos["Database.economy"] < pos["Database.economy.common"] < pos["Database.economy.event_state"] < pos["Database.economy.shrine"]
+          < pos["Database.economy.gather"] < pos["Database.economy.market_value"] < pos["Database.economy.market"] < pos["Database.Economy_DB_Manager"])
+    check("reload order: entry before its importers", pos["Database.Economy_DB_Manager"] < pos["Database.Item_DB_Manager"] < pos["Database.Notify_DB_Manager"])
+    check("reload order: utils last", ordered[-1] == "Utils.config")
+    import pkgutil, Database.economy as econ_pkg
+    on_disk = {"Database.economy." + m.name for m in pkgutil.iter_modules(econ_pkg.__path__)}
+    check("reload order: every economy part listed", on_disk <= set(reloader.PACKAGE_ORDER["Database.Economy_DB_Manager"]))
+    econ = sys.modules["Database.Economy_DB_Manager"]
+    check("economy entry lists every part", {m.__name__ for m in econ._PARTS} == on_disk)
+    check("reload all reloaded economy parts", econ.get_shrine is not old_get_shrine and all(
+        getattr(econ, n) is getattr(sys.modules[f"Database.economy.{p}"], n)
+        for p, n in (("shrine", "get_shrine"), ("gather", "explore"), ("market", "buy_listing"), ("event_state", "get_rules"), ("market_value", "settle_prices"))))
+    gather, shrine_mod = sys.modules["Database.economy.gather"], sys.modules["Database.economy.shrine"]
+    check("parts consistent after reload all", gather._shrine_tx is shrine_mod._shrine_tx and gather.get_rules is econ.get_rules
+          and sys.modules["Database.economy.market"]._FEE_MODS is sys.modules["Database.economy.event_state"]._FEE_MODS)
+    check("part identity untouched by entry reload", all(m.__name__.startswith("Database.economy.") and m.__spec__.name == m.__name__
+                                                         and sys.modules[m.__name__] is m for m in econ._PARTS))
+    check("importers see new entry", sys.modules["Database.Notify_DB_Manager"].econ.get_shrine is shrine_mod.get_shrine)
 
     out = await run(bot, "money 5 2500")
     check("money", f"{udm.STARTING_MONEY + 2500:,}" in out)

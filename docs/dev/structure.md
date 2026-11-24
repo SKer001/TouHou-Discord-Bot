@@ -48,7 +48,14 @@ Characters/<分類>/<角色id>.json   一角色一檔；圖鑑、卡池、裏世
 ```
 User_DB_Manager.py     玩家資料庫 (Users.db) 所有存取
 Item_DB_Manager.py     道具資料庫 (Item.db) 所有存取
-Economy_DB_Manager.py  經濟系統 (神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳)，資料也在 Users.db；所有數值常數都在檔案開頭
+Economy_DB_Manager.py  經濟系統的入口 (神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳)，資料也在 Users.db；實作在 economy/，外面一律從這個檔匯入
+economy/               💹 經濟系統的實作 (1.00.001 從 Economy_DB_Manager.py 拆出來；數值常數在各檔開頭)
+  common.py            神社經營的數值常數、_dt / modifier / economy_meta 小工具
+  event_state.py       🎪 活動狀態 (排程 / 開始 / 結束)、get_rules、手續費倍率快取
+  shrine.py            ⛩️ 神社經營：賽錢箱、清潔度、妖怪、參拜客
+  gather.py            🏮 人里打工、🗺️ 採集 / 🍳 料理 / 🏪 雜貨店 / 🍵 招待、🧺 快速採集
+  market_value.py      💹 浮動市值：每日結算、查價、交易紀錄
+  market.py            ♻️ 分解、🏪 市場、💸 轉帳
 Quest_DB_Manager.py    📜 活動任務：進度、領取、永久活動稱號 (任務定義在活動檔)
 Notify_DB_Manager.py   🔔 主動通知 (DM)：玩家開關、已發送紀錄、「要發哪些通知」的判斷
 Ura_DB_Manager.py      🌀 裏世界的資料存取 (進行中的一局 ura_runs、倉庫、額外背包、紀錄、怪物圖鑑領獎 ura_bestiary_claims、出征鎖 gacha_cards.expedition)

@@ -131,7 +131,7 @@ async def setup(bot):
 
 ### 4.1 Database Manager 的規則
 
-- 所有 SQL 都在 `Database/User_DB_Manager.py`、`Item_DB_Manager.py`、`Economy_DB_Manager.py`（神社、市值、市場、轉帳）、`Ura_DB_Manager.py`（🌀 裏世界）、`Quest_DB_Manager.py`（活動任務）、`Notify_DB_Manager.py`（通知）；同一個 Users.db，資料表定義放在 `User_DB_Manager.SCHEMA_STATEMENTS`（通知的表除外），Cog 只呼叫函式。
+- 所有 SQL 都在 `Database/User_DB_Manager.py`、`Item_DB_Manager.py`、`Economy_DB_Manager.py`（神社、市值、市場、轉帳；入口，實作拆在 `Database/economy/`，外面照舊從入口匯入，新增子模組要加進入口的 `_PARTS` 與 `Utils/reloader.py` 的 `PACKAGE_ORDER`）、`Ura_DB_Manager.py`（🌀 裏世界）、`Quest_DB_Manager.py`（活動任務）、`Notify_DB_Manager.py`（通知）；同一個 Users.db，資料表定義放在 `User_DB_Manager.SCHEMA_STATEMENTS`（通知的表除外），Cog 只呼叫函式。
 - **要跟別的東西在同一個交易裡給經驗值**時不要呼叫 `add_exp` (它自己開連線)：用 `udm.calc_exp_change(level, exp, n)` 算好，自己 `UPDATE users SET level, exp`（例：`Quest_DB_Manager.claim_quest`）。
 - 跟時間有關的系統（體力、神社）**不用背景排程**：每次讀取 / 操作時才依經過時間結算，結算函式要能傳入 `now`（與 `rng`）方便測試。每日結算（市值）也是第一次有人用到時補算前幾天。
 - 連線用 `connect()`（`aiosqlite`、`row_factory=Row`、`foreign_keys=ON`）。

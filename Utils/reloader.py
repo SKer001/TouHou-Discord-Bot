@@ -28,9 +28,25 @@ def scan_extensions() -> list[str]:
     return found
 
 
+# 拆成套件的資料層：{入口 (舊檔名): [子模組，照依賴順序]}。子模組要先重載、入口最後，
+# 不然入口轉出來的還是舊函式；排序時整組排在入口原本的位置
+PACKAGE_ORDER = {
+    "Database.Economy_DB_Manager": [
+        "Database.economy", "Database.economy.common", "Database.economy.event_state", "Database.economy.shrine",
+        "Database.economy.gather", "Database.economy.market_value", "Database.economy.market",
+    ],
+}
+_PART_OF = {part: (entry, i) for entry, parts in PACKAGE_ORDER.items() for i, part in enumerate(parts)}
+
+
 def _order(name: str):
     if name == "Database.User_DB_Manager":     # 其他資料層會從它匯入，要最先
         return (0, name)
+    if name in _PART_OF:                       # 套件的子模組：排在入口的位置，照依賴順序
+        entry, i = _PART_OF[name]
+        return (1, entry, i)
+    if name in PACKAGE_ORDER:                  # 入口排在自己的子模組後面
+        return (1, name, len(PACKAGE_ORDER[name]))
     if name.startswith("Database."):
         return (1, name)
     if name.startswith("Utils."):

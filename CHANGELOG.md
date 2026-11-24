@@ -15,6 +15,15 @@
 
 ---
 
+## 1.00.001 — 2026-11-24：經濟系統資料層拆成 `Database/economy/` 套件 (統整)
+- **只搬位置、不改行為**：`Database/Economy_DB_Manager.py` (1523 行) 照原本的大標題拆成 `Database/economy/`：`common.py` (神社經營的數值常數、`_dt` / `modifier` / `economy_meta` 小工具)、`event_state.py` (🎪 活動狀態、`get_rules`、手續費倍率快取)、`shrine.py` (⛩️ 神社經營)、`gather.py` (🏮 打工、🗺️ 採集 / 🍳 料理 / 🏪 雜貨店 / 🍵 招待、🧺 快速採集)、`market_value.py` (💹 浮動市值)、`market.py` (♻️ 分解、🏪 市場、💸 轉帳)。依賴只有一個方向 (common ➔ event_state ➔ shrine ➔ gather；event_state ➔ market_value ➔ market)，沒有循環 import。
+  - 用腳本照行號切：124 個函式 / 常數的語法樹跟拆開前逐一相同，原檔每一行程式與註解都還在；各檔開頭只多了自己用到的 import。
+- **舊檔名留著當入口**：`Economy_DB_Manager.py` 把每個子模組的名字 (含 `_active_events` 這類底線開頭的、`load_events` / `apply_current_names` 這類匯入進來的) 全部轉出來，Cog、其他資料層、教學書的 `importlib.import_module("Database.Economy_DB_Manager")`、測試一行都不用改。
+- **改入口屬性照舊生效**：測試會寫 `econ.get_rules = fake`、`econ.load_events = fake`、`econ.GUEST_SPAWN = […]` (共 12 處)；只是轉出名字的話改不到函式真正在用的那一份。入口把自己的模組類別換成帶 `__setattr__` 的子類別：對入口賦值時，「本來就有這個名字」的子模組一起改。新增子模組要加進入口的 `_PARTS`。
+  - ⚠️ 踩到的坑：`importlib.reload(入口)` 會重設入口的 `__name__` / `__spec__` / `__file__`，一開始這些也被轉給子模組 ➔ 重載後子模組的名字全變成入口的。雙底線的名字現在不轉；`test_console.py` 有檢查。
+- **`/admin-sys reload`**：原本照字母排，入口 (大寫 E) 會排在子模組前面、`gather` 也會排在 `shrine` 前面 ➔ 重載後拿到舊函式。`Utils/reloader.py` 新增 `PACKAGE_ORDER`：子模組照依賴順序先重載、入口最後，整組排在入口原本的位置 (還是在 Notify / Quest / Ura 之前)。
+- **測試**：`test_economy.py` +16 (入口轉出所有名字、改常數 / 函式 / 匯入的名字會傳到子模組並真的被用到、還原、共用的手續費快取只有一份)、`test_console.py` +9 (重載順序、子模組都有登記、全部重載後各檔拿到的是同一份新函式)；`python tests/run_all.py` 共 11,071 項全過。botcli 走過神社主畫面 / 清掃 / 治退 / 回收、採集、打工、料理、快速採集、雜貨店、招待、市值、分解、上架、下架、市場購買、轉帳，錯誤 0 個。
+
 ## 1.00.000 — 2026-11-24：🎉 正式版：專案整理、文件分類成手冊、未公開卡池開關 (統整)
 - **使用者**：整理各角色做的事與筆記做成手冊；不含 TH07 的版本同步到 `online`，版本 1.00.000；專案要有條有序、不要深度綁定 Claude。
 - **文件分類**：`docs/` 分成 `handbook/` (工作手冊)、`gameplay/` (玩法規則)、`dev/` (開發)、`art/` (卡面)、`changelog/` (舊紀錄)，總目錄 `docs/README.md`；程式、測試、文件裡的引用 (33 個檔案) 都改成新路徑。

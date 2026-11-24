@@ -241,5 +241,57 @@ async def main():
     h = {x["day"]: x["change"] for x in await econ.get_price_history("cirno", "SR")}
     check(f"event pool draws count {h.get('2026-11-25')}", abs(h.get("2026-11-25", 1)) < 1e-9)
 asyncio.run(main())
+
+
+# 📦 入口 (Economy_DB_Manager) 與 Database/economy/ 子模組：改入口的屬性，子模組裡同名的要一起變 (測試都是改入口)
+def entry_forwarding():
+    from Database.economy import common, event_state, shrine, gather, market_value, market
+    parts = (common, event_state, shrine, gather, market_value, market)
+    check("entry lists every part", tuple(econ._PARTS) == parts)
+    check("entry re-exports everything", all(getattr(econ, k) is v for p in parts for k, v in vars(p).items() if not k.startswith("__")))
+    check("private / imported names on entry", all(hasattr(econ, n) for n in ("_active_events", "_new_shrine", "_remember_fee_mods", "load_events",
+                                                                              "apply_current_names", "connect", "random", "shrine_data")))
+    # 常數：定義在 common、shrine 在用
+    orig = econ.GUEST_SPAWN
+    econ.GUEST_SPAWN = [0.0] * 5
+    check("const forwarded", common.GUEST_SPAWN == [0.0] * 5 and shrine.GUEST_SPAWN is common.GUEST_SPAWN is econ.GUEST_SPAWN)
+    state = econ._new_shrine(T0)
+    state = econ.advance_shrine(state, T0 + 48 * H, ALWAYS, rules=econ.game_rules([]))
+    check("patched const really used (no guests)", state["guests"] == [])
+    econ.GUEST_SPAWN = orig
+    check("const restored", common.GUEST_SPAWN is orig and shrine.GUEST_SPAWN is orig)
+    state = econ._new_shrine(T0)
+    state = econ.advance_shrine(state, T0 + 48 * H, ALWAYS, rules=econ.game_rules([]))
+    check("original const back in use", len(state["guests"]) > 0)
+
+    # 函式：get_rules 定義在 event_state、gather 也拿著一份
+    orig = econ.get_rules
+    async def fake(now=None): return "FAKE"
+    econ.get_rules = fake
+    check("func forwarded", event_state.get_rules is fake and gather.get_rules is fake)
+    econ.get_rules = orig
+    check("func restored", event_state.get_rules is orig and gather.get_rules is orig and econ.get_rules is orig)
+
+    # 匯入進來的名字：load_events 只改經濟系統這邊的，Database.events 自己的不動
+    from Database import events as ev
+    orig = econ.load_events
+    econ.load_events = lambda: {}
+    check("imported name forwarded", event_state.load_events is econ.load_events and ev.load_events is orig)
+    econ.load_events = orig
+    check("imported name restored", event_state.load_events is orig)
+
+    # 可變的共用狀態只有一份
+    check("fee cache shared", market._FEE_MODS is event_state._FEE_MODS is econ._FEE_MODS)
+    econ._remember_fee_mods({"modifiers": {"market_fee": 2.0}})
+    check("fee cache used by market", abs(econ.market_fee_rate() - econ.MARKET_BUYER_FEE * 2) < 1e-9)
+    econ._remember_fee_mods({"modifiers": {}})
+    check("fee cache reset", abs(econ.market_fee_rate() - econ.MARKET_BUYER_FEE) < 1e-9)
+
+    # 新名字只留在入口，不會塞進子模組
+    econ._test_only = 1
+    check("new name stays on entry", not any(hasattr(p, "_test_only") for p in parts))
+    del econ._test_only
+
+entry_forwarding()
 print(f"passed {ok}, failed {fail}")
 shutil.rmtree(tmp, ignore_errors=True)
