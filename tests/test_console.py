@@ -49,6 +49,7 @@ async def main():
 
     # 全部重載：資料層一起換新，DB_PATH 留在沙盒，新檔案會被載入
     old_get_shrine = sys.modules["Database.economy.shrine"].get_shrine
+    old_get_user = sys.modules["Database.users.core"].get_or_create_user
     out = await run(bot, "reload all")
     check("reload all loads new", "Cogs.load-market.market" in bot.extensions and "新載入" in out)
     check("db path kept", udm.DB_PATH == os.path.join(tmp, "Users.db"))
@@ -81,6 +82,35 @@ async def main():
     check("part identity untouched by entry reload", all(m.__name__.startswith("Database.economy.") and m.__spec__.name == m.__name__
                                                          and sys.modules[m.__name__] is m for m in econ._PARTS))
     check("importers see new entry", sys.modules["Database.Notify_DB_Manager"].econ.get_shrine is shrine_mod.get_shrine)
+
+    # 玩家資料庫拆成 Database/users/ 套件：整組排最前面 (其他資料層會從入口匯入)，子模組照依賴順序、入口 (User_DB_Manager) 最後
+    user_names = ["Database.User_DB_Manager", "Database.users.cards", "Database.users.titles", "Database.users", "Database.users.core",
+                  "Database.users.schema", "Database.Economy_DB_Manager", "Database.economy.common", "Database.Item_DB_Manager", "Utils.config"]
+    ordered = sorted(user_names, key=reloader._order)
+    pos = {n: i for i, n in enumerate(ordered)}
+    check("reload order: users parts by dependency, entry last",
+          ordered[:6] == ["Database.users", "Database.users.schema", "Database.users.core", "Database.users.titles",
+                          "Database.users.cards", "Database.User_DB_Manager"])
+    check("reload order: users before the other data layers",
+          pos["Database.User_DB_Manager"] < pos["Database.economy.common"] < pos["Database.Economy_DB_Manager"] < pos["Database.Item_DB_Manager"])
+    import Database.users as users_pkg
+    on_disk = {"Database.users." + m.name for m in pkgutil.iter_modules(users_pkg.__path__)}
+    check("reload order: every users part listed", on_disk <= set(reloader.PACKAGE_ORDER["Database.User_DB_Manager"]))
+    check("users entry is the same module object", sys.modules["Database.User_DB_Manager"] is udm)
+    check("users entry lists every part", {m.__name__ for m in udm._PARTS} == on_disk)
+    check("reload all reloaded users parts", udm.get_or_create_user is not old_get_user and all(
+        getattr(udm, n) is getattr(sys.modules[f"Database.users.{p}"], n)
+        for p, n in (("schema", "connect"), ("core", "get_or_create_user"), ("core", "tw_day"), ("titles", "get_title_state"),
+                     ("cards", "draw_gacha"), ("cards", "InsufficientFunds"))))
+    u_schema, u_core, u_titles, u_cards = (sys.modules[f"Database.users.{p}"] for p in ("schema", "core", "titles", "cards"))
+    check("users parts consistent after reload all", u_core.connect is u_schema.connect and u_titles.connect is u_schema.connect
+          and u_cards.connect is u_schema.connect and u_cards.add_player_stat is u_core.add_player_stat
+          and u_cards.get_title_state is u_titles.get_title_state and u_titles.get_or_create_user is u_core.get_or_create_user)
+    check("users part identity untouched by entry reload", all(m.__name__.startswith("Database.users.") and m.__spec__.name == m.__name__
+                                                              and sys.modules[m.__name__] is m for m in udm._PARTS))
+    check("db path kept in schema too", u_schema.DB_PATH == udm.DB_PATH == os.path.join(tmp, "Users.db"))
+    check("other data layers see new connect", sys.modules["Database.economy.shrine"].connect is u_schema.connect)
+    check("db still usable after reload all", (await udm.get_or_create_user(987654))["money"] == udm.STARTING_MONEY)
 
     out = await run(bot, "money 5 2500")
     check("money", f"{udm.STARTING_MONEY + 2500:,}" in out)

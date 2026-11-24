@@ -46,7 +46,12 @@ Characters/<分類>/<角色id>.json   一角色一檔；圖鑑、卡池、裏世
 
 ### 2.3 `Database/`：資料層
 ```
-User_DB_Manager.py     玩家資料庫 (Users.db) 所有存取
+User_DB_Manager.py     玩家資料庫 (Users.db) 的入口；實作在 users/，外面一律從這個檔匯入 (改 DB_PATH 也是改這個檔的)
+users/                 👤 玩家資料庫的實作 (1.00.002 從 User_DB_Manager.py 拆出來；依賴順序 schema ➔ core ➔ titles ➔ cards)
+  schema.py            🧱 資料表結構與初始化：DB_PATH、SCHEMA_STATEMENTS、connect、_ensure_user、init_db
+  core.py              👤 玩家資料、💰 貨幣經驗、📅 每日簽到、🎒 背包道具、🏆 排行榜與隱私、tw_day、📊 玩家統計、🎪 活動任務計數、⚡ 體力
+  titles.py            🏷️ 稱號、🖼️ 角色名片
+  cards.py             🎴 抽卡：卡牌與統計、🛠️ 管理員卡冊操作
 Item_DB_Manager.py     道具資料庫 (Item.db) 所有存取
 Economy_DB_Manager.py  經濟系統的入口 (神社、採集 / 料理 / 雜貨店 / 招待、活動狀態、浮動市值、分解、市場、轉帳)，資料也在 Users.db；實作在 economy/，外面一律從這個檔匯入
 economy/               💹 經濟系統的實作 (1.00.001 從 Economy_DB_Manager.py 拆出來；數值常數在各檔開頭)

@@ -15,6 +15,16 @@
 
 ---
 
+## 1.00.002 — 2026-11-24：玩家資料庫資料層拆成 `Database/users/` 套件 (統整)
+- **只搬位置、不改行為**：`Database/User_DB_Manager.py` (1620 行) 拆成 `Database/users/`：`schema.py` (🧱 資料表結構與初始化、`DB_PATH`、`connect`、`_ensure_user`)、`core.py` (👤 玩家資料、💰 貨幣經驗、📅 每日簽到、🎒 背包道具、🏆 排行榜與隱私、⚡ 體力)、`titles.py` (🏷️ 稱號、🖼️ 角色名片)、`cards.py` (🎴 抽卡：卡牌與統計、🛠️ 管理員卡冊操作)。
+  - 用腳本照行號切：88 個函式 / 類別 / 常數的語法樹跟拆開前逐一相同 (只有下面的 `DB_DIR` 例外)，原檔每一行程式與註解都還在；各檔開頭只多了自己用到的 import。
+  - 照原本的大標題切會循環匯入 (簽到 / 體力要記統計、稱號要讀玩家資料、體力要 `tw_day`)，所以大家都會用到的三小段放進 `core.py`：`TW` / `tw_day` (原本在抽卡那段)、📊 玩家統計與 🎪 活動任務計數 (原本夾在稱號那段)。依賴順序 schema ➔ core ➔ titles ➔ cards，沒有往回匯入。
+- **舊檔名留著當入口**：跟 1.00.001 的 `Economy_DB_Manager.py` 同一套做法：入口把每個子模組的名字 (含底線開頭的、`json` / `aiosqlite` / `card_cache` 這類匯入進來的) 全部轉出來，引用它的 Cog、其他資料層、工具、測試一行都沒改。
+- **改入口屬性照舊生效**：全專案對這個模組賦值的只有三種：`udm.DB_PATH = 沙盒` (32 個測試檔 + botcli；重載時 `Utils/reloader.py` 也會寫回去)、`udm.STARTING_MONEY = 1000` (4 個測試)、`udm.get_user_cards = fake` (`test_card_cache.py`)。入口的模組類別帶 `__setattr__`，賦值會一起改到 `schema.DB_PATH` 這類「本來就有這個名字」的子模組，`connect()` 讀到的就是沙盒路徑。
+- ⚠️ **踩到的坑**：`DB_DIR = os.path.dirname(os.path.abspath(__file__))` 搬進 `Database/users/schema.py` 後會變成 `Database/users/` ➔ 正式環境會悄悄開一個空的 `Database/users/Users.db`，而測試與 botcli 全都會改 `DB_PATH`，所以完全測不出來。改成往上一層 (整個拆分唯一改到的一行程式)，新的 `test_users_split.py` 會查預設路徑還是 `Database/Users.db`。
+- **`/admin-sys reload`**：`Utils/reloader.py` 原本只認 `Database.User_DB_Manager` 這個名字排最前面，子模組會掉到後面 ➔ 入口重載時轉出舊函式。`PACKAGE_ORDER` 加上 users 這一組，整組 (子模組照依賴順序、入口最後) 排在所有資料層之前。
+- **測試**：新的 `test_users_split.py` 26 項 (預設路徑、入口轉出所有名字、改 `DB_PATH` / `STARTING_MONEY` / 函式會傳到子模組並真的被用到、還原)、`test_console.py` +11 (重載順序、子模組都有登記、全部重載後各檔拿到同一份新函式、`DB_PATH` 還在沙盒、資料庫照常能用)；`python tests/run_all.py` 共 11,108 項全過。botcli 走過 `/profile` (簽到、修改稱號)、`/daily`、神社 (回收、採集)、`/leaderboard`、`/card gacha` / `inventory` / `album` / `history`、`/admin-gacha give` / `view`、`/admin-user reset_daily`、`/trade`，以及 `/admin-sys reload` 全部重載後再簽到、抽卡，錯誤 0 個。
+
 ## 1.00.001 — 2026-11-24：經濟系統資料層拆成 `Database/economy/` 套件 (統整)
 - **只搬位置、不改行為**：`Database/Economy_DB_Manager.py` (1523 行) 照原本的大標題拆成 `Database/economy/`：`common.py` (神社經營的數值常數、`_dt` / `modifier` / `economy_meta` 小工具)、`event_state.py` (🎪 活動狀態、`get_rules`、手續費倍率快取)、`shrine.py` (⛩️ 神社經營)、`gather.py` (🏮 打工、🗺️ 採集 / 🍳 料理 / 🏪 雜貨店 / 🍵 招待、🧺 快速採集)、`market_value.py` (💹 浮動市值)、`market.py` (♻️ 分解、🏪 市場、💸 轉帳)。依賴只有一個方向 (common ➔ event_state ➔ shrine ➔ gather；event_state ➔ market_value ➔ market)，沒有循環 import。
   - 用腳本照行號切：124 個函式 / 常數的語法樹跟拆開前逐一相同，原檔每一行程式與註解都還在；各檔開頭只多了自己用到的 import。
