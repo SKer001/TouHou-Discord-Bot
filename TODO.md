@@ -6,6 +6,7 @@
 - **📁 專案整理 (1.00.000)**：文件分類到 `docs/handbook` / `gameplay` / `dev` / `art` / `changelog`，總目錄 `docs/README.md`；拆大檔案 (1.00.001～004)：`Economy_DB_Manager.py` ➔ `Database/economy/`、`User_DB_Manager.py` ➔ `Database/users/`、`ura.py` ➔ `Cogs/load-ura/views/`、`gacha.py` ➔ `Cogs/load-gacha/logic/` + `views/`；舊檔名留著當入口。
 - **卡面**：24 位角色 N～LR 全部走高清分層流程完成 (0.35.024)；新角色的卡面跟著第 3 節做。
 - **名片**：✅ 24 / 24 位全部完成 (桌機，2026-11-19)。
+- **`online` 目前的版本：1.00.007** (2026-11-24)。`online` 是穩定版，只在修 bug、新活動時、使用者說可以才更新 (`docs/handbook/workflow.md` 第 3 節)。
 - **雲端**：`online` 分支與部署檔已就緒 (`docs/dev/deploy.md`)，Google Cloud 資源還沒建 (使用者：gcloud 晚點再用)。
 - **開發工具**：botcli / discord_peek、主控台指令、重載控制台、共用分頁 `Utils/pagination.py`、Matt Pocock skill 包 (`docs/handbook/skills.md`)；11,046 項測試全過。
 - **分工**：統整 / 玩法 / 卡面 / 名片 多個角色並行 (`docs/handbook/workflow.md`)，版本號推送前才編。

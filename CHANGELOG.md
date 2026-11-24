@@ -86,6 +86,16 @@
 - **清掉的東西 (使用者同意)**：根目錄 `JSON.json`、`override.txt`、`requirements.compiled`；已合併的分支 `ura-skill-desc`、`claude/gacha-rates-a49710` 與它的 worktree；`.gitignore` 兩行過時設定。TH07 模擬腳本收進 `tools/ura_sim/th07/`。
 - 全部測試 11,046 項通過。下一階段：拆 4 個大檔案，先列拆法給使用者看。
 
+## 1.00.008 — 2026-11-24：`online` 改成只在修 bug / 新活動時更新 (統整)
+- **使用者**：「我的理想是 online 分支是穩定運行的版本，所以要盡可能不要一直 git，等修 bug 或是新活動再推」。
+- 寫進 `CLAUDE.md` 紅線 3、`docs/handbook/workflow.md` 第 3、6 節、`docs/dev/deploy.md`：
+  - 平常照常推 `main`，**不要每次推完就同步 `online`**。
+  - 只有修 bug、新活動 (或新卡池) 要開放，而且使用者說可以，才 `python deploy/handoff.py deploy`。
+  - 上線前要跑完全部測試，再用 `SHOW_UNRELEASED=0` 跑一次 botcli；中間會一起帶上去的 commit 先列給使用者看。
+- `TODO.md` 第 0 節記下 `online` 目前的版本 (1.00.007)，之後每次上線都要更新。
+- `docs/dev/deploy.md` 改掉一句舊說明：`push-env` 從 1.00.000 起會自動濾掉 `SHOW_UNRELEASED`，不用手動拿掉。
+- 只改文件。全部測試 11,134 項通過。**這一版不上 `online`**。
+
 ## 0.40.001 — 2026-11-24：fix：圖鑑「卡牌階級」下面的卡池狀態看活動有沒有開 (筆電，玩法 session)
 - 統整 session 用 botcli 看幽幽子的角色頁時發現 (使用者同意小修)：`build_character_container` 只看 `gacha.enabled`，妖妖夢 (`th07`，event_only、現在沒有活動) 也寫「🎴 可在 `/card gacha` 祈願中獲得」，其實抽不到。
 - 新的 `character_components.pool_state_text(char, folder, rules)`：一般卡池 (舊作) 照舊；event_only 卡池開著 ➔「🎪 紅霧異變期間開放：`/card gacha` 選「🎪 活動限定卡池」」(活動名稱從 `rules["gacha_event_pools"]` 的 `events` 來，好幾個活動開同一個卡池會全部列出)；沒開 ➔「🎪 只在活動期間開放 (目前沒有開)」；讀不到活動規則 ➔「🎪 只在活動期間開放：…」；沒開抽卡 / 不在任何卡池 ➔「🚫 目前不在卡池中」。

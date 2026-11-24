@@ -9,7 +9,7 @@
 | 服務 | Compute Engine **e2-micro** (免費方案，1 GB RAM) + 30 GB 標準硬碟，Debian 12 (Python 3.11，跟筆電一樣) |
 | 區域 | **us-west1** (奧勒岡，區 `us-west1-b`)；免費方案只限美國 3 區，Discord 伺服器也在美國 |
 | 誰在跑 | 平常是雲端；**本機要實機測試時用交接腳本把雲端停掉、拿走 DB**，測完交回。同一個 Token，同一時間只有一邊在線 |
-| 程式更新 | VM 跟 **`online` 分支**。main 照常推；確定要上線時 `python deploy/handoff.py deploy` 把 main 快轉推到 online，VM 每分鐘檢查、1 分鐘內自動更新 |
+| 程式更新 | VM 跟 **`online` 分支**。main 照常推；`online` 是穩定版，**只有修 bug、新活動時，使用者說可以才** `python deploy/handoff.py deploy` 把 main 快轉推到 online (2026-11-24)，VM 每分鐘檢查、1 分鐘內自動更新 |
 | DB 放哪 | **私人 Cloud Storage 儲存桶** (交接 + 每日備份)。主 repo 維持公開 (卡面網址要公開)，玩家的真實 DB 不進 git |
 | 建資源 | 使用者同意後由 AI 助手用 `gcloud` 做；帳號、登入、計費由使用者自己處理 |
 | Firebase | 這次不做 (要重寫整個資料層)；之後想改再另開任務 |
@@ -81,14 +81,14 @@ gcloud compute ssh touhou-bot --zone us-west1-b --command "curl -fsSL https://ra
    GCP_BUCKET=<儲存桶名稱>
    ```
    (`GCP_ZONE` 預設 `us-west1-b`、`GCP_VM` 預設 `touhou-bot`，有改才要寫。) 桌機的 `.env` 也要加。
-2. `python deploy/handoff.py push-env` ➔ 把這台的 `.env` 上傳到 VM (`/opt/touhou-bot/app/.env`，權限 600，只有 touhou 讀得到)。Token 換了也是重跑這行。⚠️ 會上傳**整份** `.env`：開發用的 `SHOW_UNRELEASED=1` (看得到未公開卡池) 上傳前要先拿掉，正式機器人不能設這個變數。
+2. `python deploy/handoff.py push-env` ➔ 把這台的 `.env` 上傳到 VM (`/opt/touhou-bot/app/.env`，權限 600，只有 touhou 讀得到)。Token 換了也是重跑這行。開發用的 `SHOW_UNRELEASED` (看得到未公開卡池) 上傳時會自動濾掉 (1.00.000)，正式機器人不會有這個變數。
 3. **先關掉本機機器人**，在「最後跑機器人、有最新 Users.db」的那台執行 `python deploy/handoff.py release` ➔ 上傳 `Database/Users.db`、`Item.db`，雲端接手並啟動。
 4. `python deploy/handoff.py status` 確認 `模式：cloud`、`🟢 執行中`，Discord 上看到機器人上線。
 
 ## 4. 日常
 | 要做什麼 | 指令 (在筆電 / 桌機的專案資料夾) |
 |---|---|
-| 程式上線 | main 推完、測試過 ➔ `python deploy/handoff.py deploy` (把 origin/main 快轉推到 online) |
+| 程式上線 | 只有修 bug / 新活動、使用者說可以時：測試過、`SHOW_UNRELEASED=0` 看過 ➔ `python deploy/handoff.py deploy` (把 origin/main 快轉推到 online，中間的 commit 會一起上去) |
 | 本機實機測試 | `python deploy/handoff.py take` ➔ `python Main.py` ➔ 關掉 ➔ `python deploy/handoff.py release` |
 | 拿雲端備份 | `python deploy/handoff.py backup` ➔ 存到 `Database/backups/cloud/<時間>/` (gitignore) |
 | 看狀態 | `python deploy/handoff.py status` |

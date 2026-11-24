@@ -54,6 +54,11 @@
   - 使用者說「定案」「推送」或明確表示這版 OK 才推；途中的程式碼改動也跟著那次定案一起推。
   - 卡面的流程與畫面規則 (分層、彈幕、特效、每張先給候選讓使用者挑) 在 `docs/art/card-art.md`。
 - 多個角色同時推送時的做法見第 4、7 節。
+- **`online` 是穩定運行的版本，不要每次推完 main 就同步** (2026-11-24：「盡可能不要一直 git，等修 bug 或是新活動再推」)。
+  - 平常照常推 `main`；`online` **只在兩種情況更新：修 bug、新活動 (或新卡池) 要開放**，而且要使用者說可以。
+  - 上線前：全部測試通過，再用 `SHOW_UNRELEASED=0` 跑一次 botcli 看正式機器人的樣子 (未公開的卡池不能出現)。
+  - 上線是把 `online` 快轉到某一版 main (`python deploy/handoff.py deploy`)，**中間所有 commit 會一起帶上去**：先用 `git log origin/online..origin/main` 列給使用者看；main 上有還沒準備好、又沒被開關藏住的東西時，先講，不要直接上線。
+  - 上線後更新 `TODO.md` 第 0 節「`online` 目前的版本」。
 
 ## 4. 🔢 版本號與開發紀錄 (2026-11-05)
 
@@ -89,7 +94,7 @@
 - **雲端上線後** (2026-11-17 部署檔已就緒；VM 照 `docs/dev/deploy.md` 設定完才算上線)：
   - 正式機器人在 Google Cloud VM 上跑 `online` 分支，玩家真實 DB 在私人儲存桶。
   - 本機要用正式 Token 跑 `python Main.py` 前，**一定要先** `python deploy/handoff.py take`；用完 `python deploy/handoff.py release` 交回。
-  - 程式要上線：`main` 推完再 `python deploy/handoff.py deploy`。
+  - 程式要上線：`main` 推完再 `python deploy/handoff.py deploy`；**只有修 bug、新活動時，使用者說可以才上線** (見第 3 節)。
 
 ## 7. 👥 分工 (2026-11-16)
 
