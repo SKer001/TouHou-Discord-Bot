@@ -15,6 +15,14 @@
 
 ---
 
+## 1.00.003 — 2026-11-24：裏世界 Cog 的畫面拆到 `Cogs/load-ura/views/` (統整)
+- **只搬位置、不改行為**：`Cogs/load-ura/ura.py` (1442 行) 只留 `UraCog` 指令與 `setup` (163 行)；畫面拆到 `views/`：`common.py` (逾時 / 提示文字 / 每頁幾個、`_btn` / `_select` / `box_rows` / `_opt`)、`run.py` (`RunView` 進行中的一局)、`setup.py` (`PartyPickerView`、`PocketModal`、`LoadoutView`)、`shop_storage.py` (`ShopView`、`StorageView`)、`bestiary.py` (`BestiaryView`)。用腳本照行號從 git 裡的原檔切，切完比對過：原檔第 25 行以後每一行程式與註解都還在、順序一樣，各檔只多了開頭的說明與自己用到的 import。**沒有循環匯入**：`common` ➔ `run` ➔ `setup` (整裝按出發會開 `RunView`)，`shop_storage`、`bestiary` 只用 `common`；`RunView` 要用 Cog (`track` / `forget` / `announce`) 是建構子傳進來的 `self.cog`，views 不 import `ura.py`。
+- **`ura.py` 當入口**：跟 `User_DB_Manager.py` 同一套 (`_PARTS` + `_EntryModule`)，把每個子模組的名字全部轉出來，原本的 import 也留著 ➔ `tests/test_ura_ui.py` (`cogmod.RunView` / `LoadoutView` / `B` / `load_thumbnails`…) 和教學書 (`importlib.import_module("Cogs.load-ura.ura").VIEW_TIMEOUT` / `STORAGE_PER_PAGE`) 一行都不用改。
+- ⚠️ **改入口屬性**：全專案對這個模組賦值的只有 `tests/test_ura_ui.py` 的 `cogmod._select = 會記錄的版本` (檢查沒有選單被截成 25 個)。只 re-export 的話這個檢查會**默默失效** (測試照樣全過)，所以入口的 `__setattr__` 會一起改到有這個名字的子模組；測試在賦值後多一行 assert 確認 5 個子模組都換到了。
+- ⚠️ **踩到的坑**：`views/setup.py` 在 `ura.py` 裡不能用 `setup` 這個名字匯入 (會蓋掉 Cog 的 `async def setup`，模組載不起來) ➔ 匯入時取別名 `_v_setup`。`views/` 是子資料夾，`Main.py` / botcli / `scan_extensions` 只掃第一層，不會被當成 Cog (botcli 還是 19 個模組)。
+- **`/admin-sys reload`**：`reload_extension` 只重跑 `ura.py`，views 子模組還是舊的 ➔ `Utils/reloader.py` 的單一重載與全部重載都加上 `Cogs.*.views.*`；新的 `VIEW_ORDER` 讓它們排在全部 Components 後面、照依賴順序 (照字母排的話 `bestiary` 會比 `common` 先，拿到舊的小工具)。`test_console.py` +10 項 (順序、資料夾裡每個檔都有列、`reload all` / `reload ura` 後類別是新的而且入口 / 子模組 / 執行中的 Cog 互相對得上)。
+- **測試**：`python tests/run_all.py` 11119 項全過；botcli 走過 `/ura explore` 選隊伍 ➔ 整裝 (挑道具、💾 儲存、⚡ 快速整裝、💰 帶賽錢) ➔ 出發 ➔ 選門 ➔ 普攻選目標打一回合 ➔ 📖 狀態表、背包、`resume` / `abandon` (確定放棄 ➔ 結算 + 公開訊息)、`/ura shop` 買東西、`/ura inventory` 換頁、`/ura bestiary` 換區 / 看一隻 / 回清單、`/ura status`，錯誤 0 個。文件：`docs/dev/structure.md`、`ARCHITECTURE.md` (Cog 太大時拆 `views/` 的寫法)。
+
 ## 1.00.002 — 2026-11-24：玩家資料庫資料層拆成 `Database/users/` 套件 (統整)
 - **只搬位置、不改行為**：`Database/User_DB_Manager.py` (1620 行) 拆成 `Database/users/`：`schema.py` (🧱 資料表結構與初始化、`DB_PATH`、`connect`、`_ensure_user`)、`core.py` (👤 玩家資料、💰 貨幣經驗、📅 每日簽到、🎒 背包道具、🏆 排行榜與隱私、⚡ 體力)、`titles.py` (🏷️ 稱號、🖼️ 角色名片)、`cards.py` (🎴 抽卡：卡牌與統計、🛠️ 管理員卡冊操作)。
   - 用腳本照行號切：88 個函式 / 類別 / 常數的語法樹跟拆開前逐一相同 (只有下面的 `DB_DIR` 例外)，原檔每一行程式與註解都還在；各檔開頭只多了自己用到的 import。

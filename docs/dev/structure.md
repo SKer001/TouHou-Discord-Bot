@@ -105,10 +105,12 @@ load-general/    profile.py, help.py, shrine.py, event.py, trade.py, leaderboard
                  Components/guide/<分類>.py                     📚 教學書，一個分類一本 (card / event / market / profile / shrine / ura)
 load-ura/        ura.py                                         🌀 裏世界探索 /ura (explore / resume / abandon / shop / inventory / status / bestiary / help)
                  Components/ura_components.py
+                 views/common.py, run.py, setup.py,             ura.py 只留 UraCog 指令；畫面 (View) 拆在這裡，ura.py 把名字全部轉出去
+                       shop_storage.py, bestiary.py             (共用小工具 / RunView / 選隊伍 + 整裝 / 商店 + 倉庫 / 怪物圖鑑)
 load-system/     Admin-sys.py                                   /admin-sys reload / sync / shutdown
 ```
 - `Main.py` 會把 `Cogs/<資料夾>/<檔名>.py` 以 `Cogs.<資料夾>.<檔名>` 載入；Cog 內可用相對匯入如 `from .Components.x import ...` (命名空間套件)。
-- **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾或專案根的 `Utils/`。
+- **載入器會載入 `Cogs/load-*/` 第一層的每一個 .py**：舊檔殘留會讓載入失敗；不是 Cog 的共用程式放 `Components/` 子資料夾 (畫面內容)、`views/` 子資料夾 (從大 Cog 檔拆出來的 View 類別，目前只有 `load-ura/`) 或專案根的 `Utils/`。
 - 畫面產生器的資料夾與檔名一律叫 `Components` / `*_components.py` (舊名 `Embeds` / `*_embeds.py` 已全部改掉)。畫面寫法見 `docs/dev/components-v2.md`。
 
 ### 2.6 `Utils/`：跨 Cog 共用工具
@@ -126,7 +128,7 @@ thumbnails.py      Thumbnails.json 共用讀取 load_thumbnails() / thumbnail_ur
 namecards.py       🖼️ 角色名片的圖片網址與原圖下載 (讀 images/Namecards.json、NamecardOriginals.json)
 guide.py           📚 教學書入口 open_guide()：各指令群組的 help 子指令 (/card help、/ura help…) 呼叫它
 stamina_modal.py   ⚡ 恢復體力彈窗 (/profile 與神社採集畫面共用；每天最多吃 3 個體力道具)
-reloader.py        模組重載 (/admin-sys reload 與主控台共用)
+reloader.py        模組重載 (/admin-sys reload 與主控台共用)；拆成套件的資料層照 PACKAGE_ORDER、Cog 的 views/ 照 VIEW_ORDER 的順序重載
 console.py         主控台指令：機器人執行中可在終端機輸入 help / status / reload / sync / money / stamina / shutdown
 ```
 

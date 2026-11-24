@@ -57,11 +57,12 @@ Discord ─▶ Main.py (TouHouBot)
 | `load-gacha/` | `gacha.py`、`Admin-gacha.py` | `/card …`（祈願、卡冊、合成、融合、history）、`/admin-gacha …` |
 | `load-market/` | `market.py`、`Admin-market.py` | `/market …`（市值、分解、上架、購買、我的上架）、`/admin-market …` |
 | `load-general/` | `profile.py`、`shrine.py`、`event.py`、`trade.py`、`leaderboard.py`、`Admin-item.py`、`Admin-user.py`、`Admin-shrine.py`、`Admin-event.py`、`Admin-trade.py` | `/profile`、`/daily`、`/shrine …`（含 `storage` 神社倉庫）、`/event info / quest`、`/trade`、`/leaderboard`、`/admin-item …`、`/admin-user …`、`/admin-shrine …`、`/admin-event …`、`/admin-trade …` |
-| `load-ura/` | `ura.py` | `/ura …`（🌀 裏世界探索：explore、resume、abandon、shop、inventory、status；引擎在 `Database/ura/`）|
+| `load-ura/` | `ura.py`（只留指令；View 類別拆在 `views/`，`ura.py` 把名字全部轉出去）| `/ura …`（🌀 裏世界探索：explore、resume、abandon、shop、inventory、status、bestiary；引擎在 `Database/ura/`）|
 | `load-system/` | `Admin-sys.py` | `/admin-sys reload / sync / shutdown` |
 
 ⚠️ **載入器會載入 `Cogs/load-*/` 第一層的每一個 `.py`**（`Main.py` 的 `setup_hook`）。所以：
 - 不是 Cog 的檔案**不能**放在第一層 → 放 `Components/` 或 `Utils/`。
+- Cog 檔太大時把 View 類別拆到同資料夾的 `views/`（`load-ura/views/` 是範例）：Cog 檔當入口把名字全部轉出去（`_PARTS` + `_EntryModule`，對入口賦值會一起改到子模組）；View 之間只能單向引用、要用到 Cog 就由建構子傳進來（不 import Cog 檔）；新子模組要加進入口的 `_PARTS` 和 `Utils/reloader.py` 的 `VIEW_ORDER`（照依賴順序）。
 - 不要留舊檔、備份檔（`gacha_old.py` 也會被載入而失敗）。
 - 每個 Cog 檔案結尾都要有 `async def setup(bot): await bot.add_cog(...)`。
 - 模組路徑是 `Cogs.load-gacha.gacha`（資料夾名有 `-`，所以 Cog 內用相對匯入 `from .Components.x import ...`）。

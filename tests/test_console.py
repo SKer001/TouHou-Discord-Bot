@@ -112,6 +112,39 @@ async def main():
     check("other data layers see new connect", sys.modules["Database.economy.shrine"].connect is u_schema.connect)
     check("db still usable after reload all", (await udm.get_or_create_user(987654))["money"] == udm.STARTING_MONEY)
 
+    # 裏世界的畫面拆成 Cogs/load-ura/views/：Components 先、views 照依賴順序 (common 最先)，入口 (ura.py) 由 reload_extension 最後重載
+    view_names = ["Cogs.load-ura.views.bestiary", "Cogs.load-ura.views.shop_storage", "Cogs.load-ura.views.setup", "Cogs.load-ura.views.run",
+                  "Cogs.load-ura.views.common", "Cogs.load-ura.Components.ura_components", "Cogs.load-general.Components.shrine_components",
+                  "Utils.config", "Database.Item_DB_Manager"]
+    ordered = sorted(view_names, key=reloader._order)
+    check("reload order: ura views by dependency, after components",
+          ordered[-5:] == ["Cogs.load-ura.views." + p for p in ("common", "run", "setup", "shop_storage", "bestiary")]
+          and ordered.index("Cogs.load-ura.Components.ura_components") < ordered.index("Cogs.load-ura.views.common"))
+    views_dir = os.path.join(reloader.PROJECT_ROOT, "Cogs", "load-ura", "views")
+    on_disk = {f[:-3] for f in os.listdir(views_dir) if f.endswith(".py")}
+    check("reload order: every ura view listed", on_disk == set(reloader.VIEW_ORDER["Cogs.load-ura.views"]))
+    check("views are not extensions", not any(".views." in e for e in reloader.scan_extensions()) and not any(".views." in e for e in bot.extensions))
+
+    def ura_parts():
+        return [sys.modules["Cogs.load-ura.views." + p] for p in reloader.VIEW_ORDER["Cogs.load-ura.views"]]
+    def ura_consistent():
+        ent = sys.modules["Cogs.load-ura.ura"]
+        common, run_mod, setup_mod, shop_mod, best_mod = ura_parts()
+        return (list(ent._PARTS) == ura_parts() and ent.RunView is run_mod.RunView and setup_mod.RunView is run_mod.RunView
+                and ent.LoadoutView is setup_mod.LoadoutView and ent.ShopView is shop_mod.ShopView and ent.BestiaryView is best_mod.BestiaryView
+                and all(m._select is common._select and m.box_rows is common.box_rows for m in (ent, run_mod, setup_mod, shop_mod, best_mod))
+                and run_mod.UC is sys.modules["Cogs.load-ura.Components.ura_components"] and callable(ent.setup)
+                and ent.UraCog.__module__ == "Cogs.load-ura.ura")
+    check("ura entry consistent", ura_consistent())
+    for line, what in (("reload all", "all"), ("reload ura", "one")):
+        old_run, old_select, old_cog = ura_parts()[1].RunView, ura_parts()[0]._select, sys.modules["Cogs.load-ura.ura"].UraCog
+        out = await run(bot, line)
+        check(f"reload {what}: ura views reloaded {out!r}", ura_parts()[1].RunView is not old_run and ura_parts()[0]._select is not old_select
+              and sys.modules["Cogs.load-ura.ura"].UraCog is not old_cog and "重載失敗" not in out and "重載 Cogs.load-ura.ura 失敗" not in out)
+        check(f"reload {what}: ura entry consistent", ura_consistent())
+        check(f"reload {what}: live cog uses new views", type(bot.get_cog("UraCog")) is sys.modules["Cogs.load-ura.ura"].UraCog)
+    check("db path kept after ura reloads", udm.DB_PATH == os.path.join(tmp, "Users.db"))
+
     out = await run(bot, "money 5 2500")
     check("money", f"{udm.STARTING_MONEY + 2500:,}" in out)
     check("money usage", "用法" in await run(bot, "money x"))

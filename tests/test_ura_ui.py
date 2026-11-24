@@ -24,6 +24,8 @@ def _loud_select(placeholder, options, *a, **kw):
         _over.append((placeholder, len(options)))
     return _orig_select(placeholder, options, *a, **kw)
 cogmod._select = _loud_select
+# 畫面拆在 views/ 底下：改入口的 _select 要一起改到每個子模組 (不然上面的記錄會默默失效)
+assert all(m._select is _loud_select for m in cogmod._PARTS) and len(cogmod._PARTS) == 5
 
 ok = fail = 0
 def check(name, cond):
