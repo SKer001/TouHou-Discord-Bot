@@ -54,8 +54,17 @@ def load_settings() -> dict:
     return settings
 
 
+GCLOUD_DIRS = (   # Windows 預設安裝位置：剛裝好、PATH 還沒更新的終端機也找得到
+    os.path.join(os.getenv("LOCALAPPDATA", ""), "Google", "Cloud SDK", "google-cloud-sdk", "bin"),
+    os.path.join(os.getenv("ProgramFiles(x86)", ""), "Google", "Cloud SDK", "google-cloud-sdk", "bin"),
+    os.path.join(os.getenv("ProgramFiles", ""), "Google", "Cloud SDK", "google-cloud-sdk", "bin"),
+)
+
+
 def gcloud_path() -> str:
     path = shutil.which("gcloud")
+    if not path and os.name == "nt":
+        path = next((os.path.join(d, "gcloud.cmd") for d in GCLOUD_DIRS if os.path.isfile(os.path.join(d, "gcloud.cmd"))), None)
     if not path:
         raise SystemExit("❌ 找不到 gcloud，請先安裝 Google Cloud CLI 並執行 gcloud auth login")
     return path
@@ -91,6 +100,12 @@ def snapshot_db(src: str, dst: str):
         source.close()
 
 
+def write_last_take(data: dict):
+    os.makedirs(HANDOFF_DIR, exist_ok=True)
+    with open(LAST_TAKE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def stamp() -> str:
     return datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -102,8 +117,13 @@ def cmd_status(settings, _args):
     vm(settings, f"{VM_CTL} status")
 
 
-def cmd_take(settings, _args):
+def cmd_take(settings, args):
     holder = holder_name()
+    if os.path.exists(LAST_TAKE) and "--force" not in args:
+        with open(LAST_TAKE, encoding="utf-8") as f:
+            if json.load(f).get("done"):
+                raise SystemExit("❌ 玩家資料已經在這台 (上次沒交回)，重新下載會用雲端舊的那份蓋掉本機比較新的。"
+                                 "要交回雲端用 release；確定要重新下載請加 --force")
     print(f"☁️ ➔ 💻 請雲端停下並把 DB 交給 {holder}…")
     vm(settings, f"{VM_CTL} release {holder}")
 
@@ -119,8 +139,8 @@ def cmd_take(settings, _args):
         for name in DB_FILES:
             if os.path.exists(os.path.join(DB_DIR, name)):
                 shutil.copy2(os.path.join(DB_DIR, name), os.path.join(keep, name))
-        with open(LAST_TAKE, "w", encoding="utf-8") as f:
-            json.dump({"holder": holder, "time": stamp(), "pre_take": keep}, f, ensure_ascii=False, indent=2)
+    # done = 真實資料已經放進 Database/ (Utils/auto_handoff.py 看這個決定開機要不要重新下載、關機要不要交回)
+    write_last_take({"holder": holder, "time": stamp(), "pre_take": keep, "done": False})
 
     with tempfile.TemporaryDirectory() as tmp:
         gcloud("storage", "cp", f"gs://{settings['bucket']}/live/meta.json", os.path.join(tmp, "meta.json"))
@@ -136,13 +156,20 @@ def cmd_take(settings, _args):
                 if os.path.exists(stale):
                     os.remove(stale)
             shutil.copyfile(os.path.join(tmp, name), os.path.join(DB_DIR, name))
+    write_last_take({"holder": holder, "time": stamp(), "pre_take": keep, "done": True})
 
     print(f"✅ 最新 DB 已放進 Database/ (本機原本的存在 {os.path.relpath(keep, ROOT)})")
-    print("   現在可以 python Main.py；用完一定要 python deploy/handoff.py release 交回雲端")
+    if "--auto" not in args:   # Main.py 自動交接時，關機會自己交回，不用提醒
+        print("   現在可以 python Main.py；用完一定要 python deploy/handoff.py release 交回雲端")
 
 
 def cmd_release(settings, args):
     holder = holder_name()
+    if os.path.exists(LAST_TAKE) and "--force" not in args:
+        with open(LAST_TAKE, encoding="utf-8") as f:
+            if not json.load(f).get("done", True):   # 舊格式沒有 done ➔ 當作做完了
+                raise SystemExit("❌ 上次 take 沒做完，Database/ 裡不是玩家的真實資料，上傳會蓋掉雲端那份。"
+                                 "先重跑 take (或 python Main.py) 把資料拿下來；確定要上傳這份請加 --force")
     if "--yes" not in args:
         answer = input("本機的機器人已經關掉了嗎？(y/N) ").strip().lower()
         if answer != "y":
@@ -208,7 +235,7 @@ def cmd_deploy(_settings, _args):
     print("✅ 已推到 online，雲端 1 分鐘內會自動更新 (python deploy/handoff.py status 可以看)")
 
 
-DEV_ONLY_ENV = {"SHOW_UNRELEASED"}   # 只給開發機用的 .env 設定
+DEV_ONLY_ENV = {"SHOW_UNRELEASED", "SKIP_HANDOFF"}   # 只給開發機用的 .env 設定
 
 
 def cmd_push_env(settings, _args):

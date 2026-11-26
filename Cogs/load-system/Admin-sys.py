@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from Utils.config import is_admin
 from Utils.components import send_notice, notice_container
-from Utils import reloader
+from Utils import reloader, auto_handoff
 
 RELOAD_ALL = "__all__"
 SELF_EXT = __name__   # 這個檔案本身 (Cogs.load-system.Admin-sys)：全部重載時跳過，正在執行中
@@ -122,14 +122,15 @@ class SysAdmin(commands.GroupCog, group_name="admin-sys", group_description="【
             await send_notice(interaction, f"❌ 同步指令時發生錯誤：\n```py\n{e}\n```")
 
     # 3. 🛑 /shutdown 安全關閉機器人
-    @app_commands.command(name="shutdown", description="【開發者專用】安全儲存並關閉機器人")
+    #    本機：關機後自動把資料交回雲端；雲端：等於重新啟動 (systemd Restart=always，約 15 秒後回來)
+    @app_commands.command(name="shutdown", description="【開發者專用】關閉機器人 (本機：資料交回雲端；雲端：重新啟動)")
     @app_commands.default_permissions(administrator=True)
     async def shutdown_cmd(self, interaction: discord.Interaction):
         if not is_admin(interaction.user):
             await send_notice(interaction, "❌ 您沒有權限使用此開發者指令！")
             return
 
-        await send_notice(interaction, "⚙️ 機器人正在安全關閉中... 下次見！")
+        await send_notice(interaction, auto_handoff.shutdown_notice())
         await self.bot.close()
 
 

@@ -132,6 +132,7 @@ guide.py           📚 教學書入口 open_guide()：各指令群組的 help �
 stamina_modal.py   ⚡ 恢復體力彈窗 (/profile 與神社採集畫面共用；每天最多吃 3 個體力道具)
 reloader.py        模組重載 (/admin-sys reload 與主控台共用)；拆成套件的資料層照 PACKAGE_ORDER、Cog 的 logic/ 與 views/ 照 VIEW_ORDER 的順序重載
 console.py         主控台指令：機器人執行中可在終端機輸入 help / status / reload / sync / money / stamina / shutdown
+auto_handoff.py    ☁️ 本機 ⇄ 雲端自動交接：Main.py 開機前 take、關機後 release；雲端上什麼都不做 (docs/dev/deploy.md 4.1)
 ```
 
 ### 2.7 `Logger/`
@@ -197,8 +198,9 @@ docs/changelog/                舊的開發紀錄 (0.38 以前，依版本分檔
 | `ADMIN_IDS` | 管理員的 Discord 使用者 ID，逗號分隔；沒設定時所有管理員指令都不能用 |
 | `NAMECARD_CHANNEL_ID` | 名片原圖的私人頻道 (2026-11-14 起) |
 | `TEST_CHANNEL_ID` | (選填) 實機測試頻道；沒設定時測試工具用 `LOG_CHANNEL_ID` |
-| `SHOW_UNRELEASED` | (選填，開發用) 設 `1` 看得到還沒公開的卡池；正式機器人不要設。測試與開發工具 (`tools/botcli.py`、`tools/ura_roster.py`、`tools/ura_sim/`、`tools/card_art/build_namecards.py`) 自己會打開。⚠️ `deploy/handoff.py push-env` 會把整份 `.env` 傳上雲端，上傳前先拿掉這行 |
-| `GCP_PROJECT`、`GCP_BUCKET`、`GCP_ZONE`、`GCP_VM` | 雲端交接 `deploy/handoff.py` 用 (前兩個必填才能交接)，見 `docs/dev/deploy.md` |
+| `SHOW_UNRELEASED` | (選填，開發用) 設 `1` 看得到還沒公開的卡池；正式機器人不要設。測試與開發工具 (`tools/botcli.py`、`tools/ura_roster.py`、`tools/ura_sim/`、`tools/card_art/build_namecards.py`) 自己會打開。`deploy/handoff.py push-env` 上傳時會自動濾掉 (1.00.000) |
+| `GCP_PROJECT`、`GCP_BUCKET`、`GCP_ZONE`、`GCP_VM` | 雲端交接 `deploy/handoff.py` 用 (前兩個必填才能交接；本機 `python Main.py` 沒有這兩個會拒絕啟動)，見 `docs/dev/deploy.md` |
+| `SKIP_HANDOFF` | (選填，只在雲端壞掉時用) 設 `1`：本機開機不跟雲端交接、關機也不交回。雲端還在跑的話會兩邊同時上線。`push-env` 不會傳上雲端 |
 
 `.gitignore` 裡的東西 (每台電腦各自有，不會同步)：`/.env`、`/Logger/Logs/`、`__pycache__/`、`/.vscode`、`/.botcli/`、`/Database/backups/`、`/card_stages/`、`/tools/card_art/fonts/HarukazeSolid.ttf`、`/images/Original/**/*_hd.png`、`/images/Original/**/_old_*/`、`/images/Original/Namecards/`、`/tools/ura_sim/th07/out/`、`/.mcp.json` (含本機路徑)、`/.codegraph/` (程式碼索引)。
 

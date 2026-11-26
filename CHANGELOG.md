@@ -15,6 +15,24 @@
 
 ---
 
+## 1.00.015 — 2026-11-26：☁️ 本機開機自動跟雲端交接、關機自動交回 (統整)
+- **使用者**：本機要跑就交接資料並關掉雲端，本機打 `/shutdown` 就交回資料並開雲端。一輪 6 題，使用者「都照建議」。
+- **本機 `python Main.py`** (`Utils/auto_handoff.py`)：開機先 ssh 看雲端的模式再決定：
+  - `cloud` ➔ take (雲端停、拿最新資料)，成功才連 Discord。
+  - 資料本來就在這台 (上次直接按視窗 ✕、沒交回) ➔ 沿用本機那份，不重新下載。原本手動 take 會用雲端舊的那份蓋掉本機比較新的。
+  - 資料在別台、交接失敗、`.env` 沒有 GCP 設定、找不到 gcloud ➔ 不啟動 (同一個 Token 不能兩邊同時在線)。
+  - `.env` 加 `SKIP_HANDOFF=1` 跳過交接 (雲端壞了才用；`push-env` 不會傳上雲端)。
+- **本機關機**：Discord `/shutdown`、主控台 `shutdown`、Ctrl+C、程式出錯結束 ➔ `Main.py` 的 `finally` 自動 release (上傳、雲端開機、本機放回測試資料)。`/shutdown` 的訊息會說明要交回雲端。
+- **雲端** (`touhou-bot.service`：`TOUHOU_CLOUD=1`、`Restart=always`)：不做交接；`/shutdown` = 重新啟動，約 15 秒後回來。**這部分要更新 `online` 才會生效**，這一版沒上 online。
+- **`deploy/handoff.py` 的保險** (手動跑也擋)：
+  - `last_take.json` 多記 `done`：資料真的放進 `Database/` 才是 true。
+  - 拿著資料時 `take` 會擋 (要重新下載加 `--force`)；take 沒做完時 `release` 會擋，不然會把測試資料傳上去蓋掉雲端那份。
+  - gcloud 不在 PATH 也找得到 (Windows 預設安裝位置)。
+- **實測** (用正式機器人跑完一輪)：本機開機 ➔ 雲端停、資料下載、本機上線 (約 50 秒) ➔ 使用者在 Discord 打 `/shutdown` ➔ 資料交回、雲端開回來 (約 50 秒) ➔ 本機放回測試資料。
+- **踩到的坑**：第一次實測 `Main.py` 有語法錯誤 (改檔腳本把字串裡的 `\n` 變成真的換行)，但測試全過，因為沒有測試會載入 `Main.py`。`tests/test_auto_handoff.py` 現在會編譯 `Main.py` 和 `deploy/*.py`。
+- 文件：`CLAUDE.md` 紅線 4、`docs/dev/deploy.md` 新增 4.1 節、`docs/handbook/workflow.md`、`docs/dev/structure.md`、`TODO.md`。
+- 新增 `tests/test_auto_handoff.py` (52 項)。全部測試 11,212 項通過。
+
 ## 1.00.014 — 2026-11-26：☁️ 雲端上線 (統整)
 - **使用者**：「先來搞 online」。使用者自己開 Google Cloud 專案、綁計費、裝 CLI、登入；統整照 `docs/dev/deploy.md` 第 3 節建資源、安裝、交上資料。
 - 建好的：e2-micro VM (Debian 12、30 GB 標準硬碟、us-west1-b)、私人儲存桶 (禁止公開、備份 30 天自動刪)、只能存取這個儲存桶的服務帳戶。專案 ID 和儲存桶名稱只寫在 `.env` (`GCP_PROJECT` / `GCP_BUCKET`)，不寫進公開的 repo。

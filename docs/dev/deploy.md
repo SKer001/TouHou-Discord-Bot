@@ -93,11 +93,27 @@ gcloud compute ssh touhou-bot --zone us-west1-b --command "curl -fsSL https://ra
 | 要做什麼 | 指令 (在筆電 / 桌機的專案資料夾) |
 |---|---|
 | 程式上線 | 只有修 bug / 新活動、使用者說可以時：測試過、`SHOW_UNRELEASED=0` 看過 ➔ `python deploy/handoff.py deploy` (把 origin/main 快轉推到 online，中間的 commit 會一起上去) |
-| 本機實機測試 | `python deploy/handoff.py take` ➔ `python Main.py` ➔ 關掉 ➔ `python deploy/handoff.py release` |
+| 本機實機測試 | **`python Main.py` 就好** (自動交接，見下面)；關機用 Discord `/shutdown`、主控台 `shutdown` 或 Ctrl+C |
+| 手動交接 | `python deploy/handoff.py take` / `release` (自動交接失敗、或要不開機器人只拿資料時) |
 | 拿雲端備份 | `python deploy/handoff.py backup` ➔ 存到 `Database/backups/cloud/<時間>/` (gitignore) |
 | 看狀態 | `python deploy/handoff.py status` |
 | 看 log / 進 VM | `python deploy/handoff.py ssh`，再 `sudo journalctl -u touhou-bot -f` (更新紀錄：`-u touhou-update`) |
 | 手動重啟 / 強制更新 | VM 上 `sudo systemctl restart touhou-bot` / `sudo python3 /opt/touhou-bot/repo/deploy/vm_ctl.py update --force` |
+
+### 4.1 自動交接 (1.00.015，`Utils/auto_handoff.py`，使用者 2026-11-26 定)
+- **本機開機** (`python Main.py`)：先 ssh 看雲端的模式再決定：
+  | 雲端模式 | 這台的 `last_take.json` | 做什麼 |
+  |---|---|---|
+  | `cloud` | (不管) | take：雲端停、下載最新資料，成功才連 Discord |
+  | `local:<這台>` | `done: true` | 上次沒交回 (直接按 ✕ 關掉)：**沿用本機那份**，不重新下載 (不然會被雲端舊的那份蓋掉) |
+  | `local:<這台>` | 沒有或 `done: false` | 上次 take 沒做完：重新下載雲端交出來的那份 |
+  | `local:<別台>` / 其他 | | **不啟動**：先到那台關機交回 |
+- 交接失敗 (沒網路、雲端停不下來)、`.env` 沒有 `GCP_PROJECT` / `GCP_BUCKET`、找不到 gcloud ➔ **不啟動** (同一個 Token 不能兩邊同時在線)。雲端壞了要硬跑：`.env` 加 `SKIP_HANDOFF=1` (不交接、關機也不交回；`push-env` 不會把它傳上雲端)。
+- **本機關機**：Discord `/shutdown`、主控台 `shutdown` / `exit`、Ctrl+C、程式出錯結束 ➔ `Main.py` 的 `finally` 自動 release (上傳、雲端開機、本機放回測試資料)。直接按視窗 ✕ 來不及 (Windows 只給幾秒)，下次開機沿用、關機時再交回。
+- **雲端**：systemd 設 `TOUHOU_CLOUD=1` (也看 `/var/lib/touhou-bot` 在不在)，什麼都不做。雲端收到 `/shutdown` = **重新啟動** (`Restart=always`，約 15 秒後回來)；`vm_ctl` 用 `systemctl stop` 停的不會重開。
+- 手動指令的保險：拿著資料 (`done: true`) 時 `take` 會擋 (要重新下載加 `--force`)；take 沒做完 (`done: false`) 時 `release` 會擋 (Database/ 裡是測試資料，上傳會蓋掉雲端那份)。
+- gcloud 不在 PATH 也找得到：Windows 預設安裝位置 (`%LOCALAPPDATA%\Google\Cloud SDK\...`) 會自己找。
+- 測試：`tests/test_auto_handoff.py` (假的 gcloud / take / release，檢查每種情況做什麼)。
 
 - **take** 會先把本機原本的 `Database/*.db` (測試資料) 收到 `Database/backups/handoff/pre-take-*`，**release** 交回後再放回去，所以玩家真實資料不會被順手 commit 進公開 repo。交出去的那份也會在 `Database/backups/handoff/released-*` 留一份。
 - 只有 take 的那台可以 release (VM 記著是哪台)。筆電 take 了、要換桌機交回，加 `--force`，**但要確定筆電那份已經沒在用**，不然筆電的資料會被蓋掉。

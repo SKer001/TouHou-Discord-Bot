@@ -13,10 +13,13 @@ Group=touhou
 WorkingDirectory=/opt/touhou-bot/app
 Environment=PYTHONIOENCODING=utf-8
 Environment=PYTHONUNBUFFERED=1
+# 讓程式知道自己在雲端 (Utils/auto_handoff.py：雲端不跟自己交接)
+Environment=TOUHOU_CLOUD=1
 # 保險：模式不是 cloud (DB 在本機手上) 就不准啟動，避免兩邊同時上線
 ExecStartPre=+/usr/bin/python3 /opt/touhou-bot/repo/deploy/vm_ctl.py check-mode
 ExecStart=/opt/touhou-bot/venv/bin/python Main.py
-Restart=on-failure
+# always：Discord 上的 /shutdown 在雲端等於重新啟動 (使用者 2026-11-26)；vm_ctl 用 systemctl stop 停的不會重開
+Restart=always
 RestartSec=15
 
 [Install]

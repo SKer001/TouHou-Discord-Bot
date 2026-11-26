@@ -93,7 +93,7 @@
 - `.env` 不進 git，換電腦要手動複製 (內容見 `docs/dev/structure.md`)。
 - **雲端 (2026-11-26 上線)**：
   - 正式機器人在 Google Cloud VM 上跑 `online` 分支，玩家真實 DB 在私人儲存桶。
-  - 本機要用正式 Token 跑 `python Main.py` 前，**一定要先** `python deploy/handoff.py take`；用完 `python deploy/handoff.py release` 交回。
+  - 本機 `python Main.py` 會**自動交接** (1.00.015)：開機先停雲端、拿最新資料，成功才連 Discord；`/shutdown`、主控台 `shutdown`、Ctrl+C 關機後自動交回、雲端開機 (`Utils/auto_handoff.py`)。直接按視窗 ✕ 來不及交回：下次開機會沿用本機那份，關機時再交回；也可以手動 `python deploy/handoff.py release`。
   - 程式要上線：`main` 推完再 `python deploy/handoff.py deploy`；**只有修 bug、新活動時，使用者說可以才上線** (見第 3 節)。
 
 ## 7. 👥 分工 (2026-11-16)

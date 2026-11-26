@@ -8,6 +8,7 @@ from Database.User_DB_Manager import init_db
 from Database.Item_DB_Manager import init_item_db
 from Utils.version import VERSION
 from Utils.console import start_console
+from Utils import auto_handoff
 
 # 讀取 .env 檔案
 load_dotenv()
@@ -151,13 +152,20 @@ class TouHouBot(commands.Bot):
 # 主程式進入點
 # =========================================================
 async def main():
-    if not TOKEN:
-        print("❌ 錯誤：找不到 DISCORD_TOKEN，請檢查 .env 檔案內容！")
-        return
-
     bot = TouHouBot()
     async with bot:
         await bot.start(TOKEN)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if not TOKEN:
+        print("❌ 錯誤：找不到 DISCORD_TOKEN，請檢查 .env 檔案內容！")
+        sys.exit(1)
+    # ☁️ 本機：先跟雲端交接 (雲端停、拿最新資料)，關機後自動交回 (Utils/auto_handoff.py)；雲端上什麼都不做
+    if not auto_handoff.before_start():
+        sys.exit(1)
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n🛑 收到 Ctrl+C，機器人已關閉")
+    finally:
+        auto_handoff.after_stop()

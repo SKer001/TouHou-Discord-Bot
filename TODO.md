@@ -7,7 +7,7 @@
 - **卡面**：24 位角色 N～LR 全部走高清分層流程完成 (0.35.024)；新角色的卡面跟著第 3 節做。
 - **名片**：✅ 24 / 24 位全部完成 (桌機，2026-11-19)。
 - **`online` 目前的版本：1.00.007** (2026-11-24)，**2026-11-26 起在雲端 24 小時跑這版**。`online` 是穩定版，只在修 bug、新活動時、使用者說可以才更新 (`docs/handbook/workflow.md` 第 3 節)。
-- **☁️ 雲端：2026-11-26 上線** (`docs/dev/deploy.md`)。玩家真實資料在雲端；**本機要用正式 Token 跑機器人前一定先 `python deploy/handoff.py take`，用完 `release`**。上線前筆電的玩家資料備份在 `Database/backups/pre-cloud-20261126/` (不進 git)。
+- **☁️ 雲端：2026-11-26 上線** (`docs/dev/deploy.md`)。玩家真實資料在雲端；**本機 `python Main.py` 會自動交接** (開機停雲端、拿資料；`/shutdown` 關機交回、雲端開機；1.00.015)。上線前筆電的玩家資料備份在 `Database/backups/pre-cloud-20261126/` (不進 git)。
 - **開發工具**：botcli / discord_peek、主控台指令、重載控制台、共用分頁 `Utils/pagination.py`、Matt Pocock skill 包 (`docs/handbook/skills.md`)；11,134 項測試全過。
 - **分工**：統整 / 玩法 / 卡面 / 名片 多個角色並行 (`docs/handbook/workflow.md`)，版本號推送前才編。
 - **📚 教學書 (0.36.000)**：/help 每個模式一本、`/card help` 等五個入口；書裡的數字開畫面時從程式讀，活動的例子照開書時進行中的活動寫 (0.37.005)。新指令要寫進某一章 (`tests/test_guide.py` 會擋)。

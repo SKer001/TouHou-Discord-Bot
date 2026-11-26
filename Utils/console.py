@@ -106,7 +106,8 @@ async def cmd_notify(bot, args):
 
 
 async def cmd_shutdown(bot, args):
-    print("⚙️ 機器人正在安全關閉中...")
+    from Utils import auto_handoff   # 本機：關機後自動交回雲端 (Main.py 的 finally)
+    print(auto_handoff.shutdown_notice())
     await bot.close()
 
 
@@ -120,7 +121,7 @@ COMMANDS = {
     "money": ("money <玩家ID> <數量> 調整賽錢", cmd_money),
     "stamina": ("stamina <玩家ID> <數量> 調整體力", cmd_stamina),
     "notify": ("手動檢查一次主動通知並私訊 (平常每 10 分鐘自動跑)", cmd_notify),
-    "shutdown": ("安全關閉機器人 (也可以打 exit)", cmd_shutdown),
+    "shutdown": ("安全關閉機器人 (本機會自動把資料交回雲端；也可以打 exit)", cmd_shutdown),
 }
 ALIASES = {"exit": "shutdown", "quit": "shutdown", "stop": "shutdown", "?": "help", "ls": "modules"}
 
