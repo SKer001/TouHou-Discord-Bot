@@ -139,6 +139,7 @@ async def setup(bot):
 - **會改到多個表或「先讀再寫」的操作，整個放在一個 `BEGIN IMMEDIATE` 交易裡**（例：`draw_gacha` 扣錢 + 寫卡 + 更新保底；`transform_cards` 刪素材 + 寫新卡）。這樣連點、兩個視窗同時按也只會成功一次。
 - 每日領取類用原子 `UPDATE … WHERE last_daily != today`，看 `rowcount` 判斷有沒有成功。
 - 新增欄位：加到 `USERS_EXTRA_COLUMNS`，`init_db()` 會自動 `ALTER TABLE` 補上，舊資料不用遷移腳本。
+- **資料格式只加不改** (2026-11-26，雲端上線後)：本機測試會用雲端的真實資料跑 `main` 的程式，交回後雲端的舊版 (`online`) 還要讀得懂。改欄位名稱、刪欄位、改 JSON 欄位的格式、改 ID 都算「改」：CHANGELOG 標「⚠️ 資料格式跟 online 不相容」，上 online 之前不要用本機跑真實資料 (細節：`docs/handbook/workflow.md` 第 6 節)。
 - 不夠 / 不合法時回傳 `{"ok": False, ...}` 或丟自訂例外（`InsufficientFunds`、`ValueError`），**不要寫一半**。
 - **卡冊快取 `Utils/card_cache.py`**：只有 autocomplete 用 `card_cache.cached_user_cards()`（每人快取 `CARD_CACHE_TTL` = 30 秒）；真正執行的指令 / 按鈕一律 `get_user_cards()` 讀最新資料。新增任何會改 `gacha_cards` 的資料層函式，要在 commit 成功後呼叫 `card_cache.invalidate(user_id)`（牽涉兩位玩家就兩位都失效）。快取模組不能 import Cogs。
 
@@ -204,7 +205,7 @@ tools/card_art/               卡面產生工具 (不會被機器人載入)
 ## 8. 新增功能的檢查清單
 
 1. 指令放進哪個 `Cogs/load-<類別>/`？畫面放進同類別的 `Components/`。
-2. 資料存取寫在 `Database/*_DB_Manager.py`，多表操作用單一交易。
+2. 資料存取寫在 `Database/*_DB_Manager.py`，多表操作用單一交易。資料格式只加不改 (第 4.1 節)：改了就在 CHANGELOG 標「⚠️ 資料格式跟 online 不相容」。
 3. 畫面全部 V2、元件 ≤ 40、選單 / autocomplete ≤ 25。
 4. 通知用 `send_notice`，開頭放 emoji。
 5. 管理員指令用 `_deny()`；會消耗 / 刪除東西的操作先給確認畫面。

@@ -15,6 +15,15 @@
 
 ---
 
+## 1.00.017 — 2026-11-26：規則：資料格式只加不改 (統整)
+- **使用者**：之後要注意，跑本地測試時會不會動到線上需要讀的資料格式。
+- 起因：本機測試用的是雲端的真實資料，跑的卻是 `main` 比較新的程式；關機交回後，雲端的舊版 (`online`) 要讀得懂這份資料。
+- 寫進 `docs/handbook/workflow.md` 第 6 節、`ARCHITECTURE.md` 4.1 與第 8 節檢查清單、`docs/dev/deploy.md` 4.1：
+  - **只能加**：新資料表、新欄位、新的道具 / 稱號種類。舊版會忽略。
+  - **不能改**：改欄位名稱、刪欄位、改 JSON 欄位格式、改 ID、改數字的意思。這種改動上 `online` 之前不要用本機跑真實資料，CHANGELOG 要標「⚠️ 資料格式跟 online 不相容」，`TODO.md` 也要寫。
+- 檢查過：目前 `online` (1.00.007) 到 `main` 之間，沒有任何資料格式的改動 (動到的只有 `Admin-sys.py`、`Utils/auto_handoff.py`、`Utils/console.py`、`Utils/version.py`)，本機測試是安全的。
+- 只改文件。全部測試通過。不上 `online`。
+
 ## 1.00.016 — 2026-11-26：TODO 記下下次上 online 要帶的東西 (統整)
 - **使用者**：雲端那側的改動等下次修 bug 一起上 `online`。
 - `TODO.md` 第 0 節記下：下次上 `online` 要帶上雲端 `/shutdown` 改成重新啟動、`TOUHOU_CLOUD=1` (1.00.015)。在那之前雲端被 `/shutdown` 會停著不回來，補救方法是本機 `python Main.py` 再 `/shutdown` 一次。

@@ -111,6 +111,7 @@ gcloud compute ssh touhou-bot --zone us-west1-b --command "curl -fsSL https://ra
 - 交接失敗 (沒網路、雲端停不下來)、`.env` 沒有 `GCP_PROJECT` / `GCP_BUCKET`、找不到 gcloud ➔ **不啟動** (同一個 Token 不能兩邊同時在線)。雲端壞了要硬跑：`.env` 加 `SKIP_HANDOFF=1` (不交接、關機也不交回；`push-env` 不會把它傳上雲端)。
 - **本機關機**：Discord `/shutdown`、主控台 `shutdown` / `exit`、Ctrl+C、程式出錯結束 ➔ `Main.py` 的 `finally` 自動 release (上傳、雲端開機、本機放回測試資料)。直接按視窗 ✕ 來不及 (Windows 只給幾秒)，下次開機沿用、關機時再交回。
 - **雲端**：systemd 設 `TOUHOU_CLOUD=1` (也看 `/var/lib/touhou-bot` 在不在)，什麼都不做。雲端收到 `/shutdown` = **重新啟動** (`Restart=always`，約 15 秒後回來)；`vm_ctl` 用 `systemctl stop` 停的不會重開。
+- **資料格式**：本機跑的是 `main`、資料是雲端的，交回後雲端的舊版要讀得懂 ➔ 資料格式只加不改，規則在 `docs/handbook/workflow.md` 第 6 節。
 - 手動指令的保險：拿著資料 (`done: true`) 時 `take` 會擋 (要重新下載加 `--force`)；take 沒做完 (`done: false`) 時 `release` 會擋 (Database/ 裡是測試資料，上傳會蓋掉雲端那份)。
 - gcloud 不在 PATH 也找得到：Windows 預設安裝位置 (`%LOCALAPPDATA%\Google\Cloud SDK\...`) 會自己找。
 - 測試：`tests/test_auto_handoff.py` (假的 gcloud / take / release，檢查每種情況做什麼)。
