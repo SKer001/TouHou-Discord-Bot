@@ -15,6 +15,13 @@
 
 ---
 
+## 1.00.012 — 2026-11-26：補上 1.00.011 漏掉的版本號與這份紀錄 (筆電，玩法 session)
+- 1.00.011 的 commit 只推了 `docs/gameplay/ura.md`：改 CHANGELOG 的腳本找不到插入位置先失敗了，後面的 commit / push 照樣執行，`Utils/version.py` 還停在 1.00.010。不改寫已推送的歷史，用這一版補上版本號和下面那筆紀錄。
+- 坑：同一個指令裡「改檔腳本」跟「git commit / push」要用 `&&` 串起來，腳本失敗就不會推。
+
+## 1.00.011 — 2026-11-26：docs：裏世界經驗值補上模擬的數字 (筆電，玩法 session)
+- 統整更正 TODO.md 0.2 節時發現：`docs/gameplay/ura.md`「經驗值」的例子寫第 1 區完整打完約 390 EXP，模擬是約 330。390 是 2026-11-20 設計時的試算，留著並標明；另外加一行模擬的一局中位數 (第 1 / 3 / 5 區約 330 / 1,100 / 2,000)，註明比試算少的原因 (自動玩家優先選寶箱 / 事件門，戰鬥比較少)。只改文件。
+
 ## 1.00.007 — 2026-11-24：拆檔後補上漏改的文件 (統整)
 - `docs/dev/database.md`：開頭加「入口 ➔ 實作在哪裡」一段 (`Database/users/` 四個檔、`Database/economy/` 六個檔各放什麼)，各小節補上函式 / 資料表實際所在的子模組 (逐一對照程式確認)；原本的內容沒刪沒改。
 - `ARCHITECTURE.md`：`RARITY_ORDER` 改寫成定義在 `Cogs/load-gacha/logic/rules.py` (入口 `gacha.py` 也拿得到)；`SCHEMA_STATEMENTS` 補上實際在 `Database/users/schema.py`。
