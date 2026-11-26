@@ -15,6 +15,21 @@
 
 ---
 
+## 1.00.014 — 2026-11-26：☁️ 雲端上線 (統整)
+- **使用者**：「先來搞 online」。使用者自己開 Google Cloud 專案、綁計費、裝 CLI、登入；統整照 `docs/dev/deploy.md` 第 3 節建資源、安裝、交上資料。
+- 建好的：e2-micro VM (Debian 12、30 GB 標準硬碟、us-west1-b)、私人儲存桶 (禁止公開、備份 30 天自動刪)、只能存取這個儲存桶的服務帳戶。專案 ID 和儲存桶名稱只寫在 `.env` (`GCP_PROJECT` / `GCP_BUCKET`)，不寫進公開的 repo。
+- 雲端現在跑 `online` **1.00.007**：19 個模組全部載入、同步 20 個斜線指令、記憶體約 430 / 969 MB。玩家資料是筆電那份 (使用者確認桌機沒開、筆電最新；3 位玩家、912 張卡)。
+- 上線前：
+  - 玩家資料先備份到 `Database/backups/pre-cloud-20261126/` (不進 git)。
+  - 用這份資料的複本、`SHOW_UNRELEASED=0` 跑 botcli，確認紅霧異變進行中、紅魔鄉卡池抽得到。
+- 踩到的坑 (寫進 `docs/dev/deploy.md`)：
+  - Windows PowerShell 直接打 `gcloud` 會被執行原則擋下 (`gcloud.ps1`)，要打 `gcloud.cmd`。
+  - 專案 ID 不是專案名稱。
+  - 第一次 `gcloud compute ssh` 的金鑰提示要在使用者自己的終端機回答。
+- 外部 IP：Google 免費方案說明寫著免費方案的 VM 不收外部 IP 費用；過幾天還是看一下帳單。
+- `TODO.md`、`docs/handbook/workflow.md`、`docs/handbook/sessions.md` 改成「已上線」。**本機要用正式 Token 跑機器人前一定先 `take`，用完 `release`。**
+- 只改文件。全部測試 11,159 項通過。這一版不上 `online` (雲端照樣跑 1.00.007)。
+
 ## 1.00.013 — 2026-11-26：CHANGELOG 排序修好、加上檢查排序的測試 (統整)
 - **起因** (玩法 session 發現)：1.00.008～010 三筆排在 1.00.000 下面，不在最上面。
   - 統整編版本號的工具找「`## 0.`」當插入點，版本進到 1.00 之後就插錯位置。工具改成插在最上面那筆版本紀錄前面。

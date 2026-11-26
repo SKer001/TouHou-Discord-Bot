@@ -91,7 +91,7 @@
 - **兩台電腦切換**：離開前 `commit` + `push`，開始前 `pull`。
 - **機器人同一時間只在一台上執行**：同一個 Token，而且 `Users.db` 是二進位檔、無法合併。
 - `.env` 不進 git，換電腦要手動複製 (內容見 `docs/dev/structure.md`)。
-- **雲端上線後** (2026-11-17 部署檔已就緒；VM 照 `docs/dev/deploy.md` 設定完才算上線)：
+- **雲端 (2026-11-26 上線)**：
   - 正式機器人在 Google Cloud VM 上跑 `online` 分支，玩家真實 DB 在私人儲存桶。
   - 本機要用正式 Token 跑 `python Main.py` 前，**一定要先** `python deploy/handoff.py take`；用完 `python deploy/handoff.py release` 交回。
   - 程式要上線：`main` 推完再 `python deploy/handoff.py deploy`；**只有修 bug、新活動時，使用者說可以才上線** (見第 3 節)。

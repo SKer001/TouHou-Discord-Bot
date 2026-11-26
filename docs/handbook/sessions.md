@@ -13,7 +13,7 @@
 | 🖼️ 名片 | 角色名片「幻想鄉睡顏圖鑑」 | `images/Namecards*`、`Database/namecard_data.py`、`tools/card_art/upload_namecard.py` | 0.33.001～0.35.040 | 24 / 24 做完；TH07 11 張還沒開始 |
 | 🎮 玩法 / 關卡設計 | 神社、經濟、稱號、活動、裏世界、新角色的資料 | `Cogs/`、`Database/`、`Events/`、`tests/` | 0.35.000 起 | 進行中 (TH07 資料 0.40.000 推完，春雪異變還沒設計) |
 | 🎲 抽卡機率 | 抽卡規則、卡冊 / 合成 / 單卡畫面 | `Cogs/load-gacha/`、`Utils/gacha_pools.py` | 0.37.000～0.39.000 | 做完並合併，沒有待辦 |
-| ☁️ 雲端部署 | Google Cloud 上線、本機 ⇄ 雲端交接、備份 | `deploy/`、`docs/dev/deploy.md`、`tests/test_deploy.py` | 0.35.027 | 部署檔就緒，**雲端資源還沒建、沒上線** |
+| ☁️ 雲端部署 | Google Cloud 上線、本機 ⇄ 雲端交接、備份 | `deploy/`、`docs/dev/deploy.md`、`tests/test_deploy.py` | 0.35.027 | **2026-11-26 上線** (統整跑的) |
 
 - 0.35.000 以前沒有分工，一個人從頭做到尾 (歷程在 `docs/dev/history.md` 與 CHANGELOG 0.01～0.34)。
 - 兩台電腦：筆電 (RTX 4060 8GB) 與桌機 (RTX 5060 Ti 16GB)。名片在桌機做，其他在筆電；卡面兩台都做過。
@@ -183,7 +183,7 @@
   - `online` **只快轉跟 main**，不在上面單獨 commit ➔ 上線 = `python deploy/handoff.py deploy`。版本號與 CHANGELOG 不會分岔。
   - `handoff.py`：`take` / `release` / `backup` / `deploy` / `push-env` / `status` / `ssh`。`take` 會把本機原本的測試資料庫收好，`release` 後放回，真實資料不會被順手 commit。
   - VM 上只有圖片 / 文件 / 測試 / `tools/` 變動時不重啟；其他變動先快照資料庫再重啟。
-- **現在**：**還沒上線**。Google Cloud 資源一個都還沒建 (使用者要先裝 gcloud、登入、建專案綁計費，`docs/dev/deploy.md` 第 3 節)；VM 端腳本沒有在 Linux 上實際跑過，第一次安裝時要一起驗證。
+- **現在**：**2026-11-26 上線** (統整照 `docs/dev/deploy.md` 第 3 節跑)。`install.sh`、`vm_ctl.py`、`handoff.py` 的 `status` / `push-env` / `release` 第一次在真的 VM 上跑，都沒出錯；機器人 19 個模組全部載入、同步 20 個斜線指令，記憶體用掉約 430 MB / 969 MB。`take`、每日備份、自動更新還沒實際跑過。
 - **經驗**：
   - **repo 不能改私人**：卡面、名片圖是 `raw.githubusercontent.com` 的公開網址，改私人 Discord 就抓不到 ➔ 所以是「資料庫搬出 git、repo 維持公開」。
   - **防兩邊同時上線要做在機器上，不能只靠人記得**：VM 有模式檔 (`cloud` / `local:<電腦>`)，交給本機的時候 systemd 的 `ExecStartPre` 直接擋下啟動。

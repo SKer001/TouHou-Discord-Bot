@@ -1,6 +1,7 @@
 # ☁️ 雲端部署 (Google Cloud，24 小時執行)
 
 > 2026-11-17 建立。要做部署、交接、雲端備份相關的工作時才讀；改了流程記得一起更新這份。
+> **2026-11-26 上線**：雲端跑 `online` 1.00.007。專案 ID、儲存桶名稱寫在筆電 `.env` 的 `GCP_PROJECT` / `GCP_BUCKET` (repo 是公開的，名稱不寫進文件)；桌機要交接時把這兩行抄過去。
 > 部署用的檔案都在 `deploy/`：`vm_ctl.py` (VM 上)、`handoff.py` (筆電 / 桌機)、`install.sh`、`systemd/`、`requirements.lock.txt`、`gcs-lifecycle.json`。
 
 ## 1. 決定 (2026-11-17 使用者確認)
@@ -46,6 +47,8 @@ gs://<bucket>/backups/        每日 04:00 (台灣) 快照 + 每次更新前的�
    gcloud auth login
    gcloud config set project <專案ID>
    ```
+   - **Windows PowerShell 要打 `gcloud.cmd`** (2026-11-26 踩到)：PowerShell 預設不讓 `.ps1` 腳本執行，直接打 `gcloud` 會跑到 `gcloud.ps1` 被擋下。`gcloud.cmd` 不用改系統設定；`handoff.py` 自己會找到 `.cmd` 那個。
+   - **專案 ID 不是專案名稱**：名稱可以有空格，ID 是全小寫加 `-`。`gcloud.cmd projects list` 第一欄就是 ID。
 
 ### 3.2 建立資源 (AI 助手跑或自己跑；PowerShell 寫法)
 ```powershell
@@ -66,7 +69,8 @@ gcloud compute instances create touhou-bot --project $P --zone $Z --machine-type
   --service-account "touhou-bot@$P.iam.gserviceaccount.com" --scopes cloud-platform
 ```
 - **防火牆不用開任何埠**：機器人只往外連 Discord；預設網路本來就有允許 SSH (22) 的規則，`gcloud compute ssh` 用它。
-- 第一次 `gcloud compute ssh` 會產生 SSH 金鑰 (Windows 會用內附的 PuTTY)，照提示按 Enter 即可。
+- 第一次 `gcloud compute ssh` 會產生 SSH 金鑰 (Windows 會用內附的 PuTTY)，**一定要在使用者自己的終端機跑** (AI 助手的指令列不能回答提示，會卡住)：建 `.ssh` 資料夾問 `Y/n` ➔ Enter；問密碼直接 Enter 留空；`Store key in cache?` ➔ `y`。之後就不會再問，AI 助手可以接著跑 `handoff.py`。
+- VM 上輸出的中文在 Windows 終端機會變亂碼 (VM 是 UTF-8)，不影響安裝；看最後有沒有出現下一步要跑 `push-env` 的提示就好。
 
 ### 3.3 VM 上安裝
 ```powershell
@@ -109,5 +113,5 @@ gcloud compute ssh touhou-bot --zone us-west1-b --command "curl -fsSL https://ra
 
 ## 6. 費用 (以帳單為準)
 - 免費方案 (官方 2026-11 頁面)：每月 1 台 e2-micro (限 us-west1 / us-central1 / us-east1)、30 GB 標準硬碟、北美出站流量 1 GB。機器人回 Discord 的流量很小，備份傳到同區域的儲存桶不算出站。
-- **外部 IPv4 位址**：機器人要連外網一定要有。官方免費方案頁沒寫是否收費，可能每月幾美元；開好後幾天去帳單看一下。
+- **外部 IPv4 位址**：機器人要連外網一定要有。Google 免費方案的說明寫著免費方案的 VM 不收外部 IP 的費用 (2026-11-26 查)；開好後幾天還是去帳單看一下。
 - Cloud Storage：DB 只有幾百 KB，30 天的每日備份遠低於免費額度。
