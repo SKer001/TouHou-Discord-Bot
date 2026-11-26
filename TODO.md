@@ -6,7 +6,8 @@
 - **📁 專案整理 (1.00.000)**：文件分類到 `docs/handbook` / `gameplay` / `dev` / `art` / `changelog`，總目錄 `docs/README.md`；拆大檔案 (1.00.001～004)：`Economy_DB_Manager.py` ➔ `Database/economy/`、`User_DB_Manager.py` ➔ `Database/users/`、`ura.py` ➔ `Cogs/load-ura/views/`、`gacha.py` ➔ `Cogs/load-gacha/logic/` + `views/`；舊檔名留著當入口。
 - **卡面**：24 位角色 N～LR 全部走高清分層流程完成 (0.35.024)；新角色的卡面跟著第 3 節做。
 - **名片**：✅ 24 / 24 位全部完成 (桌機，2026-11-19)。
-- **`online` 目前的版本：1.00.007** (2026-11-24)，**2026-11-26 起在雲端 24 小時跑這版**。`online` 是穩定版，只在修 bug、新活動時、使用者說可以才更新 (`docs/handbook/workflow.md` 第 3 節)。
+- **`online` 目前的版本：1.00.007** (2026-11-24)，**2026-11-26 起在雲端 24 小時跑這版**。
+  - 下次上 online (使用者 2026-11-26：等下次修 bug 一起上) 要帶上：雲端 `/shutdown` 改成重新啟動、`TOUHOU_CLOUD=1` (1.00.015 的 `touhou-bot.service`)。在那之前雲端被 `/shutdown` 會停著不回來：本機 `python Main.py` 再 `/shutdown` 一次就會開回來。`online` 是穩定版，只在修 bug、新活動時、使用者說可以才更新 (`docs/handbook/workflow.md` 第 3 節)。
 - **☁️ 雲端：2026-11-26 上線** (`docs/dev/deploy.md`)。玩家真實資料在雲端；**本機 `python Main.py` 會自動交接** (開機停雲端、拿資料；`/shutdown` 關機交回、雲端開機；1.00.015)。上線前筆電的玩家資料備份在 `Database/backups/pre-cloud-20261126/` (不進 git)。
 - **開發工具**：botcli / discord_peek、主控台指令、重載控制台、共用分頁 `Utils/pagination.py`、Matt Pocock skill 包 (`docs/handbook/skills.md`)；11,134 項測試全過。
 - **分工**：統整 / 玩法 / 卡面 / 名片 多個角色並行 (`docs/handbook/workflow.md`)，版本號推送前才編。
